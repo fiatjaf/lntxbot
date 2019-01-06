@@ -1,0 +1,5 @@
+*.env
+*.swp
+*.swo
+bot
+lntxbot-telegram
