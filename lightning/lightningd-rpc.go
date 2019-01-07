@@ -14,25 +14,39 @@ import (
 )
 
 type Client struct {
-	Path string
+	Path         string
+	ErrorHandler func(error)
 
 	reqcount int
 	waiting  map[string]chan gjson.Result
 	conn     net.Conn
 }
 
-func Connect(path string) (*Client, error) {
-	ln := &Client{Path: path}
+func Connect(path string, errorHandler func(error)) (*Client, error) {
+	ln := &Client{Path: path, ErrorHandler: errorHandler}
 	ln.waiting = make(map[string]chan gjson.Result)
 
-	return ln, nil
+	err := ln.connect()
+	if err != nil {
+		return ln, err
+	}
+
+	err = ln.listen()
+	return ln, err
 }
 
 func (ln *Client) reconnect() error {
 	if ln.conn != nil {
-		ln.conn.Close()
+		err := ln.conn.Close()
+		if err != nil {
+			log.Print("error closing old connection: " + err.Error())
+		}
 	}
 
+	return ln.connect()
+}
+
+func (ln *Client) connect() error {
 	conn, err := net.Dial("unix", ln.Path)
 	if err != nil {
 		return err
@@ -42,21 +56,14 @@ func (ln *Client) reconnect() error {
 	return nil
 }
 
-func (ln *Client) Listen(errorHandler func(error)) {
-	err := ln.reconnect()
-	if err != nil {
-		errorHandler(err)
-		return
-	}
-
+func (ln *Client) listen() error {
 	errored := make(chan bool, 1)
-
-	go func(conn net.Conn) {
+	go func() {
 		for {
 			message := make([]byte, 4096)
-			length, err := conn.Read(message)
+			length, err := ln.conn.Read(message)
 			if err != nil {
-				errorHandler(err)
+				ln.ErrorHandler(err)
 				errored <- true
 				break
 			}
@@ -77,7 +84,7 @@ func (ln *Client) Listen(errorHandler func(error)) {
 				if response.Error.Code != 0 {
 					err = errors.New(response.Error.Message)
 				}
-				errorHandler(err)
+				ln.ErrorHandler(err)
 				continue
 			}
 
@@ -86,21 +93,25 @@ func (ln *Client) Listen(errorHandler func(error)) {
 				respchan <- gjson.ParseBytes(response.Result)
 				delete(ln.waiting, response.Id)
 			} else {
-				errorHandler(errors.New("got response without a waiting caller: " +
-					string(message)))
+				ln.ErrorHandler(
+					errors.New("got response without a waiting caller: " +
+						string(message)))
 				continue
 			}
 		}
-	}(ln.conn)
+	}()
 
 	go func() {
 		select {
 		case <-errored:
 			log.Print("error break")
+
 			// start again after an error break
-			ln.Listen(errorHandler)
+			ln.reconnect()
 		}
 	}()
+
+	return nil
 }
 
 func (ln *Client) Call(method string, params ...string) (gjson.Result, error) {
@@ -129,6 +140,7 @@ func (ln *Client) Call(method string, params ...string) (gjson.Result, error) {
 	case v := <-respchan:
 		return v, nil
 	case <-time.After(3 * time.Second):
+		log.Print(ln.reconnect())
 		return gjson.Result{}, errors.New("timeout")
 	}
 }

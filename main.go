@@ -2,7 +2,9 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"os"
+	"time"
 
 	"github.com/fiatjaf/lntxbot-telegram/lightning"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -10,13 +12,16 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
+	"gopkg.in/redis.v5"
 )
 
 type Settings struct {
+	ServiceId   string `envconfig:"SERVICE_ID" default:"lntxbot"`
 	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
 	Port        string `envconfig:"PORT" required:"true"`
 	BotToken    string `envconfig:"BOT_TOKEN" required:"true"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
+	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 }
 
@@ -24,6 +29,7 @@ var err error
 var s Settings
 var pg *sqlx.DB
 var ln *lightning.Client
+var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
@@ -42,14 +48,25 @@ func main() {
 		log.Fatal().Err(err).Msg("couldn't connect to postgres")
 	}
 
+	// redis connection
+	rurl, _ := url.Parse(s.RedisURL)
+	pw, _ := rurl.User.Password()
+	rds = redis.NewClient(&redis.Options{
+		Addr:     rurl.Host,
+		Password: pw,
+	})
+	if err := rds.Ping().Err(); err != nil {
+		log.Fatal().Err(err).Str("url", s.RedisURL).
+			Msg("failed to connect to redis")
+	}
+
 	// lightningd connection
-	ln, err = lightning.Connect(s.SocketPath)
+	ln, err = lightning.Connect(s.SocketPath, func(err error) {
+		log.Error().Err(err).Msg("error reading lightning-rpc")
+	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't connect to lightning-rpc")
 	}
-	ln.Listen(func(err error) {
-		log.Error().Err(err).Msg("error reading lightning-rpc")
-	})
 
 	// bot stuff
 	bot, err = tgbotapi.NewBotAPI(s.BotToken)
@@ -57,7 +74,6 @@ func main() {
 		log.Fatal().Err(err).Msg("")
 	}
 
-	bot.Debug = true
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
 	_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
@@ -74,10 +90,21 @@ func main() {
 	updates := bot.ListenForWebhook("/" + bot.Token)
 	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
 
-	// initial call
+	// pause here until lightningd works
+	probeLightningd()
+
+	for update := range updates {
+		handle(update)
+	}
+}
+
+func probeLightningd() {
 	nodeinfo, err := ln.Call("getinfo")
 	if err != nil {
-		log.Fatal().Err(err).Msg("can't talk to lightningd.")
+		log.Warn().Err(err).Msg("can't talk to lightningd. retrying.")
+		time.Sleep(time.Second * 5)
+		probeLightningd()
+		return
 	}
 	log.Info().
 		Str("id", nodeinfo.Get("id").String()).
@@ -86,8 +113,4 @@ func main() {
 		Int64("blockheight", nodeinfo.Get("blockheight").Int()).
 		Str("version", nodeinfo.Get("version").String()).
 		Msg("lightning node connected")
-
-	for update := range updates {
-		handle(update)
-	}
 }

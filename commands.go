@@ -11,11 +11,12 @@ const USAGE = `Usage:
   c start
   c decode <invoice>
   c receive <amount> [<description>...]
-  c pay <invoice>
-  c pay now <invoice>
+  c pay <invoice> [<satoshis>]
+  c pay now <invoice> [<satoshis>]
   c pay @<person>
   c balance
   c transactions
+  c help
 `
 
 func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
