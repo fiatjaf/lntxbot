@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
+	"time"
 	"unicode"
 
 	"github.com/tidwall/gjson"
@@ -73,13 +73,16 @@ func (ln *Client) Listen(errorHandler func(error)) {
 
 			var response JSONRPCResponse
 			err = json.Unmarshal(messagerunes, &response)
-			if err != nil {
-				log.Print(string(message))
+			if err != nil || response.Error.Code != 0 {
+				if response.Error.Code != 0 {
+					err = errors.New(response.Error.Message)
+				}
 				errorHandler(err)
 				continue
 			}
 
 			if respchan, ok := ln.waiting[response.Id]; ok {
+				log.Print("got response from lightningd: " + string(response.Result))
 				respchan <- gjson.ParseBytes(response.Result)
 				delete(ln.waiting, response.Id)
 			} else {
@@ -100,44 +103,51 @@ func (ln *Client) Listen(errorHandler func(error)) {
 	}()
 }
 
-func (ln *Client) Call(method string, params Params) chan gjson.Result {
+func (ln *Client) Call(method string, params ...string) (gjson.Result, error) {
 	id := strconv.Itoa(ln.reqcount)
 
+	if params == nil {
+		params = make([]string, 0)
+	}
+
 	message, _ := json.Marshal(JSONRPCMessage{
-		Id:     id,
-		Method: method,
-		Params: params.encode(),
+		Version: VERSION,
+		Id:      id,
+		Method:  method,
+		Params:  params,
 	})
 
 	respchan := make(chan gjson.Result, 1)
 	ln.waiting[id] = respchan
 
+	log.Print("writing to lightningd: " + string(message))
+
 	ln.reqcount++
 	ln.conn.Write(message)
 
-	return respchan
+	select {
+	case v := <-respchan:
+		return v, nil
+	case <-time.After(3 * time.Second):
+		return gjson.Result{}, errors.New("timeout")
+	}
 }
+
+const VERSION = "2.0"
 
 type JSONRPCMessage struct {
-	Id     string   `json:"id"`
-	Method string   `json:"method"`
-	Params []string `json:"params"`
-}
-
-type Params map[string]interface{}
-
-func (p Params) encode() []string {
-	encoded := make([]string, len(p))
-	i := 0
-	for k, v := range p {
-		encoded[i] = fmt.Sprintf("%s=%v", k, v)
-		i++
-	}
-	return encoded
+	Version string   `json:"jsonrpc"`
+	Id      string   `json:"id"`
+	Method  string   `json:"method"`
+	Params  []string `json:"params"`
 }
 
 type JSONRPCResponse struct {
 	Version string          `json:"jsonrpc"`
 	Id      string          `json:"id"`
 	Result  json.RawMessage `json:"result"`
+	Error   struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
 }

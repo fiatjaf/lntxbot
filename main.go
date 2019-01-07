@@ -24,6 +24,7 @@ var err error
 var s Settings
 var pg *sqlx.DB
 var ln *lightning.Client
+var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 func main() {
@@ -51,7 +52,7 @@ func main() {
 	})
 
 	// bot stuff
-	bot, err := tgbotapi.NewBotAPI(s.BotToken)
+	bot, err = tgbotapi.NewBotAPI(s.BotToken)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
@@ -74,7 +75,10 @@ func main() {
 	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
 
 	// initial call
-	nodeinfo := <-ln.Call("getinfo", lightning.Params{})
+	nodeinfo, err := ln.Call("getinfo")
+	if err != nil {
+		log.Fatal().Err(err).Msg("can't talk to lightningd.")
+	}
 	log.Info().
 		Str("id", nodeinfo.Get("id").String()).
 		Str("alias", nodeinfo.Get("alias").String()).
@@ -84,7 +88,6 @@ func main() {
 		Msg("lightning node connected")
 
 	for update := range updates {
-		log.Printf("%+v\n", update)
 		handle(update)
 	}
 }

@@ -1,7 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/lucsky/cuid"
+	"github.com/skip2/go-qrcode"
 )
 
 func handle(upd tgbotapi.Update) {
@@ -12,50 +20,117 @@ func handle(upd tgbotapi.Update) {
 }
 
 func handleMessage(message *tgbotapi.Message) {
-	// if message.Text == "/start" {
-	// 	// create user
-	// 	u := &User{
-	// 		Id:       message.From.ID,
-	// 		Username: message.From.UserName,
-	// 	}
+	u, err := ensureUser(message.From.ID, message.From.UserName)
+	if err != nil {
+		log.Warn().Err(err).
+			Str("username", message.From.UserName).
+			Int("id", message.From.ID).
+			Msg("failed to ensure user")
+		return
+	}
 
-	// 	err := u.createUser()
-	// 	if err != nil {
-	// 		// notify: failed to create
-	// 	}
+	opts, proceed, err := parse(message.Text)
+	if !proceed {
+		return
+	}
+	if err != nil {
+		log.Warn().Err(err).Str("command", message.Text).
+			Msg("Failed to parse command")
+		u.notify("Could not understand the command.")
+		return
+	}
 
-	// } else if strings.HasPrefix(message.Text, "/pay ") {
-	// 	// pay invoice
+	switch {
+	case opts["start"].(bool):
+		// create user
+		if message.Chat.Type == "private" {
+			u.setChat(message.Chat.ID)
+		}
 
-	// 	confirm := true
-	// 	if strings.HasPrefix(message.Text, "/pay now ") {
-	// 		confirm = false
-	// 	}
+		u.notify("Account created successfully.")
+		break
+	case opts["receive"].(bool):
+		amount, err := opts.Int("<amount>")
+		if err != nil {
+			u.notify("Invalid amount: " + opts["<amount>"].(string))
+			return
+		}
+		var desc string
+		if idesc, ok := opts["<description>"]; ok {
+			desc = strings.Join(idesc.([]string), " ")
+		}
+		label := "lntxbot." + cuid.Slug()
+		log.Debug().Str("label", label).Str("desc", desc).Int("amt", amount).
+			Msg("generating invoice")
 
-	// 	var invoice string
-	// 	parts := strings.Split(message.Text, " ")
-	// 	for _, p := range parts {
-	// 		if strings.HasPrefix(p, "lnbc") {
-	// 			invoice = p
-	// 			goto pay
-	// 		}
-	// 	}
+		// make invoice
+		res, err := ln.Call("invoice", strconv.Itoa(amount*1000),
+			label, desc, strconv.Itoa(60*60*5))
+		if err != nil {
+			u.notify("Failed to create invoice: " + err.Error())
+			return
+		}
+		invoice := res.Get("bolt11").String()
 
-	// 	// notify: invoice not found
+		// generate qr code
+		qrfilepath := filepath.Join(os.TempDir(), "lntxbot.invoice."+label+".png")
+		err = qrcode.WriteFile(invoice, qrcode.Medium, 256, qrfilepath)
+		if err != nil {
+			log.Warn().Err(err).Str("invoice", invoice).
+				Msg("failed to generate qr.")
+		} else {
+			// defer os.Remove(qrfilepath)
+			u.sendImage(qrfilepath)
+		}
+		u.notify(invoice)
 
-	// pay:
-	// 	if confirm {
-	// 		// TODO
-	// 	} else {
-	// 		u, err := loadUser(message.From.ID)
-	// 		if err != nil {
-	// 			// notify: user not registered, press /start
-	// 		}
+		break
+	case opts["decode"].(bool):
+		// just decode invoice
+		invoice := opts["<invoice>"].(string)
+		handleDecodeInvoice(u, invoice)
+		break
+	case opts["pay"].(bool):
+		// pay invoice
+		askConfirmation := true
+		if opts["now"].(bool) {
+			askConfirmation = false
+		}
 
-	// 		err = u.call("POST", "/pay", InvoicePayload{invoice}, nil)
-	// 		if err != nil {
-	// 			// notify: failed to pay, must get reason
-	// 		}
-	// 	}
-	// }
+		invoice := opts["<invoice>"].(string)
+		if invoice == "" {
+			u.notify("Invoice not provided.")
+			return
+		}
+
+		if askConfirmation {
+			// decode invoice and show a button for confirmation
+			handleDecodeInvoice(u, invoice)
+
+			// TODO
+		} else {
+			err = u.payInvoice(invoice)
+			if err != nil {
+				u.notify("failed to pay")
+				return
+			}
+
+			u.notify("paid invoice " + invoice)
+		}
+	}
+}
+
+func handleDecodeInvoice(u User, invoice string) {
+	inv, err := decodeInvoice(invoice)
+	if err != nil {
+		u.notify("Invalid invoice: " + err.Error())
+		return
+	}
+
+	u.notify(
+		fmt.Sprintf("[%s] %d millisatoshi, hash: %s.",
+			inv.Get("description").String(),
+			inv.Get("msatoshi").Int(),
+			inv.Get("payment_hash").String()),
+	)
 }
