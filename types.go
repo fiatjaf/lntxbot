@@ -146,3 +146,25 @@ WHERE label = $2
 
 	return res, "", nil
 }
+
+func (u User) paymentReceived(
+	amount int, desc, bolt11, hash, label string,
+) (balance int, err error) {
+	err = pg.Get(&balance, `
+WITH newtx AS (
+  INSERT INTO transaction
+    (account_id, amount, description, bolt11, payment_hash, label)
+  VALUES ($1, $2, $3, $4, $5, $6)
+)
+SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
+FROM transaction
+WHERE account_id = $1
+    `, u.Id, amount, desc, bolt11, hash, label)
+	if err != nil {
+		log.Error().Err(err).
+			Str("user", u.Username).Str("label", label).
+			Msg("failed to save payment received.")
+	}
+
+	return
+}

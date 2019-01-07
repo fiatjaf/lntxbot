@@ -10,6 +10,7 @@ import (
 const USAGE = `Usage:
   c start
   c decode <invoice>
+  c acknowledge <label>
   c receive <amount> [<description>...]
   c pay <invoice> [<satoshis>]
   c pay now <invoice> [<satoshis>]

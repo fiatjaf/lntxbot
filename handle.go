@@ -69,12 +69,15 @@ func handleMessage(message *tgbotapi.Message) {
 
 		// make invoice
 		res, err := ln.Call("invoice", strconv.Itoa(amount*1000),
-			label, desc, strconv.Itoa(60*60*5))
+			label, desc, strconv.Itoa(60*30) /* invoices valid for 30 minutes */)
 		if err != nil {
 			u.notify("Failed to create invoice: " + err.Error())
 			break
 		}
 		invoice := res.Get("bolt11").String()
+
+		// wait for invoice payment
+		go waitInvoice(u, label)
 
 		// generate qr code
 		qrfilepath := filepath.Join(os.TempDir(), "lntxbot.invoice."+label+".png")
@@ -217,5 +220,40 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 		pay.Get("msatoshi_sent").Float()-pay.Get("msatoshi").Float(),
 		pay.Get("payment_hash").String(),
 		pay.Get("payment_preimage").String(),
+	))
+}
+
+func waitInvoice(u User, label string) {
+	res, err := ln.CallWithCustomTimeout("waitinvoice", 30*time.Minute, label)
+	if err != nil {
+		log.Warn().Err(err).Str("label", label).Msg("waitinvoice errored.")
+		return
+	}
+
+	amount := res.Get("msatoshi_received").Int()
+	desc := res.Get("description").String()
+	hash := res.Get("payment_hash").String()
+	bolt11 := res.Get("bolt11").String()
+
+	balance, err := u.paymentReceived(
+		int(amount),
+		desc,
+		bolt11,
+		hash,
+		label,
+	)
+	if err != nil {
+		u.notify(
+			"Payment received, but failed to save on database, try running: `/acknowledge " + label + "`.",
+		)
+	}
+
+	if desc != "" {
+		desc = ", \"" + desc + "\""
+	}
+
+	u.notify(fmt.Sprintf(
+		"Payment received: %d%d. \n\nhash: %s \n\nYour balance is now %d satoshis.",
+		amount/1000, desc, hash, balance/1000,
 	))
 }

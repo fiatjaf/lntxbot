@@ -115,6 +115,11 @@ func (ln *Client) listen() error {
 }
 
 func (ln *Client) Call(method string, params ...string) (gjson.Result, error) {
+	return ln.CallWithCustomTimeout(method, 3*time.Second, params...)
+}
+
+func (ln *Client) CallWithCustomTimeout(method string, timeout time.Duration, params ...string) (gjson.Result, error) {
+
 	id := strconv.Itoa(ln.reqcount)
 
 	if params == nil {
@@ -139,7 +144,7 @@ func (ln *Client) Call(method string, params ...string) (gjson.Result, error) {
 	select {
 	case v := <-respchan:
 		return v, nil
-	case <-time.After(3 * time.Second):
+	case <-time.After(timeout):
 		log.Print(ln.reconnect())
 		return gjson.Result{}, errors.New("timeout")
 	}
