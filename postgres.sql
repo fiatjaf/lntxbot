@@ -11,7 +11,6 @@ CREATE TABLE transaction (
   amount int NOT NULL, -- in msatoshis (positive for receipts, negative for payments)
   fees int, -- in msatoshis (positive for payments, null for receipts)
   description text NOT NULL,
-  bolt11 text NOT NULL,
   payment_hash text PRIMARY KEY,
   label text,
   preimage text
@@ -19,3 +18,5 @@ CREATE TABLE transaction (
 
 table account;
 table transaction;
+SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0) from transaction;
+delete from transaction;

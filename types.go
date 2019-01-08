@@ -88,13 +88,13 @@ func (u User) payInvoice(
 	err = txn.Get(&balance, `
 WITH newtx AS (
   INSERT INTO transaction
-    (account_id, amount, description, bolt11, payment_hash, label)
-  VALUES ($1, $2, $3, $4, $5, $6)
+    (account_id, amount, description, payment_hash, label)
+  VALUES ($1, $2, $3, $4, $5)
 )
 SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
 FROM transaction
 WHERE account_id = $1
-    `, u.Id, -amount, desc, bolt11, hash, label)
+    `, u.Id, -amount, desc, hash, label)
 	if err != nil {
 		return res, "", err
 	}
@@ -153,13 +153,13 @@ func (u User) paymentReceived(
 	err = pg.Get(&balance, `
 WITH newtx AS (
   INSERT INTO transaction
-    (account_id, amount, description, bolt11, payment_hash, label)
-  VALUES ($1, $2, $3, $4, $5, $6)
+    (account_id, amount, description, payment_hash, label)
+  VALUES ($1, $2, $3, $4, $5)
 )
 SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
 FROM transaction
 WHERE account_id = $1
-    `, u.Id, amount, desc, bolt11, hash, label)
+    `, u.Id, amount, desc, hash, label)
 	if err != nil {
 		log.Error().Err(err).
 			Str("user", u.Username).Str("label", label).
