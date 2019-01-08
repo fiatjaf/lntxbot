@@ -14,16 +14,26 @@ import (
 )
 
 type Client struct {
-	Path         string
-	ErrorHandler func(error)
+	Path             string
+	ErrorHandler     func(error)
+	PaymentHandler   func(gjson.Result)
+	LastInvoiceIndex int
 
 	reqcount int
 	waiting  map[string]chan gjson.Result
 	conn     net.Conn
 }
 
-func Connect(path string, errorHandler func(error)) (*Client, error) {
-	ln := &Client{Path: path, ErrorHandler: errorHandler}
+func Connect(path string) (*Client, error) {
+	ln := &Client{
+		Path: path,
+		ErrorHandler: func(err error) {
+			log.Print("lightning error: " + err.Error())
+		},
+		PaymentHandler: func(r gjson.Result) {
+			log.Print("lightning payment: " + r.Get("label").String())
+		},
+	}
 	ln.waiting = make(map[string]chan gjson.Result)
 
 	err := ln.connect()
@@ -43,10 +53,17 @@ func (ln *Client) reconnect() error {
 		}
 	}
 
-	return ln.connect()
+	err := ln.connect()
+	if err != nil {
+		return err
+	}
+
+	err = ln.listen()
+	return err
 }
 
 func (ln *Client) connect() error {
+	log.Print("connecting to " + ln.Path)
 	conn, err := net.Dial("unix", ln.Path)
 	if err != nil {
 		return err
@@ -57,7 +74,8 @@ func (ln *Client) connect() error {
 }
 
 func (ln *Client) listen() error {
-	errored := make(chan bool, 1)
+	errored := make(chan bool)
+
 	go func() {
 		for {
 			message := make([]byte, 4096)
@@ -108,10 +126,29 @@ func (ln *Client) listen() error {
 
 			// start again after an error break
 			ln.reconnect()
+
+			break
 		}
 	}()
 
 	return nil
+}
+
+func (ln *Client) ListenInvoices() {
+	for {
+		res, err := ln.CallWithCustomTimeout(
+			"waitanyinvoice", time.Minute, strconv.Itoa(ln.LastInvoiceIndex))
+		if err != nil {
+			ln.ErrorHandler(err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		index := res.Get("pay_index").Int()
+		ln.LastInvoiceIndex = int(index)
+
+		ln.PaymentHandler(res)
+	}
 }
 
 func (ln *Client) Call(method string, params ...string) (gjson.Result, error) {

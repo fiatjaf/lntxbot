@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/skip2/go-qrcode"
+	"github.com/tidwall/gjson"
 )
 
 func handle(upd tgbotapi.Update) {
@@ -63,21 +64,21 @@ func handleMessage(message *tgbotapi.Message) {
 		if idesc, ok := opts["<description>"]; ok {
 			desc = strings.Join(idesc.([]string), " ")
 		}
-		label := makeLabel()
+		label := makeLabel(u.ChatId, message.MessageID)
 		log.Debug().Str("label", label).Str("desc", desc).Int("amt", amount).
 			Msg("generating invoice")
 
+		// save invoice creator on redis
+		rds.Set("invoicecreator:"+label, u.Id, s.InvoiceTimeout)
+
 		// make invoice
 		res, err := ln.Call("invoice", strconv.Itoa(amount*1000),
-			label, desc, strconv.Itoa(60*30) /* invoices valid for 30 minutes */)
+			label, desc, strconv.Itoa(int(s.InvoiceTimeout/time.Second)))
 		if err != nil {
 			u.notify("Failed to create invoice: " + err.Error())
 			break
 		}
 		invoice := res.Get("bolt11").String()
-
-		// wait for invoice payment
-		go waitInvoice(u, label)
 
 		// generate qr code
 		qrfilepath := filepath.Join(os.TempDir(), "lntxbot.invoice."+label+".png")
@@ -121,14 +122,14 @@ func handleMessage(message *tgbotapi.Message) {
 		optsats, _ := opts.Int("<satoshis>")
 		optmsats := optsats * 1000
 
-		invlabel := makeLabel()
+		invlabel := makeLabel(u.ChatId, message.MessageID)
 
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
 			message := handleDecodeInvoice(u, bolt11, optmsats)
 
-			rds.Set("invoice:"+invlabel, bolt11, time.Minute*30)
-			rds.Set("invoice:"+invlabel+":msats", optmsats, time.Minute*30)
+			rds.Set("invoice:"+invlabel, bolt11, s.PayConfirmTimeout)
+			rds.Set("invoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
 
 			bot.Send(tgbotapi.NewEditMessageText(u.ChatId, message.MessageID,
 				message.Text+"\n\nPay the invoice described above?"))
@@ -223,10 +224,19 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 	))
 }
 
-func waitInvoice(u User, label string) {
-	res, err := ln.CallWithCustomTimeout("waitinvoice", 30*time.Minute, label)
+func handleInvoicePaid(res gjson.Result) {
+	index := res.Get("pay_index").Int()
+	rds.Set("lastinvoiceindex", index, 0)
+
+	label := res.Get("label").String()
+
+	// use the label to get the user that created this invoice
+	userId, _ := rds.Get("invoicecreator:" + label).Int64()
+	u, err := loadUser(int(userId))
 	if err != nil {
-		log.Warn().Err(err).Str("label", label).Msg("waitinvoice errored.")
+		log.Warn().Err(err).
+			Int64("userid", userId).Str("label", label).Int64("index", index).
+			Msg("couldn't load user who created this invoice.")
 		return
 	}
 
@@ -244,16 +254,21 @@ func waitInvoice(u User, label string) {
 	)
 	if err != nil {
 		u.notify(
-			"Payment received, but failed to save on database, try running: `/acknowledge " + label + "`.",
+			"Payment received, but failed to save on database. Please report this issue: " + label + ".",
 		)
 	}
 
 	if desc != "" {
-		desc = ", \"" + desc + "\""
+		desc = " " + desc
 	}
 
-	u.notify(fmt.Sprintf(
-		"Payment received: %d%d. \n\nhash: %s \n\nYour balance is now %d satoshis.",
-		amount/1000, desc, hash, balance/1000,
-	))
+	chattable := tgbotapi.NewMessage(
+		u.ChatId,
+		fmt.Sprintf("Payment received: %d%s. \n\nhash: %s \n\nYour balance is now %d satoshis.", amount/1000, desc, hash, balance/1000),
+	)
+	chattable.BaseChat.ReplyToMessageID = messageIdFromLabel(label)
+	_, err = bot.Send(chattable)
+	if err != nil {
+		log.Warn().Str("user", u.Username).Err(err).Msg("error sending message")
+	}
 }

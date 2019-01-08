@@ -23,6 +23,9 @@ type Settings struct {
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
+
+	InvoiceTimeout    time.Duration `envconfig:"INVOICE_TIMEOUT" default:"30m"`
+	PayConfirmTimeout time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"30m"`
 }
 
 var err error
@@ -61,12 +64,14 @@ func main() {
 	}
 
 	// lightningd connection
-	ln, err = lightning.Connect(s.SocketPath, func(err error) {
-		log.Error().Err(err).Msg("error reading lightning-rpc")
-	})
+	ln, err = lightning.Connect(s.SocketPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't connect to lightning-rpc")
 	}
+	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
+	ln.LastInvoiceIndex = int(lastinvoiceindex)
+	ln.PaymentHandler = handleInvoicePaid
+	go ln.ListenInvoices()
 
 	// bot stuff
 	bot, err = tgbotapi.NewBotAPI(s.BotToken)
