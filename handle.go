@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/skip2/go-qrcode"
+	"github.com/kballard/go-shellquote"
 	"github.com/tidwall/gjson"
 )
 
@@ -19,6 +18,7 @@ func handle(upd tgbotapi.Update) {
 	} else if upd.CallbackQuery != nil {
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {
+		handleInlineQuery(upd.InlineQuery)
 	} else if upd.ChosenInlineResult != nil {
 	} else if upd.EditedMessage != nil {
 	}
@@ -33,6 +33,8 @@ func handleMessage(message *tgbotapi.Message) {
 			Msg("failed to ensure user")
 		return
 	}
+
+	log.Debug().Str("t", message.Text).Msg("got message")
 
 	opts, proceed, err := parse(message.Text)
 	if !proceed {
@@ -55,7 +57,7 @@ func handleMessage(message *tgbotapi.Message) {
 		u.notify("Account created successfully.")
 		break
 	case opts["receive"].(bool):
-		amount, err := opts.Int("<amount>")
+		sats, err := opts.Int("<amount>")
 		if err != nil {
 			u.notify("Invalid amount: " + opts["<amount>"].(string))
 			break
@@ -64,42 +66,30 @@ func handleMessage(message *tgbotapi.Message) {
 		if idesc, ok := opts["<description>"]; ok {
 			desc = strings.Join(idesc.([]string), " ")
 		}
+
 		label := makeLabel(u.ChatId, message.MessageID)
-		log.Debug().Str("label", label).Str("desc", desc).Int("amt", amount).
-			Msg("generating invoice")
 
-		// save invoice creator on redis
-		rds.Set("invoicecreator:"+label, u.Id, s.InvoiceTimeout)
-
-		// make invoice
-		res, err := ln.Call("invoice", strconv.Itoa(amount*1000),
-			label, desc, strconv.Itoa(int(s.InvoiceTimeout/time.Second)))
+		bolt11, qrpath, err := makeInvoice(u, label, sats, desc)
 		if err != nil {
-			u.notify("Failed to create invoice: " + err.Error())
-			break
+			u.notify("Failed to generate invoice.")
+			return
 		}
-		invoice := res.Get("bolt11").String()
 
-		// generate qr code
-		qrfilepath := filepath.Join(os.TempDir(), "lntxbot.invoice."+label+".png")
-		err = qrcode.WriteFile(invoice, qrcode.Medium, 256, qrfilepath)
-		if err != nil {
-			log.Warn().Err(err).Str("invoice", invoice).
-				Msg("failed to generate qr.")
+		if qrpath == "" {
+			u.notify(bolt11)
 		} else {
-			defer os.Remove(qrfilepath)
-			photo := tgbotapi.NewPhotoUpload(u.ChatId, qrfilepath)
-			photo.Caption = invoice
+			defer os.Remove(qrpath)
+			photo := tgbotapi.NewPhotoUpload(u.ChatId, qrpath)
+			photo.Caption = bolt11
 			_, err := bot.Send(photo)
 			if err != nil {
 				log.Warn().Str("user", u.Username).Err(err).
 					Msg("error sending photo")
-			} else {
-				// break so we don't send the invoice again
-				break
+
+					// send just the bolt11
+				u.notify(bolt11)
 			}
 		}
-		u.notify(invoice)
 
 		break
 	case opts["decode"].(bool):
@@ -128,8 +118,8 @@ func handleMessage(message *tgbotapi.Message) {
 			// decode invoice and show a button for confirmation
 			message := handleDecodeInvoice(u, bolt11, optmsats)
 
-			rds.Set("invoice:"+invlabel, bolt11, s.PayConfirmTimeout)
-			rds.Set("invoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
+			rds.Set("payinvoice:"+invlabel, bolt11, s.PayConfirmTimeout)
+			rds.Set("payinvoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
 
 			bot.Send(tgbotapi.NewEditMessageText(u.ChatId, message.MessageID,
 				message.Text+"\n\nPay the invoice described above?"))
@@ -144,6 +134,8 @@ func handleMessage(message *tgbotapi.Message) {
 		} else {
 			handlePayInvoice(u, bolt11, invlabel, optmsats)
 		}
+	case opts["help"].(bool):
+		u.notify(strings.Replace(USAGE, "  c ", "  /", -1))
 	}
 }
 
@@ -162,23 +154,109 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		log.Print(cb.Data)
 		log.Print(cb.Message.Text)
 		if cb.Data == "pay:no" {
-			// cleanup the keyboard
-			bot.Send(tgbotapi.NewEditMessageReplyMarkup(u.ChatId,
-				cb.Message.MessageID,
-				tgbotapi.NewInlineKeyboardMarkup(),
-			))
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, ""))
 			return
 		} else if strings.HasPrefix(cb.Data, "pay:yes=") {
 			invlabel := strings.Split(cb.Data, "=")[1]
-			bolt11, err := rds.Get("invoice:" + invlabel).Result()
+			bolt11, err := rds.Get("payinvoice:" + invlabel).Result()
 			if err != nil {
-				u.notify("The payment confirmation button has expired.")
+				bot.AnswerCallbackQuery(
+					tgbotapi.NewCallback(
+						cb.ID,
+						"The payment confirmation button has expired.",
+					),
+				)
 				return
 			}
-			optmsats, _ := rds.Get("invoice:" + invlabel + ":msats").Int64()
+
+			bot.AnswerCallbackQuery(
+				tgbotapi.NewCallbackWithAlert(
+					cb.ID,
+					"Sending payment.",
+				),
+			)
+
+			optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
 			handlePayInvoice(u, bolt11, invlabel, int(optmsats))
 		}
 	}
+}
+
+func handleInlineQuery(q *tgbotapi.InlineQuery) {
+	u, err := loadUser(int(q.From.ID))
+	if err != nil {
+		log.Debug().Err(err).
+			Str("username", q.From.UserName).
+			Int("id", q.From.ID).
+			Msg("unregistered user trying to use inline query")
+
+		bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       []interface{}{},
+			SwitchPMText:  "Create an account first",
+		})
+
+		return
+	}
+
+	text := strings.TrimSpace(q.Query)
+	log.Print(text)
+
+	switch {
+	case strings.HasPrefix(text, "invoice "):
+		argv, err := shellquote.Split(text)
+		if err != nil || len(argv) < 2 {
+			goto answerEmpty
+		}
+
+		label := makeLabel(u.ChatId, q.ID)
+
+		sats, err := strconv.Atoi(argv[1])
+		if err != nil {
+			goto answerEmpty
+		}
+
+		bolt11, qrpath, err := makeInvoice(u, label, sats, "inline-"+q.ID)
+		if err != nil {
+			log.Warn().Err(err).Msg("error making invoice on inline query.")
+			goto answerEmpty
+		}
+
+		qrurl := s.ServiceURL + "/qr/" + qrpath
+
+		result := tgbotapi.NewInlineQueryResultPhoto("inv-"+argv[1], qrurl)
+		result.Title = argv[1] + " satoshis"
+		result.Description = "Payment request for " + argv[1] + " satoshis"
+		result.ThumbURL = qrurl
+		result.Caption = bolt11
+
+		res, err := bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       []interface{}{result},
+			IsPersonal:    true,
+		})
+
+		go func(qrpath string) {
+			time.Sleep(30 * time.Second)
+			os.Remove(qrpath)
+		}(qrpath)
+
+		if err != nil || !res.Ok {
+			log.Warn().Err(err).Str("bolt11", bolt11).Str("qr", qrpath).
+				Str("resp", res.Description).
+				Msg("error answering inline query")
+		}
+
+		return
+	case strings.HasPrefix(text, "tip "):
+		return
+	}
+
+answerEmpty:
+	bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+		InlineQueryID: q.ID,
+		Results:       []interface{}{},
+	})
 }
 
 func handleDecodeInvoice(u User, bolt11 string, optmsats int) (_ tgbotapi.Message) {
@@ -194,14 +272,51 @@ func handleDecodeInvoice(u User, bolt11 string, optmsats int) (_ tgbotapi.Messag
 	}
 
 	return u.notify(
-		fmt.Sprintf("[%s] \n%d millisatoshis. \nhash: %s.",
+		fmt.Sprintf("[%s] \n%d satoshis. \nhash: %s.",
 			inv.Get("description").String(),
-			amount,
+			amount/1000,
 			inv.Get("payment_hash").String()),
 	)
 }
 
 func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
+	// check if this is an internal invoice (it will have a different label)
+	if label := rds.Get("recinvoice.internal:" + bolt11).String(); label != "" {
+		// this is an internal invoice. do not pay.
+		// delete it and just transfer balance.
+		rds.Del("recinvoice.internal:" + bolt11)
+		ln.Call("delinvoice", label, "unpaid")
+
+		targetId, err := rds.Get("recinvoice:" + label + ":creator").Int64()
+		if err != nil {
+			log.Warn().Err(err).
+				Str("label", label).
+				Msg("failed to get internal invoice target from redis")
+			u.notify("Failed to find invoice payee")
+			return
+		}
+
+		amount, hash, errMsg, err := u.payInternally(int(targetId), bolt11, label, optmsats)
+		if err != nil {
+			log.Warn().Err(err).
+				Str("label", label).
+				Msg("failed to pay pay internally")
+			u.notify("Failed to pay: " + errMsg)
+			return
+		}
+
+		// internal payment succeeded
+		target, err := loadUser(int(targetId))
+		if err == nil {
+			target.notifyAsReply(
+				fmt.Sprintf("Payment received: %d. \n\nhash: %s.", amount/1000, hash),
+				messageIdFromLabel(label),
+			)
+		}
+
+		return
+	}
+
 	pay, errMsg, err := u.payInvoice(bolt11, invlabel, optmsats)
 	if err != nil {
 		log.Warn().Err(err).
@@ -231,7 +346,7 @@ func handleInvoicePaid(res gjson.Result) {
 	label := res.Get("label").String()
 
 	// use the label to get the user that created this invoice
-	userId, _ := rds.Get("invoicecreator:" + label).Int64()
+	userId, _ := rds.Get("recinvoice:" + label + ":creator").Int64()
 	u, err := loadUser(int(userId))
 	if err != nil {
 		log.Warn().Err(err).
@@ -240,13 +355,13 @@ func handleInvoicePaid(res gjson.Result) {
 		return
 	}
 
-	amount := res.Get("msatoshi_received").Int()
+	msats := res.Get("msatoshi_received").Int()
 	desc := res.Get("description").String()
 	hash := res.Get("payment_hash").String()
 	bolt11 := res.Get("bolt11").String()
 
-	balance, err := u.paymentReceived(
-		int(amount),
+	_, err = u.paymentReceived(
+		int(msats),
 		desc,
 		bolt11,
 		hash,
@@ -258,17 +373,8 @@ func handleInvoicePaid(res gjson.Result) {
 		)
 	}
 
-	if desc != "" {
-		desc = " " + desc
-	}
-
-	chattable := tgbotapi.NewMessage(
-		u.ChatId,
-		fmt.Sprintf("Payment received: %d%s. \n\nhash: %s \n\nYour balance is now %d satoshis.", amount/1000, desc, hash, balance/1000),
+	u.notifyAsReply(
+		fmt.Sprintf("Payment received: %d. \n\nhash: %s.", msats/1000, hash),
+		messageIdFromLabel(label),
 	)
-	chattable.BaseChat.ReplyToMessageID = messageIdFromLabel(label)
-	_, err = bot.Send(chattable)
-	if err != nil {
-		log.Warn().Str("user", u.Username).Err(err).Msg("error sending message")
-	}
 }

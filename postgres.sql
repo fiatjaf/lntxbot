@@ -11,8 +11,8 @@ CREATE TABLE transaction (
   amount int NOT NULL, -- in msatoshis (positive for receipts, negative for payments)
   fees int, -- in msatoshis (positive for payments, null for receipts)
   description text NOT NULL,
-  payment_hash text PRIMARY KEY,
-  label text,
+  payment_hash text NOT NULL,
+  label text NOT NULL,
   preimage text
 );
 

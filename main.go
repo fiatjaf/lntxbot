@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fiatjaf/lntxbot-telegram/lightning"
@@ -93,6 +94,18 @@ func main() {
 		log.Printf("Telegram callback failed: %s", info.LastErrorMessage)
 	}
 	updates := bot.ListenForWebhook("/" + bot.Token)
+
+	// handle QR code requests from telegram
+	http.HandleFunc("/qr/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path[3:]
+		if strings.HasPrefix(path, "/tmp/") && strings.HasSuffix(path, ".png") {
+			http.ServeFile(w, r, path)
+		} else {
+			http.Error(w, "not found", 404)
+		}
+	})
+
+	// start http server
 	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
 
 	// pause here until lightningd works

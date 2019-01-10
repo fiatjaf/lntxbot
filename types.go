@@ -45,8 +45,13 @@ func (u User) setChat(id int64) error {
 }
 
 func (u User) notify(msg string) tgbotapi.Message {
+	return u.notifyAsReply(msg, 0)
+}
+
+func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 	log.Debug().Str("user", u.Username).Str("msg", msg).Msg("notifying user")
 	chattable := tgbotapi.NewMessage(u.ChatId, msg)
+	chattable.BaseChat.ReplyToMessageID = replyToId
 	message, err := bot.Send(chattable)
 	if err != nil {
 		log.Warn().Str("user", u.Username).Err(err).Msg("error sending message")
@@ -80,7 +85,7 @@ func (u User) payInvoice(
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		return res, "", err
+		return res, "Database error.", err
 	}
 	defer txn.Rollback()
 
@@ -96,7 +101,7 @@ FROM transaction
 WHERE account_id = $1
     `, u.Id, -amount, desc, hash, label)
 	if err != nil {
-		return res, "", err
+		return res, "Database error.", err
 	}
 
 	if balance < 0 {
@@ -106,6 +111,11 @@ WHERE account_id = $1
 			errors.New("insufficient balance")
 	}
 
+	err = txn.Commit()
+	if err != nil {
+		return res, "Unable to pay due to internal database error.", err
+	}
+
 	res, err = ln.Call("pay", bolt11, strconv.Itoa(amount))
 	if err != nil {
 		return res, "Routing failed.", err
@@ -113,38 +123,86 @@ WHERE account_id = $1
 
 	// save fees
 	fees := res.Get("msatoshi_sent").Float() - res.Get("msatoshi").Float()
+	preimage := res.Get("payment_preimage")
 	_, err = pg.Exec(`
 UPDATE transaction
-SET fees = $1
-WHERE label = $2
-    `, fees, label)
+SET fees = $1, preimage = $2
+WHERE label = $3
+    `, fees, preimage, label)
 	if err != nil {
 		log.Error().Err(err).
 			Str("user", u.Username).
 			Str("label", label).
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
+	}
 
-		txn.Rollback()
-		return res, "", err
+	return res, "", nil
+}
+
+func (u User) payInternally(
+	targetId int, bolt11, label string, msatoshi int,
+) (amount int, hash string, errMsg string, err error) {
+	inv, err := ln.Call("decodepay", bolt11)
+	if err != nil {
+		return 0, "", "Failed to decode invoice.", err
+	}
+
+	log.Print("making internal payment")
+	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
+	amount = int(inv.Get("msatoshi").Int())
+	hash = inv.Get("payment_hash").String()
+	desc := inv.Get("description").String()
+
+	if amount == 0 {
+		// amount is optional, so let's use the provided on the command
+		amount = msatoshi
+	}
+	if amount == 0 {
+		// if nothing was provided, end here
+		return 0, "", "No amount provided.", errors.New("no amount provided")
+	}
+
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return 0, "", "Database error.", err
+	}
+	defer txn.Rollback()
+
+	var balance int
+	err = txn.Get(&balance, `
+WITH newsendtx AS (
+  INSERT INTO transaction
+    (account_id, amount, description, payment_hash, label, fees)
+  VALUES ($1, $2, $3, $4, $5, 0)
+), newreceivetx AS (
+  INSERT INTO transaction
+    (account_id, amount, description, payment_hash, label)
+  VALUES ($6, $7, $3, $4, $5)
+)
+SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
+FROM transaction
+WHERE account_id = $1
+    `, u.Id, -amount, desc, hash, label, targetId, amount)
+	if err != nil {
+		return 0, "", "Database error.", err
+	}
+
+	if balance < 0 {
+		return 0,
+			"",
+			fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
+				int(-balance/1000)),
+			errors.New("insufficient balance")
 	}
 
 	err = txn.Commit()
 	if err != nil {
-		log.Error().Err(err).
-			Str("user", u.Username).
-			Str("bolt11", bolt11).
-			Str("payment_hash", hash).
-			Str("label", label).
-			Int("amount", amount).
-			Float64("fees", fees).
-			Msg("failed to commit transaction")
-
-		txn.Rollback()
-		return res, "", err
+		return 0, "", "Unable to pay due to internal database error.", err
 	}
 
-	return res, "", nil
+	return amount, hash, "", nil
 }
 
 func (u User) paymentReceived(
