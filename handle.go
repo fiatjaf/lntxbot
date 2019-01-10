@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	docopt "github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/tidwall/gjson"
@@ -19,7 +20,6 @@ func handle(upd tgbotapi.Update) {
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {
 		handleInlineQuery(upd.InlineQuery)
-	} else if upd.ChosenInlineResult != nil {
 	} else if upd.EditedMessage != nil {
 	}
 }
@@ -36,15 +36,43 @@ func handleMessage(message *tgbotapi.Message) {
 
 	log.Debug().Str("t", message.Text).Msg("got message")
 
-	opts, proceed, err := parse(message.Text)
-	if !proceed {
-		return
-	}
-	if err != nil {
-		log.Warn().Err(err).Str("command", message.Text).
-			Msg("Failed to parse command")
-		u.notify("Could not understand the command.")
-		return
+	var (
+		opts    = make(docopt.Opts)
+		proceed = false
+	)
+
+	if message.ForwardFrom != nil {
+		// when receiving a forwarded invoice, try to pay it
+		text := message.Text
+		if text == "" {
+			text = message.Caption
+		}
+		argv, err := shellquote.Split(text)
+		if err != nil {
+			return
+		}
+
+		for _, arg := range argv {
+			if strings.HasPrefix(arg, "lnbc") {
+				opts, proceed, _ = parse("/pay " + arg)
+				break
+			}
+		}
+	} else if strings.HasPrefix(message.Text, "lnbc") {
+		// receiving a direct invoice from a phone wallet, maybe? try to pay
+		opts, proceed, _ = parse("/pay " + message.Text)
+	} else {
+		// otherwise parse the slash command
+		opts, proceed, err = parse(message.Text)
+		if !proceed {
+			return
+		}
+		if err != nil {
+			log.Warn().Err(err).Str("command", message.Text).
+				Msg("Failed to parse command")
+			u.notify("Could not understand the command.")
+			return
+		}
 	}
 
 	switch {
