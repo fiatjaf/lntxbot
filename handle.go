@@ -198,10 +198,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			}
 
 			bot.AnswerCallbackQuery(
-				tgbotapi.NewCallbackWithAlert(
-					cb.ID,
-					"Sending payment.",
-				),
+				tgbotapi.NewCallback(cb.ID, "Sending payment."),
 			)
 
 			optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
@@ -309,7 +306,7 @@ func handleDecodeInvoice(u User, bolt11 string, optmsats int) (_ tgbotapi.Messag
 
 func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 	// check if this is an internal invoice (it will have a different label)
-	if label := rds.Get("recinvoice.internal:" + bolt11).String(); label != "" {
+	if label, err := rds.Get("recinvoice.internal:" + bolt11).Result(); err == nil && label != "" {
 		// this is an internal invoice. do not pay.
 		// delete it and just transfer balance.
 		rds.Del("recinvoice.internal:" + bolt11)
