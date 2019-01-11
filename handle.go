@@ -74,9 +74,10 @@ func handleMessage(message *tgbotapi.Message) {
 		text := fmt.Sprintf(`
 %s on %s
 *Hash*: %s
+*Description*: %s
 *Amount*: %.2f satoshis`,
 			txn.status(), txn.Time.Format("2 Jan 2006 3:04PM"),
-			txn.Hash, txn.Amount)
+			txn.Hash, txn.Description, txn.Amount)
 		if txn.status() == "SENT" {
 			text += fmt.Sprintf("\n*Fee paid*: %.2f", txn.Fees)
 			if txn.Preimage != "" {
@@ -551,11 +552,12 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 	log.Print("paid: " + pay.String())
 
 	u.notify(fmt.Sprintf(
-		"Paid with %d satoshis (+ %f fee). \n\nHash: %s\n\nProof: %s",
+		"Paid with %d satoshis (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/txn%s",
 		int(pay.Get("msatoshi").Float()/1000),
-		pay.Get("msatoshi_sent").Float()-pay.Get("msatoshi").Float(),
+		(pay.Get("msatoshi_sent").Float()-pay.Get("msatoshi").Float())/1000,
 		pay.Get("payment_hash").String(),
 		pay.Get("payment_preimage").String(),
+		pay.Get("payment_hash").String()[:5],
 	))
 }
 
