@@ -10,7 +10,6 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
-	"github.com/kr/pretty"
 	"github.com/tidwall/gjson"
 )
 
@@ -76,7 +75,6 @@ parsed:
 	switch {
 	case opts["start"].(bool):
 		// create user
-		pretty.Log(message)
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 		}
@@ -153,6 +151,7 @@ parsed:
 			bot.Send(tgbotapi.NewEditMessageReplyMarkup(u.ChatId, message.MessageID,
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
 						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay="+invlabel),
 					),
 				),
@@ -168,6 +167,9 @@ parsed:
 func handleCallback(cb *tgbotapi.CallbackQuery) {
 	switch {
 	case cb.Data == "noop":
+		goto answerEmpty
+	case cb.Data == "cancel":
+		handleRemoveKeyBoardButtons(cb)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		u, err := ensureUser(cb.From.ID, cb.From.UserName)
@@ -197,6 +199,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
 		handlePayInvoice(u, bolt11, invlabel, int(optmsats))
+		handleRemoveKeyBoardButtons(cb)
 		return
 	case strings.HasPrefix(cb.Data, "send="):
 		params := strings.Split(cb.Data[5:], "-")
@@ -220,9 +223,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 
 		var target User
-		if toid, err := strconv.Atoi(toname); err != nil {
+		if toid, err := strconv.Atoi(toname); err == nil {
+			log.Print(toid)
 			target, err = ensureUser(toid, "")
 		} else {
+			log.Print(toname)
 			target, err = ensureUser(0, toname)
 		}
 		if err != nil {
@@ -239,7 +244,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			return
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
-
+		handleRemoveKeyBoardButtons(cb)
 		return
 	}
 
@@ -371,6 +376,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		}
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
 				tgbotapi.NewInlineKeyboardButtonData("Confirm", buttonData),
 			),
 		)
@@ -525,4 +531,24 @@ func handleInvoicePaid(res gjson.Result) {
 		fmt.Sprintf("Payment received: %d. \n\nhash: %s.", msats/1000, hash),
 		messageIdFromLabel(label),
 	)
+}
+
+func handleRemoveKeyBoardButtons(cb *tgbotapi.CallbackQuery) {
+	emptyKeyboard := tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			[]tgbotapi.InlineKeyboardButton{},
+		},
+	}
+	removeButtons := tgbotapi.EditMessageReplyMarkupConfig{
+		BaseEdit: tgbotapi.BaseEdit{
+			InlineMessageID: cb.InlineMessageID,
+			ReplyMarkup:     &emptyKeyboard,
+		},
+	}
+	if cb.Message != nil {
+		u, _ := loadUser(cb.From.ID, 0)
+		removeButtons.BaseEdit.MessageID = cb.Message.MessageID
+		removeButtons.BaseEdit.ChatID = u.ChatId
+	}
+	bot.Send(removeButtons)
 }
