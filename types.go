@@ -94,14 +94,20 @@ func (u User) payInvoice(
 	defer txn.Rollback()
 
 	var balance int
-	err = txn.Get(&balance, `
+	_, err = txn.Exec(`
 WITH newtx AS (
   INSERT INTO lightning.transaction
     (from_id, amount, description, payment_hash, label)
   VALUES ($1, $2, $3, $4, $5)
 )
-SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id, amount, desc, hash, label)
+	if err != nil {
+		return res, "Database error.", err
+	}
+
+	txn.Get(&balance, `
+SELECT balance FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
 	if err != nil {
 		return res, "Database error.", err
 	}
@@ -193,18 +199,23 @@ func (u User) sendInternally(target User, msats int, desc, hash, label interface
 	defer txn.Rollback()
 
 	var balance int
-	err = txn.Get(&balance, `
-WITH newsendtx AS (
+	_, err = txn.Exec(`
   INSERT INTO lightning.transaction
     (from_id, to_id, amount, description, payment_hash, label)
   VALUES ($1, $2, $3, $4, $5, $6)
-)
-SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id, target.Id, msats, vdesc, vhash, vlabel)
 	if err != nil {
 		return "Database error.", err
 	}
 
+	txn.Get(&balance, `
+SELECT balance FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
+	if err != nil {
+		return "Database error.", err
+	}
+
+	log.Print("BALANCE", balance)
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
 				int(-balance/1000)),
