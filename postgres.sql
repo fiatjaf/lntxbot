@@ -12,12 +12,13 @@ CREATE INDEX ON telegram.account (username);
 CREATE INDEX ON telegram.account (telegram_id);
 
 CREATE TABLE lightning.transaction (
+  time timestamp NOT NULL DEFAULT now(),
   from_id int REFERENCES telegram.account (id),
   to_id int REFERENCES telegram.account (id),
   amount int NOT NULL, -- in msatoshis
   fees int NOT NULL DEFAULT 0, -- in msatoshis
   description text, -- null on internal sends/tips
-  payment_hash text, -- null on internal sends/tips
+  payment_hash text NOT NULL DEFAULT md5(random()::text) || md5(random()::text), -- null on internal sends/tips
   label text, -- null on internal sends/tips
   preimage text
 );
@@ -28,17 +29,17 @@ CREATE INDEX ON lightning.transaction (label);
 CREATE INDEX ON lightning.transaction (payment_hash);
 
 CREATE VIEW lightning.account_txn AS
-    SELECT
+    SELECT time,
       from_id AS account_id,
       -amount AS amount, fees,
-      payment_hash, label, description
+      payment_hash, label, description, preimage
     FROM lightning.transaction
     WHERE from_id IS NOT NULL
   UNION ALL
-    SELECT
+    SELECT time,
       to_id AS account_id,
       amount, 0 AS fees,
-      payment_hash, label, description
+      payment_hash, label, description, preimage
     FROM lightning.transaction
     WHERE to_id IS NOT NULL;
 

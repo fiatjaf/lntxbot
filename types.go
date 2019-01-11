@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
@@ -19,6 +20,20 @@ type User struct {
 }
 
 type Transaction struct {
+	Time        time.Time `db:"time"`
+	Amount      float64   `db:"amount"`
+	Fees        float64   `db:"fees"`
+	Hash        string    `db:"payment_hash"`
+	Preimage    string    `db:"preimage"`
+	Description string    `db:"description"`
+}
+
+func (txn Transaction) status() string {
+	if txn.Amount > 0 {
+		return "RECEIVED"
+	} else {
+		return "SENT"
+	}
 }
 
 func loadUser(id int, telegramId int) (u User, err error) {
@@ -85,6 +100,7 @@ func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 	log.Debug().Str("user", u.Username).Str("msg", msg).Msg("notifying user")
 	chattable := tgbotapi.NewMessage(u.ChatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
+	chattable.ParseMode = "Markdown"
 	message, err := bot.Send(chattable)
 	if err != nil {
 		log.Warn().Str("user", u.Username).Err(err).Msg("error sending message")
@@ -124,11 +140,9 @@ func (u User) payInvoice(
 
 	var balance int
 	_, err = txn.Exec(`
-WITH newtx AS (
-  INSERT INTO lightning.transaction
-    (from_id, amount, description, payment_hash, label)
-  VALUES ($1, $2, $3, $4, $5)
-)
+INSERT INTO lightning.transaction
+  (from_id, amount, description, payment_hash, label)
+VALUES ($1, $2, $3, $4, $5)
     `, u.Id, amount, desc, hash, label)
 	if err != nil {
 		return res, "Database error.", err
@@ -153,7 +167,7 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		return res, "Unable to pay due to internal database error.", err
 	}
 
-	res, err = ln.Call("pay", bolt11, strconv.Itoa(amount))
+	res, err = ln.CallWithCustomTimeout("pay", time.Second*20, bolt11, strconv.Itoa(amount))
 	if err != nil {
 		return res, "Routing failed.", err
 	}
@@ -261,14 +275,11 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 
 func (u User) paymentReceived(
 	amount int, desc, hash, label string,
-) (balance int, err error) {
-	err = pg.Get(&balance, `
-WITH newtx AS (
-  INSERT INTO lightning.transaction
-    (to_id, amount, description, payment_hash, label)
-  VALUES ($1, $2, $3, $4, $5)
-)
-SELECT balance FROM lightning.balance WHERE account_id = $1
+) (err error) {
+	_, err = pg.Exec(`
+INSERT INTO lightning.transaction
+  (to_id, amount, description, payment_hash, label)
+VALUES ($1, $2, $3, $4, $5)
     `, u.Id, amount, desc, hash, label)
 	if err != nil {
 		log.Error().Err(err).
@@ -276,5 +287,57 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 			Msg("failed to save payment received.")
 	}
 
+	return
+}
+
+func (u User) getInfo() (info struct {
+	AccountId     string  `db:"account_id"`
+	Balance       float64 `db:"balance"`
+	NSent         int     `db:"nsent"`
+	NReceived     int     `db:"nrecv"`
+	TotalSent     float64 `db:"totalsent"`
+	TotalReceived float64 `db:"totalrecv"`
+	TotalFees     float64 `db:"fees"`
+}, err error) {
+	err = pg.Get(&info, `
+SELECT
+  b.account_id,
+  b.balance/1000 AS balance,
+  count(s) AS nsent,
+  count(r) AS nrecv,
+  coalesce(sum(s.amount), 0)/1000 AS totalsent,
+  coalesce(sum(r.amount), 0)/1000 AS totalrecv,
+  coalesce(sum(s.fees), 0)/1000 AS fees
+FROM lightning.balance AS b
+LEFT OUTER JOIN lightning.transaction AS s ON b.account_id = s.from_id
+LEFT OUTER JOIN lightning.transaction AS r ON b.account_id = r.to_id
+WHERE b.account_id = $1
+GROUP BY b.account_id, b.balance
+    `, u.Id)
+	return
+}
+
+func (u User) listTransactions() (txns []Transaction, err error) {
+	err = pg.Select(&txns, `
+SELECT time, amount/1000 AS amount, payment_hash
+FROM lightning.account_txn
+WHERE account_id = $1
+ORDER BY time
+    `, u.Id)
+	return
+}
+
+func (u User) getTransaction(hash string) (txn Transaction, err error) {
+	hashsize := len(hash)
+	err = pg.Get(&txn, `
+SELECT
+  time,
+  amount/1000 AS amount,
+  payment_hash,
+  coalesce(preimage, '') AS preimage
+FROM lightning.account_txn
+WHERE account_id = $1 AND substring(payment_hash from 0 for $3) = $2
+ORDER BY time
+    `, u.Id, hash, hashsize+1)
 	return
 }

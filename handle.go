@@ -10,6 +10,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
+	"github.com/kr/pretty"
 	"github.com/tidwall/gjson"
 )
 
@@ -39,24 +40,51 @@ func handleMessage(message *tgbotapi.Message) {
 	var (
 		opts    = make(docopt.Opts)
 		proceed = false
+		text    = message.Text
 	)
 
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
-	text := message.Text
-	if text == "" {
-		text = message.Caption
-	}
-	argv, err := shellquote.Split(text)
-	if err != nil {
-		return
+	if !strings.HasPrefix(message.Text, "/") {
+		if text == "" {
+			text = message.Caption
+		}
+		argv, err := shellquote.Split(text)
+		if err != nil {
+			return
+		}
+
+		for _, arg := range argv {
+			if strings.HasPrefix(arg, "lnbc") {
+				opts, _, _ = parse("/pay " + arg)
+				goto parsed
+			}
+		}
 	}
 
-	for _, arg := range argv {
-		if strings.HasPrefix(arg, "lnbc") {
-			opts, _, _ = parse("/pay " + arg)
-			goto parsed
+	// individual transaction query
+	if strings.HasPrefix(text, "/txn") {
+		hashfirstchars := text[4:]
+		txn, err := u.getTransaction(hashfirstchars)
+		if err != nil {
+			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
+				Msg("failed to get transaction")
+			return
 		}
+		text := fmt.Sprintf(`
+%s on %s
+*Hash*: %s
+*Amount*: %.2f satoshis`,
+			txn.status(), txn.Time.Format("2 Jan 2006 3:04PM"),
+			txn.Hash, txn.Amount)
+		if txn.status() == "SENT" {
+			text += fmt.Sprintf("\n*Fee paid*: %.2f", txn.Fees)
+			if txn.Preimage != "" {
+				text += fmt.Sprintf("*Preimage*: %s", txn.Preimage)
+			}
+		}
+		u.notify(text)
+		return
 	}
 
 	// otherwise parse the slash command
@@ -72,6 +100,8 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 
 parsed:
+	pretty.Log(opts)
+
 	switch {
 	case opts["start"].(bool):
 		// create user
@@ -121,6 +151,42 @@ parsed:
 		// just decode invoice
 		bolt11 := opts["<invoice>"].(string)
 		handleDecodeInvoice(u, bolt11, 0)
+		break
+	case opts["transactions"].(bool):
+		// show list of transactions
+		txns, err := u.listTransactions()
+		if err != nil {
+			log.Warn().Err(err).Str("user", u.Username).
+				Msg("failed to list transactions")
+			break
+		}
+
+		text := ""
+		for _, txn := range txns {
+			text += fmt.Sprintf("`%-8s` `%10.3f` on %s /txn%s",
+				txn.status(), txn.Amount,
+				txn.Time.Format("2 Jan 2006 3:04PM"), txn.Hash[:5])
+			text += "\n"
+		}
+		u.notify(text)
+		break
+	case opts["balance"].(bool):
+		// show balance
+		info, err := u.getInfo()
+		if err != nil {
+			log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+			break
+		}
+
+		u.notify(fmt.Sprintf(`
+Balance: %.3f satoshis
+Total received: %.3f satoshis
+Total sent: %.3f satoshis
+Total fees paid: %.3f satoshis
+Number of transactions received: %d
+Number of transactions sent: %d
+        `, info.Balance, info.TotalReceived, info.TotalSent,
+			info.TotalFees, info.NReceived, info.NSent))
 		break
 	case opts["pay"].(bool):
 		// pay invoice
@@ -513,7 +579,7 @@ func handleInvoicePaid(res gjson.Result) {
 	desc := res.Get("description").String()
 	hash := res.Get("payment_hash").String()
 
-	_, err = u.paymentReceived(
+	err = u.paymentReceived(
 		int(msats),
 		desc,
 		hash,

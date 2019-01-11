@@ -25,9 +25,7 @@ Usage:
   c start
   c decode <invoice>
   c receive <amount> [<description>...]
-  c pay <invoice> [<satoshis>]
-  c pay now <invoice> [<satoshis>]
-  c pay @<person>
+  c pay [now] <invoice> [<satoshis>]
   c balance
   c transactions
   c help
