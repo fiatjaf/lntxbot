@@ -1,22 +1,55 @@
-CREATE TABLE account (
-  id int PRIMARY KEY, -- telegram id
-  username text NOT NULL, -- telegram username
+CREATE SCHEMA telegram;
+CREATE SCHEMA lightning;
+
+CREATE TABLE telegram.account (
+  id serial PRIMARY KEY,
+  telegram_id int UNIQUE, -- telegram id
+  username text UNIQUE, -- telegram name
   chat_id int -- telegram private chat id
 );
 
-CREATE INDEX ON account (username);
+CREATE INDEX ON telegram.account (username);
+CREATE INDEX ON telegram.account (telegram_id);
 
-CREATE TABLE transaction (
-  account_id int NOT NULL REFERENCES account (id),
-  amount int NOT NULL, -- in msatoshis (positive for receipts, negative for payments)
-  fees int, -- in msatoshis (positive for payments, null for receipts)
-  description text NOT NULL,
-  payment_hash text NOT NULL,
-  label text NOT NULL,
+CREATE TABLE lightning.transaction (
+  from_id int REFERENCES telegram.account (id),
+  to_id int REFERENCES telegram.account (id),
+  amount int NOT NULL, -- in msatoshis
+  fees int NOT NULL DEFAULT 0, -- in msatoshis
+  description text, -- null on internal sends/tips
+  payment_hash text, -- null on internal sends/tips
+  label text, -- null on internal sends/tips
   preimage text
 );
 
-table account;
-table transaction;
-SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0) from transaction;
-delete from transaction;
+CREATE INDEX ON lightning.transaction (from_id);
+CREATE INDEX ON lightning.transaction (to_id);
+CREATE INDEX ON lightning.transaction (label);
+CREATE INDEX ON lightning.transaction (payment_hash);
+
+CREATE VIEW lightning.account_txn AS
+    SELECT
+      from_id AS account_id,
+      -amount AS amount, fees,
+      payment_hash, label, description
+    FROM lightning.transaction
+    WHERE from_id IS NOT NULL
+  UNION ALL
+    SELECT
+      to_id AS account_id,
+      amount, 0 AS fees,
+      payment_hash, label, description
+    FROM lightning.transaction
+    WHERE to_id IS NOT NULL;
+
+CREATE VIEW lightning.balance AS
+    SELECT
+      account.id AS account_id,
+      coalesce(sum(amount), 0) - coalesce(sum(fees), 0) AS balance
+    FROM lightning.account_txn
+    RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
+    GROUP BY account.id;
+
+table lightning.balance;
+table lightning.transaction;
+table lightning.account_txn;

@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	docopt "github.com/docopt/docopt-go"
+	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
+	"github.com/kr/pretty"
 	"github.com/tidwall/gjson"
 )
 
@@ -41,43 +42,41 @@ func handleMessage(message *tgbotapi.Message) {
 		proceed = false
 	)
 
-	if message.ForwardFrom != nil {
-		// when receiving a forwarded invoice, try to pay it
-		text := message.Text
-		if text == "" {
-			text = message.Caption
-		}
-		argv, err := shellquote.Split(text)
-		if err != nil {
-			return
-		}
+	// when receiving a forwarded invoice (from messages from other people?)
+	// or just the full text of a an invoice (shared from a phone wallet?)
+	text := message.Text
+	if text == "" {
+		text = message.Caption
+	}
+	argv, err := shellquote.Split(text)
+	if err != nil {
+		return
+	}
 
-		for _, arg := range argv {
-			if strings.HasPrefix(arg, "lnbc") {
-				opts, proceed, _ = parse("/pay " + arg)
-				break
-			}
-		}
-	} else if strings.HasPrefix(message.Text, "lnbc") {
-		// receiving a direct invoice from a phone wallet, maybe? try to pay
-		opts, proceed, _ = parse("/pay " + message.Text)
-	} else {
-		// otherwise parse the slash command
-		opts, proceed, err = parse(message.Text)
-		if !proceed {
-			return
-		}
-		if err != nil {
-			log.Warn().Err(err).Str("command", message.Text).
-				Msg("Failed to parse command")
-			u.notify("Could not understand the command.")
-			return
+	for _, arg := range argv {
+		if strings.HasPrefix(arg, "lnbc") {
+			opts, _, _ = parse("/pay " + arg)
+			goto parsed
 		}
 	}
 
+	// otherwise parse the slash command
+	opts, proceed, err = parse(message.Text)
+	if !proceed {
+		return
+	}
+	if err != nil {
+		log.Warn().Err(err).Str("command", message.Text).
+			Msg("Failed to parse command")
+		u.notify("Could not understand the command.")
+		return
+	}
+
+parsed:
 	switch {
 	case opts["start"].(bool):
 		// create user
+		pretty.Log(message)
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 		}
@@ -154,8 +153,7 @@ func handleMessage(message *tgbotapi.Message) {
 			bot.Send(tgbotapi.NewEditMessageReplyMarkup(u.ChatId, message.MessageID,
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData("No, cancel", "pay:no"),
-						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay:yes="+invlabel),
+						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay="+invlabel),
 					),
 				),
 			))
@@ -168,72 +166,121 @@ func handleMessage(message *tgbotapi.Message) {
 }
 
 func handleCallback(cb *tgbotapi.CallbackQuery) {
-	u, err := ensureUser(cb.From.ID, cb.From.UserName)
-	if err != nil {
-		log.Warn().Err(err).
-			Str("username", cb.From.UserName).
-			Int("id", cb.From.ID).
-			Msg("failed to ensure user")
+	switch {
+	case cb.Data == "noop":
+		goto answerEmpty
+	case strings.HasPrefix(cb.Data, "pay="):
+		u, err := ensureUser(cb.From.ID, cb.From.UserName)
+		if err != nil {
+			log.Warn().Err(err).
+				Str("username", cb.From.UserName).
+				Int("id", cb.From.ID).
+				Msg("failed to ensure user")
+			return
+		}
+
+		invlabel := cb.Data[4:]
+		bolt11, err := rds.Get("payinvoice:" + invlabel).Result()
+		if err != nil {
+			bot.AnswerCallbackQuery(
+				tgbotapi.NewCallback(
+					cb.ID,
+					"The payment confirmation button has expired.",
+				),
+			)
+			return
+		}
+
+		bot.AnswerCallbackQuery(
+			tgbotapi.NewCallback(cb.ID, "Sending payment."),
+		)
+
+		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
+		handlePayInvoice(u, bolt11, invlabel, int(optmsats))
+		return
+	case strings.HasPrefix(cb.Data, "send="):
+		params := strings.Split(cb.Data[5:], "-")
+		if len(params) != 3 {
+			goto answerEmpty
+		}
+
+		fromid, err1 := strconv.Atoi(params[0])
+		sats, err2 := strconv.Atoi(params[1])
+		toname := params[2]
+		if err1 != nil || err2 != nil || toname == "" || toname == "0" {
+			goto answerEmpty
+		}
+
+		u, err := loadUser(fromid, 0)
+		if err != nil {
+			log.Warn().Err(err).
+				Int("id", fromid).
+				Msg("failed to load user")
+			return
+		}
+
+		var target User
+		if toid, err := strconv.Atoi(toname); err != nil {
+			target, err = ensureUser(toid, "")
+		} else {
+			target, err = ensureUser(0, toname)
+		}
+		if err != nil {
+			log.Warn().Err(err).
+				Msg("failed to ensure target user after send/tip.")
+			goto answerEmpty
+		}
+
+		errMsg, err := u.sendInternally(target, sats*1000, nil, nil, nil)
+		if err != nil {
+			log.Warn().Err(err).
+				Msg("failed to send/tip")
+			u.notify("Failed to send: " + errMsg)
+			return
+		}
+		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
+
 		return
 	}
 
-	if cb.Message != nil {
-		// a confirmation from a /pay command
-		log.Print(cb.Data)
-		log.Print(cb.Message.Text)
-		if cb.Data == "pay:no" {
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, ""))
-			return
-		} else if strings.HasPrefix(cb.Data, "pay:yes=") {
-			invlabel := strings.Split(cb.Data, "=")[1]
-			bolt11, err := rds.Get("payinvoice:" + invlabel).Result()
-			if err != nil {
-				bot.AnswerCallbackQuery(
-					tgbotapi.NewCallback(
-						cb.ID,
-						"The payment confirmation button has expired.",
-					),
-				)
-				return
-			}
-
-			bot.AnswerCallbackQuery(
-				tgbotapi.NewCallback(cb.ID, "Sending payment."),
-			)
-
-			optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
-			handlePayInvoice(u, bolt11, invlabel, int(optmsats))
-		}
-	}
+answerEmpty:
+	bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, ""))
 }
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
-	u, err := loadUser(int(q.From.ID))
+	var (
+		u    User
+		err  error
+		resp tgbotapi.APIResponse
+		argv []string
+		text string
+	)
+
+	u, err = loadUser(0, int(q.From.ID))
 	if err != nil {
 		log.Debug().Err(err).
 			Str("username", q.From.UserName).
 			Int("id", q.From.ID).
 			Msg("unregistered user trying to use inline query")
 
-		bot.AnswerInlineQuery(tgbotapi.InlineConfig{
-			InlineQueryID: q.ID,
-			Results:       []interface{}{},
-			SwitchPMText:  "Create an account first",
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID:     q.ID,
+			Results:           []interface{}{},
+			SwitchPMText:      "Create an account first",
+			SwitchPMParameter: "1",
 		})
-
-		return
+		goto responded
 	}
 
-	text := strings.TrimSpace(q.Query)
-	log.Print(text)
+	text = strings.TrimSpace(q.Query)
+	argv, err = shellquote.Split(text)
+	log.Print(text, argv, err)
+	if err != nil || len(argv) < 2 {
+		goto answerEmpty
+	}
 
-	switch {
-	case strings.HasPrefix(text, "invoice "):
-		argv, err := shellquote.Split(text)
-		if err != nil || len(argv) < 2 {
-			goto answerEmpty
-		}
-
+	switch argv[0] {
+	case "invoice", "receive":
 		label := makeLabel(u.ChatId, q.ID)
 
 		sats, err := strconv.Atoi(argv[1])
@@ -255,7 +302,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		result.ThumbURL = qrurl
 		result.Caption = bolt11
 
-		res, err := bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
 			Results:       []interface{}{result},
 			IsPersonal:    true,
@@ -265,17 +312,88 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			time.Sleep(30 * time.Second)
 			os.Remove(qrpath)
 		}(qrpath)
+		goto responded
+	case "tip", "send":
+		var (
+			sats        int
+			username    string
+			userid      int
+			displayname string
+		)
 
-		if err != nil || !res.Ok {
-			log.Warn().Err(err).Str("bolt11", bolt11).Str("qr", qrpath).
-				Str("resp", res.Description).
-				Msg("error answering inline query")
+		switch len(argv) {
+		case 3:
+			if argv[1][0] != '@' {
+				goto answerEmpty
+			}
+
+			sats, err = strconv.Atoi(argv[2])
+			if err != nil {
+				goto answerEmpty
+			}
+			username = argv[1][1:]
+			displayname = username
+		case 4:
+			if argv[1][0] != '@' {
+				goto answerEmpty
+			}
+			userid, err = strconv.Atoi(argv[1][1:])
+			if err != nil {
+				goto answerEmpty
+			}
+
+			if strings.HasPrefix(argv[2], "(") && strings.HasSuffix(argv[2], ")") {
+				displayname = argv[2][1 : len(argv[2])-1]
+			} else {
+				goto answerEmpty
+			}
+
+			sats, err = strconv.Atoi(argv[3])
+			if err != nil {
+				goto answerEmpty
+			}
+
+		default:
+			goto answerEmpty
 		}
 
-		return
-	case strings.HasPrefix(text, "tip "):
-		return
+		result := tgbotapi.NewInlineQueryResultArticle(
+			fmt.Sprintf("pay-%d-%s-%d", sats, username, userid),
+			fmt.Sprintf("Send %d to %s", sats, displayname),
+			fmt.Sprintf("Sending %d from %s to %s.", sats, u.Username, displayname),
+		)
+
+		buttonData := fmt.Sprintf("send=%d-%d-", u.Id, sats)
+		if username != "" {
+			buttonData += username
+		} else {
+			buttonData += strconv.Itoa(userid)
+		}
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("Confirm", buttonData),
+			),
+		)
+		result.ReplyMarkup = &keyboard
+
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       []interface{}{result},
+			IsPersonal:    true,
+		})
+
+		goto responded
+	default:
+		goto answerEmpty
 	}
+
+responded:
+	if err != nil || !resp.Ok {
+		log.Warn().Err(err).
+			Str("resp", resp.Description).
+			Msg("error answering inline query")
+	}
+	return
 
 answerEmpty:
 	bot.AnswerInlineQuery(tgbotapi.InlineConfig{
@@ -320,8 +438,18 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 			u.notify("Failed to find invoice payee")
 			return
 		}
+		target, err := loadUser(int(targetId), 0)
+		if err != nil {
+			log.Warn().Err(err).
+				Str("label", label).
+				Int64("id", targetId).
+				Msg("failed to get load internal invoice target from postgres")
+			u.notify("Failed to find invoice payee")
+			return
+		}
 
-		amount, hash, errMsg, err := u.payInternally(int(targetId), bolt11, label, optmsats)
+		amount, hash, errMsg, err := u.payInternally(
+			target, bolt11, label, optmsats)
 		if err != nil {
 			log.Warn().Err(err).
 				Str("label", label).
@@ -331,13 +459,10 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 		}
 
 		// internal payment succeeded
-		target, err := loadUser(int(targetId))
-		if err == nil {
-			target.notifyAsReply(
-				fmt.Sprintf("Payment received: %d. \n\nhash: %s.", amount/1000, hash),
-				messageIdFromLabel(label),
-			)
-		}
+		target.notifyAsReply(
+			fmt.Sprintf("Payment received: %d. \n\nhash: %s.", amount/1000, hash),
+			messageIdFromLabel(label),
+		)
 
 		return
 	}
@@ -372,7 +497,7 @@ func handleInvoicePaid(res gjson.Result) {
 
 	// use the label to get the user that created this invoice
 	userId, _ := rds.Get("recinvoice:" + label + ":creator").Int64()
-	u, err := loadUser(int(userId))
+	u, err := loadUser(int(userId), 0)
 	if err != nil {
 		log.Warn().Err(err).
 			Int64("userid", userId).Str("label", label).Int64("index", index).
@@ -383,12 +508,10 @@ func handleInvoicePaid(res gjson.Result) {
 	msats := res.Get("msatoshi_received").Int()
 	desc := res.Get("description").String()
 	hash := res.Get("payment_hash").String()
-	bolt11 := res.Get("bolt11").String()
 
 	_, err = u.paymentReceived(
 		int(msats),
 		desc,
-		bolt11,
 		hash,
 		label,
 	)

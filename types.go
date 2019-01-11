@@ -12,35 +12,39 @@ import (
 )
 
 type User struct {
-	Id       int    `db:"id"`
-	Username string `db:"username"`
-	ChatId   int64  `db:"chat_id"`
+	Id         int    `db:"id"`
+	TelegramId int    `db:"telegram_id"`
+	Username   string `db:"username"`
+	ChatId     int64  `db:"chat_id"`
 }
 
 type Transaction struct {
 }
 
-func loadUser(id int) (u User, err error) {
+func loadUser(id int, telegramId int) (u User, err error) {
 	err = pg.Get(&u, `
-SELECT id, username, chat_id
-FROM account
-WHERE id = $1
-    `, id)
+SELECT id, telegram_id, username, chat_id
+FROM telegram.account
+WHERE id = $1 OR telegram_id = $2
+    `, id, telegramId)
 	return
 }
 
-func ensureUser(id int, username string) (u User, err error) {
+func ensureUser(telegramId int, username string) (u User, err error) {
 	err = pg.Get(&u, `
-INSERT INTO account (id, username)
+INSERT INTO telegram.account (telegram_id, username)
 VALUES ($1, $2)
-ON CONFLICT (id) DO UPDATE SET username = $2
-RETURNING *
-    `, id, username)
+ON CONFLICT (telegram_id) DO UPDATE SET username = $2
+RETURNING id, telegram_id, username
+    `, telegramId, username)
 	return
 }
 
-func (u User) setChat(id int64) error {
-	_, err := pg.Exec(`UPDATE account SET chat_id = $1 WHERE id = $2`, id, u.Id)
+func (u *User) setChat(id int64) error {
+	u.ChatId = id
+	_, err := pg.Exec(
+		`UPDATE telegram.account SET chat_id = $1 WHERE id = $2`,
+		id, u.Id)
 	return err
 }
 
@@ -92,14 +96,12 @@ func (u User) payInvoice(
 	var balance int
 	err = txn.Get(&balance, `
 WITH newtx AS (
-  INSERT INTO transaction
-    (account_id, amount, description, payment_hash, label)
+  INSERT INTO lightning.transaction
+    (from_id, amount, description, payment_hash, label)
   VALUES ($1, $2, $3, $4, $5)
 )
-SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
-FROM transaction
-WHERE account_id = $1
-    `, u.Id, -amount, desc, hash, label)
+SELECT balance FROM lightning.balance WHERE account_id = $1
+    `, u.Id, amount, desc, hash, label)
 	if err != nil {
 		return res, "Database error.", err
 	}
@@ -121,7 +123,7 @@ WHERE account_id = $1
 		return res, "Routing failed.", err
 	}
 
-	// save fees
+	// save fees and preimage
 	fees := res.Get("msatoshi_sent").Float() - res.Get("msatoshi").Float()
 	preimage := res.Get("payment_preimage")
 	_, err = pg.Exec(`
@@ -141,8 +143,8 @@ WHERE label = $3
 }
 
 func (u User) payInternally(
-	targetId int, bolt11, label string, msatoshi int,
-) (amount int, hash string, errMsg string, err error) {
+	target User, bolt11, label string, msatoshi int,
+) (msats int, hash string, errMsg string, err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
 		return 0, "", "Failed to decode invoice.", err
@@ -150,73 +152,83 @@ func (u User) payInternally(
 
 	log.Print("making internal payment")
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
-	amount = int(inv.Get("msatoshi").Int())
+	msats = int(inv.Get("msatoshi").Int())
 	hash = inv.Get("payment_hash").String()
 	desc := inv.Get("description").String()
 
-	if amount == 0 {
+	if msats == 0 {
 		// amount is optional, so let's use the provided on the command
-		amount = msatoshi
+		msats = msatoshi
 	}
-	if amount == 0 {
+
+	errMsg, err = u.sendInternally(target, msats, desc, hash, label)
+	if err != nil {
+		return 0, "", errMsg, err
+	}
+
+	return msats, hash, "", nil
+}
+
+func (u User) sendInternally(target User, msats int, desc, hash, label interface{}) (string, error) {
+	if msats == 0 {
 		// if nothing was provided, end here
-		return 0, "", "No amount provided.", errors.New("no amount provided")
+		return "No amount provided.", errors.New("no amount provided")
 	}
+
+	var (
+		vdesc  = &sql.NullString{}
+		vhash  = &sql.NullString{}
+		vlabel = &sql.NullString{}
+	)
+
+	vdesc.Scan(desc)
+	vhash.Scan(hash)
+	vlabel.Scan(label)
 
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		return 0, "", "Database error.", err
+		return "Database error.", err
 	}
 	defer txn.Rollback()
 
 	var balance int
 	err = txn.Get(&balance, `
 WITH newsendtx AS (
-  INSERT INTO transaction
-    (account_id, amount, description, payment_hash, label, fees)
-  VALUES ($1, $2, $3, $4, $5, 0)
-), newreceivetx AS (
-  INSERT INTO transaction
-    (account_id, amount, description, payment_hash, label)
-  VALUES ($6, $7, $3, $4, $5)
+  INSERT INTO lightning.transaction
+    (from_id, to_id, amount, description, payment_hash, label)
+  VALUES ($1, $2, $3, $4, $5, $6)
 )
-SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
-FROM transaction
-WHERE account_id = $1
-    `, u.Id, -amount, desc, hash, label, targetId, amount)
+SELECT balance FROM lightning.balance WHERE account_id = $1
+    `, u.Id, target.Id, msats, vdesc, vhash, vlabel)
 	if err != nil {
-		return 0, "", "Database error.", err
+		return "Database error.", err
 	}
 
 	if balance < 0 {
-		return 0,
-			"",
-			fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
+		return fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
 				int(-balance/1000)),
 			errors.New("insufficient balance")
 	}
 
 	err = txn.Commit()
 	if err != nil {
-		return 0, "", "Unable to pay due to internal database error.", err
+		return "Unable to pay due to internal database error.", err
 	}
 
-	return amount, hash, "", nil
+	return "", nil
 }
 
 func (u User) paymentReceived(
-	amount int, desc, bolt11, hash, label string,
+	amount int, desc, hash, label string,
 ) (balance int, err error) {
 	err = pg.Get(&balance, `
 WITH newtx AS (
-  INSERT INTO transaction
-    (account_id, amount, description, payment_hash, label)
+  INSERT INTO lightning.transaction
+    (to_id, amount, description, payment_hash, label)
   VALUES ($1, $2, $3, $4, $5)
 )
-SELECT coalesce(sum(amount), 0) - coalesce(sum(fees), 0)
-FROM transaction
-WHERE account_id = $1
+SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id, amount, desc, hash, label)
 	if err != nil {
 		log.Error().Err(err).
