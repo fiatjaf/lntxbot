@@ -23,7 +23,7 @@ type Transaction struct {
 
 func loadUser(id int, telegramId int) (u User, err error) {
 	err = pg.Get(&u, `
-SELECT id, telegram_id, username, chat_id
+SELECT id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
 FROM telegram.account
 WHERE id = $1 OR telegram_id = $2
     `, id, telegramId)
@@ -34,9 +34,38 @@ func ensureUser(telegramId int, username string) (u User, err error) {
 	err = pg.Get(&u, `
 INSERT INTO telegram.account (telegram_id, username)
 VALUES ($1, $2)
-ON CONFLICT (telegram_id) DO UPDATE SET username = $2
-RETURNING id, telegram_id, username, chat_id
+RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
     `, telegramId, username)
+	if err == nil {
+		return
+	}
+
+	err = pg.Get(&u, `
+UPDATE telegram.account
+SET telegram_id = $1, username = $2
+WHERE username = $2 OR telegram_id = $1
+RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
+    `, telegramId, username)
+	return
+}
+
+func ensureTelegramId(telegram_id int) (u User, err error) {
+	err = pg.Get(&u, `
+INSERT INTO telegram.account (telegram_id)
+VALUES ($1)
+ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
+RETURNING id, telegram_id, telegram_id, coalesce(chat_id, 0) AS chat_id
+    `, telegram_id)
+	return
+}
+
+func ensureUsername(username string) (u User, err error) {
+	err = pg.Get(&u, `
+INSERT INTO telegram.account (username)
+VALUES ($1)
+ON CONFLICT (username) DO UPDATE SET username = $1
+RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
+    `, username)
 	return
 }
 

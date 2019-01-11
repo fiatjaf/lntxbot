@@ -224,11 +224,9 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		var target User
 		if toid, err := strconv.Atoi(toname); err == nil {
-			log.Print(toid)
-			target, err = ensureUser(toid, "")
+			target, err = ensureTelegramId(toid)
 		} else {
-			log.Print(toname)
-			target, err = ensureUser(0, toname)
+			target, err = ensureUsername(toname)
 		}
 		if err != nil {
 			log.Warn().Err(err).

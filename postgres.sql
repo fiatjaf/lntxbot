@@ -50,6 +50,7 @@ CREATE VIEW lightning.balance AS
     RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
     GROUP BY account.id;
 
+table telegram.account;
 table lightning.balance;
 table lightning.transaction;
 table lightning.account_txn;
