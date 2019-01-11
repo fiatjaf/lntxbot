@@ -301,7 +301,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		errMsg, err := u.sendInternally(target, sats*1000, nil, nil, nil)
+		errMsg, err := u.sendInternally(target, sats*1000, nil, nil)
 		if err != nil {
 			log.Warn().Err(err).
 				Msg("failed to send/tip")
@@ -344,7 +344,6 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 	text = strings.TrimSpace(q.Query)
 	argv, err = shellquote.Split(text)
-	log.Print(text, argv, err)
 	if err != nil || len(argv) < 2 {
 		goto answerEmpty
 	}

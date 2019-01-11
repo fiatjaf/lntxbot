@@ -210,7 +210,7 @@ func (u User) payInternally(
 		msats = msatoshi
 	}
 
-	errMsg, err = u.sendInternally(target, msats, desc, hash, label)
+	errMsg, err = u.sendInternally(target, msats, desc, label)
 	if err != nil {
 		return 0, "", errMsg, err
 	}
@@ -218,7 +218,7 @@ func (u User) payInternally(
 	return msats, hash, "", nil
 }
 
-func (u User) sendInternally(target User, msats int, desc, hash, label interface{}) (string, error) {
+func (u User) sendInternally(target User, msats int, desc, label interface{}) (string, error) {
 	if msats == 0 {
 		// if nothing was provided, end here
 		return "No amount provided.", errors.New("no amount provided")
@@ -226,12 +226,10 @@ func (u User) sendInternally(target User, msats int, desc, hash, label interface
 
 	var (
 		vdesc  = &sql.NullString{}
-		vhash  = &sql.NullString{}
 		vlabel = &sql.NullString{}
 	)
 
 	vdesc.Scan(desc)
-	vhash.Scan(hash)
 	vlabel.Scan(label)
 
 	txn, err := pg.BeginTxx(context.TODO(),
@@ -243,10 +241,10 @@ func (u User) sendInternally(target User, msats int, desc, hash, label interface
 
 	var balance int
 	_, err = txn.Exec(`
-  INSERT INTO lightning.transaction
-    (from_id, to_id, amount, description, payment_hash, label)
-  VALUES ($1, $2, $3, $4, $5, $6)
-    `, u.Id, target.Id, msats, vdesc, vhash, vlabel)
+INSERT INTO lightning.transaction
+  (from_id, to_id, amount, description, label)
+VALUES ($1, $2, $3, $4, $5)
+    `, u.Id, target.Id, msats, vdesc, vlabel)
 	if err != nil {
 		return "Database error.", err
 	}
@@ -258,7 +256,6 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		return "Database error.", err
 	}
 
-	log.Print("BALANCE", balance)
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
 				int(-balance/1000)),
