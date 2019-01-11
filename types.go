@@ -35,7 +35,7 @@ func ensureUser(telegramId int, username string) (u User, err error) {
 INSERT INTO telegram.account (telegram_id, username)
 VALUES ($1, $2)
 ON CONFLICT (telegram_id) DO UPDATE SET username = $2
-RETURNING id, telegram_id, username
+RETURNING id, telegram_id, username, chat_id
     `, telegramId, username)
 	return
 }
