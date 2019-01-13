@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/kballard/go-shellquote"
+	"github.com/lucsky/cuid"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 )
@@ -29,6 +31,56 @@ func messageIdFromLabel(label string) int {
 
 func qrImagePath(label string) string {
 	return filepath.Join(os.TempDir(), s.ServiceId+".invoice."+label+".png")
+}
+
+func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
+	text := message.Text
+	if text == "" {
+		text = message.Caption
+	}
+
+	argv, err := shellquote.Split(text)
+	if err != nil {
+		return
+	}
+
+	for _, arg := range argv {
+		if strings.HasPrefix(arg, "lnbc") {
+			return arg, true
+		}
+	}
+
+	return
+}
+
+func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
+	baseedit := tgbotapi.BaseEdit{
+		InlineMessageID: cb.InlineMessageID,
+	}
+
+	if cb.Message != nil {
+		baseedit.MessageID = cb.Message.MessageID
+		baseedit.ChatID = cb.Message.Chat.ID
+	}
+
+	return baseedit
+}
+
+func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
+	giveawayid := cuid.Slug()
+	buttonData := fmt.Sprintf("give=%d-%d-%s", u.Id, sats, giveawayid)
+
+	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
+
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Claim!",
+				buttonData,
+			),
+		),
+	)
 }
 
 func decodeInvoice(invoice string) (inv gjson.Result, err error) {

@@ -12,7 +12,6 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/hoisie/mustache"
 	"github.com/kballard/go-shellquote"
-	"github.com/lucsky/cuid"
 	"github.com/tidwall/gjson"
 )
 
@@ -43,24 +42,14 @@ func handleMessage(message *tgbotapi.Message) {
 		text    = regexp.MustCompile("/([a-z]+)@"+s.ServiceId).ReplaceAllString(message.Text, "/$1")
 	)
 
-	log.Debug().Str("t", text).Msg("got message")
+	log.Debug().Str("t", text).Str("user", u.Username).Msg("got message")
 
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(text, "/") {
-		if text == "" {
-			text = message.Caption
-		}
-		argv, err := shellquote.Split(text)
-		if err != nil {
-			return
-		}
-
-		for _, arg := range argv {
-			if strings.HasPrefix(arg, "lnbc") {
-				opts, _, _ = parse("/pay " + arg)
-				goto parsed
-			}
+		if bolt11, ok := searchForInvoice(*message); ok {
+			opts, _, _ = parse("/pay " + bolt11)
+			goto parsed
 		}
 	}
 
@@ -209,11 +198,23 @@ parsed:
 			askConfirmation = false
 		}
 
-		bolt11 := opts["<invoice>"].(string)
-		if bolt11 == "" {
+		var bolt11 string
+		// when paying, the invoice could be in the message this is replying to
+		if ibolt11, ok := opts["<invoice>"]; !ok || ibolt11 == nil {
+			if message.ReplyToMessage != nil {
+				bolt11, ok = searchForInvoice(*message.ReplyToMessage)
+				if !ok {
+					u.notify("Invoice not provided.")
+					break
+				}
+			}
+
 			u.notify("Invoice not provided.")
 			break
+		} else {
+			bolt11 = ibolt11.(string)
 		}
+
 		optsats, _ := opts.Int("<satoshis>")
 		optmsats := optsats * 1000
 
@@ -249,7 +250,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 	case cb.Data == "noop":
 		goto answerEmpty
 	case cb.Data == "cancel":
-		handleRemoveKeyBoardButtons(cb)
+		removeKeyboardButtons(cb)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		u, err := ensureUser(cb.From.ID, cb.From.UserName)
@@ -279,7 +280,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
 		handlePayInvoice(u, bolt11, invlabel, int(optmsats))
-		handleRemoveKeyBoardButtons(cb)
+		removeKeyboardButtons(cb)
+		appendTextToMessage(cb, " Paid.")
 		return
 	case strings.HasPrefix(cb.Data, "send="):
 		params := strings.Split(cb.Data[5:], "-")
@@ -322,7 +324,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
-		handleRemoveKeyBoardButtons(cb)
+		removeKeyboardButtons(cb)
 		target.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
 
 		return
@@ -334,12 +336,15 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		buttonData := rds.Get("giveaway:" + params[2]).Val()
 		if buttonData != cb.Data {
-			handleRemoveKeyBoardButtons(cb)
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, " Giveaway expired.")
 			goto answerEmpty
 		}
 		if err = rds.Del("giveaway:" + params[2]).Err(); err != nil {
 			log.Warn().Err(err).Str("id", params[2]).
 				Msg("error deleting giveaway check from redis")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, " Giveaway error.")
 			goto answerEmpty
 		}
 
@@ -366,14 +371,14 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		errMsg, err := u.sendInternally(claimer, sats*1000, "giveaway", nil)
 		if err != nil {
-			log.Warn().Err(err).
-				Msg("failed to send/tip")
-			u.notify("Failed to send: " + errMsg)
+			log.Warn().Err(err).Msg("failed to give away")
+			claimer.notify("Failed to claim giveaway: " + errMsg)
 			goto answerEmpty
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
-		handleRemoveKeyBoardButtons(cb)
+		removeKeyboardButtons(cb)
 		claimer.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
+		appendTextToMessage(cb, " Given successfully.")
 		return
 	}
 
@@ -687,38 +692,25 @@ func handleInvoicePaid(res gjson.Result) {
 	)
 }
 
-func handleRemoveKeyBoardButtons(cb *tgbotapi.CallbackQuery) {
-	emptyKeyboard := tgbotapi.InlineKeyboardMarkup{
+func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
+	baseEdit := getBaseEdit(cb)
+
+	baseEdit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 			[]tgbotapi.InlineKeyboardButton{},
 		},
 	}
-	removeButtons := tgbotapi.EditMessageReplyMarkupConfig{
-		BaseEdit: tgbotapi.BaseEdit{
-			InlineMessageID: cb.InlineMessageID,
-			ReplyMarkup:     &emptyKeyboard,
-		},
-	}
-	if cb.Message != nil {
-		removeButtons.BaseEdit.MessageID = cb.Message.MessageID
-		removeButtons.BaseEdit.ChatID = cb.Message.Chat.ID
-	}
-	bot.Send(removeButtons)
+
+	bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
+		BaseEdit: baseEdit,
+	})
 }
 
-func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
-	giveawayid := cuid.Slug()
-	buttonData := fmt.Sprintf("give=%d-%d-%s", u.Id, sats, giveawayid)
+func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
+	baseEdit := getBaseEdit(cb)
 
-	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
-
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
-			tgbotapi.NewInlineKeyboardButtonData(
-				"Claim!",
-				buttonData,
-			),
-		),
-	)
+	bot.Send(tgbotapi.EditMessageTextConfig{
+		BaseEdit: baseEdit,
+		Text:     cb.Message.Text + text,
+	})
 }
