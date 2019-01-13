@@ -36,6 +36,13 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
+	// after ensuring the user we should always enable him to
+	// receive payment notifications and so on, as not all people will
+	// remember to call /start
+	if message.Chat.Type == "private" {
+		u.setChat(message.Chat.ID)
+	}
+
 	var (
 		opts    = make(docopt.Opts)
 		proceed = false
@@ -97,14 +104,14 @@ parsed:
 		// create user
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
-			u.notify("Account created successfully.")
+			u.notify("Account created.")
 		}
 
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool):
-		sats, err := opts.Int("<amount>")
+		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			u.notify("Invalid amount: " + opts["<amount>"].(string))
+			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
 		var desc string
@@ -142,12 +149,67 @@ parsed:
 		bolt11 := opts["<invoice>"].(string)
 		handleDecodeInvoice(message.Chat.ID, bolt11, 0)
 		break
-	case opts["send"].(bool):
+	case opts["send"].(bool), opts["tip"].(bool):
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			break
+		}
+
+		var (
+			todisplayname string
+			receiver      User
+		)
+		if opts["<username>"] != nil {
+			toname := opts["<username>"].(string)[1:]
+			todisplayname = toname
+			receiver, err = ensureUsername(toname)
+		} else if opts["<userid>"] != nil && opts["<displayname>"] != nil {
+			todisplayname = opts["<displayname>"].(string)
+			toid, err := strconv.Atoi(opts["<userid>"].(string)[1:])
+			if err != nil {
+				u.notify("Invalid target user id: " + opts["<userid>"].(string))
+				break
+			}
+			receiver, err = ensureTelegramId(toid)
+		} else {
+			break
+		}
+
+		if err != nil {
+			log.Warn().Err(err).
+				Msg("failed to ensure target user on send/tip.")
+			u.notify("Failed to save receiver.")
+			break
+		}
+
+		errMsg, err := u.sendInternally(receiver, sats*1000, nil, nil)
+		if err != nil {
+			log.Warn().Err(err).
+				Str("from", u.Username).
+				Str("to", todisplayname).
+				Msg("failed to send/tip")
+			u.notify("Failed to send: " + errMsg)
+			break
+		}
+
+		receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
+
+		if message.Chat.Type == "private" {
+			u.notifyAsReply(
+				fmt.Sprintf("%d satoshis sent to %s.", sats, todisplayname),
+				message.MessageID,
+			)
+		} else {
+			u.notify(fmt.Sprintf("%d satoshis sent to %s.", sats, todisplayname))
+		}
+
 		break
 	case opts["giveaway"].(bool):
 		if message.Chat.Type == "group" {
 			sats, err := opts.Int("<satoshis>")
 			if err != nil {
+				u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 				break
 			}
 
@@ -282,51 +344,6 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		handlePayInvoice(u, bolt11, invlabel, int(optmsats))
 		removeKeyboardButtons(cb)
 		appendTextToMessage(cb, " Paid.")
-		return
-	case strings.HasPrefix(cb.Data, "send="):
-		params := strings.Split(cb.Data[5:], "-")
-		if len(params) != 3 {
-			goto answerEmpty
-		}
-
-		fromid, err1 := strconv.Atoi(params[0])
-		sats, err2 := strconv.Atoi(params[1])
-		toname := params[2]
-		if err1 != nil || err2 != nil || toname == "" || toname == "0" {
-			goto answerEmpty
-		}
-
-		u, err := loadUser(fromid, 0)
-		if err != nil {
-			log.Warn().Err(err).
-				Int("id", fromid).
-				Msg("failed to load user")
-			goto answerEmpty
-		}
-
-		var target User
-		if toid, err := strconv.Atoi(toname); err == nil {
-			target, err = ensureTelegramId(toid)
-		} else {
-			target, err = ensureUsername(toname)
-		}
-		if err != nil {
-			log.Warn().Err(err).
-				Msg("failed to ensure target user after send/tip.")
-			goto answerEmpty
-		}
-
-		errMsg, err := u.sendInternally(target, sats*1000, "send", nil)
-		if err != nil {
-			log.Warn().Err(err).
-				Msg("failed to send/tip")
-			u.notify("Failed to send: " + errMsg)
-			goto answerEmpty
-		}
-		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
-		removeKeyboardButtons(cb)
-		target.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
-
 		return
 	case strings.HasPrefix(cb.Data, "give="):
 		params := strings.Split(cb.Data[5:], "-")
@@ -472,77 +489,6 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 				IsPersonal:    true,
 			})
 		}
-	case "tip", "send":
-		var (
-			sats        int
-			username    string
-			userid      int
-			displayname string
-		)
-
-		switch len(argv) {
-		case 3:
-			if argv[1][0] != '@' {
-				goto answerEmpty
-			}
-
-			sats, err = strconv.Atoi(argv[2])
-			if err != nil {
-				goto answerEmpty
-			}
-			username = argv[1][1:]
-			displayname = username
-		case 4:
-			if argv[1][0] != '@' {
-				goto answerEmpty
-			}
-			userid, err = strconv.Atoi(argv[1][1:])
-			if err != nil {
-				goto answerEmpty
-			}
-
-			if strings.HasPrefix(argv[2], "(") && strings.HasSuffix(argv[2], ")") {
-				displayname = argv[2][1 : len(argv[2])-1]
-			} else {
-				goto answerEmpty
-			}
-
-			sats, err = strconv.Atoi(argv[3])
-			if err != nil {
-				goto answerEmpty
-			}
-
-		default:
-			goto answerEmpty
-		}
-
-		result := tgbotapi.NewInlineQueryResultArticle(
-			fmt.Sprintf("pay-%d-%s-%d", sats, username, userid),
-			fmt.Sprintf("Send %d to %s", sats, displayname),
-			fmt.Sprintf("Sending %d from %s to %s.", sats, u.Username, displayname),
-		)
-
-		buttonData := fmt.Sprintf("send=%d-%d-", u.Id, sats)
-		if username != "" {
-			buttonData += username
-		} else {
-			buttonData += strconv.Itoa(userid)
-		}
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
-				tgbotapi.NewInlineKeyboardButtonData("Confirm", buttonData),
-			),
-		)
-		result.ReplyMarkup = &keyboard
-
-		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
-			InlineQueryID: q.ID,
-			Results:       []interface{}{result},
-			IsPersonal:    true,
-		})
-
-		goto responded
 	default:
 		goto answerEmpty
 	}

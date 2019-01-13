@@ -81,6 +81,11 @@ func (u User) notify(msg string) tgbotapi.Message {
 }
 
 func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
+	if u.ChatId == 0 {
+		log.Info().Str("user", u.Username).Str("msg", msg).
+			Msg("can't notify user as it hasn't started a chat with the bot.")
+		return tgbotapi.Message{}
+	}
 	log.Debug().Str("user", u.Username).Str("msg", msg).Msg("notifying user")
 	return notifyAsReply(u.ChatId, msg, replyToId)
 }

@@ -13,18 +13,17 @@ func renderUsage() string {
 Usage:
   c start
   c decode <invoice>
-  c receive <amount> [<description>...]
-  c invoice <amount> [<description>...]
-  c pay [now] [<invoice>] [<satoshis>]
-  c paynow [<invoice>] [<satoshis>]
-  c send <username> <satoshis>
+  c (receive | invoice) <satoshis> [<description>...]
+  c (pay [now] | paynow) [<invoice>] [<satoshis>]
+  c (send | tip) <username> <satoshis>
+  c (send | tip) <userid> (<displayname>) <satoshis>
   c giveaway <satoshis>
   c balance
   c transactions
   c help
 
 Things to know:
-  - ` + "`/send`" + ` can send funds to any Telegram user, he'll be able to claim the funds once he registers with ` + "`/start`" + `;
+  - ` + "`/send` or `/tip`" + ` can send funds to any Telegram user, he'll be able to claim the funds once he registers with ` + "`/start`" + `;
   - ` + "`/pay now` or `/paynow`" + ` will skip the payment confirmation;
   - ` + "`/giveaway`" + ` will create a button in a chat and the first user to click that button will claim the satoshis you're giving away.
 
@@ -33,8 +32,7 @@ Plus:
   - Reply to a message containing an invoice with ` + "`/pay`, `/pay now` or `/paynow`" + ` to pay it;
   - Inline bot actions: you can do stuff in groups and private chats without having to add the bot!
     a. ` + "`@" + s.ServiceId + " invoice <amount>`" + ` to generate an invoice in place,
-    b. ` + "`@" + s.ServiceId + " send @<user> <amount>`" + ` to send funds to any Telegram user,
-    c. ` + "`@" + s.ServiceId + " giveaway <amount>`" + ` to start a giveaway anywhere.
+    b. ` + "`@" + s.ServiceId + " giveaway <amount>`" + ` to start a giveaway anywhere.
 `
 }
 
