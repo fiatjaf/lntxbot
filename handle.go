@@ -699,9 +699,8 @@ func handleRemoveKeyBoardButtons(cb *tgbotapi.CallbackQuery) {
 		},
 	}
 	if cb.Message != nil {
-		u, _ := loadUser(cb.From.ID, 0)
 		removeButtons.BaseEdit.MessageID = cb.Message.MessageID
-		removeButtons.BaseEdit.ChatID = u.ChatId
+		removeButtons.BaseEdit.ChatID = cb.Message.Chat.ID
 	}
 	bot.Send(removeButtons)
 }
