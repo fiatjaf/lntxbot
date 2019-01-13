@@ -4,34 +4,44 @@ import (
 	"strings"
 
 	"github.com/docopt/docopt-go"
-	shellquote "github.com/kballard/go-shellquote"
+	"github.com/kballard/go-shellquote"
 )
 
-const USAGE = `lntxbot
-
-*start*: create a new account.
-    as an account will also be created if you try to call any of the
-    other commands.
-*decode*: show information about a bolt11 invoice.
-*receive*: generates an invoice.
-*pay*: paste an invoice to pay.
-    use /pay now <bolt11> to pay without asking for confirmation,
-    append a value in satoshis to pay invoices without a specified amount.
-*balance*: show your balance and some information.
-*transactions*: show your transaction history.
-*help*: show usage information.
+func renderUsage() string {
+	return s.ServiceId + `
 
 Usage:
   c start
   c decode <invoice>
   c receive <amount> [<description>...]
-  c pay [now] <invoice> [<satoshis>]
+  c pay [now] [<invoice>] [<satoshis>]
+  c paynow [<invoice>] [<satoshis>]
+  c send <username> <satoshis>
+  c giveaway <satoshis>
   c balance
   c transactions
   c help
 
-To verify the state of an invoice, forward the message that contains its encoded payment request to the chat.
+Things to know:
+  - ` + "`/send`" + ` can send funds to any Telegram user, he'll be able to claim the funds once he registers with ` + "`/start`" + `;
+  - ` + "`/pay now` or `/paynow`" + ` will skip the payment confirmation;
+  - ` + "`/giveaway`" + ` will create a button in a chat and the first user to click that button will claim the satoshis you're giving away.
+
+Plus:
+  - Forward any message containing an invoice to this chat to pay it (after confirmation);
+  - Reply to a message containing an invoice with ` + "`/pay`, `/pay now` or `/paynow`" + ` to pay it;
+  - Inline bot actions: you can do stuff in groups and private chats without having to add the bot!
+    a. ` + "`@" + s.ServiceId + " invoice <amount>`" + ` to generate an invoice in place,
+    b. ` + "`@" + s.ServiceId + " send @<user> <amount>`" + ` to send funds to any Telegram user,
+    c. ` + "@" + s.ServiceId + " giveaway <amount>`" + ` to start a giveaway anywhere.
 `
+}
+
+var parser = docopt.Parser{
+	HelpHandler:   func(_ error, _ string) {},
+	OptionsFirst:  false,
+	SkipHelpFlags: true,
+}
 
 func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 	if strings.HasPrefix(message, "/") {
@@ -47,6 +57,6 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 		return
 	}
 
-	opts, err = docopt.ParseArgs(USAGE, argv, "")
+	opts, err = parser.ParseArgs(s.Usage, argv, "")
 	return
 }

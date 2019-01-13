@@ -27,6 +27,9 @@ type Settings struct {
 
 	InvoiceTimeout    time.Duration `envconfig:"INVOICE_TIMEOUT" default:"30m"`
 	PayConfirmTimeout time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"30m"`
+	GiveAwayTimeout   time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"30m"`
+
+	Usage string
 }
 
 var err error
@@ -42,6 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
 	}
+	s.Usage = renderUsage()
 
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()

@@ -29,8 +29,18 @@ CREATE INDEX ON lightning.transaction (label);
 CREATE INDEX ON lightning.transaction (payment_hash);
 
 CREATE VIEW lightning.account_txn AS
+  SELECT
+    time, account_id, amount,
+    CASE
+      WHEN label IS NULL THEN coalesce(t.username, t.telegram_id::text)
+      ELSE NULL
+    END AS telegram_peer,
+    status, fees, payment_hash, label, description, preimage
+  FROM (
     SELECT time,
       from_id AS account_id,
+      'SENT' AS status,
+      to_id AS peer,
       -amount AS amount, fees,
       payment_hash, label, description, preimage
     FROM lightning.transaction
@@ -38,10 +48,14 @@ CREATE VIEW lightning.account_txn AS
   UNION ALL
     SELECT time,
       to_id AS account_id,
+      'RECEIVED' AS status,
+      from_id AS peer,
       amount, 0 AS fees,
       payment_hash, label, description, preimage
     FROM lightning.transaction
-    WHERE to_id IS NOT NULL;
+    WHERE to_id IS NOT NULL
+  ) AS x
+  LEFT OUTER JOIN telegram.account AS t ON x.peer = t.id;
 
 CREATE VIEW lightning.balance AS
     SELECT
@@ -52,6 +66,6 @@ CREATE VIEW lightning.balance AS
     GROUP BY account.id;
 
 table telegram.account;
-table lightning.balance;
 table lightning.transaction;
 table lightning.account_txn;
+table lightning.balance;

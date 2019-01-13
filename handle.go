@@ -9,8 +9,9 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/hoisie/mustache"
 	"github.com/kballard/go-shellquote"
-	"github.com/kr/pretty"
+	"github.com/lucsky/cuid"
 	"github.com/tidwall/gjson"
 )
 
@@ -71,20 +72,15 @@ func handleMessage(message *tgbotapi.Message) {
 				Msg("failed to get transaction")
 			return
 		}
-		text := fmt.Sprintf(`
-%s on %s
-*Hash*: %s
-*Description*: %s
-*Amount*: %.2f satoshis`,
-			txn.status(), txn.Time.Format("2 Jan 2006 3:04PM"),
-			txn.Hash, txn.Description, txn.Amount)
-		if txn.status() == "SENT" {
-			text += fmt.Sprintf("\n*Fee paid*: %.2f", txn.Fees)
-			if txn.Preimage != "" {
-				text += fmt.Sprintf("*Preimage*: %s", txn.Preimage)
-			}
-		}
-		u.notify(text)
+
+		u.notify(mustache.Render(`
+{{Status}} {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}} on {{TimeFormat}}
+_{{Description}}_
+{{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}
+{{#HasPreimage}}*Preimage*: {{Preimage}}{{/HasPreimage}}
+*Amount*: {{Satoshis}} satoshis
+{{#Fees}}*Fee paid*: {{FeeSatoshis}}{{/Fees}}
+        `, txn))
 		return
 	}
 
@@ -101,16 +97,19 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 
 parsed:
-	pretty.Log(opts)
+	if opts["paynow"].(bool) {
+		opts["pay"] = true
+		opts["now"] = true
+	}
 
 	switch {
 	case opts["start"].(bool):
 		// create user
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
+			u.notify("Account created successfully.")
 		}
 
-		u.notify("Account created successfully.")
 		break
 	case opts["receive"].(bool):
 		sats, err := opts.Int("<amount>")
@@ -153,6 +152,25 @@ parsed:
 		bolt11 := opts["<invoice>"].(string)
 		handleDecodeInvoice(u, bolt11, 0)
 		break
+	case opts["send"].(bool):
+		break
+	case opts["giveaway"].(bool):
+		if message.Chat.Type == "group" {
+			sats, err := opts.Int("<satoshis>")
+			if err != nil {
+				break
+			}
+
+			chattable := tgbotapi.NewMessage(
+				message.Chat.ID,
+				fmt.Sprintf("%s is giving %d satoshis away!", u.Username, sats),
+			)
+			chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
+			bot.Send(chattable)
+		} else {
+			u.notify("This must be called in a group.")
+		}
+		break
 	case opts["transactions"].(bool):
 		// show list of transactions
 		txns, err := u.listTransactions()
@@ -162,14 +180,11 @@ parsed:
 			break
 		}
 
-		text := ""
-		for _, txn := range txns {
-			text += fmt.Sprintf("`%-8s` `%10.3f` on %s /txn%s",
-				txn.status(), txn.Amount,
-				txn.Time.Format("2 Jan 2006 3:04PM"), txn.Hash[:5])
-			text += "\n"
-		}
-		u.notify(text)
+		u.notify(mustache.Render(`
+{{#txns}}
+`+"`{{PaddedStatus}}`"+` `+"`{{PaddedSatoshis}}`"+`{{#TelegramPeer}} {{PeerActionDescription}}{{/TelegramPeer}} {{TimeFormatSmall}} /txn{{HashReduced}}
+{{/txns}}
+        `, map[string][]Transaction{"txns": txns}))
 		break
 	case opts["balance"].(bool):
 		// show balance
@@ -180,14 +195,11 @@ parsed:
 		}
 
 		u.notify(fmt.Sprintf(`
-Balance: %.3f satoshis
-Total received: %.3f satoshis
-Total sent: %.3f satoshis
-Total fees paid: %.3f satoshis
-Number of transactions received: %d
-Number of transactions sent: %d
-        `, info.Balance, info.TotalReceived, info.TotalSent,
-			info.TotalFees, info.NReceived, info.NSent))
+*Balance*: %.3f satoshis
+*Total received*: %.3f satoshis
+*Total sent*: %.3f satoshis
+*Total fees paid*: %.3f satoshis
+        `, info.Balance, info.TotalReceived, info.TotalSent, info.TotalFees))
 		break
 	case opts["pay"].(bool):
 		// pay invoice
@@ -227,7 +239,7 @@ Number of transactions sent: %d
 			handlePayInvoice(u, bolt11, invlabel, optmsats)
 		}
 	case opts["help"].(bool):
-		u.notify(strings.Replace(USAGE, "  c ", "  /", -1))
+		u.notify(strings.Replace(s.Usage, "  c ", "  /", -1))
 	}
 }
 
@@ -245,7 +257,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				Str("username", cb.From.UserName).
 				Int("id", cb.From.ID).
 				Msg("failed to ensure user")
-			return
+			goto answerEmpty
 		}
 
 		invlabel := cb.Data[4:]
@@ -257,7 +269,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 					"The payment confirmation button has expired.",
 				),
 			)
-			return
+			goto answerEmpty
 		}
 
 		bot.AnswerCallbackQuery(
@@ -286,7 +298,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			log.Warn().Err(err).
 				Int("id", fromid).
 				Msg("failed to load user")
-			return
+			goto answerEmpty
 		}
 
 		var target User
@@ -301,15 +313,66 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		errMsg, err := u.sendInternally(target, sats*1000, nil, nil)
+		errMsg, err := u.sendInternally(target, sats*1000, "send", nil)
 		if err != nil {
 			log.Warn().Err(err).
 				Msg("failed to send/tip")
 			u.notify("Failed to send: " + errMsg)
-			return
+			goto answerEmpty
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 		handleRemoveKeyBoardButtons(cb)
+		target.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
+
+		return
+	case strings.HasPrefix(cb.Data, "give="):
+		params := strings.Split(cb.Data[5:], "-")
+		if len(params) != 3 {
+			goto answerEmpty
+		}
+
+		buttonData := rds.Get("giveaway:" + params[2]).Val()
+		if buttonData != cb.Data {
+			handleRemoveKeyBoardButtons(cb)
+			goto answerEmpty
+		}
+		if err = rds.Del("giveaway:" + params[2]).Err(); err != nil {
+			log.Warn().Err(err).Str("id", params[2]).
+				Msg("error deleting giveaway check from redis")
+			goto answerEmpty
+		}
+
+		fromid, err1 := strconv.Atoi(params[0])
+		sats, err2 := strconv.Atoi(params[1])
+		if err1 != nil || err2 != nil {
+			goto answerEmpty
+		}
+
+		u, err := loadUser(fromid, 0)
+		if err != nil {
+			log.Warn().Err(err).
+				Int("id", fromid).
+				Msg("failed to load user")
+			goto answerEmpty
+		}
+
+		claimer, err := ensureUser(cb.From.ID, cb.From.UserName)
+		if err != nil {
+			log.Warn().Err(err).
+				Msg("failed to ensure claimer user on giveaway.")
+			goto answerEmpty
+		}
+
+		errMsg, err := u.sendInternally(claimer, sats*1000, "giveaway", nil)
+		if err != nil {
+			log.Warn().Err(err).
+				Msg("failed to send/tip")
+			u.notify("Failed to send: " + errMsg)
+			goto answerEmpty
+		}
+		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
+		handleRemoveKeyBoardButtons(cb)
+		claimer.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
 		return
 	}
 
@@ -382,6 +445,27 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			os.Remove(qrpath)
 		}(qrpath)
 		goto responded
+	case "giveaway":
+		if len(argv) != 2 {
+			goto answerEmpty
+		}
+
+		if sats, err := strconv.Atoi(argv[1]); err == nil {
+			result := tgbotapi.NewInlineQueryResultArticle(
+				fmt.Sprintf("give-%d-%d", u.Id, sats),
+				fmt.Sprintf("Giving %d away", sats),
+				fmt.Sprintf("%s is giving %d satoshis away!", u.Username, sats),
+			)
+
+			keyboard := giveAwayKeyboard(u, sats)
+			result.ReplyMarkup = &keyboard
+
+			resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+				InlineQueryID: q.ID,
+				Results:       []interface{}{result},
+				IsPersonal:    true,
+			})
+		}
 	case "tip", "send":
 		var (
 			sats        int
@@ -560,6 +644,10 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 	))
 }
 
+func handleGiveAway(u User, sats int) {
+
+}
+
 func handleInvoicePaid(res gjson.Result) {
 	index := res.Get("pay_index").Int()
 	rds.Set("lastinvoiceindex", index, 0)
@@ -616,4 +704,21 @@ func handleRemoveKeyBoardButtons(cb *tgbotapi.CallbackQuery) {
 		removeButtons.BaseEdit.ChatID = u.ChatId
 	}
 	bot.Send(removeButtons)
+}
+
+func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
+	giveawayid := cuid.Slug()
+	buttonData := fmt.Sprintf("give=%d-%d-%s", u.Id, sats, giveawayid)
+
+	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
+
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Claim!",
+				buttonData,
+			),
+		),
+	)
 }
