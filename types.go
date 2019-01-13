@@ -82,14 +82,7 @@ func (u User) notify(msg string) tgbotapi.Message {
 
 func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 	log.Debug().Str("user", u.Username).Str("msg", msg).Msg("notifying user")
-	chattable := tgbotapi.NewMessage(u.ChatId, msg)
-	chattable.BaseChat.ReplyToMessageID = replyToId
-	chattable.ParseMode = "Markdown"
-	message, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Str("user", u.Username).Err(err).Msg("error sending message")
-	}
-	return message
+	return notifyAsReply(u.ChatId, msg, replyToId)
 }
 
 func (u User) payInvoice(

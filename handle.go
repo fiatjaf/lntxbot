@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -36,17 +37,17 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	log.Debug().Str("t", message.Text).Msg("got message")
-
 	var (
 		opts    = make(docopt.Opts)
 		proceed = false
-		text    = message.Text
+		text    = regexp.MustCompile("/([a-z]+)@"+s.ServiceId).ReplaceAllString(message.Text, "/$1")
 	)
+
+	log.Debug().Str("t", text).Msg("got message")
 
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
-	if !strings.HasPrefix(message.Text, "/") {
+	if !strings.HasPrefix(text, "/") {
 		if text == "" {
 			text = message.Caption
 		}
@@ -85,12 +86,12 @@ _{{Description}}_
 	}
 
 	// otherwise parse the slash command
-	opts, proceed, err = parse(message.Text)
+	opts, proceed, err = parse(text)
 	if !proceed {
 		return
 	}
 	if err != nil {
-		log.Warn().Err(err).Str("command", message.Text).
+		log.Warn().Err(err).Str("command", text).
 			Msg("Failed to parse command")
 		u.notify("Could not understand the command.")
 		return
@@ -111,7 +112,7 @@ parsed:
 		}
 
 		break
-	case opts["receive"].(bool):
+	case opts["receive"].(bool), opts["invoice"].(bool):
 		sats, err := opts.Int("<amount>")
 		if err != nil {
 			u.notify("Invalid amount: " + opts["<amount>"].(string))
@@ -126,7 +127,7 @@ parsed:
 
 		bolt11, qrpath, err := makeInvoice(u, label, sats, desc)
 		if err != nil {
-			u.notify("Failed to generate invoice.")
+			notify(message.Chat.ID, "Failed to generate invoice.")
 			return
 		}
 
@@ -134,7 +135,7 @@ parsed:
 			u.notify(bolt11)
 		} else {
 			defer os.Remove(qrpath)
-			photo := tgbotapi.NewPhotoUpload(u.ChatId, qrpath)
+			photo := tgbotapi.NewPhotoUpload(message.Chat.ID, qrpath)
 			photo.Caption = bolt11
 			_, err := bot.Send(photo)
 			if err != nil {
@@ -142,7 +143,7 @@ parsed:
 					Msg("error sending photo")
 
 					// send just the bolt11
-				u.notify(bolt11)
+				notify(message.Chat.ID, bolt11)
 			}
 		}
 
@@ -150,7 +151,7 @@ parsed:
 	case opts["decode"].(bool):
 		// just decode invoice
 		bolt11 := opts["<invoice>"].(string)
-		handleDecodeInvoice(u, bolt11, 0)
+		handleDecodeInvoice(message.Chat.ID, bolt11, 0)
 		break
 	case opts["send"].(bool):
 		break
@@ -220,7 +221,7 @@ parsed:
 
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
-			message := handleDecodeInvoice(u, bolt11, optmsats)
+			message := handleDecodeInvoice(u.ChatId, bolt11, optmsats)
 
 			rds.Set("payinvoice:"+invlabel, bolt11, s.PayConfirmTimeout)
 			rds.Set("payinvoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
@@ -239,7 +240,7 @@ parsed:
 			handlePayInvoice(u, bolt11, invlabel, optmsats)
 		}
 	case opts["help"].(bool):
-		u.notify(strings.Replace(s.Usage, "  c ", "  /", -1))
+		notify(message.Chat.ID, strings.Replace(s.Usage, "  c ", "  /", -1))
 	}
 }
 
@@ -556,10 +557,10 @@ answerEmpty:
 	})
 }
 
-func handleDecodeInvoice(u User, bolt11 string, optmsats int) (_ tgbotapi.Message) {
+func handleDecodeInvoice(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.Message) {
 	inv, err := decodeInvoice(bolt11)
 	if err != nil {
-		u.notify("Invalid bolt11: " + err.Error())
+		notify(chatId, "Invalid bolt11: "+err.Error())
 		return
 	}
 
@@ -568,7 +569,7 @@ func handleDecodeInvoice(u User, bolt11 string, optmsats int) (_ tgbotapi.Messag
 		amount = optmsats
 	}
 
-	return u.notify(
+	return notify(chatId,
 		fmt.Sprintf("[%s] \n%d satoshis. \nhash: %s.",
 			inv.Get("description").String(),
 			amount/1000,

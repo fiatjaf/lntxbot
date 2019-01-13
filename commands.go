@@ -14,6 +14,7 @@ Usage:
   c start
   c decode <invoice>
   c receive <amount> [<description>...]
+  c invoice <amount> [<description>...]
   c pay [now] [<invoice>] [<satoshis>]
   c paynow [<invoice>] [<satoshis>]
   c send <username> <satoshis>
@@ -33,7 +34,7 @@ Plus:
   - Inline bot actions: you can do stuff in groups and private chats without having to add the bot!
     a. ` + "`@" + s.ServiceId + " invoice <amount>`" + ` to generate an invoice in place,
     b. ` + "`@" + s.ServiceId + " send @<user> <amount>`" + ` to send funds to any Telegram user,
-    c. ` + "@" + s.ServiceId + " giveaway <amount>`" + ` to start a giveaway anywhere.
+    c. ` + "`@" + s.ServiceId + " giveaway <amount>`" + ` to start a giveaway anywhere.
 `
 }
 

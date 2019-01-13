@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 )
@@ -72,4 +73,19 @@ func makeInvoice(u User, label string, sats int, desc string) (bolt11 string, qr
 	}
 
 	return
+}
+
+func notify(chatId int64, msg string) tgbotapi.Message {
+	return notifyAsReply(chatId, msg, 0)
+}
+
+func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
+	chattable := tgbotapi.NewMessage(chatId, msg)
+	chattable.BaseChat.ReplyToMessageID = replyToId
+	chattable.ParseMode = "Markdown"
+	message, err := bot.Send(chattable)
+	if err != nil {
+		log.Warn().Int64("chat", chatId).Err(err).Msg("error sending message")
+	}
+	return message
 }
