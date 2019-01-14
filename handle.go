@@ -161,17 +161,28 @@ parsed:
 			receiver      User
 		)
 		if opts["<username>"] != nil {
-			toname := opts["<username>"].(string)[1:]
+			toname := opts["<username>"].(string)
+			if toname[0] != '@' {
+				u.notify("Target user name should begin with a `@`.")
+				break
+			}
+			toname = toname[1:]
 			todisplayname = toname
 			receiver, err = ensureUsername(toname)
 		} else if opts["<userid>"] != nil && opts["<displayname>"] != nil {
 			todisplayname = opts["<displayname>"].(string)
-			toid, err := strconv.Atoi(opts["<userid>"].(string)[1:])
-			if err != nil {
-				u.notify("Invalid target user id: " + opts["<userid>"].(string))
+			toid := opts["<username>"].(string)
+			if toid[0] != '@' {
+				u.notify("Target user id should begin with a `@`.")
 				break
 			}
-			receiver, err = ensureTelegramId(toid)
+			toid = toid[1:]
+			toidint, err := strconv.Atoi(toid)
+			if err != nil {
+				u.notify("Target user id should be a number, not `" + toid + "`.")
+				break
+			}
+			receiver, err = ensureTelegramId(toidint)
 		} else {
 			break
 		}

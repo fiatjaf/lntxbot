@@ -53,17 +53,26 @@ func ensureTelegramId(telegram_id int) (u User, err error) {
 INSERT INTO telegram.account (telegram_id)
 VALUES ($1)
 ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
-RETURNING id, telegram_id, telegram_id, coalesce(chat_id, 0) AS chat_id
+RETURNING
+   id,
+   telegram_id,
+   coalesce(username, '') AS username,
+   coalesce(chat_id, 0) AS chat_id
     `, telegram_id)
 	return
 }
 
 func ensureUsername(username string) (u User, err error) {
+	log.Print(username)
 	err = pg.Get(&u, `
 INSERT INTO telegram.account (username)
 VALUES ($1)
 ON CONFLICT (username) DO UPDATE SET username = $1
-RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
+RETURNING
+   id,
+   coalesce(telegram_id, 0) AS telegram_id,
+   username,
+   coalesce(chat_id, 0) AS chat_id
     `, strings.ToLower(username))
 	return
 }
