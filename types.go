@@ -159,9 +159,18 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		return res, "Unable to pay due to internal database error.", true, err
 	}
 
+	// actually send the lightning payment
 	res, err = ln.CallWithCustomTimeout("pay",
-		time.Second*20, bolt11, strconv.Itoa(amount))
+		time.Second*61, bolt11, strconv.Itoa(amount))
 	if err != nil {
+		// if it fails we must remove the transaction
+		if _, err := pg.Exec(
+			`DELETE FROM lightning.transaction WHERE payment_hash = $1`,
+			hash); err != nil {
+			log.Error().Err(err).Str("hash", hash).
+				Msg("failed to cancel transaction after routing failure.")
+		}
+
 		return res, "Routing failed.", true, err
 	}
 
