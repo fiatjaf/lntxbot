@@ -73,8 +73,8 @@ func handleMessage(message *tgbotapi.Message) {
 		u.notify(mustache.Render(`
 {{Status}} {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}} on {{TimeFormat}}
 _{{Description}}_
-{{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}
-{{#HasPreimage}}*Preimage*: {{Preimage}}{{/HasPreimage}}
+{{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}{{#HasPreimage}}
+*Preimage*: {{Preimage}}{{/HasPreimage}}
 *Amount*: {{Satoshis}} satoshis
 {{#Fees}}*Fee paid*: {{FeeSatoshis}}{{/Fees}}
         `, txn))
@@ -324,6 +324,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		goto answerEmpty
 	case cb.Data == "cancel":
 		removeKeyboardButtons(cb)
+		appendTextToMessage(cb, " Canceled.")
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		u, err := ensureUser(cb.From.ID, cb.From.UserName)
