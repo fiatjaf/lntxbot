@@ -89,15 +89,22 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 				Str("url", photourl).Msg("qrserver failed to decode")
 			return
 		}
-		if !strings.HasPrefix(r[0].Symbol[0].Data, "lnbc") {
-			log.Debug().Str("data", r[0].Symbol[0].Data).
-				Msg("decoded qr is not a bolt11 invoice")
+
+		data := r[0].Symbol[0].Data
+		if strings.HasPrefix(data, "lightning:") {
+			data = data[10:]
+		}
+
+		if strings.HasPrefix(data, "lnbc") {
+			bolt11 = data
+			ok = true
 			return
 		}
 
 		// found a bolt11 invoice on a qr code on a photo!
-		bolt11 = r[0].Symbol[0].Data
-		ok = true
+		log.Debug().Str("data", data).
+			Msg("decoded qr is not a bolt11 invoice")
+		return
 	}
 
 	return

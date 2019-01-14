@@ -30,7 +30,8 @@ Things to know:
 
 Plus:
   - Forward any message containing an invoice to this chat to pay it (after confirmation);
-  - Reply to a message containing an invoice with ` + "`/pay`, `/pay now` or `/paynow`" + ` to pay it;
+  - In a group, reply to a message containing an invoice with ` + "`/pay`, `/pay now` or `/paynow`" + ` to pay it;
+  - Take a picture of a QR code to pay it (after confirmation);
   - Inline bot actions: you can do stuff in groups and private chats without having to add the bot!
     a. ` + "`@" + s.ServiceId + " invoice <amount>`" + ` to generate an invoice in place,
     b. ` + "`@" + s.ServiceId + " giveaway <amount>`" + ` to start a giveaway anywhere.
