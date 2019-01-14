@@ -134,10 +134,10 @@ func (ln *Client) listen() error {
 	return nil
 }
 
-func (ln *Client) ListenInvoices() {
+func (ln *Client) ListenForInvoices(timeout time.Duration) {
 	for {
 		res, err := ln.CallWithCustomTimeout(
-			"waitanyinvoice", time.Minute*5, strconv.Itoa(ln.LastInvoiceIndex))
+			"waitanyinvoice", timeout, strconv.Itoa(ln.LastInvoiceIndex))
 		if err != nil {
 			ln.ErrorHandler(err)
 			time.Sleep(5 * time.Second)

@@ -76,7 +76,7 @@ func main() {
 	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
 	ln.LastInvoiceIndex = int(lastinvoiceindex)
 	ln.PaymentHandler = handleInvoicePaid
-	go ln.ListenInvoices()
+	go ln.ListenForInvoices(time.Minute * 15)
 
 	// bot stuff
 	bot, err = tgbotapi.NewBotAPI(s.BotToken)
