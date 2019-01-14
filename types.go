@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -319,10 +320,13 @@ GROUP BY b.account_id, b.balance
 
 func (u User) listTransactions() (txns []Transaction, err error) {
 	err = pg.Select(&txns, `
-SELECT time, telegram_peer, status, amount/1000 AS amount, payment_hash
-FROM lightning.account_txn
-WHERE account_id = $1
-ORDER BY time
+SELECT * FROM (
+  SELECT time, telegram_peer, status, amount/1000 AS amount, payment_hash
+  FROM lightning.account_txn
+  WHERE account_id = $1
+  ORDER BY time DESC
+  LIMIT 25
+) AS latest ORDER BY time ASC
     `, u.Id)
 	return
 }
@@ -364,8 +368,15 @@ func (t Transaction) PeerActionDescription() string {
 	}
 }
 
-func (t Transaction) PaddedStatus() string {
-	return fmt.Sprintf("%-8s", t.Status)
+func (t Transaction) StatusSmall() string {
+	switch t.Status {
+	case "RECEIVED":
+		return "\u2b07"
+	case "SENT":
+		return "\u2b06"
+	default:
+		return t.Status
+	}
 }
 
 func (t Transaction) HasPreimage() bool {
@@ -373,7 +384,7 @@ func (t Transaction) HasPreimage() bool {
 }
 
 func (t Transaction) TimeFormat() string {
-	return t.Time.Format("2 Jan 2006 3:04PM")
+	return t.Time.Format("2 Jan 2006 at 3:04PM")
 }
 
 func (t Transaction) TimeFormatSmall() string {
@@ -381,7 +392,7 @@ func (t Transaction) TimeFormatSmall() string {
 }
 
 func (t Transaction) Satoshis() string {
-	return fmt.Sprintf("%.3f", t.Amount)
+	return fmt.Sprintf("%.3f", math.Abs(t.Amount))
 }
 
 func (t Transaction) PaddedSatoshis() string {

@@ -61,7 +61,7 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 
 	// individual transaction query
-	if strings.HasPrefix(text, "/txn") {
+	if strings.HasPrefix(text, "/tx") {
 		hashfirstchars := text[4:]
 		txn, err := u.getTransaction(hashfirstchars)
 		if err != nil {
@@ -71,7 +71,7 @@ func handleMessage(message *tgbotapi.Message) {
 		}
 
 		u.notify(mustache.Render(`
-{{Status}} {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}} on {{TimeFormat}}
+`+"`{{Status}}`"+` {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}} on {{TimeFormat}}
 _{{Description}}_
 {{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}{{#HasPreimage}}
 *Preimage*: {{Preimage}}{{/HasPreimage}}
@@ -243,9 +243,9 @@ parsed:
 			break
 		}
 
-		u.notify(mustache.Render(`
+		u.notify(mustache.Render(`*Latest transactions*
 {{#txns}}
-`+"`{{PaddedStatus}}`"+` `+"`{{PaddedSatoshis}}`"+`{{#TelegramPeer}} {{PeerActionDescription}}{{/TelegramPeer}} {{TimeFormatSmall}} /txn{{HashReduced}}
+`+"{{StatusSmall}}"+` `+"`{{PaddedSatoshis}}`"+`{{#TelegramPeer}} {{PeerActionDescription}}{{/TelegramPeer}} _{{TimeFormatSmall}}_ /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
