@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/lucsky/cuid"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
+	"gopkg.in/jmcvetta/napping.v3"
 )
 
 func makeLabel(chatId int64, messageId interface{}) string {
@@ -48,6 +50,54 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 		if strings.HasPrefix(arg, "lnbc") {
 			return arg, true
 		}
+	}
+
+	// receiving a picture, try to decode the qr code
+	if message.Photo != nil && len(*message.Photo) > 0 {
+		log.Debug().Msg("got photo, looking for qr code.")
+
+		photos := *message.Photo
+		photo := photos[len(photos)-1]
+
+		photourl, err := bot.GetFileDirectURL(photo.FileID)
+		if err != nil {
+			log.Warn().Err(err).Str("fileid", photo.FileID).
+				Msg("failed to get photo URL.")
+			return
+		}
+
+		p := &url.Values{}
+		p.Set("fileurl", photourl)
+		var r []struct {
+			Type   string `json:"type"`
+			Symbol []struct {
+				Data  string `json:"data"`
+				Error string `json:"error"`
+			} `json:"symbol"`
+		}
+		_, err = napping.Get("https://api.qrserver.com/v1/read-qr-code/", p, &r, nil)
+		if err != nil {
+			log.Warn().Err(err).Str("url", photourl).Msg("failed to call qrserver")
+			return
+		}
+		if len(r) == 0 || len(r[0].Symbol) == 0 {
+			log.Warn().Str("url", photourl).Msg("invalid rponse from  qrserver")
+			return
+		}
+		if r[0].Symbol[0].Error != "" {
+			log.Debug().Str("err", r[0].Symbol[0].Error).
+				Str("url", photourl).Msg("qrserver failed to decode")
+			return
+		}
+		if !strings.HasPrefix(r[0].Symbol[0].Data, "lnbc") {
+			log.Debug().Str("data", r[0].Symbol[0].Data).
+				Msg("decoded qr is not a bolt11 invoice")
+			return
+		}
+
+		// found a bolt11 invoice on a qr code on a photo!
+		bolt11 = r[0].Symbol[0].Data
+		ok = true
 	}
 
 	return
