@@ -147,7 +147,7 @@ parsed:
 	case opts["decode"].(bool):
 		// just decode invoice
 		bolt11 := opts["<invoice>"].(string)
-		handleDecodeInvoice(message.Chat.ID, bolt11, 0)
+		decodeNotifyBolt11(message.Chat.ID, bolt11, 0)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		sats, err := opts.Int("<satoshis>")
@@ -295,7 +295,7 @@ parsed:
 
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
-			message := handleDecodeInvoice(u.ChatId, bolt11, optmsats)
+			message := decodeNotifyBolt11(u.ChatId, bolt11, optmsats)
 
 			rds.Set("payinvoice:"+invlabel, bolt11, s.PayConfirmTimeout)
 			rds.Set("payinvoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
@@ -311,7 +311,7 @@ parsed:
 				),
 			))
 		} else {
-			handlePayInvoice(u, bolt11, invlabel, optmsats)
+			payInvoice(u, bolt11, invlabel, optmsats)
 		}
 	case opts["help"].(bool):
 		notify(message.Chat.ID, strings.Replace(s.Usage, "  c ", "  /", -1))
@@ -353,9 +353,13 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		)
 
 		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
-		handlePayInvoice(u, bolt11, invlabel, int(optmsats))
-		removeKeyboardButtons(cb)
-		appendTextToMessage(cb, " Paid.")
+		paid, mayRetry := payInvoice(u, bolt11, invlabel, int(optmsats))
+		if paid {
+			appendTextToMessage(cb, " Paid.")
+			removeKeyboardButtons(cb)
+		} else if mayRetry {
+			removeKeyboardButtons(cb)
+		}
 		return
 	case strings.HasPrefix(cb.Data, "give="):
 		params := strings.Split(cb.Data[5:], "-")
@@ -520,7 +524,7 @@ answerEmpty:
 	})
 }
 
-func handleDecodeInvoice(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.Message) {
+func decodeNotifyBolt11(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.Message) {
 	inv, err := decodeInvoice(bolt11)
 	if err != nil {
 		notify(chatId, "Invalid bolt11: "+err.Error())
@@ -540,63 +544,68 @@ func handleDecodeInvoice(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.
 	)
 }
 
-func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
+func payInvoice(u User, bolt11, label string, optmsats int) (paid, mayRetry bool) {
 	// check if this is an internal invoice (it will have a different label)
-	if label, err := rds.Get("recinvoice.internal:" + bolt11).Result(); err == nil && label != "" {
+	intlabel, err := rds.Get("recinvoice.internal:" + bolt11).Result()
+	if err == nil && intlabel != "" {
 		// this is an internal invoice. do not pay.
 		// delete it and just transfer balance.
 		rds.Del("recinvoice.internal:" + bolt11)
-		ln.Call("delinvoice", label, "unpaid")
+		ln.Call("delinvoice", intlabel, "unpaid")
 
-		targetId, err := rds.Get("recinvoice:" + label + ":creator").Int64()
+		targetId, err := rds.Get("recinvoice:" + intlabel + ":creator").Int64()
 		if err != nil {
 			log.Warn().Err(err).
-				Str("label", label).
+				Str("intlabel", intlabel).
 				Msg("failed to get internal invoice target from redis")
-			u.notify("Failed to find invoice payee")
-			return
+			u.notify("Failed to find invoice payee.")
+			return false, false
 		}
 		target, err := loadUser(int(targetId), 0)
 		if err != nil {
 			log.Warn().Err(err).
-				Str("label", label).
+				Str("intlabel", intlabel).
 				Int64("id", targetId).
 				Msg("failed to get load internal invoice target from postgres")
 			u.notify("Failed to find invoice payee")
-			return
+			return false, false
 		}
 
-		amount, hash, errMsg, err := u.payInternally(
-			target, bolt11, label, optmsats)
+		amount, hash, errMsg, mayRetry, err := u.payInternally(
+			target,
+			bolt11,
+			intlabel,
+			optmsats,
+		)
 		if err != nil {
 			log.Warn().Err(err).
-				Str("label", label).
+				Str("intlabel", intlabel).
 				Msg("failed to pay pay internally")
 			u.notify("Failed to pay: " + errMsg)
-			return
+
+			return false, mayRetry
 		}
 
 		// internal payment succeeded
 		target.notifyAsReply(
 			fmt.Sprintf("Payment received: %d. \n\nhash: %s.", amount/1000, hash),
-			messageIdFromLabel(label),
+			messageIdFromLabel(intlabel),
 		)
 
-		return
+		return true, false
 	}
 
-	pay, errMsg, err := u.payInvoice(bolt11, invlabel, optmsats)
+	pay, errMsg, mayRetry, err := u.payInvoice(bolt11, label, optmsats)
 	if err != nil {
 		log.Warn().Err(err).
 			Str("user", u.Username).
 			Str("bolt11", bolt11).
-			Str("label", invlabel).
+			Str("label", label).
 			Msg("couldn't pay invoice")
 		u.notify("Failed to pay: " + errMsg)
-		return
-	}
 
-	log.Print("paid: " + pay.String())
+		return false, mayRetry
+	}
 
 	u.notify(fmt.Sprintf(
 		"Paid with %d satoshis (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/txn%s",
@@ -606,10 +615,8 @@ func handlePayInvoice(u User, bolt11, invlabel string, optmsats int) {
 		pay.Get("payment_preimage").String(),
 		pay.Get("payment_hash").String()[:5],
 	))
-}
 
-func handleGiveAway(u User, sats int) {
-
+	return true, false
 }
 
 func handleInvoicePaid(res gjson.Result) {

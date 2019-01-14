@@ -101,10 +101,10 @@ func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 
 func (u User) payInvoice(
 	bolt11, label string, msatoshi int,
-) (res gjson.Result, errMsg string, err error) {
+) (res gjson.Result, errMsg string, mayRetry bool, err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
-		return res, "Failed to decode invoice.", err
+		return res, "Failed to decode invoice.", false, err
 	}
 
 	log.Print("sending payment")
@@ -119,13 +119,13 @@ func (u User) payInvoice(
 	}
 	if amount == 0 {
 		// if nothing was provided, end here
-		return res, "No amount provided.", errors.New("no amount provided")
+		return res, "No amount provided.", false, errors.New("no amount provided")
 	}
 
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		return res, "Database error.", err
+		return res, "Database error.", true, err
 	}
 	defer txn.Rollback()
 
@@ -136,31 +136,33 @@ INSERT INTO lightning.transaction
 VALUES ($1, $2, $3, $4, $5)
     `, u.Id, amount, desc, hash, label)
 	if err != nil {
-		return res, "Database error.", err
+		return res, "Database error.", true, err
 	}
 
 	txn.Get(&balance, `
 SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
-		return res, "Database error.", err
+		return res, "Database error.", true, err
 	}
 
 	if balance < 0 {
 		return res,
 			fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
 				int(-balance/1000)),
+			true,
 			errors.New("insufficient balance")
 	}
 
 	err = txn.Commit()
 	if err != nil {
-		return res, "Unable to pay due to internal database error.", err
+		return res, "Unable to pay due to internal database error.", true, err
 	}
 
-	res, err = ln.CallWithCustomTimeout("pay", time.Second*20, bolt11, strconv.Itoa(amount))
+	res, err = ln.CallWithCustomTimeout("pay",
+		time.Second*20, bolt11, strconv.Itoa(amount))
 	if err != nil {
-		return res, "Routing failed.", err
+		return res, "Routing failed.", true, err
 	}
 
 	// save fees and preimage
@@ -179,15 +181,15 @@ WHERE label = $3
 			Msg("failed to update transaction fees.")
 	}
 
-	return res, "", nil
+	return res, "", false, nil
 }
 
 func (u User) payInternally(
 	target User, bolt11, label string, msatoshi int,
-) (msats int, hash string, errMsg string, err error) {
+) (msats int, hash string, errMsg string, mayRetry bool, err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
-		return 0, "", "Failed to decode invoice.", err
+		return 0, "", "Failed to decode invoice.", false, err
 	}
 
 	log.Print("making internal payment")
@@ -203,10 +205,10 @@ func (u User) payInternally(
 
 	errMsg, err = u.sendInternally(target, msats, desc, label)
 	if err != nil {
-		return 0, "", errMsg, err
+		return 0, "", errMsg, false, err
 	}
 
-	return msats, hash, "", nil
+	return msats, hash, "", false, nil
 }
 
 func (u User) sendInternally(target User, msats int, desc, label interface{}) (string, error) {
