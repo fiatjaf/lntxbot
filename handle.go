@@ -435,13 +435,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			Int("id", q.From.ID).
 			Msg("unregistered user trying to use inline query")
 
-		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
-			InlineQueryID:     q.ID,
-			Results:           []interface{}{},
-			SwitchPMText:      "Create an account first",
-			SwitchPMParameter: "1",
-		})
-		goto responded
+		goto answerEmpty
 	}
 
 	text = strings.TrimSpace(q.Query)
@@ -672,8 +666,11 @@ func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
 }
 
 func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
-	baseEdit := getBaseEdit(cb)
+	if cb.Message == nil {
+		return
+	}
 
+	baseEdit := getBaseEdit(cb)
 	bot.Send(tgbotapi.EditMessageTextConfig{
 		BaseEdit: baseEdit,
 		Text:     cb.Message.Text + text,
