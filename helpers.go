@@ -41,15 +41,8 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 		text = message.Caption
 	}
 
-	argv, err := shellquote.Split(text)
-	if err != nil {
+	if bolt11, ok = getBolt11(text); ok {
 		return
-	}
-
-	for _, arg := range argv {
-		if strings.HasPrefix(arg, "lnbc") {
-			return arg, true
-		}
 	}
 
 	// receiving a picture, try to decode the qr code
@@ -90,21 +83,30 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 			return
 		}
 
-		data := r[0].Symbol[0].Data
-		if strings.HasPrefix(data, "lightning:") {
-			data = data[10:]
-		}
+		text = r[0].Symbol[0].Data
+		log.Debug().Str("data", text).Msg("got qr code data")
+		return getBolt11(text)
+	}
 
-		if strings.HasPrefix(data, "lnbc") {
-			bolt11 = data
-			ok = true
-			return
-		}
+	return
+}
 
-		// found a bolt11 invoice on a qr code on a photo!
-		log.Debug().Str("data", data).
-			Msg("decoded qr is not a bolt11 invoice")
+func getBolt11(text string) (bolt11 string, ok bool) {
+	text = strings.ToLower(text)
+
+	argv, err := shellquote.Split(text)
+	if err != nil {
 		return
+	}
+
+	for _, arg := range argv {
+		if strings.HasPrefix(arg, "lightning:") {
+			arg = arg[10:]
+		}
+
+		if strings.HasPrefix(arg, "lnbc") {
+			return arg, true
+		}
 	}
 
 	return
