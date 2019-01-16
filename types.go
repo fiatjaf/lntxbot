@@ -120,10 +120,12 @@ func (u User) payInvoice(
 	amount := int(inv.Get("msatoshi").Int())
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
+	params := []string{bolt11}
 
 	if amount == 0 {
 		// amount is optional, so let's use the provided on the command
 		amount = msatoshi
+		params = append(params, strconv.Itoa(amount))
 	}
 	if amount == 0 {
 		// if nothing was provided, end here
@@ -168,8 +170,7 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 	}
 
 	// actually send the lightning payment
-	res, err = ln.CallWithCustomTimeout("pay",
-		time.Second*61, bolt11, strconv.Itoa(amount))
+	res, err = ln.CallWithCustomTimeout("pay", time.Second*61, params...)
 	if err != nil {
 		// if it fails we must remove the transaction
 		if _, err := pg.Exec(
@@ -184,9 +185,9 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 
 	// save fees and preimage
 	fees := res.Get("msatoshi_sent").Float() - res.Get("msatoshi").Float()
-	preimage := res.Get("payment_preimage")
+	preimage := res.Get("payment_preimage").String()
 	_, err = pg.Exec(`
-UPDATE transaction
+UPDATE lightning.transaction
 SET fees = $1, preimage = $2
 WHERE label = $3
     `, fees, preimage, label)
