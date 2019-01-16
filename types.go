@@ -49,6 +49,13 @@ RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
 	return
 }
 
+func (u User) AtName() string {
+	if u.Username != "" {
+		return "@" + u.Username
+	}
+	return "@" + strconv.Itoa(u.TelegramId)
+}
+
 func ensureTelegramId(telegram_id int) (u User, err error) {
 	err = pg.Get(&u, `
 INSERT INTO telegram.account (telegram_id)

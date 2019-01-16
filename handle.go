@@ -204,7 +204,7 @@ parsed:
 			break
 		}
 
-		receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
+		receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
 
 		if message.Chat.Type == "private" {
 			u.notifyAsReply(
@@ -226,7 +226,7 @@ parsed:
 
 			chattable := tgbotapi.NewMessage(
 				message.Chat.ID,
-				fmt.Sprintf("%s is giving %d satoshis away!", u.Username, sats),
+				fmt.Sprintf("%s is giving %d satoshis away!", u.AtName(), sats),
 			)
 			chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
 			bot.Send(chattable)
@@ -324,7 +324,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		goto answerEmpty
 	case cb.Data == "cancel":
 		removeKeyboardButtons(cb)
-		appendTextToMessage(cb, " Canceled.")
+		appendTextToMessage(cb, "Canceled.")
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		u, err := ensureUser(cb.From.ID, cb.From.UserName)
@@ -355,7 +355,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
 		paid, mayRetry := payInvoice(u, bolt11, invlabel, int(optmsats))
 		if paid {
-			appendTextToMessage(cb, " Paid.")
+			appendTextToMessage(cb, "Paid.")
 			removeKeyboardButtons(cb)
 		} else if mayRetry {
 			removeKeyboardButtons(cb)
@@ -370,14 +370,14 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		buttonData := rds.Get("giveaway:" + params[2]).Val()
 		if buttonData != cb.Data {
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, " Giveaway expired.")
+			appendTextToMessage(cb, "Giveaway expired.")
 			goto answerEmpty
 		}
 		if err = rds.Del("giveaway:" + params[2]).Err(); err != nil {
 			log.Warn().Err(err).Str("id", params[2]).
 				Msg("error deleting giveaway check from redis")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, " Giveaway error.")
+			appendTextToMessage(cb, "Giveaway error.")
 			goto answerEmpty
 		}
 
@@ -410,8 +410,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 		removeKeyboardButtons(cb)
-		claimer.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.Username, sats))
-		appendTextToMessage(cb, " Given successfully.")
+		claimer.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
+		appendTextToMessage(cb, fmt.Sprintf("%d satoshis given from %s to %s.", sats, u.AtName(), claimer.AtName()))
 		return
 	}
 
@@ -487,7 +487,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			result := tgbotapi.NewInlineQueryResultArticle(
 				fmt.Sprintf("give-%d-%d", u.Id, sats),
 				fmt.Sprintf("Giving %d away", sats),
-				fmt.Sprintf("%s is giving %d satoshis away!", u.Username, sats),
+				fmt.Sprintf("%s is giving %d satoshis away!", u.AtName(), sats),
 			)
 
 			keyboard := giveAwayKeyboard(u, sats)
@@ -666,13 +666,13 @@ func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
 }
 
 func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
-	if cb.Message == nil {
-		return
+	if cb.Message != nil {
+		text = cb.Message.Text + text
 	}
 
 	baseEdit := getBaseEdit(cb)
 	bot.Send(tgbotapi.EditMessageTextConfig{
 		BaseEdit: baseEdit,
-		Text:     cb.Message.Text + text,
+		Text:     text,
 	})
 }
