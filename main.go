@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fiatjaf/lntxbot-telegram/lightning"
+	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
