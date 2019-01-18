@@ -200,3 +200,10 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	}
 	return message
 }
+
+func ensurePositive(v int) error {
+	if v <= 0 {
+		return errors.New("Needs a positive amount.")
+	}
+	return nil
+}

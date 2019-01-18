@@ -105,6 +105,7 @@ parsed:
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 			u.notify("Account created.")
+			handleHelp(message)
 		}
 
 		break
@@ -313,8 +314,10 @@ parsed:
 		} else {
 			payInvoice(u, bolt11, invlabel, optmsats)
 		}
+		break
 	case opts["help"].(bool):
-		notify(message.Chat.ID, strings.Replace(s.Usage, "  c ", "  /", -1))
+		handleHelp(message)
+		break
 	}
 }
 
@@ -417,6 +420,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 answerEmpty:
 	bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, ""))
+}
+
+func handleHelp(message *tgbotapi.Message) {
+	notify(message.Chat.ID, strings.Replace(s.Usage, "  c ", "  /", -1))
 }
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
@@ -667,7 +674,7 @@ func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
 
 func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 	if cb.Message != nil {
-		text = cb.Message.Text + text
+		text = cb.Message.Text + " " + text
 	}
 
 	baseEdit := getBaseEdit(cb)

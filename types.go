@@ -158,8 +158,8 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 
 	if balance < 0 {
 		return res,
-			fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
-				int(-balance/1000)),
+			fmt.Sprintf("Insufficient balance. Needs %.3f more satoshis.",
+				-float64(balance)/1000),
 			true,
 			errors.New("insufficient balance")
 	}
@@ -272,8 +272,8 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 	}
 
 	if balance < 0 {
-		return fmt.Sprintf("Insufficient balance. Needs %d more satoshis.",
-				int(-balance/1000)),
+		return fmt.Sprintf("Insufficient balance. Needs %.3f more satoshis.",
+				-float64(balance)/1000),
 			errors.New("insufficient balance")
 	}
 
@@ -308,15 +308,15 @@ SELECT
   b.account_id,
   b.balance/1000 AS balance,
   (
-    SELECT coalesce(sum(amount), 0)/1000 FROM lightning.transaction AS t
+    SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.to_id
   ) AS totalrecv,
   (
-    SELECT coalesce(sum(amount), 0)/1000 FROM lightning.transaction AS t
+    SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
   ) AS totalsent,
   ( 
-    SELECT coalesce(sum(fees), 0)/1000 FROM lightning.transaction AS t
+    SELECT coalesce(sum(fees), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
   ) AS fees
 FROM lightning.balance AS b
@@ -329,7 +329,7 @@ GROUP BY b.account_id, b.balance
 func (u User) listTransactions() (txns []Transaction, err error) {
 	err = pg.Select(&txns, `
 SELECT * FROM (
-  SELECT time, telegram_peer, status, amount/1000 AS amount, payment_hash
+  SELECT time, telegram_peer, status, amount::float/1000 AS amount, payment_hash
   FROM lightning.account_txn
   WHERE account_id = $1
   ORDER BY time DESC
@@ -346,8 +346,8 @@ SELECT
   time,
   telegram_peer,
   status,
-  fees/1000 AS fees,
-  amount/1000 AS amount,
+  fees::float/1000 AS fees,
+  amount::float/1000 AS amount,
   payment_hash,
   coalesce(preimage, '') AS preimage
 FROM lightning.account_txn

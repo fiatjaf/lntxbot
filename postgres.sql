@@ -60,7 +60,7 @@ CREATE VIEW lightning.account_txn AS
 CREATE VIEW lightning.balance AS
     SELECT
       account.id AS account_id,
-      coalesce(sum(amount), 0) - coalesce(sum(fees), 0) AS balance
+      (coalesce(sum(amount), 0) - coalesce(sum(fees), 0))::float AS balance
     FROM lightning.account_txn
     RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
     GROUP BY account.id;
@@ -69,3 +69,6 @@ table telegram.account;
 table lightning.transaction;
 table lightning.account_txn;
 table lightning.balance;
+select * from telegram.account inner join lightning.balance on id = account_id;
+select sum(balance)*4000/100000000000 as us_cents from lightning.balance;
+delete from telegram.account where id in (select account_id from lightning.balance where balance = 0) and chat_id is null;
