@@ -17,8 +17,8 @@ CREATE TABLE lightning.transaction (
   to_id int REFERENCES telegram.account (id),
   amount int NOT NULL, -- in msatoshis
   fees int NOT NULL DEFAULT 0, -- in msatoshis
-  description text, -- null on internal sends/tips
-  payment_hash text NOT NULL DEFAULT md5(random()::text) || md5(random()::text), -- null on internal sends/tips
+  description text,
+  payment_hash text UNIQUE NOT NULL DEFAULT md5(random()::text) || md5(random()::text),
   label text, -- null on internal sends/tips
   preimage text
 );
@@ -71,4 +71,3 @@ table lightning.account_txn;
 table lightning.balance;
 select * from telegram.account inner join lightning.balance on id = account_id;
 select sum(balance)*4000/100000000000 as us_cents from lightning.balance;
-delete from telegram.account where id in (select account_id from lightning.balance where balance = 0) and chat_id is null;
