@@ -62,7 +62,7 @@ func handleMessage(message *tgbotapi.Message) {
 
 	// individual transaction query
 	if strings.HasPrefix(text, "/tx") {
-		hashfirstchars := text[4:]
+		hashfirstchars := text[3:]
 		txn, err := u.getTransaction(hashfirstchars)
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
@@ -73,8 +73,8 @@ func handleMessage(message *tgbotapi.Message) {
 		u.notify(mustache.Render(`
 `+"`{{Status}}`"+` {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}} on {{TimeFormat}}
 _{{Description}}_
-{{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}{{#HasPreimage}}
-*Preimage*: {{Preimage}}{{/HasPreimage}}
+{{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}
+{{#HasPreimage}}*Preimage*: {{Preimage}}{{/HasPreimage}}
 *Amount*: {{Satoshis}} satoshis
 {{#Fees}}*Fee paid*: {{FeeSatoshis}}{{/Fees}}
         `, txn))

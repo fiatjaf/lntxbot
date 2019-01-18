@@ -26,7 +26,7 @@ Things to know:
   - ` + "`/send` or `/tip`" + ` can send funds to any Telegram user, he'll be able to claim the funds once he registers with ` + "`/start`" + `;
   - ` + "`/pay now` or `/paynow`" + ` will skip the payment confirmation;
   - ` + "`/giveaway`" + ` will create a button in a chat and the first user to click that button will claim the satoshis you're giving away.
-  - ` + "`<userid> (<displayname>)`" + ` is the format Telegram gives you when you're trying to mention an user without an user without a username, example: "@12345 (Matthew)".
+  - ` + "`<userid> (<displayname>)`" + ` is the format Telegram gives you when you're trying to mention an user without an username, example: "@12345 (Matthew)".
 
 Plus:
   - Forward any message containing an invoice to this chat to pay it (after confirmation);
