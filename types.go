@@ -31,11 +31,34 @@ WHERE id = $1 OR telegram_id = $2
 }
 
 func ensureUser(telegramId int, username string) (u User, err error) {
+	username = strings.ToLower(username)
+
+	var (
+		vusername   sql.NullString
+		vtelegramid sql.NullString
+	)
+
+	if telegramId == 0 {
+		vtelegramid.Valid = false
+	} else {
+		vtelegramid.Scan(telegramId)
+	}
+
+	if username == "" {
+		vusername.Valid = false
+	} else {
+		vusername.Scan(username)
+	}
+
 	err = pg.Get(&u, `
 INSERT INTO telegram.account (telegram_id, username)
 VALUES ($1, $2)
-RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
-    `, telegramId, strings.ToLower(username))
+RETURNING
+  id,
+  coalesce(telegram_id, 0) AS telegram_id,
+  coalesce(username, '') AS username,
+  coalesce(chat_id, 0) AS chat_id
+    `, vtelegramid, vusername)
 	if err == nil {
 		return
 	}
@@ -44,8 +67,12 @@ RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
 UPDATE telegram.account
 SET telegram_id = $1, username = $2
 WHERE username = $2 OR telegram_id = $1
-RETURNING id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
-    `, telegramId, strings.ToLower(username))
+RETURNING
+  id,
+  coalesce(telegram_id, 0) AS telegram_id,
+  coalesce(username, '') AS username,
+  coalesce(chat_id, 0) AS chat_id
+    `, vtelegramid, vusername)
 	return
 }
 
