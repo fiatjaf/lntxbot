@@ -101,13 +101,17 @@ parsed:
 
 	switch {
 	case opts["start"].(bool):
-		// create user
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 			u.notify("Account created.")
 			handleHelp(message)
 		}
-
+		break
+	case opts["stop"].(bool):
+		if message.Chat.Type == "private" {
+			u.unsetChat()
+			u.notify("Notifications stopped.")
+		}
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool):
 		sats, err := opts.Int("<satoshis>")

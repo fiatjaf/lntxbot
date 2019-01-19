@@ -120,6 +120,10 @@ func (u *User) setChat(id int64) error {
 	return err
 }
 
+func (u *User) unsetChat() {
+	pg.Exec(`UPDATE telegram.account SET chat_id = NULL WHERE id = $1`, u.Id)
+}
+
 func (u User) notify(msg string) tgbotapi.Message {
 	return u.notifyAsReply(msg, 0)
 }
