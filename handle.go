@@ -447,7 +447,8 @@ answerEmpty:
 }
 
 func handleHelp(message *tgbotapi.Message) {
-	notify(message.Chat.ID, strings.Replace(s.Usage, "  c ", "  /", -1))
+	helpString := strings.Replace(s.Usage, "  c ", "  /", -1)
+	notify(message.Chat.ID, "```\n"+helpString+"\n```")
 }
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
