@@ -438,7 +438,17 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 		removeKeyboardButtons(cb)
 		claimer.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
-		appendTextToMessage(cb, fmt.Sprintf("%d satoshis given from %s to %s.", sats, u.AtName(), claimer.AtName()))
+
+		var howtoclaimmessage = ""
+		if claimer.ChatId == 0 {
+			howtoclaimmessage = " To manage your funds, start a conversation with @lntxbot."
+		}
+
+		appendTextToMessage(cb,
+			fmt.Sprintf(
+				"%d satoshis given from %s to %s.", sats, u.AtName(), claimer.AtName(),
+			)+howtoclaimmessage,
+		)
 		return
 	}
 

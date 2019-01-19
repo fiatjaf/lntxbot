@@ -80,7 +80,7 @@ func (u User) AtName() string {
 	if u.Username != "" {
 		return "@" + u.Username
 	}
-	return "@" + strconv.Itoa(u.TelegramId)
+	return fmt.Sprintf("@%[1]d (user-%[1]d)", u.TelegramId)
 }
 
 func ensureTelegramId(telegram_id int) (u User, err error) {
