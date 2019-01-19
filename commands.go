@@ -15,8 +15,8 @@ Usage:
   c decode <invoice>
   c (receive | invoice) <satoshis> [<description>...]
   c (pay [now] | paynow) [<invoice>] [<satoshis>]
+  c (send | tip) <satoshis> <username>... 
   c (send | tip) <username> <satoshis>
-  c (send | tip) <userid> (<displayname>) <satoshis>
   c giveaway <satoshis>
   c balance
   c transactions

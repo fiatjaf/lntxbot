@@ -151,43 +151,64 @@ parsed:
 		decodeNotifyBolt11(message.Chat.ID, bolt11, 0)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
+		var (
+			sats          int
+			todisplayname string
+			receiver      User
+
+			aok  bool
+			sval string
+			aval []string
+		)
+
 		sats, err := opts.Int("<satoshis>")
-		if err != nil {
+		if err != nil || sats <= 0 {
+			// maybe the order of arguments is inverted
+			if val, ok := opts["<satoshis>"].(string); ok && val[0] == '@' {
+				// it seems to be
+				if asats, ok := opts["<username>"].([]string); ok && len(asats) == 1 {
+					sats, _ = strconv.Atoi(asats[0])
+					sval = val
+					goto gotusername
+				}
+			}
+
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
 
-		var (
-			todisplayname string
-			receiver      User
-		)
-		if opts["<username>"] != nil {
-			toname := opts["<username>"].(string)
-			if toname[0] != '@' {
-				u.notify("Target user name should begin with a `@`.")
-				break
-			}
-			toname = toname[1:]
-			todisplayname = toname
-			receiver, err = ensureUsername(toname)
-		} else if opts["<userid>"] != nil && opts["<displayname>"] != nil {
-			todisplayname = opts["<displayname>"].(string)
-			toid := opts["<username>"].(string)
-			if toid[0] != '@' {
-				u.notify("Target user id should begin with a `@`.")
-				break
-			}
-			toid = toid[1:]
-			toidint, err := strconv.Atoi(toid)
-			if err != nil {
-				u.notify("Target user id should be a number, not `" + toid + "`.")
-				break
-			}
-			receiver, err = ensureTelegramId(toidint)
-		} else {
-			break
+		aval, aok = opts["<username>"].([]string)
+		if aok {
+			sval = strings.Join(aval, " ")
 		}
 
+	gotusername:
+		if len(sval) > 0 && sval[0] == '@' {
+			// a normal @username
+			toname := sval[1:]
+			todisplayname = toname
+			receiver, err = ensureUsername(toname)
+			goto ensured
+		}
+
+		// to a user without a username, check entities
+		if message.Entities != nil {
+			for _, entity := range *message.Entities {
+				if entity.Type == "text_mention" && entity.User != nil {
+					toid := entity.User.ID
+					todisplayname = strings.TrimSpace(
+						entity.User.FirstName + " " + entity.User.LastName,
+					)
+					receiver, err = ensureTelegramId(toid)
+					goto ensured
+				}
+			}
+		}
+
+		// no user found in message, break
+		break
+
+	ensured:
 		if err != nil {
 			log.Warn().Err(err).
 				Msg("failed to ensure target user on send/tip.")
@@ -204,7 +225,6 @@ parsed:
 			u.notify("Failed to send: " + errMsg)
 			break
 		}
-
 		receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
 
 		if message.Chat.Type == "private" {
@@ -218,7 +238,7 @@ parsed:
 
 		break
 	case opts["giveaway"].(bool):
-		if message.Chat.Type == "group" {
+		if message.Chat.Type == "group" || message.Chat.Type == "supergroup" {
 			sats, err := opts.Int("<satoshis>")
 			if err != nil {
 				u.notify("Invalid amount: " + opts["<satoshis>"].(string))
