@@ -111,7 +111,7 @@ func (u User) AtName() string {
 	if u.Username != "" {
 		return "@" + u.Username
 	}
-	return fmt.Sprintf("@%[1]d (user-%[1]d)", u.TelegramId)
+	return fmt.Sprintf("[user-%[1]s](tg://user?id=%[1]s)", u.TelegramId)
 }
 
 func ensureTelegramId(telegram_id int) (u User, err error) {
@@ -409,7 +409,7 @@ SELECT
   time,
   telegram_peer,
   status,
-  description,
+  coalesce(description, '') AS description,
   fees::float/1000 AS fees,
   amount::float/1000 AS amount,
   payment_hash,
@@ -422,21 +422,30 @@ ORDER BY time
 }
 
 type Transaction struct {
-	Time         time.Time `db:"time"`
-	Status       string    `db:"status"`
-	TelegramPeer *string   `db:"telegram_peer"`
-	Amount       float64   `db:"amount"`
-	Fees         float64   `db:"fees"`
-	Hash         string    `db:"payment_hash"`
-	Preimage     string    `db:"preimage"`
-	Description  string    `db:"description"`
+	Time         time.Time      `db:"time"`
+	Status       string         `db:"status"`
+	TelegramPeer sql.NullString `db:"telegram_peer"`
+	Amount       float64        `db:"amount"`
+	Fees         float64        `db:"fees"`
+	Hash         string         `db:"payment_hash"`
+	Preimage     string         `db:"preimage"`
+	Description  string         `db:"description"`
 }
 
 func (t Transaction) PeerActionDescription() string {
+	if !t.TelegramPeer.Valid {
+		return ""
+	}
+
+	name := "@" + t.TelegramPeer.String
+	if _, err := strconv.Atoi(t.TelegramPeer.String); err == nil {
+		name = fmt.Sprintf("[user-%[1]s](tg://user?id=%[1]s)", t.TelegramPeer.String)
+	}
+
 	if t.Status == "RECEIVED" {
-		return "from @" + *t.TelegramPeer
+		return "from " + name
 	} else {
-		return "to @" + *t.TelegramPeer
+		return "to " + name
 	}
 }
 

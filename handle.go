@@ -71,9 +71,9 @@ func handleMessage(message *tgbotapi.Message) {
 		}
 
 		u.notify(mustache.Render(`
-`+"`{{Status}}`"+` {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}} on {{TimeFormat}}
+`+"`{{Status}}`"+` {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}}
 _{{Description}}_
-{{^TelegramPeer}}*Hash*: {{Hash}}{{/TelegramPeer}}
+{{^TelegramPeer.Valid}}*Hash*: {{Hash}}{{/TelegramPeer.Valid}}
 {{#HasPreimage}}*Preimage*: {{Preimage}}{{/HasPreimage}}
 *Amount*: {{Satoshis}} satoshis
 {{#Fees}}*Fee paid*: {{FeeSatoshis}}{{/Fees}}
@@ -270,7 +270,7 @@ parsed:
 
 		u.notify(mustache.Render(`*Latest transactions*
 {{#txns}}
-`+"{{StatusSmall}}"+` `+"`{{PaddedSatoshis}}`"+` {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}}{{^TelegramPeer}}_{{Description}}_{{/TelegramPeer}} _{{TimeFormatSmall}}_ /tx{{HashReduced}}
+`+"{{StatusSmall}}"+` `+"`{{PaddedSatoshis}}`"+` {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}_{{Description}}_{{/TelegramPeer.Valid}} _{{TimeFormatSmall}}_ /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
