@@ -203,8 +203,8 @@ VALUES ($1, $2, $3, $4, $5)
 		return res, "Database error.", true, err
 	}
 
-	txn.Get(&balance, `
-SELECT balance FROM lightning.balance WHERE account_id = $1
+	err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		return res, "Database error.", true, err
@@ -318,8 +318,8 @@ VALUES ($1, $2, $3, $4, $5)
 		return "Database error.", err
 	}
 
-	txn.Get(&balance, `
-SELECT balance FROM lightning.balance WHERE account_id = $1
+	err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		return "Database error.", err
