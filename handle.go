@@ -113,7 +113,7 @@ parsed:
 			u.notify("Notifications stopped.")
 		}
 		break
-	case opts["receive"].(bool), opts["invoice"].(bool):
+	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
@@ -289,7 +289,7 @@ parsed:
 *Total fees paid*: %.3f satoshis
         `, info.Balance, info.TotalReceived, info.TotalSent, info.TotalFees))
 		break
-	case opts["pay"].(bool):
+	case opts["pay"].(bool), opts["withdraw"].(bool):
 		// pay invoice
 		askConfirmation := true
 		if opts["now"].(bool) {
