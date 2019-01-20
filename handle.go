@@ -72,11 +72,11 @@ func handleMessage(message *tgbotapi.Message) {
 
 		u.notify(mustache.Render(`
 `+"`{{Status}}`"+` {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}}
-_{{Description}}_
-{{^TelegramPeer.Valid}}*Hash*: {{Hash}}{{/TelegramPeer.Valid}}
-{{#HasPreimage}}*Preimage*: {{Preimage}}{{/HasPreimage}}
+_{{Description}}_{{^TelegramPeer.Valid}} 
+*Hash*: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
+*Preimage*: {{Preimage}}{{/HasPreimage}}
 *Amount*: {{Satoshis}} satoshis
-{{#Fees}}*Fee paid*: {{FeeSatoshis}}{{/Fees}}
+{{^IsReceive}}*Fee paid*: {{FeeSatoshis}}{{/IsReceive}}
         `, txn))
 		return
 	}
@@ -103,7 +103,7 @@ parsed:
 	case opts["start"].(bool):
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
-			u.notify("Account created.")
+			u.notify("Your account is created.")
 			handleHelp(message)
 		}
 		break

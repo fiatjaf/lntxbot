@@ -460,6 +460,10 @@ func (t Transaction) StatusSmall() string {
 	}
 }
 
+func (t Transaction) IsReceive() bool {
+	return t.Status == "RECEIVED"
+}
+
 func (t Transaction) HasPreimage() bool {
 	return t.Preimage != ""
 }
