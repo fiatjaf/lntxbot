@@ -383,7 +383,16 @@ GROUP BY b.account_id, b.balance
 func (u User) listTransactions() (txns []Transaction, err error) {
 	err = pg.Select(&txns, `
 SELECT * FROM (
-  SELECT time, telegram_peer, status, amount::float/1000 AS amount, payment_hash
+  SELECT
+    time,
+    telegram_peer,
+    status,
+    CASE WHEN char_length(coalesce(description, '')) <= 16
+      THEN coalesce(description, '')
+      ELSE substring(coalesce(description, '') from 0 for 15) || '…'
+    END AS description,
+    amount::float/1000 AS amount,
+    payment_hash
   FROM lightning.account_txn
   WHERE account_id = $1
   ORDER BY time DESC
@@ -400,6 +409,7 @@ SELECT
   time,
   telegram_peer,
   status,
+  description,
   fees::float/1000 AS fees,
   amount::float/1000 AS amount,
   payment_hash,
@@ -458,7 +468,7 @@ func (t Transaction) Satoshis() string {
 }
 
 func (t Transaction) PaddedSatoshis() string {
-	return fmt.Sprintf("%8.1f", t.Amount)
+	return fmt.Sprintf("%7.1f", t.Amount)
 }
 
 func (t Transaction) FeeSatoshis() string {

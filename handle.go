@@ -270,7 +270,7 @@ parsed:
 
 		u.notify(mustache.Render(`*Latest transactions*
 {{#txns}}
-`+"{{StatusSmall}}"+` `+"`{{PaddedSatoshis}}`"+`{{#TelegramPeer}} {{PeerActionDescription}}{{/TelegramPeer}} _{{TimeFormatSmall}}_ /tx{{HashReduced}}
+`+"{{StatusSmall}}"+` `+"`{{PaddedSatoshis}}`"+` {{#TelegramPeer}}{{PeerActionDescription}}{{/TelegramPeer}}{{^TelegramPeer}}_{{Description}}_{{/TelegramPeer}} _{{TimeFormatSmall}}_ /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
@@ -691,30 +691,4 @@ func handleInvoicePaid(res gjson.Result) {
 		fmt.Sprintf("Payment received: %d. \n\nhash: %s.", msats/1000, hash),
 		messageIdFromLabel(label),
 	)
-}
-
-func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
-	baseEdit := getBaseEdit(cb)
-
-	baseEdit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
-		},
-	}
-
-	bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
-		BaseEdit: baseEdit,
-	})
-}
-
-func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
-	if cb.Message != nil {
-		text = cb.Message.Text + " " + text
-	}
-
-	baseEdit := getBaseEdit(cb)
-	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit: baseEdit,
-		Text:     text,
-	})
 }

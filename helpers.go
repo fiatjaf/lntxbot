@@ -201,9 +201,28 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	return message
 }
 
-func ensurePositive(v int) error {
-	if v <= 0 {
-		return errors.New("Needs a positive amount.")
+func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
+	baseEdit := getBaseEdit(cb)
+
+	baseEdit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			[]tgbotapi.InlineKeyboardButton{},
+		},
 	}
-	return nil
+
+	bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
+		BaseEdit: baseEdit,
+	})
+}
+
+func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
+	if cb.Message != nil {
+		text = cb.Message.Text + " " + text
+	}
+
+	baseEdit := getBaseEdit(cb)
+	bot.Send(tgbotapi.EditMessageTextConfig{
+		BaseEdit: baseEdit,
+		Text:     text,
+	})
 }
