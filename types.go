@@ -21,9 +21,16 @@ type User struct {
 	ChatId     int64  `db:"chat_id"`
 }
 
+const USERFIELDS = `
+  id,
+  coalesce(telegram_id, 0) AS telegram_id,
+  coalesce(username, '') AS username,
+  coalesce(chat_id, 0) AS chat_id
+`
+
 func loadUser(id int, telegramId int) (u User, err error) {
 	err = pg.Get(&u, `
-SELECT id, telegram_id, username, coalesce(chat_id, 0) AS chat_id
+SELECT `+USERFIELDS+`
 FROM telegram.account
 WHERE id = $1 OR telegram_id = $2
     `, id, telegramId)
@@ -32,17 +39,7 @@ WHERE id = $1 OR telegram_id = $2
 
 func ensureUser(telegramId int, username string) (u User, err error) {
 	username = strings.ToLower(username)
-
-	var (
-		vusername   sql.NullString
-		vtelegramid sql.NullString
-	)
-
-	if telegramId == 0 {
-		vtelegramid.Valid = false
-	} else {
-		vtelegramid.Scan(telegramId)
-	}
+	var vusername sql.NullString
 
 	if username == "" {
 		vusername.Valid = false
@@ -50,30 +47,64 @@ func ensureUser(telegramId int, username string) (u User, err error) {
 		vusername.Scan(username)
 	}
 
-	err = pg.Get(&u, `
-INSERT INTO telegram.account (telegram_id, username)
-VALUES ($1, $2)
-RETURNING
-  id,
-  coalesce(telegram_id, 0) AS telegram_id,
-  coalesce(username, '') AS username,
-  coalesce(chat_id, 0) AS chat_id
-    `, vtelegramid, vusername)
-	if err == nil {
+	var userRows []User
+	err = pg.Select(&userRows, `
+SELECT `+USERFIELDS+` FROM telegram.account
+WHERE telegram_id = $1 OR username = $2
+    `, telegramId, username)
+	if err != nil && err != sql.ErrNoRows {
 		return
 	}
 
-	err = pg.Get(&u, `
+	switch len(userRows) {
+	case 0:
+		// user not registered
+		err = pg.Get(&u, `
+INSERT INTO telegram.account (telegram_id, username)
+VALUES ($1, $2)
+RETURNING `+USERFIELDS,
+			telegramId, vusername)
+		return
+	case 1:
+		// user registered, update if necessary then leave
+		u = userRows[0]
+		if u.Username == username && u.TelegramId == telegramId {
+			// all is well, just return
+		} else if u.Username != username {
+			// update username
+			err = pg.Get(&u, `
+UPDATE telegram.account SET username = $2 WHERE telegram_id = $1
+RETURNING `+USERFIELDS,
+				telegramId, vusername)
+		} else if u.TelegramId != telegramId {
+			// update telegram_id
+			err = pg.Get(&u, `
+UPDATE telegram.account SET telegram_id = $1 WHERE username = $1
+RETURNING `+USERFIELDS,
+				telegramId, username)
+		}
+		return
+	case 2:
+		// user has 2 accounts, one with the username, other with the telegram_id
+		err = pg.Get(&u, `
+WITH mtr AS (
+  UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2
+), mts AS (
+  UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2
+), delold AS (
+  DELETE FROM telegram.account WHERE id = $2
+)
 UPDATE telegram.account
-SET telegram_id = $1, username = $2
-WHERE username = $2 OR telegram_id = $1
-RETURNING
-  id,
-  coalesce(telegram_id, 0) AS telegram_id,
-  coalesce(username, '') AS username,
-  coalesce(chat_id, 0) AS chat_id
-    `, vtelegramid, vusername)
-	return
+SET telegram_id = $3, username = $4
+WHERE id = $1
+RETURNING `+USERFIELDS,
+			userRows[0].Id, userRows[1].Id, telegramId, vusername)
+		return
+	default:
+		err = errors.New("odd error with more than 2 rows for the same user.")
+		return
+	}
+
 }
 
 func (u User) AtName() string {
@@ -88,12 +119,8 @@ func ensureTelegramId(telegram_id int) (u User, err error) {
 INSERT INTO telegram.account (telegram_id)
 VALUES ($1)
 ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
-RETURNING
-   id,
-   telegram_id,
-   coalesce(username, '') AS username,
-   coalesce(chat_id, 0) AS chat_id
-    `, telegram_id)
+RETURNING `+USERFIELDS,
+		telegram_id)
 	return
 }
 
@@ -103,12 +130,8 @@ func ensureUsername(username string) (u User, err error) {
 INSERT INTO telegram.account (username)
 VALUES ($1)
 ON CONFLICT (username) DO UPDATE SET username = $1
-RETURNING
-   id,
-   coalesce(telegram_id, 0) AS telegram_id,
-   username,
-   coalesce(chat_id, 0) AS chat_id
-    `, strings.ToLower(username))
+RETURNING `+USERFIELDS,
+		strings.ToLower(username))
 	return
 }
 
