@@ -15,7 +15,7 @@ Usage:
   c decode <invoice>
   c (receive | invoice | fund) <satoshis> [<description>...]
   c (pay [now] | paynow | withdraw) [<invoice>] [<satoshis>]
-  c (send | tip) <satoshis> <username>... 
+  c (send | tip) <satoshis> [<username>...]
   c giveaway <satoshis>
   c balance
   c transactions
@@ -25,8 +25,9 @@ Usage:
 Things to know:
   - ` + "`/send` or `/tip`" + ` can send funds to any Telegram user, he'll be able to claim the funds once he registers with ` + "`/start`" + `;
   - To send funds to users without username, use the autocomplete prompt Telegram gives you when you start typing "@" and their name: ` + "`/send 500 @autocomplete-here`" + `;
+  - Replying to a message with ` + "`/tip <satoshis>`" + ` will send that amount to the messge author (the bot must be added to the group for this to work).
   - ` + "`/pay now` or `/paynow`" + ` will skip the payment confirmation;
-  - ` + "`/giveaway`" + ` will create a button in a chat and the first user to click that button will claim the satoshis you're giving away.
+  - ` + "`/giveaway`" + ` will create a button in a chat and the first user to click that button will claim the satoshis you're giving away;
   - ` + "`/stop`" + ` will make you stop receiving notifications from the bot, but you'll not lose your account. You can call ` + "`/start`" + ` to receive notifications again.
 
 Plus:

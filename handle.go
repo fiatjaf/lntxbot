@@ -155,14 +155,12 @@ parsed:
 		decodeNotifyBolt11(message.Chat.ID, bolt11, 0)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
+		// sending money to others
 		var (
 			sats          int
 			todisplayname string
 			receiver      User
-
-			aok  bool
-			sval string
-			aval []string
+			username      string
 		)
 
 		sats, err := opts.Int("<satoshis>")
@@ -172,7 +170,7 @@ parsed:
 				// it seems to be
 				if asats, ok := opts["<username>"].([]string); ok && len(asats) == 1 {
 					sats, _ = strconv.Atoi(asats[0])
-					sval = val
+					username = val
 					goto gotusername
 				}
 			}
@@ -181,15 +179,42 @@ parsed:
 			break
 		}
 
-		aval, aok = opts["<username>"].([]string)
-		if aok {
-			sval = strings.Join(aval, " ")
+		if aval, ok := opts["<username>"].([]string); ok && len(aval) > 0 {
+			// got a username
+			username = strings.Join(aval, " ")
+			goto gotusername
 		}
 
+		// no username, this may be a reply-tip
+		if message.ReplyToMessage != nil {
+			reply := message.ReplyToMessage
+
+			receiver, err = ensureUser(reply.From.ID, reply.From.UserName)
+			if err != nil {
+				log.Warn().Err(err).
+					Str("username", reply.From.UserName).
+					Int("id", reply.From.ID).
+					Msg("failed to ensure user on reply-tip")
+				break
+			}
+			if reply.From.UserName != "" {
+				todisplayname = reply.From.UserName
+			} else {
+				todisplayname = strings.TrimSpace(
+					reply.From.FirstName + " " + reply.From.LastName,
+				)
+			}
+			goto ensured
+		}
+
+		// if we ever reach this point then it's because the receiver is missing.
+		u.notify("Can't send " + opts["<satoshis>"].(string) + ". Missing receiver!")
+		break
+
 	gotusername:
-		if len(sval) > 0 && sval[0] == '@' {
+		if len(username) > 0 && username[0] == '@' {
 			// a normal @username
-			toname := sval[1:]
+			toname := username[1:]
 			todisplayname = toname
 			receiver, err = ensureUsername(toname)
 			goto ensured
