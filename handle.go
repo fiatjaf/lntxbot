@@ -89,7 +89,7 @@ _{{Description}}_{{^TelegramPeer.Valid}}
 	if err != nil {
 		log.Warn().Err(err).Str("command", text).
 			Msg("Failed to parse command")
-		u.notify("Could not understand the command.")
+		u.notify("Could not understand the command. /help")
 		return
 	}
 
