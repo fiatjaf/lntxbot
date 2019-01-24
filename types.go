@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/jmoiron/sqlx"
 	"github.com/tidwall/gjson"
 )
 
@@ -87,19 +88,53 @@ RETURNING `+USERFIELDS,
 		return
 	case 2:
 		// user has 2 accounts, one with the username, other with the telegram_id
-		err = pg.Get(&u, `
-WITH mtr AS (
-  UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2
-), mts AS (
-  UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2
-), delold AS (
-  DELETE FROM telegram.account WHERE id = $2
-)
+		var txn *sqlx.Tx
+		txn, err = pg.BeginTxx(context.TODO(),
+			&sql.TxOptions{Isolation: sql.LevelSerializable})
+		if err != nil {
+			return
+		}
+		defer txn.Rollback()
+
+		idToDelete := userRows[1].Id
+		idToRemain := userRows[0].Id
+
+		_, err = txn.Exec(
+			"UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2",
+			idToRemain, idToDelete)
+		if err != nil {
+			return
+		}
+
+		_, err = txn.Exec(
+			"UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2",
+			idToRemain, idToDelete)
+		if err != nil {
+			return
+		}
+
+		_, err = txn.Exec(
+			"DELETE FROM telegram.account WHERE id = $1",
+			idToDelete)
+		if err != nil {
+			return
+		}
+
+		err = txn.Get(&u, `
 UPDATE telegram.account
-SET telegram_id = $3, username = $4
+SET telegram_id = $2, username = $3
 WHERE id = $1
 RETURNING `+USERFIELDS,
-			userRows[0].Id, userRows[1].Id, telegramId, vusername)
+			idToRemain, telegramId, vusername)
+		if err != nil {
+			return
+		}
+
+		err = txn.Commit()
+		if err != nil {
+			return
+		}
+
 		return
 	default:
 		err = errors.New("odd error with more than 2 rows for the same user.")
