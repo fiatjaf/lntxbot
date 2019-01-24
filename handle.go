@@ -27,9 +27,15 @@ func handle(upd tgbotapi.Update) {
 }
 
 func handleMessage(message *tgbotapi.Message) {
-	u, err := ensureUser(message.From.ID, message.From.UserName)
+	if message.Entities == nil || len(*message.Entities) == 0 ||
+		(*message.Entities)[0].Type != "bot_command" ||
+		(*message.Entities)[0].Offset != 0 {
+		return
+	}
+
+	u, t, err := ensureUser(message.From.ID, message.From.UserName)
 	if err != nil {
-		log.Warn().Err(err).
+		log.Warn().Err(err).Int("case", t).
 			Str("username", message.From.UserName).
 			Int("id", message.From.ID).
 			Msg("failed to ensure user")
@@ -163,7 +169,9 @@ parsed:
 			username      string
 		)
 
+		// get quantity
 		sats, err := opts.Int("<satoshis>")
+
 		if err != nil || sats <= 0 {
 			// maybe the order of arguments is inverted
 			if val, ok := opts["<satoshis>"].(string); ok && val[0] == '@' {
@@ -177,21 +185,43 @@ parsed:
 
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
+		} else {
+			if aval, ok := opts["<username>"].([]string); ok && len(aval) > 0 {
+				// got a username
+				username = strings.Join(aval, " ")
+				goto gotusername
+			}
 		}
 
-		if aval, ok := opts["<username>"].([]string); ok && len(aval) > 0 {
-			// got a username
-			username = strings.Join(aval, " ")
-			goto gotusername
+	gotusername:
+		// check entities for user type
+		for _, entity := range *message.Entities {
+			if entity.Type == "text_mention" && entity.User != nil {
+				// user without username
+				toid := entity.User.ID
+				todisplayname = strings.TrimSpace(
+					entity.User.FirstName + " " + entity.User.LastName,
+				)
+				receiver, err = ensureTelegramId(toid)
+				goto ensured
+			}
+			if entity.Type == "mention" {
+				// user with username
+				toname := username[1:]
+				todisplayname = toname
+				receiver, err = ensureUsername(toname)
+				goto ensured
+			}
 		}
 
 		// no username, this may be a reply-tip
 		if message.ReplyToMessage != nil {
 			reply := message.ReplyToMessage
 
-			receiver, err = ensureUser(reply.From.ID, reply.From.UserName)
+			var t int
+			receiver, t, err = ensureUser(reply.From.ID, reply.From.UserName)
 			if err != nil {
-				log.Warn().Err(err).
+				log.Warn().Err(err).Int("case", t).
 					Str("username", reply.From.UserName).
 					Int("id", reply.From.ID).
 					Msg("failed to ensure user on reply-tip")
@@ -209,32 +239,6 @@ parsed:
 
 		// if we ever reach this point then it's because the receiver is missing.
 		u.notify("Can't send " + opts["<satoshis>"].(string) + ". Missing receiver!")
-		break
-
-	gotusername:
-		if len(username) > 0 && username[0] == '@' {
-			// a normal @username
-			toname := username[1:]
-			todisplayname = toname
-			receiver, err = ensureUsername(toname)
-			goto ensured
-		}
-
-		// to a user without a username, check entities
-		if message.Entities != nil {
-			for _, entity := range *message.Entities {
-				if entity.Type == "text_mention" && entity.User != nil {
-					toid := entity.User.ID
-					todisplayname = strings.TrimSpace(
-						entity.User.FirstName + " " + entity.User.LastName,
-					)
-					receiver, err = ensureTelegramId(toid)
-					goto ensured
-				}
-			}
-		}
-
-		// no user found in message, break
 		break
 
 	ensured:
@@ -379,9 +383,9 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		appendTextToMessage(cb, "Canceled.")
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
-		u, err := ensureUser(cb.From.ID, cb.From.UserName)
+		u, t, err := ensureUser(cb.From.ID, cb.From.UserName)
 		if err != nil {
-			log.Warn().Err(err).
+			log.Warn().Err(err).Int("case", t).
 				Str("username", cb.From.UserName).
 				Int("id", cb.From.ID).
 				Msg("failed to ensure user")
@@ -447,9 +451,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		claimer, err := ensureUser(cb.From.ID, cb.From.UserName)
+		claimer, t, err := ensureUser(cb.From.ID, cb.From.UserName)
 		if err != nil {
-			log.Warn().Err(err).
+			log.Warn().Err(err).Int("case", t).
+				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to ensure claimer user on giveaway.")
 			goto answerEmpty
 		}

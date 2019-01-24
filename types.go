@@ -37,7 +37,7 @@ WHERE id = $1 OR telegram_id = $2
 	return
 }
 
-func ensureUser(telegramId int, username string) (u User, err error) {
+func ensureUser(telegramId int, username string) (u User, tcase int, err error) {
 	username = strings.ToLower(username)
 	var vusername sql.NullString
 
@@ -56,7 +56,8 @@ WHERE telegram_id = $1 OR username = $2
 		return
 	}
 
-	switch len(userRows) {
+	tcase = len(userRows)
+	switch tcase {
 	case 0:
 		// user not registered
 		err = pg.Get(&u, `
