@@ -81,7 +81,7 @@ RETURNING `+USERFIELDS,
 		} else if u.TelegramId != telegramId {
 			// update telegram_id
 			err = pg.Get(&u, `
-UPDATE telegram.account SET telegram_id = $1 WHERE username = $1
+UPDATE telegram.account SET telegram_id = $1 WHERE username = $2
 RETURNING `+USERFIELDS,
 				telegramId, username)
 		}
