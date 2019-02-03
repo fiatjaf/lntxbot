@@ -260,7 +260,7 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	// actually send the lightning payment
-	res, err = ln.CallWithCustomTimeout("pay", time.Second*61, params...)
+	res, err = ln.CallWithCustomTimeout(time.Second*61, "pay", params...)
 	if err != nil {
 		// if it fails we must remove the transaction
 		if _, err := pg.Exec(
