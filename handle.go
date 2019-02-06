@@ -110,7 +110,7 @@ parsed:
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 			u.notify("Your account is created.")
-			handleHelp(message)
+			handleHelp(u)
 		}
 		break
 	case opts["stop"].(bool):
@@ -369,7 +369,7 @@ parsed:
 		}
 		break
 	case opts["help"].(bool):
-		handleHelp(message)
+		handleHelp(u)
 		break
 	}
 }
@@ -486,9 +486,9 @@ answerEmpty:
 	bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, ""))
 }
 
-func handleHelp(message *tgbotapi.Message) {
+func handleHelp(u User) {
 	helpString := strings.Replace(s.Usage, "  c ", "  /", -1)
-	notify(message.Chat.ID, "```\n"+helpString+"\n```")
+	u.notify("```\n" + helpString + "\n```")
 }
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
