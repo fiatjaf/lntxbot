@@ -27,12 +27,6 @@ func handle(upd tgbotapi.Update) {
 }
 
 func handleMessage(message *tgbotapi.Message) {
-	if message.Entities == nil || len(*message.Entities) == 0 ||
-		(*message.Entities)[0].Type != "bot_command" ||
-		(*message.Entities)[0].Offset != 0 {
-		return
-	}
-
 	u, t, err := ensureUser(message.From.ID, message.From.UserName)
 	if err != nil {
 		log.Warn().Err(err).Int("case", t).
@@ -42,11 +36,17 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// after ensuring the user we should always enable him to
-	// receive payment notifications and so on, as not all people will
-	// remember to call /start
 	if message.Chat.Type == "private" {
+		// after ensuring the user we should always enable him to
+		// receive payment notifications and so on, as not all people will
+		// remember to call /start
 		u.setChat(message.Chat.ID)
+	} else if message.Entities == nil || len(*message.Entities) == 0 ||
+		// unless in the private chat, only messages starting with
+		// bot commands will work
+		(*message.Entities)[0].Type != "bot_command" ||
+		(*message.Entities)[0].Offset != 0 {
+		return
 	}
 
 	var (
