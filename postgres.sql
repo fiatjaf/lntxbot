@@ -71,4 +71,4 @@ table lightning.account_txn;
 table lightning.balance;
 select * from telegram.account inner join lightning.balance on id = account_id;
 select count(*) as active_users from telegram.account where chat_id is not null;
-select sum(balance)*4000/100000000000 as us_cents from lightning.balance;
+select sum(balance)*4000/100000000000 as us_dollars from lightning.balance;
