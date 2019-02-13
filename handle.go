@@ -134,6 +134,7 @@ parsed:
 
 		bolt11, qrpath, err := makeInvoice(u, label, sats, desc)
 		if err != nil {
+			log.Warn().Err(err).Msg("failed to generate invoice")
 			notify(message.Chat.ID, "Failed to generate invoice.")
 			return
 		}
