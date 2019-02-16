@@ -161,7 +161,6 @@ RETURNING `+USERFIELDS,
 }
 
 func ensureUsername(username string) (u User, err error) {
-	log.Print(username)
 	err = pg.Get(&u, `
 INSERT INTO telegram.account (username)
 VALUES ($1)
