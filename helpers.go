@@ -162,8 +162,7 @@ func makeInvoice(u User, label string, sats int, desc string) (bolt11 string, qr
 	rds.Set("recinvoice:"+label+":creator", u.Id, s.InvoiceTimeout)
 
 	// make invoice
-	res, err := ln.Call("invoice", strconv.Itoa(sats*1000),
-		label, desc, strconv.Itoa(int(s.InvoiceTimeout/time.Second)))
+	res, err := ln.Call("invoice", sats*1000, label, desc, int(s.InvoiceTimeout/time.Second))
 	if err != nil {
 		return
 	}

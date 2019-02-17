@@ -69,13 +69,12 @@ func main() {
 	}
 
 	// lightningd connection
-	ln, err = lightning.Connect(s.SocketPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("couldn't connect to lightning-rpc")
-	}
 	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
-	ln.LastInvoiceIndex = int(lastinvoiceindex)
-	ln.PaymentHandler = handleInvoicePaid
+	ln = &lightning.Client{
+		Path:             s.SocketPath,
+		LastInvoiceIndex: int(lastinvoiceindex),
+		PaymentHandler:   handleInvoicePaid,
+	}
 	ln.ListenForInvoices()
 
 	// bot stuff

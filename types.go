@@ -209,12 +209,12 @@ func (u User) payInvoice(
 	amount := int(inv.Get("msatoshi").Int())
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
-	params := []string{bolt11}
+	params := []interface{}{bolt11}
 
 	if amount == 0 {
 		// amount is optional, so let's use the provided on the command
 		amount = msatoshi
-		params = append(params, strconv.Itoa(amount))
+		params = append(params, amount)
 	}
 	if amount == 0 {
 		// if nothing was provided, end here
