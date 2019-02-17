@@ -259,11 +259,21 @@ parsed:
 			u.notify("Failed to send: " + errMsg)
 			break
 		}
-		receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
+
+		if receiver.ChatId != 0 {
+			receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
+		}
 
 		if message.Chat.Type == "private" {
+			warning := ""
+			if receiver.ChatId == 0 {
+				warning = fmt.Sprintf(
+					" (couldn't notify %s as they haven't started a conversation with the bot)",
+					todisplayname,
+				)
+			}
 			u.notifyAsReply(
-				fmt.Sprintf("%d satoshis sent to %s.", sats, todisplayname),
+				fmt.Sprintf("%d satoshis sent to %s%s.", sats, todisplayname, warning),
 				message.MessageID,
 			)
 		} else {
