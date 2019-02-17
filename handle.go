@@ -132,7 +132,12 @@ parsed:
 
 		label := makeLabel(u.ChatId, message.MessageID)
 
-		bolt11, qrpath, err := makeInvoice(u, label, sats, desc)
+		var preimage string
+		if param, ok := opts["--preimage"]; ok {
+			preimage, _ = param.(string)
+		}
+
+		bolt11, qrpath, err := makeInvoice(u, label, sats, desc, preimage)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
 			notify(message.Chat.ID, messageFromError(err, "Failed to generate invoice"))
@@ -536,7 +541,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		bolt11, qrpath, err := makeInvoice(u, label, sats, "inline-"+q.ID)
+		bolt11, qrpath, err := makeInvoice(u, label, sats, "inline-"+q.ID, "")
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty

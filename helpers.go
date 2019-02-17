@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -155,15 +157,34 @@ func decodeInvoice(invoice string) (inv gjson.Result, err error) {
 	return
 }
 
-func makeInvoice(u User, label string, sats int, desc string) (bolt11 string, qrpath string, err error) {
-	log.Debug().Str("label", label).Str("desc", desc).Int("sats", sats).
+func makeInvoice(
+	u User,
+	label string,
+	sats int,
+	desc string,
+	preimage string,
+) (bolt11 string, qrpath string, err error) {
+	log.Debug().Str("label", label).Str("desc", desc).Int("sats", sats).Str("preimage", preimage).
 		Msg("generating invoice")
+
+	if preimage == "" {
+		preimage, err = randomPreimage()
+		if err != nil {
+			return
+		}
+	}
 
 	// save invoice creator on redis
 	rds.Set("recinvoice:"+label+":creator", u.Id, s.InvoiceTimeout)
 
 	// make invoice
-	res, err := ln.Call("invoice", sats*1000, label, desc, int(s.InvoiceTimeout/time.Second))
+	res, err := ln.Call("invoice", map[string]interface{}{
+		"msatoshi":    sats * 1000,
+		"label":       label,
+		"description": desc,
+		"expiry":      int(s.InvoiceTimeout / time.Second),
+		"preimage":    preimage,
+	})
 	if err != nil {
 		return
 	}
@@ -242,4 +263,17 @@ func messageFromError(err error, prefix string) string {
 		msg = err.Error()
 	}
 	return prefix + ": " + msg
+}
+
+func randomPreimage() (string, error) {
+	hex := []rune("0123456789abcdef")
+	b := make([]rune, 64)
+	for i := range b {
+		r, err := rand.Int(rand.Reader, big.NewInt(16))
+		if err != nil {
+			return "", err
+		}
+		b[i] = hex[r.Int64()]
+	}
+	return string(b), nil
 }
