@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/lucsky/cuid"
@@ -224,4 +225,21 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 		BaseEdit: baseEdit,
 		Text:     text,
 	})
+}
+
+func messageFromError(err error, prefix string) string {
+	var msg string
+	switch terr := err.(type) {
+	case lightning.ErrorTimeout:
+		msg = fmt.Sprintf("Operation has timed out after %d", terr.Seconds)
+	case lightning.ErrorCommand:
+		msg = terr.Msg
+	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
+		msg = "Problem connecting to our node. Please try again in a minute."
+	case lightning.ErrorJSONDecode:
+		msg = "Error reading response from lightningd."
+	default:
+		msg = err.Error()
+	}
+	return prefix + ": " + msg
 }

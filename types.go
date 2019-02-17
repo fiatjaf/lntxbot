@@ -261,6 +261,8 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	// actually send the lightning payment
 	res, err = ln.CallWithCustomTimeout(time.Second*61, "pay", params...)
 	if err != nil {
+		errMsg = messageFromError(err, "Error paying")
+
 		// if it fails we must remove the transaction
 		if _, err := pg.Exec(
 			`DELETE FROM lightning.transaction WHERE payment_hash = $1`,
@@ -269,7 +271,7 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 				Msg("failed to cancel transaction after routing failure.")
 		}
 
-		return res, "Routing failed.", true, err
+		return res, errMsg, true, err
 	}
 
 	// save fees and preimage
@@ -296,7 +298,7 @@ func (u User) payInternally(
 ) (msats int, hash string, errMsg string, mayRetry bool, err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
-		return 0, "", "Failed to decode invoice.", false, err
+		return 0, "", messageFromError(err, "Failed to decode invoice"), false, err
 	}
 
 	log.Print("making internal payment")

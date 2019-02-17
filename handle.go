@@ -135,7 +135,7 @@ parsed:
 		bolt11, qrpath, err := makeInvoice(u, label, sats, desc)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
-			notify(message.Chat.ID, "Failed to generate invoice.")
+			notify(message.Chat.ID, messageFromError(err, "Failed to generate invoice"))
 			return
 		}
 
@@ -594,7 +594,8 @@ answerEmpty:
 func decodeNotifyBolt11(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.Message) {
 	inv, err := decodeInvoice(bolt11)
 	if err != nil {
-		notify(chatId, "Invalid bolt11: "+err.Error())
+		errMsg := messageFromError(err, "Failed to decode invoice")
+		notify(chatId, errMsg)
 		return
 	}
 
