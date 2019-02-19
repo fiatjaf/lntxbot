@@ -685,7 +685,7 @@ func payInvoice(u User, bolt11, label string, optmsats int) (paid, mayRetry bool
 			Str("bolt11", bolt11).
 			Str("label", label).
 			Msg("couldn't pay invoice")
-		u.notify("Failed to pay: " + errMsg)
+		u.notify(errMsg)
 
 		return false, mayRetry
 	}

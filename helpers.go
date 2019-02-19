@@ -252,7 +252,7 @@ func messageFromError(err error, prefix string) string {
 	var msg string
 	switch terr := err.(type) {
 	case lightning.ErrorTimeout:
-		msg = fmt.Sprintf("Operation has timed out after %d", terr.Seconds)
+		msg = fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
 	case lightning.ErrorCommand:
 		msg = terr.Msg
 	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
