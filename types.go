@@ -209,12 +209,18 @@ func (u User) payInvoice(
 	amount := int(inv.Get("msatoshi").Int())
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
-	params := []interface{}{bolt11}
+	params := map[string]interface{}{
+		"bolt11":        bolt11,
+		"riskfactor":    6,
+		"maxfeepercent": 1,
+		"exemptfee":     3,
+	}
 
 	if amount == 0 {
 		// amount is optional, so let's use the provided on the command
+
 		amount = msatoshi
-		params = append(params, amount)
+		params["msatoshi"] = msatoshi
 	}
 	if amount == 0 {
 		// if nothing was provided, end here
@@ -259,7 +265,7 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	// actually send the lightning payment
-	res, err = ln.CallWithCustomTimeout(time.Second*61, "pay", params...)
+	res, err = ln.CallWithCustomTimeout(time.Second*61, "pay", params)
 	if err != nil {
 		errMsg = messageFromError(err, "Error paying")
 
