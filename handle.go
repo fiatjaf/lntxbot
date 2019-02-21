@@ -77,12 +77,12 @@ func handleMessage(message *tgbotapi.Message) {
 		}
 
 		u.notify(mustache.Render(`
-`+"`{{Status}}`"+` {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}}
-_{{Description}}_{{^TelegramPeer.Valid}} 
-*Hash*: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
-*Preimage*: {{Preimage}}{{/HasPreimage}}
-*Amount*: {{Satoshis}} satoshis
-{{^IsReceive}}*Fee paid*: {{FeeSatoshis}}{{/IsReceive}}
+<code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}}
+<i>{{Description}}</i>{{^TelegramPeer.Valid}} 
+<b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
+<b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
+<b>Amount</b>: {{Satoshis}} satoshis
+{{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
         `, txn))
 		return
 	}
@@ -313,9 +313,9 @@ parsed:
 			break
 		}
 
-		u.notify(mustache.Render(`*Latest transactions*
+		u.notify(mustache.Render(`<b>Latest transactions</b>
 {{#txns}}
-`+"{{StatusSmall}}"+` `+"`{{PaddedSatoshis}}`"+` {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}_{{Description}}_{{/TelegramPeer.Valid}} _{{TimeFormatSmall}}_ /tx{{HashReduced}}
+{{StatusSmall}} <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}<i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
@@ -328,10 +328,10 @@ parsed:
 		}
 
 		u.notify(fmt.Sprintf(`
-*Balance*: %.3f satoshis
-*Total received*: %.3f satoshis
-*Total sent*: %.3f satoshis
-*Total fees paid*: %.3f satoshis
+<b>Balance</b>: %.3f satoshis
+<b>Total received</b>: %.3f satoshis
+<b>Total sent</b>: %.3f satoshis
+<b>Total fees paid</b>: %.3f satoshis
         `, info.Balance, info.TotalReceived, info.TotalSent, info.TotalFees))
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool):

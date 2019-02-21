@@ -214,7 +214,7 @@ func notify(chatId int64, msg string) tgbotapi.Message {
 func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
-	chattable.ParseMode = "Markdown"
+	chattable.ParseMode = "HTML"
 	message, err := bot.Send(chattable)
 	if err != nil {
 		log.Warn().Int64("chat", chatId).Err(err).Msg("error sending message")

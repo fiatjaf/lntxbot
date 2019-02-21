@@ -495,9 +495,9 @@ func (t Transaction) PeerActionDescription() string {
 func (t Transaction) StatusSmall() string {
 	switch t.Status {
 	case "RECEIVED":
-		return "\u2b07"
+		return "R"
 	case "SENT":
-		return "\u2b06"
+		return "S"
 	default:
 		return t.Status
 	}
@@ -516,7 +516,7 @@ func (t Transaction) TimeFormat() string {
 }
 
 func (t Transaction) TimeFormatSmall() string {
-	return t.Time.Format("2 Jan 3:04PM")
+	return t.Time.Format("2 Jan 15:04")
 }
 
 func (t Transaction) Satoshis() string {
@@ -524,7 +524,7 @@ func (t Transaction) Satoshis() string {
 }
 
 func (t Transaction) PaddedSatoshis() string {
-	if math.Abs(t.Amount) > 9999 {
+	if math.Abs(t.Amount) > 999999 {
 		return fmt.Sprintf("%7.0f", t.Amount)
 	}
 	return fmt.Sprintf("%7.1f", t.Amount)
