@@ -442,6 +442,14 @@ SELECT * FROM (
   LIMIT 25
 ) AS latest ORDER BY time ASC
     `, u.Id)
+	if err != nil {
+		return
+	}
+
+	for i := range txns {
+		txns[i].Description = escapeHTML(txns[i].Description)
+	}
+
 	return
 }
 
@@ -461,6 +469,11 @@ FROM lightning.account_txn
 WHERE account_id = $1 AND substring(payment_hash from 0 for $3) = $2
 ORDER BY time
     `, u.Id, hash, hashsize+1)
+	if err != nil {
+		return
+	}
+
+	txn.Description = escapeHTML(txn.Description)
 	return
 }
 

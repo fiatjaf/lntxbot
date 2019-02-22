@@ -691,7 +691,7 @@ func payInvoice(u User, bolt11, label string, optmsats int) (paid, mayRetry bool
 	}
 
 	u.notify(fmt.Sprintf(
-		"Paid with %d satoshis (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/txn%s",
+		"Paid with %d satoshis (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/tx%s",
 		int(pay.Get("msatoshi").Float()/1000),
 		(pay.Get("msatoshi_sent").Float()-pay.Get("msatoshi").Float())/1000,
 		pay.Get("payment_hash").String(),

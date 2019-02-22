@@ -217,9 +217,21 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable.ParseMode = "HTML"
 	message, err := bot.Send(chattable)
 	if err != nil {
-		log.Warn().Int64("chat", chatId).Err(err).Msg("error sending message")
+		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
 	}
 	return message
+}
+
+func escapeHTML(m string) string {
+	return strings.Replace(
+		strings.Replace(
+			strings.Replace(
+				strings.Replace(
+					m,
+					"<", "&lt;", -1),
+				">", "&gt;", -1),
+			"&", "&amp;", -1),
+		"\"", "&quot;", -1)
 }
 
 func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
