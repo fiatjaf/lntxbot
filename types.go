@@ -383,13 +383,13 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 }
 
 func (u User) paymentReceived(
-	amount int, desc, hash, label string,
+	amount int, desc, hash, preimage, label string,
 ) (err error) {
 	_, err = pg.Exec(`
 INSERT INTO lightning.transaction
-  (to_id, amount, description, payment_hash, label)
-VALUES ($1, $2, $3, $4, $5)
-    `, u.Id, amount, desc, hash, label)
+  (to_id, amount, description, payment_hash, preimage, label)
+VALUES ($1, $2, $3, $4, $5, $6)
+    `, u.Id, amount, desc, hash, preimage, label)
 	if err != nil {
 		log.Error().Err(err).
 			Str("user", u.Username).Str("label", label).

@@ -315,7 +315,7 @@ parsed:
 
 		u.notify(mustache.Render(`<b>Latest transactions</b>
 {{#txns}}
-{{StatusSmall}} <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}<i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
+{{StatusSmall}} <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}⚡<i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
@@ -722,10 +722,14 @@ func handleInvoicePaid(res gjson.Result) {
 	desc := res.Get("description").String()
 	hash := res.Get("payment_hash").String()
 
+	// the preimage should be on redis
+	preimage := rds.Get("recinvoice:" + label + ":preimage").String()
+
 	err = u.paymentReceived(
 		int(msats),
 		desc,
 		hash,
+		preimage,
 		label,
 	)
 	if err != nil {

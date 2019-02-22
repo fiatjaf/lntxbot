@@ -174,8 +174,9 @@ func makeInvoice(
 		}
 	}
 
-	// save invoice creator on redis
+	// save invoice creator and preimage on redis
 	rds.Set("recinvoice:"+label+":creator", u.Id, s.InvoiceTimeout)
+	rds.Set("recinvoice:"+label+":preimage", preimage, s.InvoiceTimeout)
 
 	// make invoice
 	res, err := ln.Call("invoice", map[string]interface{}{
