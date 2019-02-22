@@ -164,7 +164,7 @@ parsed:
 	case opts["decode"].(bool):
 		// just decode invoice
 		bolt11 := opts["<invoice>"].(string)
-		decodeNotifyBolt11(message.Chat.ID, bolt11, 0)
+		decodeNotifyBolt11(message.Chat.ID, message.MessageID, bolt11, 0)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		// sending money to others
@@ -365,7 +365,7 @@ parsed:
 
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
-			message := decodeNotifyBolt11(u.ChatId, bolt11, optmsats)
+			message := decodeNotifyBolt11(u.ChatId, 0, bolt11, optmsats)
 
 			rds.Set("payinvoice:"+invlabel, bolt11, s.PayConfirmTimeout)
 			rds.Set("payinvoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
@@ -606,7 +606,7 @@ answerEmpty:
 	})
 }
 
-func decodeNotifyBolt11(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.Message) {
+func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) (_ tgbotapi.Message) {
 	inv, err := decodeInvoice(bolt11)
 	if err != nil {
 		errMsg := messageFromError(err, "Failed to decode invoice")
@@ -619,11 +619,19 @@ func decodeNotifyBolt11(chatId int64, bolt11 string, optmsats int) (_ tgbotapi.M
 		amount = optmsats
 	}
 
-	return notify(chatId,
-		fmt.Sprintf("[%s] \n%d satoshis. \nhash: %s.",
-			inv.Get("description").String(),
+	return notifyAsReply(chatId,
+		fmt.Sprintf(`
+%d satoshis
+<i>%s</i>
+<b>Hash</b>: %s
+<b>Node</b>: %s
+        `,
 			amount/1000,
-			inv.Get("payment_hash").String()),
+			escapeHTML(inv.Get("description").String()),
+			inv.Get("payment_hash").String(),
+			inv.Get("payee").String(),
+		),
+		replyTo,
 	)
 }
 
