@@ -186,6 +186,10 @@ func (u User) notify(msg string) tgbotapi.Message {
 	return u.notifyAsReply(msg, 0)
 }
 
+func (u User) notifyMarkdown(msg string) tgbotapi.Message {
+	return notifyMarkdown(u.ChatId, msg)
+}
+
 func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 	if u.ChatId == 0 {
 		log.Info().Str("user", u.Username).Str("msg", msg).

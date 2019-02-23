@@ -223,6 +223,16 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	return message
 }
 
+func notifyMarkdown(chatId int64, msg string) tgbotapi.Message {
+	chattable := tgbotapi.NewMessage(chatId, msg)
+	chattable.ParseMode = "Markdown"
+	message, err := bot.Send(chattable)
+	if err != nil {
+		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
+	}
+	return message
+}
+
 func escapeHTML(m string) string {
 	return strings.Replace(
 		strings.Replace(

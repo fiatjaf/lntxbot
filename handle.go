@@ -504,7 +504,7 @@ answerEmpty:
 
 func handleHelp(u User) {
 	helpString := strings.Replace(s.Usage, "  c ", "  /", -1)
-	u.notify("```\n" + helpString + "\n```")
+	u.notifyMarkdown("```\n" + helpString + "\n```")
 }
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
