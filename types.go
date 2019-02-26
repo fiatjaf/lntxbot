@@ -147,7 +147,7 @@ func (u User) AtName() string {
 	if u.Username != "" {
 		return "@" + u.Username
 	}
-	return fmt.Sprintf("user %d", u.TelegramId)
+	return fmt.Sprintf("user:%d", u.TelegramId)
 }
 
 func ensureTelegramId(telegram_id int) (u User, err error) {

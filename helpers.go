@@ -182,7 +182,7 @@ func makeInvoice(
 	res, err := ln.Call("invoice", map[string]interface{}{
 		"msatoshi":    sats * 1000,
 		"label":       label,
-		"description": desc,
+		"description": desc + " [" + s.ServiceId + "/" + u.AtName() + "]",
 		"expiry":      int(s.InvoiceTimeout / time.Second),
 		"preimage":    preimage,
 	})
