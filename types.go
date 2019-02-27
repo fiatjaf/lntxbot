@@ -140,7 +140,6 @@ RETURNING `+USERFIELDS,
 		err = errors.New("odd error with more than 2 rows for the same user.")
 		return
 	}
-
 }
 
 func (u User) AtName() string {

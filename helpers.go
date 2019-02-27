@@ -136,7 +136,7 @@ func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
+			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", u.Id)),
 			tgbotapi.NewInlineKeyboardButtonData(
 				"Claim!",
 				buttonData,

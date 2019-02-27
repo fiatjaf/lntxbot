@@ -375,7 +375,7 @@ parsed:
 			bot.Send(tgbotapi.NewEditMessageReplyMarkup(u.ChatId, message.MessageID,
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
+						tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", u.Id)),
 						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay="+invlabel),
 					),
 				),
@@ -394,7 +394,22 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 	switch {
 	case cb.Data == "noop":
 		goto answerEmpty
-	case cb.Data == "cancel":
+	case strings.HasPrefix(cb.Data, "cancel="):
+		u, t, err := ensureUser(cb.From.ID, cb.From.UserName)
+		if err != nil {
+			log.Warn().Err(err).Int("case", t).
+				Str("username", cb.From.UserName).
+				Int("id", cb.From.ID).
+				Msg("failed to ensure user on cancel")
+			goto answerEmpty
+		}
+		if strconv.Itoa(u.Id) != cb.Data[7:] {
+			log.Warn().Err(err).
+				Int("this", u.Id).
+				Str("needed", cb.Data[7:]).
+				Msg("user can't cancel")
+			goto answerEmpty
+		}
 		removeKeyboardButtons(cb)
 		appendTextToMessage(cb, "Canceled.")
 		goto answerEmpty
