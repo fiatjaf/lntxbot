@@ -287,22 +287,23 @@ parsed:
 
 		break
 	case opts["giveaway"].(bool):
-		if message.Chat.Type == "group" || message.Chat.Type == "supergroup" {
-			sats, err := opts.Int("<satoshis>")
-			if err != nil {
-				u.notify("Invalid amount: " + opts["<satoshis>"].(string))
-				break
-			}
-
-			chattable := tgbotapi.NewMessage(
-				message.Chat.ID,
-				fmt.Sprintf("%s is giving %d satoshis away!", u.AtName(), sats),
-			)
-			chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
-			bot.Send(chattable)
-		} else {
-			u.notify("This must be called in a group.")
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			break
 		}
+		if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
+			u.notify(fmt.Sprintf("Insufficient balance for the giveaway. Needs %.3f more satoshis",
+				float64(sats)-info.Balance))
+			break
+		}
+
+		chattable := tgbotapi.NewMessage(
+			message.Chat.ID,
+			fmt.Sprintf("%s is giving %d satoshis away!", u.AtName(), sats),
+		)
+		chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
+		bot.Send(chattable)
 		break
 	case opts["transactions"].(bool):
 		// show list of transactions
