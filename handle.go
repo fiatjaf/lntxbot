@@ -167,6 +167,14 @@ parsed:
 		decodeNotifyBolt11(message.Chat.ID, message.MessageID, bolt11, 0)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
+		// default notify function to use depending on many things
+		defaultNotify := func(m string) { u.notify(m) }
+		if message.Chat.Type == "private" {
+			defaultNotify = func(m string) { u.notifyAsReply(m, message.MessageID) }
+		} else if isSpammy(message.Chat.ID) {
+			defaultNotify = func(m string) { notifyAsReply(message.Chat.ID, m, message.MessageID) }
+		}
+
 		// sending money to others
 		var (
 			sats          int
@@ -189,7 +197,7 @@ parsed:
 				}
 			}
 
-			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			defaultNotify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		} else {
 			if aval, ok := opts["<username>"].([]string); ok && len(aval) > 0 {
@@ -244,14 +252,14 @@ parsed:
 		}
 
 		// if we ever reach this point then it's because the receiver is missing.
-		u.notify("Can't send " + opts["<satoshis>"].(string) + ". Missing receiver!")
+		defaultNotify("Can't send " + opts["<satoshis>"].(string) + ". Missing receiver!")
 		break
 
 	ensured:
 		if err != nil {
 			log.Warn().Err(err).
 				Msg("failed to ensure target user on send/tip.")
-			u.notify("Failed to save receiver.")
+			defaultNotify("Failed to save receiver. This is probably a bug.")
 			break
 		}
 
@@ -261,7 +269,7 @@ parsed:
 				Str("from", u.Username).
 				Str("to", todisplayname).
 				Msg("failed to send/tip")
-			u.notify("Failed to send: " + errMsg)
+			defaultNotify("Failed to send: " + errMsg)
 			break
 		}
 
@@ -281,10 +289,10 @@ parsed:
 				fmt.Sprintf("%d satoshis sent to %s%s.", sats, todisplayname, warning),
 				message.MessageID,
 			)
-		} else {
-			u.notify(fmt.Sprintf("%d satoshis sent to %s.", sats, todisplayname))
+			break
 		}
 
+		defaultNotify(fmt.Sprintf("%d satoshis sent to %s.", sats, todisplayname))
 		break
 	case opts["giveaway"].(bool):
 		sats, err := opts.Int("<satoshis>")
@@ -388,6 +396,47 @@ parsed:
 	case opts["help"].(bool):
 		handleHelp(u)
 		break
+	case opts["toggle"].(bool):
+		if message.Chat.Type == "private" {
+			break
+		}
+
+		switch {
+		case opts["spammy"].(bool):
+			if message.Chat.Type == "supergroup" {
+				userchatconfig := tgbotapi.ChatConfigWithUser{
+					ChatID:             message.Chat.ID,
+					SuperGroupUsername: message.Chat.ChatConfig().SuperGroupUsername,
+					UserID:             message.From.ID,
+				}
+				chatmember, err := bot.GetChatMember(userchatconfig)
+				if err != nil ||
+					(chatmember.Status != "administrator" && chatmember.Status != "creator") {
+					log.Warn().Err(err).
+						Int64("group", message.Chat.ID).
+						Int("user", message.From.ID).
+						Msg("toggle impossible. can't get user or not an admin.")
+					break
+				}
+			} else if message.Chat.Type == "group" {
+				// ok, everybody can toggle
+			} else {
+				break
+			}
+
+			log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
+			spammy, err := toggleSpammy(message.Chat.ID)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to toggle spammy")
+				break
+			}
+
+			if spammy {
+				notify(message.Chat.ID, "This group is now spammy.")
+			} else {
+				notify(message.Chat.ID, "Not spamming anymore.")
+			}
+		}
 	}
 }
 

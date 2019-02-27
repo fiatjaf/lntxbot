@@ -11,6 +11,11 @@ CREATE TABLE telegram.account (
 CREATE INDEX ON telegram.account (username);
 CREATE INDEX ON telegram.account (telegram_id);
 
+CREATE TABLE telegram.chat (
+  telegram_id bigint PRIMARY KEY,
+  spammy boolean NOT NULL DEFAULT false
+);
+
 CREATE TABLE lightning.transaction (
   time timestamp NOT NULL DEFAULT now(),
   from_id int REFERENCES telegram.account (id),

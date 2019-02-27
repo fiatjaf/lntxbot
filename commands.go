@@ -21,6 +21,7 @@ Usage:
   c transactions
   c help
   c stop
+  c toggle spammy
 
 Things to know:
   - ` + "`/send` or `/tip`" + ` can send funds to any Telegram user, he'll be able to claim the funds once he registers with ` + "`/start`" + `;
@@ -29,6 +30,7 @@ Things to know:
   - ` + "`/pay now` or `/paynow`" + ` will skip the payment confirmation;
   - ` + "`/giveaway`" + ` will create a button in a chat and the first user to click that button will claim the satoshis you're giving away;
   - ` + "`/stop`" + ` will make you stop receiving notifications from the bot, but you'll not lose your account. You can call ` + "`/start`" + ` to receive notifications again.
+  - ` + "`/toggle spammy`" + ` will make the bot send messages in a group when satoshis are sent there (the default behavior is to send messages to the parties involved privately) (in a supergroup it must be issued by an admin).
 
 Plus:
   - Forward any message containing an invoice to this chat to pay it (after confirmation);

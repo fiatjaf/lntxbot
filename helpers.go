@@ -15,7 +15,6 @@ import (
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
-	"github.com/lucsky/cuid"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
@@ -115,36 +114,6 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	return
 }
 
-func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
-	baseedit := tgbotapi.BaseEdit{
-		InlineMessageID: cb.InlineMessageID,
-	}
-
-	if cb.Message != nil {
-		baseedit.MessageID = cb.Message.MessageID
-		baseedit.ChatID = cb.Message.Chat.ID
-	}
-
-	return baseedit
-}
-
-func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
-	giveawayid := cuid.Slug()
-	buttonData := fmt.Sprintf("give=%d-%d-%s", u.Id, sats, giveawayid)
-
-	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
-
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", u.Id)),
-			tgbotapi.NewInlineKeyboardButtonData(
-				"Claim!",
-				buttonData,
-			),
-		),
-	)
-}
-
 func decodeInvoice(invoice string) (inv gjson.Result, err error) {
 	inv, err = ln.Call("decodepay", invoice)
 	if err != nil {
@@ -206,69 +175,6 @@ func makeInvoice(
 	}
 
 	return
-}
-
-func notify(chatId int64, msg string) tgbotapi.Message {
-	return notifyAsReply(chatId, msg, 0)
-}
-
-func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.BaseChat.ReplyToMessageID = replyToId
-	chattable.ParseMode = "HTML"
-	message, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
-	}
-	return message
-}
-
-func notifyMarkdown(chatId int64, msg string) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.ParseMode = "Markdown"
-	message, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
-	}
-	return message
-}
-
-func escapeHTML(m string) string {
-	return strings.Replace(
-		strings.Replace(
-			strings.Replace(
-				strings.Replace(
-					m,
-					"<", "&lt;", -1),
-				">", "&gt;", -1),
-			"&", "&amp;", -1),
-		"\"", "&quot;", -1)
-}
-
-func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
-	baseEdit := getBaseEdit(cb)
-
-	baseEdit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
-		},
-	}
-
-	bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
-		BaseEdit: baseEdit,
-	})
-}
-
-func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
-	if cb.Message != nil {
-		text = cb.Message.Text + " " + text
-	}
-
-	baseEdit := getBaseEdit(cb)
-	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit: baseEdit,
-		Text:     text,
-	})
 }
 
 func messageFromError(err error, prefix string) string {
