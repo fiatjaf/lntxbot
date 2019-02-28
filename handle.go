@@ -744,7 +744,7 @@ func payInvoice(u User, bolt11, label string, optmsats int) (paid, mayRetry bool
 
 		// internal payment succeeded
 		target.notifyAsReply(
-			fmt.Sprintf("Payment received: %d. \n\nhash: %s.", amount/1000, hash),
+			fmt.Sprintf("Payment received: %d. /tx%s.", amount/1000, hash[:5]),
 			messageIdFromLabel(intlabel),
 		)
 
@@ -812,7 +812,7 @@ func handleInvoicePaid(res gjson.Result) {
 	}
 
 	u.notifyAsReply(
-		fmt.Sprintf("Payment received: %d. \n\nhash: %s.", msats/1000, hash),
+		fmt.Sprintf("Payment received: %d. /tx%s.", msats/1000, hash[:5]),
 		messageIdFromLabel(label),
 	)
 }
