@@ -93,9 +93,14 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 	if err != nil {
-		log.Warn().Err(err).Str("command", text).
-			Msg("Failed to parse command")
-		u.notify("Could not understand the command. /help")
+		if message.Chat.Type == "private" {
+			// only tell we don't understand commands when in a private chat
+			// because these commands we're not understanding
+			// may be targeting other bots in a group, so we're spamming people.
+			log.Warn().Err(err).Str("command", text).
+				Msg("Failed to parse command")
+			u.notify("Could not understand the command. /help")
+		}
 		return
 	}
 
