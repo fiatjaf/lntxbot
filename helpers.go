@@ -148,7 +148,7 @@ func makeInvoice(
 	rds.Set("recinvoice:"+label+":preimage", preimage, s.InvoiceTimeout)
 
 	// make invoice
-	res, err := ln.Call("invoice", map[string]interface{}{
+	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
 		"msatoshi":    sats * 1000,
 		"label":       label,
 		"description": desc + " [" + s.ServiceId + "/" + u.AtName() + "]",
