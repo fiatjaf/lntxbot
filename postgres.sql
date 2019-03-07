@@ -25,7 +25,8 @@ CREATE TABLE lightning.transaction (
   description text,
   payment_hash text UNIQUE NOT NULL DEFAULT md5(random()::text) || md5(random()::text),
   label text, -- null on internal sends/tips
-  preimage text
+  preimage text,
+  pending boolean NOT NULL DEFAULT false
 );
 
 CREATE INDEX ON lightning.transaction (from_id);

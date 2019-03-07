@@ -215,7 +215,7 @@ func (u User) payInvoice(
 		"riskfactor":    6,
 		"maxfeepercent": 1,
 		"exemptfee":     3,
-		"retry_for":     179,
+		"retry_for":     30,
 	}
 
 	if amount == 0 {
@@ -239,8 +239,8 @@ func (u User) payInvoice(
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label)
-VALUES ($1, $2, $3, $4, $5)
+  (from_id, amount, description, payment_hash, label, pending)
+VALUES ($1, $2, $3, $4, $5, true)
     `, u.Id, amount, desc, hash, label)
 	if err != nil {
 		return res, "Database error.", true, err
@@ -267,38 +267,69 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	// actually send the lightning payment
-	res, err = ln.CallWithCustomTimeout(time.Second*180, "pay", params)
+	res, err = ln.CallWithCustomTimeout(time.Second*31, "pay", params)
 	if err != nil {
 		errMsg = messageFromError(err, "Error paying")
 
-		// if it fails we must remove the transaction
-		if _, err := pg.Exec(
-			`DELETE FROM lightning.transaction WHERE payment_hash = $1`,
-			hash); err != nil {
-			log.Error().Err(err).Str("hash", hash).
-				Msg("failed to cancel transaction after routing failure.")
-		}
+		// wait a minute and check the payment status, maybe it was paid indeed
+		go func(bolt11 string) {
+		}(bolt11)
 
 		return res, errMsg, true, err
 	}
 
-	// save fees and preimage
-	fees := res.Get("msatoshi_sent").Float() - res.Get("msatoshi").Float()
-	preimage := res.Get("payment_preimage").String()
+	// if it succeeds we mark the transaction as not pending anymore
+	// plus save fees and preimage
+	u.updatePaymentSuccessful(res)
+
+	return res, "", false, nil
+}
+
+func (u User) checkPaymentStatus(bolt11 string) {
+	time.Sleep(time.Second * 60)
+	res, err := ln.Call("listpayments", bolt11)
+	if err != nil {
+		log.Warn().Err(err).Str("bolt11", bolt11).
+			Msg("failed to check payment status after the fact")
+		return
+	}
+
+	payment := res.Get("payments.0")
+	if payment.Exists() {
+		switch payment.Get("status").String() {
+		case "complete":
+			u.updatePaymentSuccessful(payment)
+		case "failed":
+			hash := payment.Get("payment_hash").String()
+			_, err := pg.Exec(
+				`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
+			if err != nil {
+				log.Error().Err(err).Str("hash", hash).
+					Msg("failed to cancel transaction after routing failure.")
+			}
+		case "pending":
+			u.checkPaymentStatus(bolt11)
+		}
+	}
+}
+
+func (u User) updatePaymentSuccessful(payment gjson.Result) {
+	fees := payment.Get("msatoshi_sent").Float() - payment.Get("msatoshi").Float()
+	preimage := payment.Get("payment_preimage").String()
+	hash := payment.Get("payment_hash").String()
+
 	_, err = pg.Exec(`
 UPDATE lightning.transaction
-SET fees = $1, preimage = $2
-WHERE label = $3
-    `, fees, preimage, label)
+SET fees = $1, preimage = $2, pending = false
+WHERE payment_hash = $3
+    `, fees, preimage, hash)
 	if err != nil {
 		log.Error().Err(err).
 			Str("user", u.Username).
-			Str("label", label).
+			Str("hash", hash).
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
 	}
-
-	return res, "", false, nil
 }
 
 func (u User) payInternally(
