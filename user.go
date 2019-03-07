@@ -215,6 +215,7 @@ func (u User) payInvoice(
 		"riskfactor":    6,
 		"maxfeepercent": 1,
 		"exemptfee":     3,
+		"retry_for":     179,
 	}
 
 	if amount == 0 {
@@ -266,7 +267,7 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	// actually send the lightning payment
-	res, err = ln.CallWithCustomTimeout(time.Second*61, "pay", params)
+	res, err = ln.CallWithCustomTimeout(time.Second*180, "pay", params)
 	if err != nil {
 		errMsg = messageFromError(err, "Error paying")
 
