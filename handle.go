@@ -197,7 +197,7 @@ parsed:
 				// it seems to be
 				if asats, ok := opts["<username>"].([]string); ok && len(asats) == 1 {
 					sats, _ = strconv.Atoi(asats[0])
-					username = val
+					username = strings.ToLower(val)
 					goto gotusername
 				}
 			}
@@ -207,7 +207,7 @@ parsed:
 		} else {
 			if aval, ok := opts["<username>"].([]string); ok && len(aval) > 0 {
 				// got a username
-				username = strings.Join(aval, " ")
+				username = strings.ToLower(strings.Join(aval, " "))
 				goto gotusername
 			}
 		}
@@ -247,7 +247,7 @@ parsed:
 				break
 			}
 			if reply.From.UserName != "" {
-				todisplayname = reply.From.UserName
+				todisplayname = "@" + reply.From.UserName
 			} else {
 				todisplayname = strings.TrimSpace(
 					reply.From.FirstName + " " + reply.From.LastName,
@@ -747,7 +747,7 @@ func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (paym
 
 		// internal payment succeeded
 		target.notifyAsReply(
-			fmt.Sprintf("Payment received: %d. /tx%s.", amount/1000, hash[:5]),
+			fmt.Sprintf("Payment received: %d satoshis. /tx%s.", amount/1000, hash[:5]),
 			messageIdFromLabel(intlabel),
 		)
 

@@ -76,7 +76,7 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 			return
 		}
 		if len(r) == 0 || len(r[0].Symbol) == 0 {
-			log.Warn().Str("url", photourl).Msg("invalid rponse from  qrserver")
+			log.Warn().Str("url", photourl).Msg("invalid response from  qrserver")
 			return
 		}
 		if r[0].Symbol[0].Error != "" {
@@ -165,7 +165,7 @@ func makeInvoice(
 	rds.Set("recinvoice.internal:"+bolt11, label, s.InvoiceTimeout)
 
 	// generate qr code
-	err = qrcode.WriteFile(bolt11, qrcode.Medium, 256, qrImagePath(label))
+	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
 	if err != nil {
 		log.Warn().Err(err).Str("invoice", bolt11).
 			Msg("failed to generate qr.")

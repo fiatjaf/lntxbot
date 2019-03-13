@@ -72,9 +72,11 @@ CREATE VIEW lightning.balance AS
     GROUP BY account.id;
 
 table telegram.account;
+table telegram.chat;
 table lightning.transaction;
 table lightning.account_txn;
 table lightning.balance;
+select * from lightning.transaction where pending;
 select * from telegram.account inner join lightning.balance on id = account_id order by id;
 select count(*) as active_users from telegram.account where chat_id is not null;
 select sum(balance)*4000/100000000000 as us_dollars from lightning.balance;
