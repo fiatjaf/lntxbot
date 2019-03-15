@@ -42,6 +42,8 @@ func (t Transaction) StatusSmall() string {
 		return "R"
 	case "SENT":
 		return "S"
+	case "PENDING":
+		return "-"
 	default:
 		return t.Status
 	}
@@ -49,6 +51,10 @@ func (t Transaction) StatusSmall() string {
 
 func (t Transaction) IsReceive() bool {
 	return t.Status == "RECEIVED"
+}
+
+func (t Transaction) IsPending() bool {
+	return t.Status == "PENDING"
 }
 
 func (t Transaction) HasPreimage() bool {

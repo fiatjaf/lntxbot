@@ -45,7 +45,7 @@ CREATE VIEW lightning.account_txn AS
   FROM (
     SELECT time,
       from_id AS account_id,
-      'SENT' AS status,
+      CASE WHEN pending THEN 'PENDING' ELSE 'SENT' END AS status,
       to_id AS peer,
       -amount AS amount, fees,
       payment_hash, label, description, preimage

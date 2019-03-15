@@ -329,7 +329,7 @@ parsed:
 
 		u.notify(mustache.Render(`<b>Latest transactions</b>
 {{#txns}}
-{{StatusSmall}} <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}⚡<i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
+{{StatusSmall}} <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}{{^IsPending}}⚡{{/IsPending}}{{#IsPending}}:🕒{{/IsPending}} <i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
