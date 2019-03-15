@@ -77,7 +77,7 @@ func handleMessage(message *tgbotapi.Message) {
 		}
 
 		text := mustache.Render(`
-<code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}}
+<code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(unclaimed){{/IsUnclaimed}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
 <b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
@@ -344,7 +344,7 @@ parsed:
 
 		u.notify(mustache.Render(`<b>Latest transactions</b>
 {{#txns}}
-<code>{{StatusSmall}}</code> <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}{{^IsPending}}⚡{{/IsPending}}{{#IsPending}}🕒{{/IsPending}} <i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
+<code>{{StatusSmall}}</code> <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{#IsUnclaimed}}💤 {{/IsUnclaimed}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}{{^IsPending}}⚡{{/IsPending}}{{#IsPending}}🕒{{/IsPending}} <i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
