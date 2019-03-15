@@ -97,7 +97,7 @@ func (t Transaction) TimeFormatSmall() string {
 }
 
 func (t Transaction) Satoshis() string {
-	return fmt.Sprintf("%.3f", math.Abs(t.Amount))
+	return decimalize(math.Abs(t.Amount))
 }
 
 func (t Transaction) PaddedSatoshis() string {
@@ -108,9 +108,17 @@ func (t Transaction) PaddedSatoshis() string {
 }
 
 func (t Transaction) FeeSatoshis() string {
-	return fmt.Sprintf("%.3f", t.Fees)
+	return decimalize(t.Fees)
 }
 
 func (t Transaction) HashReduced() string {
 	return t.Hash[:5]
+}
+
+func decimalize(v float64) string {
+	if v == math.Trunc(v) {
+		return fmt.Sprintf("%.0f", v)
+	} else {
+		return fmt.Sprintf("%.3f", v)
+	}
 }
