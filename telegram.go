@@ -100,3 +100,10 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 		Text:     text,
 	})
 }
+
+func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
+	edit := tgbotapi.NewEditMessageText(chat, msg, text)
+	edit.ParseMode = "HTML"
+	edit.BaseEdit.ReplyMarkup = &keyboard
+	bot.Send(edit)
+}

@@ -76,14 +76,29 @@ func handleMessage(message *tgbotapi.Message) {
 			return
 		}
 
-		u.notify(mustache.Render(`
+		text := mustache.Render(`
 <code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
 <b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
 <b>Amount</b>: {{Satoshis}} satoshis
 {{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
-        `, txn))
+        `, txn)
+		id := u.notify(text).MessageID
+
+		if txn.Status == "PENDING" {
+			// allow people to cancel pending if they're old enough
+			if time.Now().After(txn.Time.Add(time.Hour * 2)) {
+				editWithKeyboard(u.ChatId, id, text+"\n\nRemove pending payment?",
+					tgbotapi.NewInlineKeyboardMarkup(
+						tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonData("Yes", "rem="+hashfirstchars),
+						),
+					),
+				)
+			}
+		}
+
 		return
 	}
 
@@ -329,7 +344,7 @@ parsed:
 
 		u.notify(mustache.Render(`<b>Latest transactions</b>
 {{#txns}}
-{{StatusSmall}} <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}{{^IsPending}}⚡{{/IsPending}}{{#IsPending}}:🕒{{/IsPending}} <i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
+<code>{{StatusSmall}}</code> <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}{{^IsPending}}⚡{{/IsPending}}{{#IsPending}}🕒{{/IsPending}} <i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
 {{/txns}}
         `, map[string][]Transaction{"txns": txns}))
 		break
@@ -379,21 +394,23 @@ parsed:
 
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
-			message := decodeNotifyBolt11(u.ChatId, 0, bolt11, optmsats)
+			id, text, err := decodeNotifyBolt11(u.ChatId, 0, bolt11, optmsats)
+			if err != nil {
+				break
+			}
 
 			rds.Set("payinvoice:"+invlabel, bolt11, s.PayConfirmTimeout)
 			rds.Set("payinvoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
 
-			bot.Send(tgbotapi.NewEditMessageText(u.ChatId, message.MessageID,
-				message.Text+"\n\nPay the invoice described above?"))
-			bot.Send(tgbotapi.NewEditMessageReplyMarkup(u.ChatId, message.MessageID,
+			editWithKeyboard(u.ChatId, id,
+				text+"\n\nPay the invoice described above?",
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
 						tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", u.Id)),
 						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay="+invlabel),
 					),
 				),
-			))
+			)
 		} else {
 			payInvoice(u, message.MessageID, bolt11, invlabel, optmsats)
 		}
@@ -564,6 +581,22 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			)+howtoclaimmessage,
 		)
 		return
+	case strings.HasPrefix(cb.Data, "rem="):
+		hash := cb.Data[4:]
+
+		_, err := pg.Exec(`
+DELETE from lightning.transaction
+WHERE substring(payment_hash from 0 for $2) = $1
+  AND pending
+        `, hash, len(hash)+1)
+		if err != nil {
+			log.Error().Err(err).Str("hash", hash).Msg("failed to remove pending payment")
+			appendTextToMessage(cb, "Error.")
+			return
+		}
+
+		appendTextToMessage(cb, "Removed.")
+		return
 	}
 
 answerEmpty:
@@ -674,7 +707,7 @@ answerEmpty:
 	})
 }
 
-func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) (_ tgbotapi.Message) {
+func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) (id int, text string, err error) {
 	inv, err := decodeInvoice(bolt11)
 	if err != nil {
 		errMsg := messageFromError(err, "Failed to decode invoice")
@@ -687,20 +720,21 @@ func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) 
 		amount = optmsats
 	}
 
-	return notifyAsReply(chatId,
-		fmt.Sprintf(`
+	text = fmt.Sprintf(`
 %d satoshis
 <i>%s</i>
 <b>Hash</b>: %s
 <b>Node</b>: %s
         `,
-			amount/1000,
-			escapeHTML(inv.Get("description").String()),
-			inv.Get("payment_hash").String(),
-			inv.Get("payee").String(),
-		),
-		replyTo,
+		amount/1000,
+		escapeHTML(inv.Get("description").String()),
+		inv.Get("payment_hash").String(),
+		inv.Get("payee").String(),
 	)
+
+	msg := notifyAsReply(chatId, text, replyTo)
+	id = msg.MessageID
+	return
 }
 
 func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (payment_sent bool) {

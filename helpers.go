@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/skip2/go-qrcode"
