@@ -73,6 +73,7 @@ func handleMessage(message *tgbotapi.Message) {
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
 				Msg("failed to get transaction")
+			u.notifyAsReply("Couldn't find transaction "+hashfirstchars+".", message.MessageID)
 			return
 		}
 
