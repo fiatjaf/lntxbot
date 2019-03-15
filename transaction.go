@@ -28,7 +28,7 @@ func (t Transaction) PeerActionDescription() string {
 
 	name := "@" + t.TelegramPeer.String
 	if _, err := strconv.Atoi(t.TelegramPeer.String); err == nil {
-		name = fmt.Sprintf("[user-%[1]s](tg://user?id=%[1]s)", t.TelegramPeer.String)
+		name = fmt.Sprintf(`tg://user?id=%[1]s`, t.TelegramPeer.String)
 	}
 
 	if t.Status == "RECEIVED" {
