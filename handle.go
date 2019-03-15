@@ -77,7 +77,7 @@ func handleMessage(message *tgbotapi.Message) {
 		}
 
 		text := mustache.Render(`
-<code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(unclaimed){{/IsUnclaimed}}
+<code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(💤 unclaimed){{/IsUnclaimed}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
 <b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
@@ -92,11 +92,21 @@ func handleMessage(message *tgbotapi.Message) {
 				editWithKeyboard(u.ChatId, id, text+"\n\nRemove pending payment?",
 					tgbotapi.NewInlineKeyboardMarkup(
 						tgbotapi.NewInlineKeyboardRow(
-							tgbotapi.NewInlineKeyboardButtonData("Yes", "rem="+hashfirstchars),
+							tgbotapi.NewInlineKeyboardButtonData("Yes", "rempen="+hashfirstchars),
 						),
 					),
 				)
 			}
+		}
+
+		if txn.IsUnclaimed() {
+			editWithKeyboard(u.ChatId, id, text+"\n\nRetract unclaimed tip?",
+				tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData("Yes", "remunc="+hashfirstchars),
+					),
+				),
+			)
 		}
 
 		return
@@ -592,11 +602,29 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			)+howtoclaimmessage,
 		)
 		return
-	case strings.HasPrefix(cb.Data, "rem="):
-		hash := cb.Data[4:]
-
+	case strings.HasPrefix(cb.Data, "remunc="):
+		// remove unclaimed transaction
+		// when you tip an invalid account or an account that has never talked with the bot
+		hash := cb.Data[7:]
 		_, err := pg.Exec(`
-DELETE from lightning.transaction
+DELETE FROM lightning.transaction AS tx
+WHERE substring(payment_hash from 0 for $2) = $1
+  AND is_unclaimed(tx)
+        `, hash, len(hash)+1)
+		if err != nil {
+			log.Error().Err(err).Str("hash", hash).Msg("failed to remove pending payment")
+			appendTextToMessage(cb, "Error.")
+			return
+		}
+
+		appendTextToMessage(cb, "Transaction canceled.")
+	case strings.HasPrefix(cb.Data, "rempen="):
+		// remove pending transaction that for some reason wasn't cancelled automatically
+		// this should only be invoked from a manual click on a button that only shows
+		// after a payment is pending for more than two hours in the transaction list
+		hash := cb.Data[7:]
+		_, err := pg.Exec(`
+DELETE FROM lightning.transaction
 WHERE substring(payment_hash from 0 for $2) = $1
   AND pending
         `, hash, len(hash)+1)

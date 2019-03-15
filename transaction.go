@@ -70,22 +70,9 @@ func (t Transaction) IsUnclaimed() bool {
 
 	var unclaimed bool
 	err := pg.Get(&unclaimed, `
-WITH potentially_inactive_user AS (
-  SELECT acct.*
-  FROM lightning.transaction AS tx
-  LEFT OUTER JOIN telegram.account AS acct ON acct.id = tx.to_id
-  WHERE tx.payment_hash = $1
-)
-SELECT CASE
-  WHEN id IS NOT NULL AND chat_id IS NULL THEN CASE
-    WHEN (
-      SELECT count(*) AS total FROM lightning.transaction
-      WHERE from_id = (SELECT id FROM potentially_inactive_user)
-    ) = 0 THEN true
-    ELSE false
-  END
-  ELSE false
-END FROM potentially_inactive_user
+SELECT is_unclaimed(tx)
+FROM lightning.transaction AS tx
+WHERE tx.payment_hash = $1
     `, t.Hash)
 	if err != nil {
 		log.Error().Err(err).Str("hash", t.Hash).

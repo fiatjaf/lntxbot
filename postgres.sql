@@ -71,6 +71,24 @@ CREATE VIEW lightning.balance AS
     RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
     GROUP BY account.id;
 
+CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
+  WITH potentially_inactive_user AS (
+    SELECT *
+    FROM telegram.account AS acct
+    WHERE acct.id = tx.to_id
+  )
+  SELECT CASE
+    WHEN id IS NOT NULL AND chat_id IS NULL THEN CASE
+      WHEN (
+        SELECT count(*) AS total FROM lightning.transaction
+        WHERE from_id = (SELECT id FROM potentially_inactive_user)
+      ) = 0 THEN true
+      ELSE false
+    END
+    ELSE false
+  END FROM potentially_inactive_user
+$$ LANGUAGE SQL;
+
 table telegram.account;
 table telegram.chat;
 table lightning.transaction;
