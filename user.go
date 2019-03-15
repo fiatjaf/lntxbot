@@ -470,7 +470,7 @@ GROUP BY b.account_id, b.balance
 	return
 }
 
-func (u User) listTransactions() (txns []Transaction, err error) {
+func (u User) listTransactions(limit int, offset int) (txns []Transaction, err error) {
 	err = pg.Select(&txns, `
 SELECT * FROM (
   SELECT
@@ -486,9 +486,10 @@ SELECT * FROM (
   FROM lightning.account_txn
   WHERE account_id = $1
   ORDER BY time DESC
-  LIMIT 25
+  LIMIT $2
+  OFFSET $3
 ) AS latest ORDER BY time ASC
-    `, u.Id)
+    `, u.Id, limit, offset)
 	if err != nil {
 		return
 	}

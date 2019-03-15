@@ -18,7 +18,7 @@ Usage:
   c (send | tip) <satoshis> [<username>...]
   c giveaway <satoshis>
   c balance
-  c transactions
+  c transactions [--page=<page>]
   c help
   c stop
   c toggle spammy

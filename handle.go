@@ -335,18 +335,29 @@ parsed:
 		break
 	case opts["transactions"].(bool):
 		// show list of transactions
-		txns, err := u.listTransactions()
+		limit := 25
+		offset := 0
+		if page, err := opts.Int("--page"); err == nil {
+			offset = limit * (page - 1)
+		}
+
+		txns, err := u.listTransactions(limit, offset)
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).
 				Msg("failed to list transactions")
 			break
 		}
 
-		u.notify(mustache.Render(`<b>Latest transactions</b>
+		title := fmt.Sprintf("Latest %d transactions", limit)
+		if offset > 0 {
+			title = fmt.Sprintf("Transactions from %d to %d", offset+1, offset+limit)
+		}
+
+		u.notify(mustache.Render(`<b>{{title}}</b>
 {{#txns}}
 <code>{{StatusSmall}}</code> <code>{{PaddedSatoshis}}</code> {{#TelegramPeer.Valid}}{{#IsUnclaimed}}💤 {{/IsUnclaimed}}{{PeerActionDescription}}{{/TelegramPeer.Valid}}{{^TelegramPeer.Valid}}{{^IsPending}}⚡{{/IsPending}}{{#IsPending}}🕒{{/IsPending}} <i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
 {{/txns}}
-        `, map[string][]Transaction{"txns": txns}))
+        `, map[string]interface{}{"title": title, "txns": txns}))
 		break
 	case opts["balance"].(bool):
 		// show balance
