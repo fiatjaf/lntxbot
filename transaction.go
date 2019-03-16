@@ -128,7 +128,10 @@ func (t Transaction) Satoshis() string {
 }
 
 func (t Transaction) PaddedSatoshis() string {
-	if math.Abs(t.Amount) > 999999 {
+	if t.Amount > 99999 {
+		return fmt.Sprintf("%7.0f", t.Amount)
+	}
+	if t.Amount < -9999 {
 		return fmt.Sprintf("%7.0f", t.Amount)
 	}
 	return fmt.Sprintf("%7.1f", t.Amount)

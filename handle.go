@@ -85,7 +85,7 @@ func handleMessage(message *tgbotapi.Message) {
 <b>Amount</b>: {{Satoshis}} satoshis
 {{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
         `, txn)
-		id := u.notify(text).MessageID
+		id := u.notifyAsReply(text, txn.TriggerMessage).MessageID
 
 		if txn.Status == "PENDING" {
 			// allow people to cancel pending if they're old enough
@@ -292,7 +292,7 @@ parsed:
 			break
 		}
 
-		errMsg, err := u.sendInternally(receiver, sats*1000, nil, nil)
+		errMsg, err := u.sendInternally(message.MessageID, receiver, sats*1000, nil, nil)
 		if err != nil {
 			log.Warn().Err(err).
 				Str("from", u.Username).
@@ -581,7 +581,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		errMsg, err := u.sendInternally(claimer, sats*1000, "giveaway", nil)
+		errMsg, err := u.sendInternally(cb.Message.MessageID, claimer, sats*1000, "giveaway", nil)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to give away")
 			claimer.notify("Failed to claim giveaway: " + errMsg)
@@ -798,6 +798,7 @@ func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (paym
 		}
 
 		amount, hash, errMsg, err := u.payInternally(
+			messageId,
 			target,
 			bolt11,
 			intlabel,

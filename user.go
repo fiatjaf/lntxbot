@@ -221,7 +221,6 @@ func (u User) payInvoice(
 
 	if amount == 0 {
 		// amount is optional, so let's use the provided on the command
-
 		amount = msatoshi
 		params["msatoshi"] = msatoshi
 	}
@@ -241,9 +240,9 @@ func (u User) payInvoice(
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending_bolt11)
-VALUES ($1, $2, $3, $4, $5, $6)
-    `, u.Id, amount, desc, hash, label, bolt11)
+  (from_id, amount, description, payment_hash, label, pending_bolt11, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, u.Id, amount, desc, hash, label, bolt11, messageId)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error")
 		return errors.New("Database error.")
@@ -347,7 +346,11 @@ WHERE payment_hash = $3
 }
 
 func (u User) payInternally(
-	target User, bolt11, label string, msatoshi int,
+	messageId int,
+	target User,
+	bolt11,
+	label string,
+	msatoshi int,
 ) (msats int, hash string, errMsg string, err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
@@ -365,7 +368,7 @@ func (u User) payInternally(
 		msats = msatoshi
 	}
 
-	errMsg, err = u.sendInternally(target, msats, desc, label)
+	errMsg, err = u.sendInternally(messageId, target, msats, desc, label)
 	if err != nil {
 		return 0, "", errMsg, err
 	}
@@ -373,7 +376,12 @@ func (u User) payInternally(
 	return msats, hash, "", nil
 }
 
-func (u User) sendInternally(target User, msats int, desc, label interface{}) (string, error) {
+func (u User) sendInternally(
+	messageId int,
+	target User,
+	msats int,
+	desc, label interface{},
+) (string, error) {
 	if target.Id == u.Id || target.Username == u.Username || target.TelegramId == u.TelegramId {
 		return "Can't pay yourself.", errors.New("user trying to pay itself")
 	}
@@ -401,9 +409,9 @@ func (u User) sendInternally(target User, msats int, desc, label interface{}) (s
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description, label)
-VALUES ($1, $2, $3, $4, $5)
-    `, u.Id, target.Id, msats, vdesc, vlabel)
+  (from_id, to_id, amount, description, label, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6)
+    `, u.Id, target.Id, msats, vdesc, vlabel, messageId)
 	if err != nil {
 		return "Database error.", err
 	}
