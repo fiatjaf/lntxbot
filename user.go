@@ -140,6 +140,32 @@ RETURNING `+USERFIELDS,
 	}
 }
 
+func (u User) getTransaction(hash string) (txn Transaction, err error) {
+	err = pg.Get(&txn, `
+SELECT
+  time,
+  telegram_peer,
+  status,
+  trigger_message,
+  coalesce(description, '') AS description,
+  fees::float/1000 AS fees,
+  amount::float/1000 AS amount,
+  payment_hash,
+  coalesce(preimage, '') AS preimage,
+  pending_bolt11
+FROM lightning.account_txn
+WHERE account_id = $1
+  AND substring(payment_hash from 0 for $3) = $2
+ORDER BY time
+    `, u.Id, hash, len(hash)+1)
+	if err != nil {
+		return
+	}
+
+	txn.Description = escapeHTML(txn.Description)
+	return
+}
+
 func (u User) AtName() string {
 	if u.Username != "" {
 		return "@" + u.Username

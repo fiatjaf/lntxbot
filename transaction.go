@@ -23,31 +23,6 @@ type Transaction struct {
 	unclaimed *bool
 }
 
-func getTransaction(hash string) (txn Transaction, err error) {
-	err = pg.Get(&txn, `
-SELECT
-  time,
-  telegram_peer,
-  status,
-  trigger_message,
-  coalesce(description, '') AS description,
-  fees::float/1000 AS fees,
-  amount::float/1000 AS amount,
-  payment_hash,
-  coalesce(preimage, '') AS preimage,
-  pending_bolt11
-FROM lightning.account_txn
-WHERE substring(payment_hash from 0 for $2) = $1
-ORDER BY time
-    `, hash, len(hash)+1)
-	if err != nil {
-		return
-	}
-
-	txn.Description = escapeHTML(txn.Description)
-	return
-}
-
 func (t Transaction) PeerActionDescription() string {
 	if !t.TelegramPeer.Valid {
 		return ""

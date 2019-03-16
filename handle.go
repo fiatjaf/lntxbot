@@ -69,7 +69,7 @@ func handleMessage(message *tgbotapi.Message) {
 	// individual transaction query
 	if strings.HasPrefix(text, "/tx") {
 		hashfirstchars := text[3:]
-		txn, err := getTransaction(hashfirstchars)
+		txn, err := u.getTransaction(hashfirstchars)
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
 				Msg("failed to get transaction")
@@ -621,7 +621,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		// recheck transaction when for some reason it wasn't checked and
 		// either confirmed or deleted automatically
 		hashfirstchars := cb.Data[6:]
-		txn, err := getTransaction(hashfirstchars)
+		txn, err := u.getTransaction(hashfirstchars)
 		if err != nil {
 			log.Warn().Err(err).Str("hash", hashfirstchars).
 				Msg("failed to fetch transaction for checking")
