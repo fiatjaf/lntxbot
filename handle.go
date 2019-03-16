@@ -492,6 +492,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	messageId := 0
+	if cb.Message != nil {
+		messageId = cb.Message.MessageID
+	}
+
 	switch {
 	case cb.Data == "noop":
 		goto answerEmpty
@@ -533,7 +538,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		)
 
 		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
-		sent := payInvoice(u, cb.Message.MessageID, bolt11, invlabel, int(optmsats))
+		sent := payInvoice(u, messageId, bolt11, invlabel, int(optmsats))
 		if sent {
 			appendTextToMessage(cb, "Payment sent.")
 		}
@@ -581,7 +586,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		errMsg, err := u.sendInternally(cb.Message.MessageID, claimer, sats*1000, "giveaway", nil)
+		errMsg, err := u.sendInternally(messageId, claimer, sats*1000, "giveaway", nil)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to give away")
 			claimer.notify("Failed to claim giveaway: " + errMsg)
