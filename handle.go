@@ -69,7 +69,7 @@ func handleMessage(message *tgbotapi.Message) {
 	// individual transaction query
 	if strings.HasPrefix(text, "/tx") {
 		hashfirstchars := text[3:]
-		txn, err := u.getTransaction(hashfirstchars)
+		txn, err := getTransaction(hashfirstchars)
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
 				Msg("failed to get transaction")
@@ -89,15 +89,13 @@ func handleMessage(message *tgbotapi.Message) {
 
 		if txn.Status == "PENDING" {
 			// allow people to cancel pending if they're old enough
-			if time.Now().After(txn.Time.Add(time.Hour * 2)) {
-				editWithKeyboard(u.ChatId, id, text+"\n\nRemove pending payment?",
-					tgbotapi.NewInlineKeyboardMarkup(
-						tgbotapi.NewInlineKeyboardRow(
-							tgbotapi.NewInlineKeyboardButtonData("Yes", "rempen="+hashfirstchars),
-						),
+			editWithKeyboard(u.ChatId, id, text+"\n\nRecheck pending payment?",
+				tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData("Yes", "check="+hashfirstchars),
 					),
-				)
-			}
+				),
+			)
 		}
 
 		if txn.IsUnclaimed() {
@@ -485,18 +483,19 @@ parsed:
 }
 
 func handleCallback(cb *tgbotapi.CallbackQuery) {
+	u, t, err := ensureUser(cb.From.ID, cb.From.UserName)
+	if err != nil {
+		log.Warn().Err(err).Int("case", t).
+			Str("username", cb.From.UserName).
+			Int("id", cb.From.ID).
+			Msg("failed to ensure user on callback query")
+		return
+	}
+
 	switch {
 	case cb.Data == "noop":
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
-		u, t, err := ensureUser(cb.From.ID, cb.From.UserName)
-		if err != nil {
-			log.Warn().Err(err).Int("case", t).
-				Str("username", cb.From.UserName).
-				Int("id", cb.From.ID).
-				Msg("failed to ensure user on cancel")
-			goto answerEmpty
-		}
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
 			log.Warn().Err(err).
 				Int("this", u.Id).
@@ -617,26 +616,20 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			appendTextToMessage(cb, "Error.")
 			return
 		}
-
 		appendTextToMessage(cb, "Transaction canceled.")
-	case strings.HasPrefix(cb.Data, "rempen="):
-		// remove pending transaction that for some reason wasn't cancelled automatically
-		// this should only be invoked from a manual click on a button that only shows
-		// after a payment is pending for more than two hours in the transaction list
-		hash := cb.Data[7:]
-		_, err := pg.Exec(`
-DELETE FROM lightning.transaction
-WHERE substring(payment_hash from 0 for $2) = $1
-  AND pending
-        `, hash, len(hash)+1)
+	case strings.HasPrefix(cb.Data, "check="):
+		// recheck transaction when for some reason it wasn't checked and
+		// either confirmed or deleted automatically
+		hashfirstchars := cb.Data[6:]
+		txn, err := getTransaction(hashfirstchars)
 		if err != nil {
-			log.Error().Err(err).Str("hash", hash).Msg("failed to remove pending payment")
+			log.Warn().Err(err).Str("hash", hashfirstchars).
+				Msg("failed to fetch transaction for checking")
 			appendTextToMessage(cb, "Error.")
 			return
 		}
-
-		appendTextToMessage(cb, "Removed.")
-		return
+		go u.checkPaymentStatus(txn.TriggerMessage, txn.PendingBolt11.String)
+		appendTextToMessage(cb, "Checking.")
 	}
 
 answerEmpty:

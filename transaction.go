@@ -9,16 +9,43 @@ import (
 )
 
 type Transaction struct {
-	Time         time.Time      `db:"time"`
-	Status       string         `db:"status"`
-	TelegramPeer sql.NullString `db:"telegram_peer"`
-	Amount       float64        `db:"amount"`
-	Fees         float64        `db:"fees"`
-	Hash         string         `db:"payment_hash"`
-	Preimage     string         `db:"preimage"`
-	Description  string         `db:"description"`
+	Time           time.Time      `db:"time"`
+	Status         string         `db:"status"`
+	TelegramPeer   sql.NullString `db:"telegram_peer"`
+	TriggerMessage int            `db:"trigger_message"`
+	Amount         float64        `db:"amount"`
+	Fees           float64        `db:"fees"`
+	Hash           string         `db:"payment_hash"`
+	Preimage       string         `db:"preimage"`
+	Description    string         `db:"description"`
+	PendingBolt11  sql.NullString `db:"pending_bolt11"`
 
 	unclaimed *bool
+}
+
+func getTransaction(hash string) (txn Transaction, err error) {
+	err = pg.Get(&txn, `
+SELECT
+  time,
+  telegram_peer,
+  status,
+  trigger_message,
+  coalesce(description, '') AS description,
+  fees::float/1000 AS fees,
+  amount::float/1000 AS amount,
+  payment_hash,
+  coalesce(preimage, '') AS preimage,
+  pending_bolt11
+FROM lightning.account_txn
+WHERE substring(payment_hash from 0 for $2) = $1
+ORDER BY time
+    `, hash, len(hash)+1)
+	if err != nil {
+		return
+	}
+
+	txn.Description = escapeHTML(txn.Description)
+	return
 }
 
 func (t Transaction) PeerActionDescription() string {

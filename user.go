@@ -241,9 +241,9 @@ func (u User) payInvoice(
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending)
-VALUES ($1, $2, $3, $4, $5, true)
-    `, u.Id, amount, desc, hash, label)
+  (from_id, amount, description, payment_hash, label, pending_bolt11)
+VALUES ($1, $2, $3, $4, $5, $6)
+    `, u.Id, amount, desc, hash, label, bolt11)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error")
 		return errors.New("Database error.")
@@ -269,11 +269,11 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	// actually send the lightning payment
-	res, err := ln.CallWithCustomTimeout(time.Second*31, "pay", params)
+	res, err := ln.CallWithCustomTimeout(time.Second*5, "pay", params)
 	if err != nil {
 		// wait and check the payment status, maybe it was paid indeed
 		go u.checkPaymentStatus(messageId, bolt11)
-		return
+		return nil
 	}
 
 	// if it succeeds we mark the transaction as not pending anymore
@@ -325,7 +325,7 @@ func (u User) paymentSuccessful(messageId int, payment gjson.Result) {
 
 	_, err = pg.Exec(`
 UPDATE lightning.transaction
-SET fees = $1, preimage = $2, pending = false
+SET fees = $1, preimage = $2, pending_bolt11 = null
 WHERE payment_hash = $3
     `, fees, preimage, hash)
 	if err != nil {
@@ -498,30 +498,6 @@ SELECT * FROM (
 		txns[i].Description = escapeHTML(txns[i].Description)
 	}
 
-	return
-}
-
-func (u User) getTransaction(hash string) (txn Transaction, err error) {
-	hashsize := len(hash)
-	err = pg.Get(&txn, `
-SELECT
-  time,
-  telegram_peer,
-  status,
-  coalesce(description, '') AS description,
-  fees::float/1000 AS fees,
-  amount::float/1000 AS amount,
-  payment_hash,
-  coalesce(preimage, '') AS preimage
-FROM lightning.account_txn
-WHERE account_id = $1 AND substring(payment_hash from 0 for $3) = $2
-ORDER BY time
-    `, u.Id, hash, hashsize+1)
-	if err != nil {
-		return
-	}
-
-	txn.Description = escapeHTML(txn.Description)
 	return
 }
 
