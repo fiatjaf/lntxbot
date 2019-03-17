@@ -18,6 +18,11 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable.ParseMode = "HTML"
 	message, err := bot.Send(chattable)
 	if err != nil {
+		if strings.Index(err.Error(), "reply message not found") != -1 {
+			chattable.BaseChat.ReplyToMessageID = 0
+			message, err = bot.Send(chattable)
+		}
+
 		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
 	}
 	return message
