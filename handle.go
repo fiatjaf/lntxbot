@@ -633,7 +633,18 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			appendTextToMessage(cb, "Error.")
 			return
 		}
-		go u.checkPaymentStatus(txn.TriggerMessage, txn.PendingBolt11.String)
+		go func(u User, messageId int, bolt11 string) {
+			success, payment, err := ln.WaitPaymentResolution(bolt11)
+			if err != nil {
+				log.Warn().Err(err).Str("bolt11", bolt11).Str("user", u.Username).
+					Msg("unexpected error waiting payment resolution")
+				appendTextToMessage(cb, "Unexpected error: please report.")
+				return
+			}
+
+			u.reactToPaymentStatus(success, messageId, payment)
+		}(u, txn.TriggerMessage, txn.PendingBolt11.String)
+
 		appendTextToMessage(cb, "Checking.")
 	}
 
