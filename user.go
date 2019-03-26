@@ -310,8 +310,8 @@ func (u User) reactToPaymentStatus(success bool, messageId int, payment gjson.Re
 	if success {
 		// if it succeeds we mark the transaction as not pending anymore
 		// plus save fees and preimage
-		msats := payment.Get("msatoshi_sent").Float()
-		fees := msats - payment.Get("msatoshi").Float()
+		msats := payment.Get("msatoshi").Float()
+		fees := payment.Get("msatoshi_sent").Float() - msats
 		preimage := payment.Get("payment_preimage").String()
 		hash := payment.Get("payment_hash").String()
 
