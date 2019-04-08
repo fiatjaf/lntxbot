@@ -337,13 +337,14 @@ WHERE payment_hash = $3
 			hash[:5],
 		), messageId)
 	} else {
+		hash := payment.Get("payment_hash").String()
 		log.Warn().
 			Str("user", u.Username).
 			Str("payment", payment.String()).
+			Str("hash", hash).
 			Msg("payment failed")
 		u.notifyAsReply("Payment failed.", messageId)
 
-		hash := payment.Get("payment_hash").String()
 		_, err := pg.Exec(
 			`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
 		if err != nil {
