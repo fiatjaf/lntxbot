@@ -68,6 +68,17 @@ func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
+func coinflipKeyboard(coinflipid string, nparticipants, sats int) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Join lottery",
+				fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
+			),
+		),
+	)
+}
+
 func escapeHTML(m string) string {
 	return strings.Replace(
 		strings.Replace(

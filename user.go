@@ -518,6 +518,15 @@ SELECT * FROM (
 	return
 }
 
+func (u User) checkBalanceFor(sats int, purpose string) bool {
+	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
+		u.notify(fmt.Sprintf("Insufficient balance for %s. Needs %.3f more satoshis",
+			purpose, float64(sats)-info.Balance))
+		return false
+	}
+	return true
+}
+
 type Info struct {
 	AccountId     string  `db:"account_id"`
 	Balance       float64 `db:"balance"`

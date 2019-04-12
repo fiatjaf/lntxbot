@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -205,4 +207,116 @@ func randomPreimage() (string, error) {
 		b[i] = hex[r.Int64()]
 	}
 	return string(b), nil
+}
+
+func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (payment_sent bool) {
+	// check if this is an internal invoice (it will have a different label)
+	intlabel, err := rds.Get("recinvoice.internal:" + bolt11).Result()
+	if err == nil && intlabel != "" {
+		// this is an internal invoice. do not pay.
+		// delete it and just transfer balance.
+		rds.Del("recinvoice.internal:" + bolt11)
+		ln.Call("delinvoice", intlabel, "unpaid")
+
+		targetId, err := rds.Get("recinvoice:" + intlabel + ":creator").Int64()
+		if err != nil {
+			log.Warn().Err(err).
+				Str("intlabel", intlabel).
+				Msg("failed to get internal invoice target from redis")
+			u.notify("Failed to find invoice payee.")
+			return false
+		}
+		target, err := loadUser(int(targetId), 0)
+		if err != nil {
+			log.Warn().Err(err).
+				Str("intlabel", intlabel).
+				Int64("id", targetId).
+				Msg("failed to get load internal invoice target from postgres")
+			u.notify("Failed to find invoice payee")
+			return false
+		}
+
+		amount, hash, errMsg, err := u.payInternally(
+			messageId,
+			target,
+			bolt11,
+			intlabel,
+			optmsats,
+		)
+		if err != nil {
+			log.Warn().Err(err).
+				Str("intlabel", intlabel).
+				Msg("failed to pay pay internally")
+			u.notify("Failed to pay: " + errMsg)
+
+			return false
+		}
+
+		// internal payment succeeded
+		target.notifyAsReply(
+			fmt.Sprintf("Payment received: %d satoshis. /tx%s.", amount/1000, hash[:5]),
+			messageIdFromLabel(intlabel),
+		)
+
+		return true
+	}
+
+	err = u.payInvoice(messageId, bolt11, label, optmsats)
+	if err != nil {
+		u.notifyAsReply(err.Error(), messageId)
+		return false
+	}
+	return true
+}
+
+func processCoinflip(sats int, winnerId int, participants []int, mId int) (winner User, err error) {
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return
+	}
+	defer txn.Rollback()
+
+	msats := sats * 1000
+	var (
+		vdesc  = &sql.NullString{}
+		vlabel = &sql.NullString{}
+	)
+	vdesc.Scan("coinflip")
+
+	for _, partId := range participants {
+		if partId == winnerId {
+			continue
+		}
+
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction
+  (from_id, to_id, amount, description, label, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6)
+    `, partId, winnerId, msats, vdesc, vlabel, mId)
+		if err != nil {
+			return
+		}
+
+		var balance int
+		err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
+    `, partId)
+		if err != nil {
+			return
+		}
+
+		if balance < 0 {
+			err = errors.New("insufficient balance")
+			return
+		}
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return
+	}
+
+	winner, _ = loadUser(winnerId, 0)
+	return
 }

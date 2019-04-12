@@ -120,6 +120,28 @@ func (t Transaction) HashReduced() string {
 	return t.Hash[:5]
 }
 
+func (t Transaction) Icon() string {
+	switch {
+	case t.TelegramPeer.Valid:
+		if t.IsUnclaimed() {
+			return "💤 "
+		}
+
+		switch t.Description {
+		case "giveaway":
+			return "🎁"
+		case "coinflip":
+			return "🎲"
+		default:
+			return ""
+		}
+	case t.IsPending():
+		return "🕓"
+	default:
+		return "⚡"
+	}
+}
+
 func decimalize(v float64) string {
 	if v == math.Trunc(v) {
 		return fmt.Sprintf("%.0f", v)

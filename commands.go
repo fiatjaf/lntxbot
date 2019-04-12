@@ -16,9 +16,10 @@ Usage:
   c (receive | invoice | fund) <satoshis> [<description>...] [--preimage=<preimage>]
   c (pay [now] | paynow | withdraw) [<invoice>] [<satoshis>]
   c (send | tip) <satoshis> [<username>...]
-  c giveaway <satoshis>
   c balance
   c transactions [--page=<page>]
+  c giveaway <satoshis>
+  c coinflip <satoshis> [<num_participants>]
   c help
   c stop
   c toggle spammy

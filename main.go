@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -49,6 +50,9 @@ func main() {
 
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
+
+	// seed the random generator
+	rand.Seed(time.Now().UnixNano())
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
