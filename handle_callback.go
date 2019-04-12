@@ -181,18 +181,23 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if err := rds.SAdd("coinflip:"+coinflipid, joiner.Id).Err(); err != nil {
 			log.Warn().Err(err).Str("coinflip", coinflipid).Msg("error adding participant to coinflip.")
 			goto answerEmpty
-		} else {
-			// append @user to the coinflip message
+		}
+
+		if nregistered+1 < nparticipants {
+			// append @user to the coinflip message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
 			keyboard := coinflipKeyboard(coinflipid, nparticipants, sats)
 			baseEdit.ReplyMarkup = &keyboard
-			bot.Send(tgbotapi.EditMessageTextConfig{
-				BaseEdit: baseEdit,
-				Text:     cb.Message.Text + " " + joiner.AtName(),
-			})
-		}
-
-		if nregistered+1 >= nparticipants {
+			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
+			if cb.Message != nil {
+				edit.Text = cb.Message.Text + " " + joiner.AtName()
+			} else {
+				edit.Text = fmt.Sprintf("Pay %d and get a change to win %d! %d out of %d spots left!",
+					sats, sats*nparticipants, nparticipants-nregistered, nparticipants)
+			}
+			bot.Send(edit)
+		} else {
+			// run the lottery
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
 			swinnerId, err := rds.SRandMember(rkey).Result()
@@ -235,7 +240,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 			go rds.Del(rkey)
 
-			winner, err := processCoinflip(sats, winnerId, participants, cb.Message.MessageID)
+			winner, err := processCoinflip(sats, winnerId, participants, 0)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing coinflip transactions")
 				removeKeyboardButtons(cb)
@@ -244,11 +249,16 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			}
 
 			removeKeyboardButtons(cb)
-			notifyAsReply(
-				cb.Message.Chat.ID,
-				"Coinflip winner: "+winner.AtName(),
-				cb.Message.MessageID,
-			)
+			if cb.Message != nil {
+				appendTextToMessage(cb, joiner.AtName()+"\nWinner: "+winner.AtName())
+				notifyAsReply(
+					cb.Message.Chat.ID,
+					"Coinflip winner: "+winner.AtName(),
+					cb.Message.MessageID,
+				)
+			} else {
+				appendTextToMessage(cb, "Winner: "+winner.AtName())
+			}
 		}
 	case strings.HasPrefix(cb.Data, "remunc="):
 		// remove unclaimed transaction

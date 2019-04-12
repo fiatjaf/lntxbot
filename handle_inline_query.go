@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
+	"github.com/lucsky/cuid"
 )
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
@@ -90,6 +91,44 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		)
 
 		keyboard := giveAwayKeyboard(u, sats)
+		result.ReplyMarkup = &keyboard
+
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       []interface{}{result},
+			IsPersonal:    true,
+		})
+	case "coinflip":
+		if len(argv) < 2 {
+			goto answerEmpty
+		}
+
+		var sats int
+		if sats, err = strconv.Atoi(argv[1]); err != nil {
+			break
+		}
+		if !u.checkBalanceFor(sats, "coinflip") {
+			break
+		}
+
+		nparticipants := 2
+		if len(argv) > 2 {
+			if n, err := strconv.Atoi(argv[2]); err == nil {
+				nparticipants = n
+			}
+		}
+
+		result := tgbotapi.NewInlineQueryResultArticle(
+			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
+			fmt.Sprintf("Lottery with entry fee of %d satoshis for %d participants", sats, nparticipants),
+			fmt.Sprintf("Pay %d and get a chance to win %d! %d out of %d spots left!",
+				sats, sats*nparticipants, nparticipants-1, nparticipants),
+		)
+
+		coinflipid := cuid.Slug()
+		rds.SAdd("coinflip:"+coinflipid, u.Id)
+		rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
+		keyboard := coinflipKeyboard(coinflipid, nparticipants, sats)
 		result.ReplyMarkup = &keyboard
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
