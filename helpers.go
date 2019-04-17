@@ -254,7 +254,7 @@ func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (paym
 
 		// internal payment succeeded
 		target.notifyAsReply(
-			fmt.Sprintf("Payment received: %d satoshis. /tx%s.", amount/1000, hash[:5]),
+			fmt.Sprintf("Payment received: %d sat. /tx%s.", amount/1000, hash[:5]),
 			messageIdFromLabel(intlabel),
 		)
 

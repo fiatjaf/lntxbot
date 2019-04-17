@@ -282,7 +282,7 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	if balance < 0 {
-		return fmt.Errorf("Insufficient balance. Needs %.3f more satoshis.",
+		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
 			-float64(balance)/1000)
 	}
 
@@ -329,7 +329,7 @@ WHERE payment_hash = $3
 		}
 
 		u.notifyAsReply(fmt.Sprintf(
-			"Paid with %d satoshis (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/tx%s",
+			"Paid with %d sat (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/tx%s",
 			int(msats/1000),
 			fees/1000,
 			hash,
@@ -433,7 +433,7 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	}
 
 	if balance < 0 {
-		return fmt.Sprintf("Insufficient balance. Needs %.3f more satoshis.",
+		return fmt.Sprintf("Insufficient balance. Needs %.0f sat more.",
 				-float64(balance)/1000),
 			errors.New("insufficient balance")
 	}
@@ -520,7 +520,7 @@ SELECT * FROM (
 
 func (u User) checkBalanceFor(sats int, purpose string) bool {
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
-		u.notify(fmt.Sprintf("Insufficient balance for %s. Needs %.3f more satoshis",
+		u.notify(fmt.Sprintf("Insufficient balance for %s. Needs %.0f sat more.",
 			purpose, float64(sats)-info.Balance))
 		return false
 	}

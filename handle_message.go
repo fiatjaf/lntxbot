@@ -69,7 +69,7 @@ func handleMessage(message *tgbotapi.Message) {
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
 <b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
-<b>Amount</b>: {{Satoshis}} satoshis
+<b>Amount</b>: {{Satoshis}} sat
 {{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
         `, txn)
 		id := u.notifyAsReply(text, txn.TriggerMessage).MessageID
@@ -290,7 +290,7 @@ parsed:
 		}
 
 		if receiver.ChatId != 0 {
-			receiver.notify(fmt.Sprintf("%s has sent you %d satoshis.", u.AtName(), sats))
+			receiver.notify(fmt.Sprintf("%s has sent you %d sat.", u.AtName(), sats))
 		}
 
 		if message.Chat.Type == "private" {
@@ -302,13 +302,13 @@ parsed:
 				)
 			}
 			u.notifyAsReply(
-				fmt.Sprintf("%d satoshis sent to %s%s.", sats, todisplayname, warning),
+				fmt.Sprintf("%d sat sent to %s%s.", sats, todisplayname, warning),
 				message.MessageID,
 			)
 			break
 		}
 
-		defaultNotify(fmt.Sprintf("%d satoshis sent to %s.", sats, todisplayname))
+		defaultNotify(fmt.Sprintf("%d sat sent to %s.", sats, todisplayname))
 		break
 	case opts["giveaway"].(bool):
 		sats, err := opts.Int("<satoshis>")
@@ -322,7 +322,7 @@ parsed:
 
 		chattable := tgbotapi.NewMessage(
 			message.Chat.ID,
-			fmt.Sprintf("%s is giving %d satoshis away!", u.AtName(), sats),
+			fmt.Sprintf("%s is giving %d sat away!", u.AtName(), sats),
 		)
 		chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
 		bot.Send(chattable)
@@ -352,7 +352,7 @@ parsed:
 			message.Chat.ID,
 			fmt.Sprintf(`A lottery round is starting!
 
-Entry fee: %d satoshis
+Entry fee: %d sat
 Total participants: %d
 Prize: %d
 Registered: %s`, sats, nparticipants, sats*nparticipants, u.AtName()),
@@ -398,10 +398,10 @@ Registered: %s`, sats, nparticipants, sats*nparticipants, u.AtName()),
 		}
 
 		u.notify(fmt.Sprintf(`
-<b>Balance</b>: %.3f satoshis
-<b>Total received</b>: %.3f satoshis
-<b>Total sent</b>: %.3f satoshis
-<b>Total fees paid</b>: %.3f satoshis
+<b>Balance</b>: %.3f sat
+<b>Total received</b>: %.3f sat
+<b>Total sent</b>: %.3f sat
+<b>Total fees paid</b>: %.3f sat
         `, info.Balance, info.TotalReceived, info.TotalSent, info.TotalFees))
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool):

@@ -38,7 +38,7 @@ func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) 
 	}
 
 	text = fmt.Sprintf(`
-%d satoshis
+%d sat
 <i>%s</i>
 <b>Hash</b>: %s
 <b>Node</b>: %s

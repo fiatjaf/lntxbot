@@ -55,8 +55,8 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		qrurl := s.ServiceURL + "/qr/" + qrpath
 
 		result := tgbotapi.NewInlineQueryResultPhoto("inv-"+argv[1], qrurl)
-		result.Title = argv[1] + " satoshis"
-		result.Description = "Payment request for " + argv[1] + " satoshis"
+		result.Title = argv[1] + " sat"
+		result.Description = "Payment request for " + argv[1] + " sat"
 		result.ThumbURL = qrurl
 		result.Caption = bolt11
 
@@ -87,7 +87,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		result := tgbotapi.NewInlineQueryResultArticle(
 			fmt.Sprintf("give-%d-%d", u.Id, sats),
 			fmt.Sprintf("Giving %d away", sats),
-			fmt.Sprintf("%s is giving %d satoshis away!", u.AtName(), sats),
+			fmt.Sprintf("%s is giving %d sat away!", u.AtName(), sats),
 		)
 
 		keyboard := giveAwayKeyboard(u, sats)
@@ -120,7 +120,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		result := tgbotapi.NewInlineQueryResultArticle(
 			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
-			fmt.Sprintf("Lottery with entry fee of %d satoshis for %d participants", sats, nparticipants),
+			fmt.Sprintf("Lottery with entry fee of %d sat for %d participants", sats, nparticipants),
 			fmt.Sprintf("Pay %d and get a chance to win %d! %d out of %d spots left!",
 				sats, sats*nparticipants, nparticipants-1, nparticipants),
 		)
