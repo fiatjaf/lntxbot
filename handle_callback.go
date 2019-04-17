@@ -240,7 +240,9 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 			go rds.Del(rkey)
 
-			winner, err := processCoinflip(sats, winnerId, participants, 0)
+			winner, err := fromManyToOne(sats, winnerId, participants, "coinflip",
+				"You're the winner of a coinflip for a prize of %[1]d satoshis. The losers were: %[2]s",
+				"You've lost %[1]d in a coinflip. The winner was %[2]s.")
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing coinflip transactions")
 				removeKeyboardButtons(cb)

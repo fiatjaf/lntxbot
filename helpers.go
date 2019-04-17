@@ -269,7 +269,9 @@ func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (paym
 	return true
 }
 
-func processCoinflip(sats int, winnerId int, participants []int, mId int) (winner User, err error) {
+func fromManyToOne(sats int, toId int, fromIds []int,
+	desc, receiverMessage, giverMessage string,
+) (receiver User, err error) {
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
@@ -277,23 +279,26 @@ func processCoinflip(sats int, winnerId int, participants []int, mId int) (winne
 	}
 	defer txn.Rollback()
 
+	receiver, _ = loadUser(toId, 0)
+	giverNames := make([]string, 0, len(fromIds))
+
 	msats := sats * 1000
 	var (
 		vdesc  = &sql.NullString{}
 		vlabel = &sql.NullString{}
 	)
-	vdesc.Scan("coinflip")
+	vdesc.Scan(desc)
 
-	for _, partId := range participants {
-		if partId == winnerId {
+	for _, fromId := range fromIds {
+		if fromId == toId {
 			continue
 		}
 
 		_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description, label, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6)
-    `, partId, winnerId, msats, vdesc, vlabel, mId)
+  (from_id, to_id, amount, description, label)
+VALUES ($1, $2, $3, $4, $5)
+    `, fromId, toId, msats, vdesc, vlabel)
 		if err != nil {
 			return
 		}
@@ -301,7 +306,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 		var balance int
 		err = txn.Get(&balance, `
 SELECT balance::int FROM lightning.balance WHERE account_id = $1
-    `, partId)
+    `, fromId)
 		if err != nil {
 			return
 		}
@@ -310,6 +315,11 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 			err = errors.New("insufficient balance")
 			return
 		}
+
+		giver, _ := loadUser(fromId, 0)
+		giverNames = append(giverNames, giver.AtName())
+
+		giver.notify(fmt.Sprintf(giverMessage, sats, receiver.AtName()))
 	}
 
 	err = txn.Commit()
@@ -317,6 +327,6 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 		return
 	}
 
-	winner, _ = loadUser(winnerId, 0)
+	receiver.notify(fmt.Sprintf(receiverMessage, sats, strings.Join(giverNames, " ")))
 	return
 }
