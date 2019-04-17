@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 
@@ -200,14 +201,15 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			// run the lottery
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
-			swinnerId, err := rds.SRandMember(rkey).Result()
+			sparticipants, err := rds.SMembers(rkey).Result()
+			go rds.Del(rkey)
 			if err != nil {
-				log.Warn().Err(err).Str("coinflip", params[2]).
-					Msg("error getting random participant from redis.")
+				log.Warn().Err(err).Msg("failed to get coinflip participants")
 				removeKeyboardButtons(cb)
 				appendTextToMessage(cb, "\n\nCoinflip error.")
 				goto answerEmpty
 			}
+			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
 
 			// winner id
 			winnerId, err := strconv.Atoi(swinnerId)
@@ -220,13 +222,6 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 			// all participants
 			participants := make([]int, nregistered+1)
-			sparticipants, err := rds.SMembers(rkey).Result()
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to get coinflip participants")
-				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nCoinflip error.")
-				goto answerEmpty
-			}
 			for i, spart := range sparticipants {
 				part, err := strconv.Atoi(spart)
 				if err != nil {
@@ -237,8 +232,6 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				}
 				participants[i] = part
 			}
-
-			go rds.Del(rkey)
 
 			winner, err := fromManyToOne(sats, winnerId, participants, "coinflip",
 				"You're the winner of a coinflip for a prize of %[1]d sat. The losers were: %[2]s",
