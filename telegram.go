@@ -16,6 +16,7 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
 	chattable.ParseMode = "HTML"
+	chattable.DisableWebPagePreview = true
 	message, err := bot.Send(chattable)
 	if err != nil {
 		if strings.Index(err.Error(), "reply message not found") != -1 {
@@ -31,6 +32,7 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 func notifyMarkdown(chatId int64, msg string) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.ParseMode = "Markdown"
+	chattable.DisableWebPagePreview = true
 	message, err := bot.Send(chattable)
 	if err != nil {
 		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
@@ -120,6 +122,7 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
 	edit := tgbotapi.NewEditMessageText(chat, msg, text)
 	edit.ParseMode = "HTML"
+	edit.DisableWebPagePreview = true
 	edit.BaseEdit.ReplyMarkup = &keyboard
 	bot.Send(edit)
 }
