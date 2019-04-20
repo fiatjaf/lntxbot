@@ -48,8 +48,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		invlabel := cb.Data[4:]
-		bolt11, err := rds.Get("payinvoice:" + invlabel).Result()
+		hashfirstchars := cb.Data[4:]
+		bolt11, err := rds.Get("payinvoice:" + hashfirstchars).Result()
 		if err != nil {
 			bot.AnswerCallbackQuery(
 				tgbotapi.NewCallback(
@@ -64,9 +64,9 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			tgbotapi.NewCallback(cb.ID, "Sending payment."),
 		)
 
-		optmsats, _ := rds.Get("payinvoice:" + invlabel + ":msats").Int64()
-		sent := payInvoice(u, messageId, bolt11, invlabel, int(optmsats))
-		if sent {
+		optmsats, _ := rds.Get("payinvoice:" + hashfirstchars + ":msats").Int64()
+		err = u.payInvoice(messageId, bolt11, int(optmsats))
+		if err == nil {
 			appendTextToMessage(cb, "Payment sent.")
 		}
 		removeKeyboardButtons(cb)

@@ -24,7 +24,8 @@ func handleHelp(u User) {
 	u.notifyMarkdown("```\n" + helpString + "\n```")
 }
 
-func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) (id int, text string, err error) {
+func decodeNotifyBolt11(
+	chatId int64, replyTo int, bolt11 string, optmsats int) (id int, text, hash string, err error) {
 	inv, err := decodeInvoice(bolt11)
 	if err != nil {
 		errMsg := messageFromError(err, "Failed to decode invoice")
@@ -37,6 +38,8 @@ func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) 
 		amount = optmsats
 	}
 
+	hash = inv.Get("payment_hash").String()
+
 	text = fmt.Sprintf(`
 %d sat
 <i>%s</i>
@@ -45,7 +48,7 @@ func decodeNotifyBolt11(chatId int64, replyTo int, bolt11 string, optmsats int) 
         `,
 		amount/1000,
 		escapeHTML(inv.Get("description").String()),
-		inv.Get("payment_hash").String(),
+		hash,
 		inv.Get("payee").String(),
 	)
 
@@ -58,24 +61,20 @@ func handleInvoicePaid(res gjson.Result) {
 	index := res.Get("pay_index").Int()
 	rds.Set("lastinvoiceindex", index, 0)
 
-	label := res.Get("label").String()
-
-	// use the label to get the user that created this invoice
-	userId, _ := rds.Get("recinvoice:" + label + ":creator").Int64()
-	u, err := loadUser(int(userId), 0)
-	if err != nil {
-		log.Warn().Err(err).
-			Int64("userid", userId).Str("label", label).Int64("index", index).
-			Msg("couldn't load user who created this invoice.")
-		return
-	}
-
 	msats := res.Get("msatoshi_received").Int()
 	desc := res.Get("description").String()
 	hash := res.Get("payment_hash").String()
+	label := res.Get("label").String()
 
-	// the preimage should be on redis
-	preimage := rds.Get("recinvoice:" + label + ":preimage").String()
+	// extract user id and preimage from label
+	messageId, userId, preimage, ok := parseLabel(label)
+	u, err := loadUser(userId, 0)
+	if !ok || err != nil {
+		log.Warn().Err(err).
+			Int("userid", userId).Str("label", label).Int64("index", index).
+			Msg("failed to parse label for received payment or loading user")
+		return
+	}
 
 	err = u.paymentReceived(
 		int(msats),
@@ -90,8 +89,5 @@ func handleInvoicePaid(res gjson.Result) {
 		)
 	}
 
-	u.notifyAsReply(
-		fmt.Sprintf("Payment received: %d. /tx%s.", msats/1000, hash[:5]),
-		messageIdFromLabel(label),
-	)
+	u.notifyAsReply(fmt.Sprintf("Payment received: %d. /tx%s.", msats/1000, hash[:5]), messageId)
 }

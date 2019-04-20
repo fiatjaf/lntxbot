@@ -22,17 +22,25 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
-func makeLabel(chatId int64, messageId interface{}) string {
-	return fmt.Sprintf("%s.%d.%v", s.ServiceId, chatId, messageId)
+func makeLabel(userId int, messageId interface{}, preimage string) string {
+	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, preimage)
 }
 
-func messageIdFromLabel(label string) int {
+func parseLabel(label string) (messageId, userId int, preimage string, ok bool) {
+	ok = false
 	parts := strings.Split(label, ".")
-	if len(parts) == 3 {
-		id, _ := strconv.Atoi(parts[2])
-		return id
+	if len(parts) == 4 {
+		userId, err = strconv.Atoi(parts[1])
+		if err == nil {
+			ok = true
+		}
+		messageId, err = strconv.Atoi(parts[2])
+		if err == nil {
+			ok = true
+		}
+		preimage = parts[3]
 	}
-	return 0
+	return
 }
 
 func qrImagePath(label string) string {
@@ -130,12 +138,12 @@ func decodeInvoice(invoice string) (inv gjson.Result, err error) {
 
 func makeInvoice(
 	u User,
-	label string,
 	sats int,
 	desc string,
+	messageId interface{},
 	preimage string,
 ) (bolt11 string, qrpath string, err error) {
-	log.Debug().Str("label", label).Str("desc", desc).Int("sats", sats).Str("preimage", preimage).
+	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
 		Msg("generating invoice")
 
 	if preimage == "" {
@@ -145,9 +153,7 @@ func makeInvoice(
 		}
 	}
 
-	// save invoice creator and preimage on redis
-	rds.Set("recinvoice:"+label+":creator", u.Id, s.InvoiceTimeout)
-	rds.Set("recinvoice:"+label+":preimage", preimage, s.InvoiceTimeout)
+	label := makeLabel(u.Id, messageId, preimage)
 
 	// make invoice
 	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
@@ -161,10 +167,6 @@ func makeInvoice(
 		return
 	}
 	bolt11 = res.Get("bolt11").String()
-
-	// save this bolt11 on redis so we know if someone tries
-	// to pay it from this same wallet/bot
-	rds.Set("recinvoice.internal:"+bolt11, label, s.InvoiceTimeout)
 
 	// generate qr code
 	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
@@ -207,66 +209,6 @@ func randomPreimage() (string, error) {
 		b[i] = hex[r.Int64()]
 	}
 	return string(b), nil
-}
-
-func payInvoice(u User, messageId int, bolt11, label string, optmsats int) (payment_sent bool) {
-	// check if this is an internal invoice (it will have a different label)
-	intlabel, err := rds.Get("recinvoice.internal:" + bolt11).Result()
-	if err == nil && intlabel != "" {
-		// this is an internal invoice. do not pay.
-		// delete it and just transfer balance.
-		rds.Del("recinvoice.internal:" + bolt11)
-		ln.Call("delinvoice", intlabel, "unpaid")
-
-		targetId, err := rds.Get("recinvoice:" + intlabel + ":creator").Int64()
-		if err != nil {
-			log.Warn().Err(err).
-				Str("intlabel", intlabel).
-				Msg("failed to get internal invoice target from redis")
-			u.notify("Failed to find invoice payee.")
-			return false
-		}
-		target, err := loadUser(int(targetId), 0)
-		if err != nil {
-			log.Warn().Err(err).
-				Str("intlabel", intlabel).
-				Int64("id", targetId).
-				Msg("failed to get load internal invoice target from postgres")
-			u.notify("Failed to find invoice payee")
-			return false
-		}
-
-		amount, hash, errMsg, err := u.payInternally(
-			messageId,
-			target,
-			bolt11,
-			intlabel,
-			optmsats,
-		)
-		if err != nil {
-			log.Warn().Err(err).
-				Str("intlabel", intlabel).
-				Msg("failed to pay pay internally")
-			u.notify("Failed to pay: " + errMsg)
-
-			return false
-		}
-
-		// internal payment succeeded
-		target.notifyAsReply(
-			fmt.Sprintf("Payment received: %d sat. /tx%s.", amount/1000, hash[:5]),
-			messageIdFromLabel(intlabel),
-		)
-
-		return true
-	}
-
-	err = u.payInvoice(messageId, bolt11, label, optmsats)
-	if err != nil {
-		u.notifyAsReply(err.Error(), messageId)
-		return false
-	}
-	return true
 }
 
 func fromManyToOne(sats int, toId int, fromIds []int,

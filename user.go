@@ -222,10 +222,7 @@ func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 	return notifyAsReply(u.ChatId, msg, replyToId)
 }
 
-func (u User) payInvoice(
-	messageId int,
-	bolt11, label string, msatoshi int,
-) (err error) {
+func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
@@ -262,12 +259,14 @@ func (u User) payInvoice(
 	}
 	defer txn.Rollback()
 
+	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
+
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, amount, description, payment_hash, label, pending_bolt11, trigger_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, amount, desc, hash, label, bolt11, messageId)
+    `, u.Id, amount, desc, hash, fakeLabel, bolt11, messageId)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error")
 		return errors.New("Database error.")
@@ -352,37 +351,6 @@ WHERE payment_hash = $3
 				Msg("failed to cancel transaction after routing failure.")
 		}
 	}
-}
-
-func (u User) payInternally(
-	messageId int,
-	target User,
-	bolt11,
-	label string,
-	msatoshi int,
-) (msats int, hash string, errMsg string, err error) {
-	inv, err := ln.Call("decodepay", bolt11)
-	if err != nil {
-		return 0, "", messageFromError(err, "Failed to decode invoice"), err
-	}
-
-	log.Print("making internal payment")
-	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
-	msats = int(inv.Get("msatoshi").Int())
-	hash = inv.Get("payment_hash").String()
-	desc := inv.Get("description").String()
-
-	if msats == 0 {
-		// amount is optional, so let's use the provided on the command
-		msats = msatoshi
-	}
-
-	errMsg, err = u.sendInternally(messageId, target, msats, desc, label)
-	if err != nil {
-		return 0, "", errMsg, err
-	}
-
-	return msats, hash, "", nil
 }
 
 func (u User) sendInternally(

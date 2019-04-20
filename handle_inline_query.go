@@ -39,14 +39,12 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 	switch argv[0] {
 	case "invoice", "receive":
-		label := makeLabel(u.ChatId, q.ID)
-
 		sats, err := strconv.Atoi(argv[1])
 		if err != nil {
 			goto answerEmpty
 		}
 
-		bolt11, qrpath, err := makeInvoice(u, label, sats, "inline-"+q.ID, "")
+		bolt11, qrpath, err := makeInvoice(u, sats, "inline-"+q.ID, q.ID, "")
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty

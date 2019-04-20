@@ -146,14 +146,12 @@ parsed:
 			desc = strings.Join(idesc.([]string), " ")
 		}
 
-		label := makeLabel(u.ChatId, message.MessageID)
-
 		var preimage string
 		if param, ok := opts["--preimage"]; ok {
 			preimage, _ = param.(string)
 		}
 
-		bolt11, qrpath, err := makeInvoice(u, label, sats, desc, preimage)
+		bolt11, qrpath, err := makeInvoice(u, sats, desc, message.MessageID, preimage)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
 			notify(message.Chat.ID, messageFromError(err, "Failed to generate invoice"))
@@ -431,29 +429,28 @@ Registered: %s`, sats, nparticipants, sats*nparticipants, u.AtName()),
 		optsats, _ := opts.Int("<satoshis>")
 		optmsats := optsats * 1000
 
-		invlabel := makeLabel(u.ChatId, message.MessageID)
-
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
-			id, text, err := decodeNotifyBolt11(u.ChatId, 0, bolt11, optmsats)
+			id, text, hash, err := decodeNotifyBolt11(u.ChatId, 0, bolt11, optmsats)
 			if err != nil {
 				break
 			}
 
-			rds.Set("payinvoice:"+invlabel, bolt11, s.PayConfirmTimeout)
-			rds.Set("payinvoice:"+invlabel+":msats", optmsats, s.PayConfirmTimeout)
+			hashfirstchars := hash[:5]
+			rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)
+			rds.Set("payinvoice:"+hashfirstchars+":msats", optmsats, s.PayConfirmTimeout)
 
 			editWithKeyboard(u.ChatId, id,
 				text+"\n\nPay the invoice described above?",
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
 						tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", u.Id)),
-						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay="+invlabel),
+						tgbotapi.NewInlineKeyboardButtonData("Yes", "pay="+hashfirstchars),
 					),
 				),
 			)
 		} else {
-			payInvoice(u, message.MessageID, bolt11, invlabel, optmsats)
+			u.payInvoice(message.MessageID, bolt11, optmsats)
 		}
 		break
 	case opts["help"].(bool):

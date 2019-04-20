@@ -72,6 +72,13 @@ func main() {
 			Msg("failed to connect to redis")
 	}
 
+	// create bot
+	bot, err = tgbotapi.NewBotAPI(s.BotToken)
+	if err != nil {
+		log.Fatal().Err(err).Msg("")
+	}
+	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
+
 	// lightningd connection
 	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
 	ln = &lightning.Client{
@@ -82,13 +89,6 @@ func main() {
 	ln.ListenForInvoices()
 
 	// bot stuff
-	bot, err = tgbotapi.NewBotAPI(s.BotToken)
-	if err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
-
-	log.Printf("Authorized on account %s", bot.Self.UserName)
-
 	_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
@@ -98,7 +98,7 @@ func main() {
 		log.Fatal().Err(err).Msg("")
 	}
 	if info.LastErrorDate != 0 {
-		log.Printf("Telegram callback failed: %s", info.LastErrorMessage)
+		log.Debug().Str("err", info.LastErrorMessage).Msg("telegram callback failed")
 	}
 	updates := bot.ListenForWebhook("/" + bot.Token)
 
