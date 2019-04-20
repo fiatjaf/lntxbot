@@ -6,7 +6,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -21,6 +23,12 @@ import (
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
+
+var dollarPrice = struct {
+	lastUpdate time.Time
+	rate       float64
+}{time.Now(), 0}
+var nodeAliases = make(map[string]string)
 
 func makeLabel(userId int, messageId interface{}, preimage string) string {
 	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, preimage)
@@ -124,16 +132,73 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	return
 }
 
-func decodeInvoice(invoice string) (inv gjson.Result, err error) {
+func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias, usd string, err error) {
 	inv, err = ln.Call("decodepay", invoice)
 	if err != nil {
 		return
 	}
 	if inv.Get("code").Int() != 0 {
-		return inv, errors.New(inv.Get("message").String())
+		err = errors.New(inv.Get("message").String())
+		return
 	}
 
+	nodeAlias = getNodeAlias(inv.Get("payee").String())
+	usd = getDollarPrice(inv.Get("msatoshi").Int())
+
 	return
+}
+
+func getNodeAlias(id string) string {
+begin:
+	if alias, ok := nodeAliases[id]; ok {
+		return alias
+	}
+
+	res, err := ln.Call("listnodes", id)
+	if err != nil {
+		return ""
+	}
+	if !res.Get("nodes.0").Exists() {
+		return ""
+	}
+	nodeAliases[id] = res.Get("nodes.0.alias").String()
+	goto begin
+}
+
+func getDollarPrice(msats int64) string {
+	rate, err := getDollarRate()
+	if err != nil {
+		return "~ USD"
+	}
+	return fmt.Sprintf("%.3f USD", float64(msats)/rate)
+}
+
+func getDollarRate() (rate float64, err error) {
+begin:
+	if dollarPrice.rate > 0 && dollarPrice.lastUpdate.After(time.Now().Add(-time.Hour)) {
+		// it's fine
+		return dollarPrice.rate, nil
+	}
+
+	resp, err := http.Get("https://www.bitstamp.net/api/v2/ticker/btcusd")
+	if err != nil || resp.StatusCode >= 300 {
+		return
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	srate := gjson.GetBytes(b, "last").String()
+	btcrate, err := strconv.ParseFloat(srate, 64)
+	if err != nil {
+		return
+	}
+
+	// we want the msat -> dollar rate, not dollar -> btc
+	dollarPrice.rate = 1 / (btcrate / 100000000000)
+	dollarPrice.lastUpdate = time.Now()
+	goto begin
 }
 
 func makeInvoice(

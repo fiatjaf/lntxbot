@@ -26,7 +26,7 @@ func handleHelp(u User) {
 
 func decodeNotifyBolt11(
 	chatId int64, replyTo int, bolt11 string, optmsats int) (id int, text, hash string, err error) {
-	inv, err := decodeInvoice(bolt11)
+	inv, nodeAlias, usd, err := decodeInvoice(bolt11)
 	if err != nil {
 		errMsg := messageFromError(err, "Failed to decode invoice")
 		notify(chatId, errMsg)
@@ -41,15 +41,17 @@ func decodeNotifyBolt11(
 	hash = inv.Get("payment_hash").String()
 
 	text = fmt.Sprintf(`
-%d sat
+%d sat (%s)
 <i>%s</i>
 <b>Hash</b>: %s
-<b>Node</b>: %s
+<b>Node</b>: %s (%s)
         `,
 		amount/1000,
+		usd,
 		escapeHTML(inv.Get("description").String()),
 		hash,
 		inv.Get("payee").String(),
+		nodeAlias,
 	)
 
 	msg := notifyAsReply(chatId, text, replyTo)
