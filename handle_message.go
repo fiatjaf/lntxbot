@@ -67,6 +67,7 @@ func handleMessage(message *tgbotapi.Message) {
 		text := mustache.Render(`
 <code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(💤 unclaimed){{/IsUnclaimed}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
+{{#Payee.Valid}}<b>Payee</b>: {{Payee.String}} ({{PayeeAlias}}){{/Payee.Valid}}
 <b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
 <b>Amount</b>: {{Satoshis}} sat

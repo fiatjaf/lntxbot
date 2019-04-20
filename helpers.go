@@ -154,14 +154,21 @@ begin:
 		return alias
 	}
 
+	if id == "" {
+		return "~"
+	}
+
 	res, err := ln.Call("listnodes", id)
 	if err != nil {
-		return ""
+		return "~"
 	}
-	if !res.Get("nodes.0").Exists() {
-		return ""
+
+	alias := res.Get("nodes.0.alias").String()
+	if alias == "" {
+		alias = "~"
 	}
-	nodeAliases[id] = res.Get("nodes.0.alias").String()
+
+	nodeAliases[id] = alias
 	goto begin
 }
 

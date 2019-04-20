@@ -18,6 +18,7 @@ type Transaction struct {
 	Hash           string         `db:"payment_hash"`
 	Preimage       string         `db:"preimage"`
 	Description    string         `db:"description"`
+	Payee          sql.NullString `db:"payee_node"`
 	PendingBolt11  sql.NullString `db:"pending_bolt11"`
 
 	unclaimed *bool
@@ -140,6 +141,10 @@ func (t Transaction) Icon() string {
 	default:
 		return "⚡"
 	}
+}
+
+func (t Transaction) PayeeAlias() string {
+	return getNodeAlias(t.Payee.String)
 }
 
 func decimalize(v float64) string {

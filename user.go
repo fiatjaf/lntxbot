@@ -151,6 +151,7 @@ SELECT
   amount::float/1000 AS amount,
   payment_hash,
   coalesce(preimage, '') AS preimage,
+  payee_node,
   pending_bolt11
 FROM lightning.account_txn
 WHERE account_id = $1
@@ -233,6 +234,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	amount := int(inv.Get("msatoshi").Int())
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
+	payee := inv.Get("payee").String()
 	params := map[string]interface{}{
 		"bolt11":        bolt11,
 		"riskfactor":    6,
@@ -264,9 +266,9 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending_bolt11, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, amount, desc, hash, fakeLabel, bolt11, messageId)
+  (from_id, amount, description, payment_hash, label, pending_bolt11, trigger_message, remote_node)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, u.Id, amount, desc, hash, fakeLabel, bolt11, messageId, payee)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error")
 		return errors.New("Database error.")

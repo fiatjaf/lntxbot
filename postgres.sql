@@ -27,7 +27,8 @@ CREATE TABLE lightning.transaction (
   label text, -- null on internal sends/tips
   preimage text,
   pending_bolt11 text,
-  trigger_message int NOT NULL DEFAULT 0
+  trigger_message int NOT NULL DEFAULT 0,
+  remote_node text
 );
 
 CREATE INDEX ON lightning.transaction (from_id);
@@ -42,7 +43,7 @@ CREATE VIEW lightning.account_txn AS
       WHEN label IS NULL THEN coalesce(t.username, t.telegram_id::text)
       ELSE NULL
     END AS telegram_peer,
-    status, fees, payment_hash, label, description, preimage, pending_bolt11
+    status, fees, payment_hash, label, description, preimage, pending_bolt11, payee_node
   FROM (
     SELECT time,
       from_id AS account_id,
@@ -50,7 +51,7 @@ CREATE VIEW lightning.account_txn AS
       CASE WHEN pending_bolt11 IS NOT NULL THEN 'PENDING' ELSE 'SENT' END AS status,
       to_id AS peer,
       -amount AS amount, fees,
-      payment_hash, label, description, preimage, pending_bolt11
+      payment_hash, label, description, preimage, pending_bolt11, remote_node AS payee_node
     FROM lightning.transaction
     WHERE from_id IS NOT NULL
   UNION ALL
@@ -60,7 +61,7 @@ CREATE VIEW lightning.account_txn AS
       'RECEIVED' AS status,
       from_id AS peer,
       amount, 0 AS fees,
-      payment_hash, label, description, preimage, pending_bolt11
+      payment_hash, label, description, preimage, pending_bolt11, NULL as payee_node
     FROM lightning.transaction
     WHERE to_id IS NOT NULL
   ) AS x
