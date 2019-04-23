@@ -341,6 +341,9 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 		return
 	}
 
-	receiver.notify(fmt.Sprintf(receiverMessage, sats, strings.Join(giverNames, " ")))
+	receiver.notify(
+		fmt.Sprintf(receiverMessage,
+			sats*len(fromIds), strings.Join(giverNames, " ")),
+	)
 	return
 }
