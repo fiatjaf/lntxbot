@@ -194,8 +194,8 @@ parsed:
 		var (
 			sats          int
 			todisplayname string
-			receiver      User
-			username      string
+			receiver      *User
+			usernameval   interface{}
 		)
 
 		// get quantity
@@ -205,9 +205,9 @@ parsed:
 			// maybe the order of arguments is inverted
 			if val, ok := opts["<satoshis>"].(string); ok && val[0] == '@' {
 				// it seems to be
-				if asats, ok := opts["<username>"].([]string); ok && len(asats) == 1 {
+				usernameval = val
+				if asats, ok := opts["<receiver>"].([]string); ok && len(asats) == 1 {
 					sats, _ = strconv.Atoi(asats[0])
-					username = strings.ToLower(val)
 					goto gotusername
 				}
 			}
@@ -215,40 +215,26 @@ parsed:
 			defaultNotify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		} else {
-			if aval, ok := opts["<username>"].([]string); ok && len(aval) > 0 {
-				// got a username
-				username = strings.ToLower(strings.Join(aval, " "))
-				goto gotusername
-			}
+			usernameval = opts["<receiver>"]
 		}
 
 	gotusername:
-		// check entities for user type
-		for _, entity := range *message.Entities {
-			if entity.Type == "text_mention" && entity.User != nil {
-				// user without username
-				toid := entity.User.ID
-				todisplayname = strings.TrimSpace(
-					entity.User.FirstName + " " + entity.User.LastName,
-				)
-				receiver, err = ensureTelegramId(toid)
-				goto ensured
-			}
-			if entity.Type == "mention" {
-				// user with username
-				toname := username[1:]
-				todisplayname = toname
-				receiver, err = ensureUsername(toname)
-				goto ensured
-			}
+		receiver, todisplayname, err = parseUsername(message, usernameval)
+		if err != nil {
+			break
+		}
+		if receiver != nil {
+			goto ensured
 		}
 
 		// no username, this may be a reply-tip
 		if message.ReplyToMessage != nil {
+			log.Debug().Msg("it's a reply-tip")
 			reply := message.ReplyToMessage
 
 			var t int
-			receiver, t, err = ensureUser(reply.From.ID, reply.From.UserName)
+			rec, t, err := ensureUser(reply.From.ID, reply.From.UserName)
+			receiver = &rec
 			if err != nil {
 				log.Warn().Err(err).Int("case", t).
 					Str("username", reply.From.UserName).
@@ -278,7 +264,7 @@ parsed:
 			break
 		}
 
-		errMsg, err := u.sendInternally(message.MessageID, receiver, sats*1000, nil, nil)
+		errMsg, err := u.sendInternally(message.MessageID, *receiver, sats*1000, nil, nil)
 		if err != nil {
 			log.Warn().Err(err).
 				Str("from", u.Username).
@@ -361,6 +347,45 @@ Registered: %s`, sats, nparticipants, sats*nparticipants, u.AtName()),
 		rds.SAdd("coinflip:"+coinflipid, u.Id)
 		rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
 		chattable.BaseChat.ReplyMarkup = coinflipKeyboard(coinflipid, nparticipants, sats)
+		bot.Send(chattable)
+	case opts["fundraise"].(bool):
+		// many people join, we get all the money and transfer to the target
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			break
+		}
+		if !u.checkBalanceFor(sats, "fundraise") {
+			break
+		}
+
+		nparticipants, err := opts.Int("<num_participants>")
+		if err != nil || nparticipants < 2 || nparticipants > 100 {
+			u.notify("Invalid number of participants: " + strconv.Itoa(nparticipants))
+			break
+		}
+
+		receiver, receiverdisplayname, err := parseUsername(message, opts["<receiver>"])
+		if err != nil {
+			log.Warn().Err(err).Msg("parsing fundraise receiver")
+			u.notify("Failed to parse receiver name.")
+			break
+		}
+
+		chattable := tgbotapi.NewMessage(
+			message.Chat.ID,
+			fmt.Sprintf(`A fundraising to %s was started!
+
+Contributors needed for completion: %d
+Each pays: %d sat
+Final amount: %d
+Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipants, u.AtName()),
+		)
+
+		fundraiseid := cuid.Slug()
+		rds.SAdd("fundraise:"+fundraiseid, u.Id)
+		rds.Expire("fundraise:"+fundraiseid, s.GiveAwayTimeout)
+		chattable.BaseChat.ReplyMarkup = fundraiseKeyboard(fundraiseid, receiver.Id, nparticipants, sats)
 		bot.Send(chattable)
 	case opts["transactions"].(bool):
 		// show list of transactions

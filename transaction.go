@@ -133,6 +133,8 @@ func (t Transaction) Icon() string {
 			return "🎁"
 		case "coinflip":
 			return "🎲"
+		case "fundraise":
+			return "📢"
 		default:
 			return ""
 		}

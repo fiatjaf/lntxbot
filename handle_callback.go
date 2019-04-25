@@ -255,6 +255,113 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				appendTextToMessage(cb, "Winner: "+winner.AtName())
 			}
 		}
+	case strings.HasPrefix(cb.Data, "raise="):
+		// join a new giver in a fundraising event
+		// if the total of givers is reached commit the fundraise
+		params := strings.Split(cb.Data[6:], "-")
+		if len(params) != 4 {
+			goto answerEmpty
+		}
+
+		fundraiseid := params[3]
+		rkey := "fundraise:" + fundraiseid
+
+		nregistered := int(rds.SCard(rkey).Val())
+		if nregistered == 0 {
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "\n\nFundraising expired.")
+			goto answerEmpty
+		}
+
+		receiverId, err1 := strconv.Atoi(params[0])
+		ngivers, err2 := strconv.Atoi(params[1])
+		sats, err3 := strconv.Atoi(params[2])
+		if err1 != nil || err2 != nil || err3 != nil {
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "\n\nFundraising error.")
+			goto answerEmpty
+		}
+
+		joiner, t, err := ensureUser(cb.From.ID, cb.From.UserName)
+		if err != nil {
+			log.Warn().Err(err).Int("case", t).
+				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
+				Msg("failed to ensure joiner user on fundraise.")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "\n\nFundraising error.")
+			goto answerEmpty
+		}
+
+		if !joiner.checkBalanceFor(sats, "fundraise") {
+			goto answerEmpty
+		}
+
+		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
+			joiner.notify("You can't join a fundraise twice.")
+			goto answerEmpty
+		}
+
+		if err := rds.SAdd("fundraise:"+fundraiseid, joiner.Id).Err(); err != nil {
+			log.Warn().Err(err).Str("fundraise", fundraiseid).Msg("error adding giver to fundraise.")
+			goto answerEmpty
+		}
+
+		if nregistered+1 < ngivers {
+			// append @user to the fundraise message (without removing the keyboard)
+			baseEdit := getBaseEdit(cb)
+			keyboard := fundraiseKeyboard(fundraiseid, receiverId, ngivers, sats)
+			baseEdit.ReplyMarkup = &keyboard
+			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
+			if cb.Message != nil {
+				edit.Text = cb.Message.Text + " " + joiner.AtName()
+			} else {
+				edit.Text = fmt.Sprintf("Pay %d and get a change to win %d! %d out of %d spots left!",
+					sats, sats*ngivers, ngivers-nregistered, ngivers)
+			}
+			bot.Send(edit)
+		} else {
+			// commit the fundraise. this is the same as the coinflip, just without randomness.
+			sgivers, err := rds.SMembers(rkey).Result()
+			go rds.Del(rkey)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to get fundraise givers")
+				removeKeyboardButtons(cb)
+				appendTextToMessage(cb, "\n\nFundraising error.")
+				goto answerEmpty
+			}
+
+			// all givers
+			givers := make([]int, nregistered+1)
+			for i, spart := range sgivers {
+				part, err := strconv.Atoi(spart)
+				if err != nil {
+					log.Warn().Err(err).Str("part", spart).Msg("giver id is not an int")
+					removeKeyboardButtons(cb)
+					appendTextToMessage(cb, "\n\nFundraising error.")
+					goto answerEmpty
+				}
+				givers[i] = part
+			}
+
+			receiver, err := fromManyToOne(sats, receiverId, givers, "fundraise",
+				"You've received %[1]d sat of a fundraise from %[2]s",
+				"You've given %[1]d in a fundraise to %[2]s.")
+			if err != nil {
+				log.Warn().Err(err).Msg("error processing fundraise transactions")
+				removeKeyboardButtons(cb)
+				appendTextToMessage(cb, "\n\nFundraise error.")
+				goto answerEmpty
+			}
+
+			removeKeyboardButtons(cb)
+			if cb.Message != nil {
+				appendTextToMessage(cb, joiner.AtName()+"\nCompleted!")
+				notifyAsReply(cb.Message.Chat.ID,
+					"Fundraising for "+receiver.AtName()+" completed!", cb.Message.MessageID)
+			} else {
+				appendTextToMessage(cb, "Fundraising for "+receiver.AtName()+" completed!")
+			}
+		}
 	case strings.HasPrefix(cb.Data, "remunc="):
 		// remove unclaimed transaction
 		// when you tip an invalid account or an account that has never talked with the bot

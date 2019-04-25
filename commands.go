@@ -15,11 +15,12 @@ Usage:
   c decode <invoice>
   c (receive | invoice | fund) <satoshis> [<description>...] [--preimage=<preimage>]
   c (pay [now] | paynow | withdraw) [<invoice>] [<satoshis>]
-  c (send | tip) <satoshis> [<username>...]
+  c (send | tip) <satoshis> [<receiver>...]
   c balance
   c transactions [--page=<page>]
   c giveaway <satoshis>
   c coinflip <satoshis> [<num_participants>]
+  c fundraise <satoshis> <num_participants> <receiver>...
   c help
   c stop
   c toggle spammy

@@ -283,6 +283,69 @@ func randomPreimage() (string, error) {
 	return string(b), nil
 }
 
+func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, display string, err error) {
+	var username string
+	var user User
+	var uid int
+
+	switch val := value.(type) {
+	case []string:
+		if len(val) > 0 {
+			username = strings.Join(val, " ")
+		}
+	case string:
+		username = val
+	case int:
+		uid = val
+	}
+
+	if intval, err := strconv.Atoi(username); err == nil {
+		uid = intval
+	}
+
+	if username != "" {
+		username = strings.ToLower(username)
+	}
+
+	if username == "" && uid == 0 {
+		err = errors.New("Couldn't parse username.")
+		return
+	}
+
+	// check entities for user type
+	for _, entity := range *message.Entities {
+		if entity.Type == "text_mention" && entity.User != nil {
+			// user without username
+			uid = entity.User.ID
+			display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
+			user, err = ensureTelegramId(uid)
+			u = &user
+			return
+		}
+		if entity.Type == "mention" {
+			// user with username
+			uname := username[1:]
+			display = uname
+			user, err = ensureUsername(uname)
+			u = &user
+			return
+		}
+	}
+
+	// if the user identifier passed was neither @someone (mention) nor a text_mention
+	// (for users without usernames but still painted blue and autocompleted by telegram)
+	// and we have a uid that means it's the case where just a numeric id was given and nothing
+	// more.
+	if uid != 0 {
+		user, err = ensureTelegramId(uid)
+		display = user.AtName()
+		u = &user
+		return
+	}
+
+	return
+}
+
 func fromManyToOne(sats int, toId int, fromIds []int,
 	desc, receiverMessage, giverMessage string,
 ) (receiver User, err error) {

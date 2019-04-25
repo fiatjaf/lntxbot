@@ -81,6 +81,22 @@ func coinflipKeyboard(coinflipid string, nparticipants, sats int) tgbotapi.Inlin
 	)
 }
 
+func fundraiseKeyboard(
+	fundraiseid string,
+	receiverId int,
+	nparticipants int,
+	sats int,
+) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Contribute",
+				fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
+			),
+		),
+	)
+}
+
 func escapeHTML(m string) string {
 	return strings.Replace(
 		strings.Replace(

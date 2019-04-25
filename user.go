@@ -229,7 +229,6 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 		return errors.New("Failed to decode invoice.")
 	}
 
-	log.Print("sending payment")
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
 	amount := int(inv.Get("msatoshi").Int())
 	desc := inv.Get("description").String()
