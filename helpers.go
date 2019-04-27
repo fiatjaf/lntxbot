@@ -308,7 +308,6 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	}
 
 	if username == "" && uid == 0 {
-		err = errors.New("Couldn't parse username.")
 		return
 	}
 

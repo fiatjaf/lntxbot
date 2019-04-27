@@ -221,6 +221,7 @@ parsed:
 	gotusername:
 		receiver, todisplayname, err = parseUsername(message, usernameval)
 		if err != nil {
+			log.Warn().Interface("val", usernameval).Err(err).Msg("failed to parse username")
 			break
 		}
 		if receiver != nil {
