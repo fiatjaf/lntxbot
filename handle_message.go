@@ -139,8 +139,16 @@ parsed:
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
-			break
+			// couldn't get an integer, but maybe it's because nothing was specified, so
+			// it's an invoice of undefined amount.
+
+			if v, exists := opts["<satoshis>"]; exists && v != nil {
+				// ok, it exists, so it's an invalid amount.
+				u.notify("Invalid amount: " + v.(string))
+				break
+			}
+
+			sats = INVOICE_UNDEFINED_AMOUNT
 		}
 		var desc string
 		if idesc, ok := opts["<description>"]; ok {

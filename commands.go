@@ -13,7 +13,7 @@ func renderUsage() string {
 Usage:
   c start
   c decode <invoice>
-  c (receive | invoice | fund) <satoshis> [<description>...] [--preimage=<preimage>]
+  c (receive | invoice | fund) [<satoshis>] [<description>...] [--preimage=<preimage>]
   c (pay [now] | paynow | withdraw) [<invoice>] [<satoshis>]
   c (send | tip) <satoshis> [<receiver>...]
   c balance

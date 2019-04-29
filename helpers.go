@@ -24,6 +24,8 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
+const INVOICE_UNDEFINED_AMOUNT = -273
+
 var dollarPrice = struct {
 	lastUpdate time.Time
 	rate       float64
@@ -227,9 +229,16 @@ func makeInvoice(
 
 	label := makeLabel(u.Id, messageId, preimage)
 
+	var msatoshi interface{}
+	if sats == INVOICE_UNDEFINED_AMOUNT {
+		msatoshi = "any"
+	} else {
+		msatoshi = sats * 1000
+	}
+
 	// make invoice
 	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
-		"msatoshi":    sats * 1000,
+		"msatoshi":    msatoshi,
 		"label":       label,
 		"description": desc + " [" + s.ServiceId + "/" + u.AtName() + "]",
 		"expiry":      int(s.InvoiceTimeout / time.Second),
