@@ -142,7 +142,7 @@ parsed:
 			// couldn't get an integer, but maybe it's because nothing was specified, so
 			// it's an invoice of undefined amount.
 
-			if v, exists := opts["<satoshis>"]; exists && v != nil {
+			if v, exists := opts["<satoshis>"]; exists && v != nil && v.(string) != "any" {
 				// ok, it exists, so it's an invalid amount.
 				u.notify("Invalid amount: " + v.(string))
 				break
