@@ -141,6 +141,10 @@ func (t Transaction) Icon() string {
 		case "fundraise":
 			return "📢"
 		default:
+			if t.Anonymous {
+				return "🕵"
+			}
+
 			return ""
 		}
 	case t.IsPending():
