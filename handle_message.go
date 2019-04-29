@@ -227,6 +227,8 @@ parsed:
 		}
 
 	gotusername:
+		anonymous, _ := opts.Bool("--anonymous")
+
 		receiver, todisplayname, err = parseUsername(message, usernameval)
 		if err != nil {
 			log.Warn().Interface("val", usernameval).Err(err).Msg("failed to parse username")
@@ -284,7 +286,11 @@ parsed:
 		}
 
 		if receiver.ChatId != 0 {
-			receiver.notify(fmt.Sprintf("%s has sent you %d sat.", u.AtName(), sats))
+			if anonymous {
+				receiver.notify(fmt.Sprintf("Someone has sent you %d sat.", sats))
+			} else {
+				receiver.notify(fmt.Sprintf("%s has sent you %d sat.", u.AtName(), sats))
+			}
 		}
 
 		if message.Chat.Type == "private" {
