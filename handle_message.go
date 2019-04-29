@@ -275,7 +275,14 @@ parsed:
 			break
 		}
 
-		errMsg, err := u.sendInternally(message.MessageID, *receiver, sats*1000, nil, nil)
+		errMsg, err := u.sendInternally(
+			message.MessageID,
+			*receiver,
+			anonymous,
+			sats*1000,
+			nil,
+			nil,
+		)
 		if err != nil {
 			log.Warn().Err(err).
 				Str("from", u.Username).

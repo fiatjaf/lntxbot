@@ -12,6 +12,7 @@ type Transaction struct {
 	Time           time.Time      `db:"time"`
 	Status         string         `db:"status"`
 	TelegramPeer   sql.NullString `db:"telegram_peer"`
+	Anonymous      bool           `db:"anonymous"`
 	TriggerMessage int            `db:"trigger_message"`
 	Amount         float64        `db:"amount"`
 	Fees           float64        `db:"fees"`
@@ -35,7 +36,11 @@ func (t Transaction) PeerActionDescription() string {
 	}
 
 	if t.Status == "RECEIVED" {
-		return "from " + name
+		if t.Anonymous {
+			return "from someone"
+		} else {
+			return "from " + name
+		}
 	} else {
 		return "to " + name
 	}

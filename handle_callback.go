@@ -113,7 +113,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		errMsg, err := u.sendInternally(messageId, claimer, sats*1000, "giveaway", nil)
+		errMsg, err := u.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to give away")
 			claimer.notify("Failed to claim giveaway: " + errMsg)

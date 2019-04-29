@@ -144,6 +144,7 @@ func (u User) getTransaction(hash string) (txn Transaction, err error) {
 SELECT
   time,
   telegram_peer,
+  anonymous,
   status,
   trigger_message,
   coalesce(description, '') AS description,
@@ -357,6 +358,7 @@ WHERE payment_hash = $3
 func (u User) sendInternally(
 	messageId int,
 	target User,
+	anonymous bool,
 	msats int,
 	desc, label interface{},
 ) (string, error) {
@@ -387,9 +389,9 @@ func (u User) sendInternally(
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description, label, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6)
-    `, u.Id, target.Id, msats, vdesc, vlabel, messageId)
+  (from_id, to_id, anonymous, amount, description, label, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, u.Id, target.Id, anonymous, msats, vdesc, vlabel, messageId)
 	if err != nil {
 		return "Database error.", err
 	}
@@ -462,6 +464,7 @@ SELECT * FROM (
   SELECT
     time,
     telegram_peer,
+    anonymous,
     status,
     CASE WHEN char_length(coalesce(description, '')) <= 16
       THEN coalesce(description, '')
