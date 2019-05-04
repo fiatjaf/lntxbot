@@ -38,7 +38,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 	}
 
 	switch argv[0] {
-	case "invoice", "receive":
+	case "invoice", "receive", "fund":
 		sats, err := strconv.Atoi(argv[1])
 		if err != nil {
 			goto answerEmpty
@@ -96,7 +96,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			Results:       []interface{}{result},
 			IsPersonal:    true,
 		})
-	case "coinflip":
+	case "coinflip", "lottery":
 		if len(argv) < 2 {
 			goto answerEmpty
 		}

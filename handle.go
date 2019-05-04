@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
@@ -17,11 +16,6 @@ func handle(upd tgbotapi.Update) {
 		handleInlineQuery(upd.InlineQuery)
 	} else if upd.EditedMessage != nil {
 	}
-}
-
-func handleHelp(u User) {
-	helpString := strings.Replace(s.Usage, "  c ", "  /", -1)
-	u.notifyMarkdown("```\n" + helpString + "\n```")
 }
 
 func decodeNotifyBolt11(

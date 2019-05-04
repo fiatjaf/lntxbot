@@ -109,9 +109,14 @@ func handleMessage(message *tgbotapi.Message) {
 			// only tell we don't understand commands when in a private chat
 			// because these commands we're not understanding
 			// may be targeting other bots in a group, so we're spamming people.
-			log.Warn().Err(err).Str("command", text).
+			log.Debug().Err(err).Str("command", text).
 				Msg("Failed to parse command")
-			u.notify("Could not understand the command. /help")
+
+			method := strings.Split(text, " ")[0][1:]
+			handled := handleHelp(u, method)
+			if !handled {
+				u.notify("Could not understand the command. /help")
+			}
 		}
 		return
 	}
@@ -127,7 +132,7 @@ parsed:
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 			u.notify("Your account is created.")
-			handleHelp(u)
+			handleHelp(u, "")
 		}
 		break
 	case opts["stop"].(bool):
@@ -502,7 +507,8 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 		}
 		break
 	case opts["help"].(bool):
-		handleHelp(u)
+		command, _ := opts.String("<command>")
+		handleHelp(u, command)
 		break
 	case opts["toggle"].(bool):
 		if message.Chat.Type == "private" {

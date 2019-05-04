@@ -103,9 +103,9 @@ func escapeHTML(m string) string {
 			strings.Replace(
 				strings.Replace(
 					m,
-					"<", "&lt;", -1),
-				">", "&gt;", -1),
-			"&", "&amp;", -1),
+					"&", "&amp;", -1),
+				"<", "&lt;", -1),
+			">", "&gt;", -1),
 		"\"", "&quot;", -1)
 }
 

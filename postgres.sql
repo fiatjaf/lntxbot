@@ -81,6 +81,8 @@ CREATE VIEW lightning.balance AS
     GROUP BY account.id;
 
 CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
+  -- a user is potentially inactive if it doesn't have an active chat or has called /stop
+  -- a user is only _truly_ inactive if it haven't made any outgoing transactions.
   WITH potentially_inactive_user AS (
     SELECT *
     FROM telegram.account AS acct
