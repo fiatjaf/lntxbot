@@ -9,12 +9,13 @@ import (
 )
 
 type def struct {
-	explanation string
-	argstr      string
-	flags       map[string]string
-	examples    []example
-	aliases     []string
-	inline      bool
+	explanation    string
+	argstr         string
+	flags          map[string]string
+	examples       []example
+	aliases        []string
+	inline         bool
+	inline_example string
 }
 
 type example struct {
@@ -40,8 +41,9 @@ var methods = map[string]def{
 				"Generates an invoice with undefined amount.",
 			},
 		},
-		aliases: []string{"invoice", "fund"},
-		inline:  true,
+		aliases:        []string{"invoice", "fund"},
+		inline:         true,
+		inline_example: "invoice <satoshis>",
 	},
 	"pay": def{
 		explanation: "Decodes a BOLT11 invoice and asks if you want to pay it (unless `/paynow`). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
@@ -107,7 +109,8 @@ var methods = map[string]def{
 				"Once someone clicks the \"Claim\" button 1000 satoshis will be transferred from you to them.",
 			},
 		},
-		inline: true,
+		inline:         true,
+		inline_example: "giveaway <satoshis>",
 	},
 	"coinflip": def{
 		explanation: "Start a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
@@ -118,8 +121,9 @@ var methods = map[string]def{
 				"5 participants needed, winner will get 500 satoshis (including its own 100, so it's 400 net satoshis).",
 			},
 		},
-		aliases: []string{"lottery"},
-		inline:  true,
+		aliases:        []string{"lottery"},
+		inline:         true,
+		inline_example: "coinflip <satoshis> <num_participants>",
 	},
 	"fundraise": def{
 		explanation: "Start a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
@@ -233,12 +237,18 @@ For more information on each command please type <code>/help &lt;command&gt;</co
 foundaliased:
 	// here we have a working method definition
 	helpString = mustache.Render(`<pre>/{{ mainName }} {{ argstr }}</pre>
-{{ explanation }}
+{{ explanation }}{{#has_examples}}
 
-{{#has_examples}}<b>Example{{#example_is_plural}}s{{/example_is_plural}}</b>
-{{#examples}}  `+"<code>"+`{{Value}}`+"</code>"+`: {{ Explanation }}
-{{/examples}}{{/has_examples}}
-{{#has_aliases}}<b>Aliases</b>:{{#aliases}} <code>{{alias}}</code>{{/aliases}}{{/has_aliases}}
+
+<b>Example{{#example_is_plural}}s{{/example_is_plural}}</b>
+{{#examples}}`+"<code>"+`{{Value}}`+"</code>"+`: {{ Explanation }}
+{{/examples}}{{/has_examples}}{{#inline}}
+
+<b>Inline query</b>
+Can also be called as an <a href="https://core.telegram.org/bots/inline">inline query</a> from group or personal chats where the bot isn't added. The syntax is similar, but simplified: <code>@`+s.ServiceId+` {{inline_example}}</code> then wait for a "search" result to appear.
+{{/inline}}{{#has_aliases}}
+
+<b>Aliases</b>:{{#aliases}} <code>{{alias}}</code>{{/aliases}}{{/has_aliases}}
     `, map[string]interface{}{
 		"mainName":          mainName,
 		"explanation":       def.explanation,
@@ -248,6 +258,8 @@ foundaliased:
 		"example_is_plural": len(def.examples) != 1,
 		"has_aliases":       len(aliases) > 0,
 		"aliases":           aliases,
+		"inline":            def.inline,
+		"inline_example":    def.inline_example,
 	})
 	goto gothelpstring
 
