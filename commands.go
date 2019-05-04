@@ -13,14 +13,14 @@ func renderUsage() string {
 Usage:
   c start
   c decode <invoice>
-  c (receive | invoice | fund) [<satoshis>] [<description>...] [--preimage=<preimage>]
+  c (receive | invoice | fund) [<satoshis> [sat]] [<description>...] [--preimage=<preimage>]
   c (pay [now] | paynow | withdraw) [<invoice>] [<satoshis>]
-  c (send | tip) <satoshis> [<receiver>...] [--anonymous]
+  c (send | tip) <satoshis> [sat] [<receiver>...] [--anonymous]
   c balance
   c transactions [--page=<page>]
-  c giveaway <satoshis>
-  c coinflip <satoshis> [<num_participants>]
-  c fundraise <satoshis> <num_participants> <receiver>...
+  c giveaway <satoshis> [sat]
+  c coinflip <satoshis> [sat] [<num_participants>]
+  c fundraise <satoshis> [sat] <num_participants> <receiver>...
   c help
   c stop
   c toggle spammy
