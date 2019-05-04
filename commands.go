@@ -11,7 +11,7 @@ import (
 type def struct {
 	explanation    string
 	argstr         string
-	flags          map[string]string
+	flags          []flag
 	examples       []example
 	aliases        []string
 	inline         bool
@@ -23,13 +23,21 @@ type example struct {
 	Explanation string
 }
 
+type flag struct {
+	Name        string
+	Explanation string
+}
+
 var methods = map[string]def{
 	"start": def{},
 	"receive": def{
 		explanation: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 		argstr:      "[<satoshis> [sat]] [<description>...] [--preimage=<preimage>]",
-		flags: map[string]string{
-			"--preimage": "If you want to generate an invoice with a specific preimage, write it here as a 32b / 64char hex string.",
+		flags: []flag{
+			{
+				"--preimage",
+				"If you want to generate an invoice with a specific preimage, write it here as a 32b / 64char hex string.",
+			},
 		},
 		examples: []example{
 			{
@@ -71,8 +79,11 @@ var methods = map[string]def{
 	"send": def{
 		explanation: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
 		argstr:      "<satoshis> [sat] [<receiver>...] [--anonymous]",
-		flags: map[string]string{
-			"--anonymous": "The receiver will never know who sent him the satoshis.",
+		flags: []flag{
+			{
+				"--anonymous",
+				"The receiver will never know who sent him the satoshis.",
+			},
 		},
 		examples: []example{
 			{
@@ -95,8 +106,11 @@ var methods = map[string]def{
 	},
 	"transactions": def{
 		explanation: "Lists your recent transactions, including internal and external payments, giveaways, tips, coinflips and everything else. Each transaction will have a unique identifier in the form of /tx___ that you can click for more info and extra actions, when available.",
-		flags: map[string]string{
-			"--page": "To show older transactions, specify a page number greater than 1.",
+		flags: []flag{
+			{
+				"--page",
+				"To show older transactions, specify a page number greater than 1.",
+			},
 		},
 		argstr: "[--page=<page>]",
 	},
@@ -237,8 +251,12 @@ For more information on each command please type <code>/help &lt;command&gt;</co
 foundaliased:
 	// here we have a working method definition
 	helpString = mustache.Render(`<pre>/{{ mainName }} {{ argstr }}</pre>
-{{ explanation }}{{#has_examples}}
+{{ explanation }}{{#has_flags}}
 
+
+<b>Flags</b>
+{{#flags}}<code>{{ Name }}</code>: {{ Explanation }}
+{{/flags}}{{/has_flags}}{{#has_examples}}
 
 <b>Example{{#example_is_plural}}s{{/example_is_plural}}</b>
 {{#examples}}`+"<code>"+`{{Value}}`+"</code>"+`: {{ Explanation }}
@@ -254,6 +272,8 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 		"explanation":       def.explanation,
 		"argstr":            def.argstr,
 		"has_examples":      len(def.examples) > 0,
+		"has_flags":         len(def.flags) > 0,
+		"flags":             def.flags,
 		"examples":          def.examples,
 		"example_is_plural": len(def.examples) != 1,
 		"has_aliases":       len(aliases) > 0,
