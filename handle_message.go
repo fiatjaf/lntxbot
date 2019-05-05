@@ -64,7 +64,7 @@ func handleMessage(message *tgbotapi.Message) {
 			return
 		}
 
-		text := mustache.Render(`
+		txnreply := mustache.Render(`
 <code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(💤 unclaimed){{/IsUnclaimed}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
 {{#Payee.Valid}}<b>Payee</b>: {{Payee.String}} ({{PayeeAlias}}){{/Payee.Valid}}
@@ -73,7 +73,7 @@ func handleMessage(message *tgbotapi.Message) {
 <b>Amount</b>: {{Satoshis}} sat
 {{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
         `, txn)
-		id := u.notifyAsReply(text, txn.TriggerMessage).MessageID
+		id := u.notifyAsReply(txnreply, txn.TriggerMessage).MessageID
 
 		if txn.Status == "PENDING" {
 			// allow people to cancel pending if they're old enough

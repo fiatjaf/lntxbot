@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/docopt/docopt-go"
 	"github.com/hoisie/mustache"
 	"github.com/kballard/go-shellquote"
+	"github.com/renstrom/fuzzysearch/fuzzy"
 )
 
 type def struct {
@@ -28,9 +30,12 @@ type flag struct {
 	Explanation string
 }
 
-var methods = map[string]def{
-	"start": def{},
-	"receive": def{
+var methods = []def{
+	def{
+		aliases: []string{"start"},
+	},
+	def{
+		aliases:     []string{"receive", "invoice", "fund"},
 		explanation: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 		argstr:      "[<satoshis> [sat]] [<description>...] [--preimage=<preimage>]",
 		flags: []flag{
@@ -49,11 +54,11 @@ var methods = map[string]def{
 				"Generates an invoice with undefined amount.",
 			},
 		},
-		aliases:        []string{"invoice", "fund"},
 		inline:         true,
 		inline_example: "invoice <satoshis>",
 	},
-	"pay": def{
+	def{
+		aliases:     []string{"pay", "decode", "paynow", "withdraw"},
 		explanation: "Decodes a BOLT11 invoice and asks if you want to pay it (unless `/paynow`). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
 		argstr:      "[now] [<invoice>] [<satoshis> [sat]]",
 		examples: []example{
@@ -74,9 +79,9 @@ var methods = map[string]def{
 				"When sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.",
 			},
 		},
-		aliases: []string{"withdraw", "decode", "paynow"},
 	},
-	"send": def{
+	def{
+		aliases:     []string{"send", "tip"},
 		explanation: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
 		argstr:      "<satoshis> [sat] [<receiver>...] [--anonymous]",
 		flags: []flag{
@@ -99,12 +104,13 @@ var methods = map[string]def{
 				"Telegram user @someone will see just: \"Someone has sent you 1000 satoshis\".",
 			},
 		},
-		aliases: []string{"tip"},
 	},
-	"balance": def{
+	def{
+		aliases:     []string{"balance"},
 		explanation: "Show your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
 	},
-	"transactions": def{
+	def{
+		aliases:     []string{"transactions"},
 		explanation: "Lists your recent transactions, including internal and external payments, giveaways, tips, coinflips and everything else. Each transaction will have a unique identifier in the form of /tx___ that you can click for more info and extra actions, when available.",
 		flags: []flag{
 			{
@@ -114,7 +120,8 @@ var methods = map[string]def{
 		},
 		argstr: "[--page=<page>]",
 	},
-	"giveaway": def{
+	def{
+		aliases:     []string{"giveaway"},
 		explanation: "Create a button in a group chat. The first person to click the button gets the satoshis.",
 		argstr:      "<satoshis> [sat]",
 		examples: []example{
@@ -126,7 +133,8 @@ var methods = map[string]def{
 		inline:         true,
 		inline_example: "giveaway <satoshis>",
 	},
-	"coinflip": def{
+	def{
+		aliases:     []string{"coinflip", "lottery"},
 		explanation: "Start a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
 		argstr:      "<satoshis> [sat] [<num_participants>]",
 		examples: []example{
@@ -135,11 +143,11 @@ var methods = map[string]def{
 				"5 participants needed, winner will get 500 satoshis (including its own 100, so it's 400 net satoshis).",
 			},
 		},
-		aliases:        []string{"lottery"},
 		inline:         true,
 		inline_example: "coinflip <satoshis> <num_participants>",
 	},
-	"fundraise": def{
+	def{
+		aliases:     []string{"fundraise", "crowdfund"},
 		explanation: "Start a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
 		argstr:      "<satoshis> [sat] <num_participants> <receiver>...",
 		examples: []example{
@@ -148,16 +156,14 @@ var methods = map[string]def{
 				"Telegram @user will get 80000 satoshis after 8 people contribute.",
 			},
 		},
-		aliases: []string{"crowdfund"},
 	},
-	"help": def{
+	def{
+		aliases:     []string{"help"},
 		explanation: "Show full help or help about specific command.",
 		argstr:      "[<command>]",
 	},
-	"stop": def{
-		explanation: "Stop using the bot. Stop getting notifications.",
-	},
-	"toggle": def{
+	def{
+		aliases:     []string{"toggle"},
 		explanation: "Toggle bot features in groups on/off. In supergroups it only be run by group admins.",
 		argstr:      "spammy",
 		examples: []example{
@@ -167,14 +173,30 @@ var methods = map[string]def{
 			},
 		},
 	},
+	def{
+		aliases:     []string{"stop"},
+		explanation: "Stop using the bot. Stop getting notifications.",
+	},
+}
+
+var commandList []string
+var commandIndex = make(map[string]def)
+
+func setupCommands() {
+	s.Usage = docoptFromMethodDefinitions()
+
+	for _, def := range methods {
+		for _, alias := range def.aliases {
+			commandList = append(commandList, alias)
+			commandIndex[alias] = def
+		}
+	}
 }
 
 func docoptFromMethodDefinitions() string {
 	var lines []string
 
-	for method, def := range methods {
-		lines = append(lines, "  c "+method+" "+def.argstr)
-
+	for _, def := range methods {
 		for _, alias := range def.aliases {
 			lines = append(lines, "  c "+alias+" "+def.argstr)
 		}
@@ -214,7 +236,7 @@ func handleHelp(u User, method string) (handled bool) {
 	var helpString string
 	var ok bool
 
-	method = strings.TrimSpace(method)
+	method = strings.ToLower(strings.TrimSpace(method))
 	if method == "" {
 		helpString = "<pre>" + escapeHTML(strings.Replace(s.Usage, "  c ", "  /", -1)) + "</pre>"
 		helpString += `
@@ -223,32 +245,31 @@ For more information on each command please type <code>/help &lt;command&gt;</co
 	}
 
 	// render specific help instructions for the given method
-	def, ok = methods[method]
+	def, ok = commandIndex[method]
 	if ok {
 		mainName = method
-		aliases = make([]map[string]string, len(def.aliases))
-		for i, alias := range def.aliases {
-			aliases[i] = map[string]string{"alias": alias}
-		}
-	} else {
-		for name, potentialDef := range methods {
-			aliases = make([]map[string]string, len(potentialDef.aliases))
-			for i, alias := range potentialDef.aliases {
-				if alias == method {
-					def = potentialDef
-					ok = true
-					mainName = alias
-					aliases[i] = map[string]string{"alias": name}
-					goto foundaliased
-				} else {
-					aliases[i] = map[string]string{"alias": alias}
-				}
+		aliases = make([]map[string]string, len(def.aliases)-1)
+		i := 0
+		for _, alias := range def.aliases {
+			if alias != mainName {
+				aliases[i] = map[string]string{"alias": alias}
+				i++
 			}
 		}
-		return false
+	} else {
+		similar := fuzzy.Find(method, commandList)
+		if len(similar) > 0 {
+			reply := fmt.Sprintf("/%s command not found. Do you mean /%s?", method, similar[0])
+			if len(similar) > 1 {
+				reply += fmt.Sprintf(" Or maybe /%s?", similar[1])
+			}
+			u.notify(reply)
+			return true
+		} else {
+			return false
+		}
 	}
 
-foundaliased:
 	// here we have a working method definition
 	helpString = mustache.Render(`<pre>/{{ mainName }} {{ argstr }}</pre>
 {{ explanation }}{{#has_flags}}

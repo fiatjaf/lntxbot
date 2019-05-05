@@ -46,7 +46,8 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
 	}
-	s.Usage = docoptFromMethodDefinitions()
+
+	setupCommands()
 
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
