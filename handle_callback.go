@@ -67,7 +67,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		optmsats, _ := rds.Get("payinvoice:" + hashfirstchars + ":msats").Int64()
 		err = u.payInvoice(messageId, bolt11, int(optmsats))
 		if err == nil {
-			appendTextToMessage(cb, "Payment sent.")
+			appendTextToMessage(cb, "Attempting payment.")
 		}
 		removeKeyboardButtons(cb)
 		return
