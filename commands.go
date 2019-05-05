@@ -107,7 +107,7 @@ var methods = []def{
 	},
 	def{
 		aliases:     []string{"balance"},
-		explanation: "Show your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
+		explanation: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
 	},
 	def{
 		aliases:     []string{"transactions"},
@@ -122,7 +122,7 @@ var methods = []def{
 	},
 	def{
 		aliases:     []string{"giveaway"},
-		explanation: "Create a button in a group chat. The first person to click the button gets the satoshis.",
+		explanation: "Creates a button in a group chat. The first person to click the button gets the satoshis.",
 		argstr:      "<satoshis> [sat]",
 		examples: []example{
 			{
@@ -135,7 +135,7 @@ var methods = []def{
 	},
 	def{
 		aliases:     []string{"coinflip", "lottery"},
-		explanation: "Start a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
+		explanation: "Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
 		argstr:      "<satoshis> [sat] [<num_participants>]",
 		examples: []example{
 			{
@@ -148,7 +148,7 @@ var methods = []def{
 	},
 	def{
 		aliases:     []string{"fundraise", "crowdfund"},
-		explanation: "Start a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
+		explanation: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
 		argstr:      "<satoshis> [sat] <num_participants> <receiver>...",
 		examples: []example{
 			{
@@ -158,13 +158,8 @@ var methods = []def{
 		},
 	},
 	def{
-		aliases:     []string{"help"},
-		explanation: "Show full help or help about specific command.",
-		argstr:      "[<command>]",
-	},
-	def{
 		aliases:     []string{"toggle"},
-		explanation: "Toggle bot features in groups on/off. In supergroups it only be run by group admins.",
+		explanation: "Toggles bot features in groups on/off. In supergroups it only be run by group admins.",
 		argstr:      "spammy",
 		examples: []example{
 			{
@@ -174,8 +169,13 @@ var methods = []def{
 		},
 	},
 	def{
+		aliases:     []string{"help"},
+		explanation: "Shows full help or help about specific command.",
+		argstr:      "[<command>]",
+	},
+	def{
 		aliases:     []string{"stop"},
-		explanation: "Stop using the bot. Stop getting notifications.",
+		explanation: "The bot stops showing you notifications.",
 	},
 }
 
@@ -272,8 +272,8 @@ For more information on each command please type <code>/help &lt;command&gt;</co
 
 	// here we have a working method definition
 	helpString = mustache.Render(`<pre>/{{ mainName }} {{ argstr }}</pre>
-{{ explanation }}{{#has_flags}}
-
+{{ explanation }}
+{{#has_flags}}
 
 <b>Flags</b>
 {{#flags}}<code>{{ Name }}</code>: {{ Explanation }}
