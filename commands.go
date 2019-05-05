@@ -7,7 +7,6 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/hoisie/mustache"
 	"github.com/kballard/go-shellquote"
-	"github.com/renstrom/fuzzysearch/fuzzy"
 )
 
 type def struct {
@@ -257,11 +256,14 @@ For more information on each command please type <code>/help &lt;command&gt;</co
 			}
 		}
 	} else {
-		similar := fuzzy.Find(method, commandList)
+		similar := findSimilar(method, commandList)
 		if len(similar) > 0 {
 			reply := fmt.Sprintf("/%s command not found. Do you mean /%s?", method, similar[0])
 			if len(similar) > 1 {
 				reply += fmt.Sprintf(" Or maybe /%s?", similar[1])
+				if len(similar) > 2 {
+					reply += fmt.Sprintf(" Perhaps /%s?", similar[2])
+				}
 			}
 			u.notify(reply)
 			return true

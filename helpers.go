@@ -19,6 +19,7 @@ import (
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
+	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
@@ -352,6 +353,42 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	}
 
 	return
+}
+
+func findSimilar(source string, targets []string) (result []string) {
+	var (
+		first  []string
+		second []string
+		third  []string
+		fourth []string
+	)
+
+	for _, target := range targets {
+		if fuzzy.Match(source, target) {
+			first = append(first, target)
+			continue
+		}
+
+		score := fuzzy.LevenshteinDistance(source, target)
+		if score < 1 {
+			second = append(result, target)
+			continue
+		}
+		if score < 2 {
+			third = append(result, target)
+			continue
+		}
+		if score < 3 {
+			fourth = append(result, target)
+			continue
+		}
+	}
+
+	res := first
+	res = append(first, second...)
+	res = append(res, third...)
+	res = append(res, fourth...)
+	return res
 }
 
 func fromManyToOne(sats int, toId int, fromIds []int,
