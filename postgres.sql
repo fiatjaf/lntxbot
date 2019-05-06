@@ -26,7 +26,7 @@ CREATE TABLE lightning.transaction (
   payment_hash text UNIQUE NOT NULL DEFAULT md5(random()::text) || md5(random()::text),
   label text, -- null on internal sends/tips
   preimage text,
-  pending_bolt11 text,
+  pending boolean NOT NULL DEFAULT false,
   trigger_message int NOT NULL DEFAULT 0,
   remote_node text,
   anonymous boolean NOT NULL DEFAULT false
@@ -44,16 +44,16 @@ CREATE VIEW lightning.account_txn AS
       WHEN label IS NULL THEN coalesce(t.username, t.telegram_id::text)
       ELSE NULL
     END AS telegram_peer,
-    status, fees, payment_hash, label, description, preimage, pending_bolt11, payee_node
+    status, fees, payment_hash, label, description, preimage, payee_node
   FROM (
       SELECT time,
         from_id AS account_id,
         anonymous,
         trigger_message,
-        CASE WHEN pending_bolt11 IS NOT NULL THEN 'PENDING' ELSE 'SENT' END AS status,
+        CASE WHEN pending THEN 'PENDING' ELSE 'SENT' END AS status,
         to_id AS peer,
         -amount AS amount, fees,
-        payment_hash, label, description, preimage, pending_bolt11,
+        payment_hash, label, description, preimage,
         remote_node AS payee_node
       FROM lightning.transaction
       WHERE from_id IS NOT NULL
@@ -65,7 +65,7 @@ CREATE VIEW lightning.account_txn AS
         'RECEIVED' AS status,
         from_id AS peer,
         amount, 0 AS fees,
-        payment_hash, label, description, preimage, pending_bolt11,
+        payment_hash, label, description, preimage,
         NULL as payee_node
       FROM lightning.transaction
       WHERE to_id IS NOT NULL
@@ -105,7 +105,7 @@ table telegram.chat;
 table lightning.transaction;
 table lightning.account_txn;
 table lightning.balance;
-select * from lightning.transaction where pending_bolt11 IS NOT NULL;
+select * from lightning.transaction where pending;
 select * from telegram.account inner join lightning.balance on id = account_id where chat_id is not null order by id;
 select count(*) as active_users from telegram.account inner join lightning.balance as b on account_id = id where chat_id is not null and b.balance > 1000000;
-select sum(balance)/1000 as sats, sum(balance)*4000/100000000000 as us_dollars from lightning.balance;
+select sum(balance) from lightning.balance;

@@ -20,7 +20,6 @@ type Transaction struct {
 	Preimage       string         `db:"preimage"`
 	Description    string         `db:"description"`
 	Payee          sql.NullString `db:"payee_node"`
-	PendingBolt11  sql.NullString `db:"pending_bolt11"`
 
 	unclaimed *bool
 }

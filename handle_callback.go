@@ -5,7 +5,9 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -68,6 +70,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		err = u.payInvoice(messageId, bolt11, int(optmsats))
 		if err == nil {
 			appendTextToMessage(cb, "Attempting payment.")
+		} else {
+			appendTextToMessage(cb, err.Error())
 		}
 		removeKeyboardButtons(cb)
 		return
@@ -388,17 +392,45 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			appendTextToMessage(cb, "Error.")
 			return
 		}
-		go func(u User, messageId int, bolt11 string) {
-			success, payment, err := ln.WaitPaymentResolution(bolt11)
+		go func(u User, messageId int, hash string) {
+			res, err := ln.Call("waitsendpay", hash)
 			if err != nil {
-				log.Warn().Err(err).Str("bolt11", bolt11).Str("user", u.Username).
+				// an error we know it's a final error
+				if cmderr, ok := err.(lightning.ErrorCommand); ok {
+					if cmderr.Code == 203 || cmderr.Code == 208 || cmderr.Code == 209 {
+						log.Debug().
+							Err(err).
+							Str("hash", hash).
+							Msg("canceling failed payment because it has failed failed")
+						u.paymentHasFailed(messageId, hash)
+					}
+
+					// if it's not a final error but it's been a long time call it final
+					if res, err := ln.CallNamed("listpayments", "payment_hash", hash); err == nil &&
+						res.Get("payments.#").Int() == 1 &&
+						time.Unix(res.Get("payments.0.created_at").Int(), 0).Add(time.Hour).
+							Before(time.Now()) &&
+						res.Get("payments.0.status").String() == "failed" {
+
+						log.Debug().
+							Err(err).
+							Str("hash", hash).
+							Str("pay", res.Get("payments.0").String()).
+							Msg("canceling failed payment because it's been a long time")
+						u.paymentHasFailed(messageId, hash)
+					}
+				}
+
+				// unknown error, report
+				log.Warn().Err(err).Str("hash", hash).Str("user", u.Username).
 					Msg("unexpected error waiting payment resolution")
 				appendTextToMessage(cb, "Unexpected error: please report.")
 				return
 			}
 
-			u.reactToPaymentStatus(success, messageId, payment)
-		}(u, txn.TriggerMessage, txn.PendingBolt11.String)
+			// payment succeeded
+			u.paymentHasSucceeded(messageId, res)
+		}(u, txn.TriggerMessage, txn.Hash)
 
 		appendTextToMessage(cb, "Checking.")
 	}

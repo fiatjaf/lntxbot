@@ -152,8 +152,7 @@ SELECT
   amount::float/1000 AS amount,
   payment_hash,
   coalesce(preimage, '') AS preimage,
-  payee_node,
-  pending_bolt11
+  payee_node
 FROM lightning.account_txn
 WHERE account_id = $1
   AND substring(payment_hash from 0 for $3) = $2
@@ -236,11 +235,9 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	hash := inv.Get("payment_hash").String()
 	payee := inv.Get("payee").String()
 	params := map[string]interface{}{
-		"bolt11":        bolt11,
-		"riskfactor":    6,
 		"maxfeepercent": 1,
 		"exemptfee":     3,
-		"retry_for":     30,
+		"label":         fmt.Sprintf("user=%d", u.Id),
 	}
 
 	if amount == 0 {
@@ -266,12 +263,12 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	var balance int
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending_bolt11, trigger_message, remote_node)
+  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, u.Id, amount, desc, hash, fakeLabel, bolt11, messageId, payee)
+    `, u.Id, amount, desc, hash, fakeLabel, true, messageId, payee)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error")
-		return errors.New("Database error.")
+		return errors.New("Payment already in course.")
 	}
 
 	err = txn.Get(&balance, `
@@ -295,63 +292,68 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 
 	// actually send the lightning payment
 	go func(u User, messageId int, params map[string]interface{}) {
-		success, payment, err := ln.PayAndWaitUntilResolution(params)
+		success, payment, err := ln.PayAndWaitUntilResolution(bolt11, params)
 		if err != nil {
 			log.Warn().Err(err).Interface("p", params).Msg("Unexpected error paying invoice.")
 			return
 		}
 
-		u.reactToPaymentStatus(success, messageId, payment)
+		if success {
+			u.paymentHasSucceeded(messageId, payment)
+		} else {
+			log.Warn().
+				Str("user", u.Username).
+				Int("user-id", u.Id).
+				Str("payment", payment.String()).
+				Str("hash", hash).
+				Msg("payment failed")
+
+			u.paymentHasFailed(messageId, payment.Get("payment_hash").String())
+		}
 	}(u, messageId, params)
 
 	return nil
 }
 
-func (u User) reactToPaymentStatus(success bool, messageId int, payment gjson.Result) {
-	if success {
-		// if it succeeds we mark the transaction as not pending anymore
-		// plus save fees and preimage
-		msats := payment.Get("msatoshi").Float()
-		fees := payment.Get("msatoshi_sent").Float() - msats
-		preimage := payment.Get("payment_preimage").String()
-		hash := payment.Get("payment_hash").String()
+func (u User) paymentHasSucceeded(messageId int, payment gjson.Result) {
+	// if it succeeds we mark the transaction as not pending anymore
+	// plus save fees and preimage
+	msats := payment.Get("msatoshi").Float()
+	fees := payment.Get("msatoshi_sent").Float() - msats
+	preimage := payment.Get("payment_preimage").String()
+	hash := payment.Get("payment_hash").String()
 
-		_, err = pg.Exec(`
+	_, err = pg.Exec(`
 UPDATE lightning.transaction
-SET fees = $1, preimage = $2, pending_bolt11 = null
+SET fees = $1, preimage = $2, pending = false
 WHERE payment_hash = $3
     `, fees, preimage, hash)
-		if err != nil {
-			log.Error().Err(err).
-				Str("user", u.Username).
-				Str("hash", hash).
-				Float64("fees", fees).
-				Msg("failed to update transaction fees.")
-		}
-
-		u.notifyAsReply(fmt.Sprintf(
-			"Paid with %d sat (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/tx%s",
-			int(msats/1000),
-			fees/1000,
-			hash,
-			preimage,
-			hash[:5],
-		), messageId)
-	} else {
-		hash := payment.Get("payment_hash").String()
-		log.Warn().
+	if err != nil {
+		log.Error().Err(err).
 			Str("user", u.Username).
-			Str("payment", payment.String()).
 			Str("hash", hash).
-			Msg("payment failed")
-		u.notifyAsReply("Payment failed.", messageId)
+			Float64("fees", fees).
+			Msg("failed to update transaction fees.")
+	}
 
-		_, err := pg.Exec(
-			`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
-		if err != nil {
-			log.Error().Err(err).Str("hash", hash).
-				Msg("failed to cancel transaction after routing failure.")
-		}
+	u.notifyAsReply(fmt.Sprintf(
+		"Paid with %d sat (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/tx%s",
+		int(msats/1000),
+		fees/1000,
+		hash,
+		preimage,
+		hash[:5],
+	), messageId)
+}
+
+func (u User) paymentHasFailed(messageId int, hash string) {
+	u.notifyAsReply("Payment failed.", messageId)
+
+	_, err := pg.Exec(
+		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).
+			Msg("failed to cancel transaction after routing failure.")
 	}
 }
 
