@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
@@ -292,9 +294,24 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 
 	// actually send the lightning payment
 	go func(u User, messageId int, params map[string]interface{}) {
-		success, payment, err := ln.PayAndWaitUntilResolution(bolt11, params)
+		success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
+
+		// save payment attempts for future counsultation
+		// only save the latest 3 tries for brevity
+		from := len(tries) - 3
+		if from < 0 {
+			from = 0
+		}
+		if jsontries, err := json.Marshal(tries[from:]); err == nil {
+			rds.RPush("tries:"+hash[:5], jsontries)
+			rds.Expire("tries:"+hash[:5], time.Hour*24)
+		}
+
 		if err != nil {
-			log.Warn().Err(err).Interface("p", params).Msg("Unexpected error paying invoice.")
+			log.Warn().Err(err).
+				Interface("params", params).
+				Interface("tries", tries).
+				Msg("Unexpected error paying invoice.")
 			return
 		}
 
@@ -304,6 +321,8 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 			log.Warn().
 				Str("user", u.Username).
 				Int("user-id", u.Id).
+				Interface("params", params).
+				Interface("tries", tries).
 				Str("payment", payment.String()).
 				Str("hash", hash).
 				Msg("payment failed")
@@ -337,7 +356,7 @@ WHERE payment_hash = $3
 	}
 
 	u.notifyAsReply(fmt.Sprintf(
-		"Paid with %d sat (+ %.3f fee). \n\nHash: %s\n\nProof: %s\n\n/tx%s",
+		"Paid with <b>%d sat</b> (+ %.3f fee). \n\n<b>Hash:</b> %s\n\n<b>Proof:</b> %s\n\n/tx%s",
 		int(msats/1000),
 		fees/1000,
 		hash,
@@ -347,7 +366,7 @@ WHERE payment_hash = $3
 }
 
 func (u User) paymentHasFailed(messageId int, hash string) {
-	u.notifyAsReply("Payment failed.", messageId)
+	u.notifyAsReply(fmt.Sprintf("Payment failed. /log%s", hash[:5]), messageId)
 
 	_, err := pg.Exec(
 		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
@@ -499,6 +518,71 @@ func (u User) checkBalanceFor(sats int, purpose string) bool {
 		return false
 	}
 	return true
+}
+
+func fromManyToOne(sats int, toId int, fromIds []int,
+	desc, receiverMessage, giverMessage string,
+) (receiver User, err error) {
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return
+	}
+	defer txn.Rollback()
+
+	receiver, _ = loadUser(toId, 0)
+	giverNames := make([]string, 0, len(fromIds))
+
+	msats := sats * 1000
+	var (
+		vdesc  = &sql.NullString{}
+		vlabel = &sql.NullString{}
+	)
+	vdesc.Scan(desc)
+
+	for _, fromId := range fromIds {
+		if fromId == toId {
+			continue
+		}
+
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction
+  (from_id, to_id, amount, description, label)
+VALUES ($1, $2, $3, $4, $5)
+    `, fromId, toId, msats, vdesc, vlabel)
+		if err != nil {
+			return
+		}
+
+		var balance int
+		err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
+    `, fromId)
+		if err != nil {
+			return
+		}
+
+		if balance < 0 {
+			err = errors.New("insufficient balance")
+			return
+		}
+
+		giver, _ := loadUser(fromId, 0)
+		giverNames = append(giverNames, giver.AtName())
+
+		giver.notify(fmt.Sprintf(giverMessage, sats, receiver.AtName()))
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return
+	}
+
+	receiver.notify(
+		fmt.Sprintf(receiverMessage,
+			sats*len(fromIds), strings.Join(giverNames, " ")),
+	)
+	return
 }
 
 type Info struct {

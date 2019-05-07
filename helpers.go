@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -269,7 +267,7 @@ func messageFromError(err error, prefix string) string {
 	case lightning.ErrorTimeout:
 		msg = fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
 	case lightning.ErrorCommand:
-		msg = terr.Msg
+		msg = terr.Message
 	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
 		msg = "Problem connecting to our node. Please try again in a minute."
 	case lightning.ErrorJSONDecode:
@@ -391,67 +389,37 @@ func findSimilar(source string, targets []string) (result []string) {
 	return res
 }
 
-func fromManyToOne(sats int, toId int, fromIds []int,
-	desc, receiverMessage, giverMessage string,
-) (receiver User, err error) {
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		return
-	}
-	defer txn.Rollback()
-
-	receiver, _ = loadUser(toId, 0)
-	giverNames := make([]string, 0, len(fromIds))
-
-	msats := sats * 1000
-	var (
-		vdesc  = &sql.NullString{}
-		vlabel = &sql.NullString{}
-	)
-	vdesc.Scan(desc)
-
-	for _, fromId := range fromIds {
-		if fromId == toId {
-			continue
-		}
-
-		_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description, label)
-VALUES ($1, $2, $3, $4, $5)
-    `, fromId, toId, msats, vdesc, vlabel)
-		if err != nil {
-			return
-		}
-
-		var balance int
-		err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
-    `, fromId)
-		if err != nil {
-			return
-		}
-
-		if balance < 0 {
-			err = errors.New("insufficient balance")
-			return
-		}
-
-		giver, _ := loadUser(fromId, 0)
-		giverNames = append(giverNames, giver.AtName())
-
-		giver.notify(fmt.Sprintf(giverMessage, sats, receiver.AtName()))
+func roman(number int) string {
+	conversions := []struct {
+		value int
+		digit string
+	}{
+		{1000, "M"},
+		{900, "CM"},
+		{500, "D"},
+		{400, "CD"},
+		{100, "C"},
+		{90, "XC"},
+		{50, "L"},
+		{40, "XL"},
+		{10, "X"},
+		{9, "IX"},
+		{5, "V"},
+		{4, "IV"},
+		{1, "I"},
 	}
 
-	err = txn.Commit()
-	if err != nil {
-		return
+	roman := ""
+	for _, conversion := range conversions {
+		for number >= conversion.value {
+			roman += conversion.digit
+			number -= conversion.value
+		}
 	}
+	return roman
+}
 
-	receiver.notify(
-		fmt.Sprintf(receiverMessage,
-			sats*len(fromIds), strings.Join(giverNames, " ")),
-	)
-	return
+func nodeLink(nodeId string) string {
+	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
+		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }

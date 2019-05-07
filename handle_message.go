@@ -72,7 +72,7 @@ func handleMessage(message *tgbotapi.Message) {
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
 <b>Amount</b>: {{Satoshis}} sat
 {{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
-        `, txn)
+        `, txn) + "\n" + renderLogInfo(hashfirstchars)
 		id := u.notifyAsReply(txnreply, txn.TriggerMessage).MessageID
 
 		if txn.Status == "PENDING" {
@@ -96,6 +96,13 @@ func handleMessage(message *tgbotapi.Message) {
 			)
 		}
 
+		return
+	}
+
+	// query failed transactions (only available in the first 24h after the failure)
+	if strings.HasPrefix(text, "/log") {
+		hashfirstchars := text[4:]
+		u.notify(renderLogInfo(hashfirstchars))
 		return
 	}
 
