@@ -18,41 +18,6 @@ func handle(upd tgbotapi.Update) {
 	}
 }
 
-func decodeNotifyBolt11(
-	chatId int64, replyTo int, bolt11 string, optmsats int) (id int, text, hash string, err error) {
-	inv, nodeAlias, usd, err := decodeInvoice(bolt11)
-	if err != nil {
-		errMsg := messageFromError(err, "Failed to decode invoice")
-		notify(chatId, errMsg)
-		return
-	}
-
-	amount := int(inv.Get("msatoshi").Int())
-	if amount == 0 {
-		amount = optmsats
-	}
-
-	hash = inv.Get("payment_hash").String()
-
-	text = fmt.Sprintf(`
-%d sat (%s)
-<i>%s</i>
-<b>Hash</b>: %s
-<b>Node</b>: %s (%s)
-        `,
-		amount/1000,
-		usd,
-		escapeHTML(inv.Get("description").String()),
-		hash,
-		inv.Get("payee").String(),
-		nodeAlias,
-	)
-
-	msg := notifyAsReply(chatId, text, replyTo)
-	id = msg.MessageID
-	return
-}
-
 func handleInvoicePaid(res gjson.Result) {
 	index := res.Get("pay_index").Int()
 	rds.Set("lastinvoiceindex", index, 0)

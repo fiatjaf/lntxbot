@@ -67,7 +67,7 @@ func handleMessage(message *tgbotapi.Message) {
 		txnreply := mustache.Render(`
 <code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(💤 unclaimed){{/IsUnclaimed}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
-{{#Payee.Valid}}<b>Payee</b>: {{Payee.String}} ({{PayeeAlias}}){{/Payee.Valid}}
+{{#Payee.Valid}}<b>Payee</b>: {{{PayeeLink}}} ({{PayeeAlias}}){{/Payee.Valid}}
 <b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
 <b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
 <b>Amount</b>: {{Satoshis}} sat
@@ -195,11 +195,6 @@ parsed:
 			}
 		}
 
-		break
-	case opts["decode"].(bool):
-		// just decode invoice
-		bolt11 := opts["<invoice>"].(string)
-		decodeNotifyBolt11(message.Chat.ID, message.MessageID, bolt11, 0)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
@@ -462,7 +457,7 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 <b>Total fees paid</b>: %.3f sat
         `, info.Balance, info.TotalReceived, info.TotalSent, info.TotalFees))
 		break
-	case opts["pay"].(bool), opts["withdraw"].(bool):
+	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		// pay invoice
 		askConfirmation := true
 		if opts["now"].(bool) {
@@ -491,10 +486,35 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 
 		if askConfirmation {
 			// decode invoice and show a button for confirmation
-			id, text, hash, err := decodeNotifyBolt11(u.ChatId, 0, bolt11, optmsats)
+			inv, nodeAlias, usd, err := decodeInvoice(bolt11)
 			if err != nil {
+				errMsg := messageFromError(err, "Failed to decode invoice")
+				notify(u.ChatId, errMsg)
 				break
 			}
+
+			amount := int(inv.Get("msatoshi").Int())
+			if amount == 0 {
+				amount = optmsats
+			}
+
+			hash := inv.Get("payment_hash").String()
+			text = fmt.Sprintf(`
+%d sat (%s)
+<i>%s</i>
+<b>Hash</b>: %s
+<b>Node</b>: %s (%s)
+        `,
+				amount/1000,
+				usd,
+				escapeHTML(inv.Get("description").String()),
+				hash,
+				nodeLink(inv.Get("payee").String()),
+				nodeAlias,
+			)
+
+			msg := notify(u.ChatId, text)
+			id := msg.MessageID
 
 			hashfirstchars := hash[:5]
 			rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)

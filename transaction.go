@@ -161,6 +161,10 @@ func (t Transaction) PayeeAlias() string {
 	return getNodeAlias(t.Payee.String)
 }
 
+func (t Transaction) PayeeLink() string {
+	return nodeLink(t.Payee.String)
+}
+
 func decimalize(v float64) string {
 	if v == math.Trunc(v) {
 		return fmt.Sprintf("%.0f", v)
@@ -179,11 +183,19 @@ func renderLogInfo(hash string) (logInfo string) {
 		logInfo += "<b>Payment attempts:</b>"
 	}
 
+	if len(calls) == 0 {
+		logInfo += "\nNone stored."
+	}
+
 	for i, call := range calls {
 		logInfo += fmt.Sprintf("\n%d.", i+1)
 
 		var tries []lightning.Try
 		json.Unmarshal([]byte(call), &tries)
+
+		if len(tries) == 0 {
+			logInfo += " No routes found."
+		}
 
 		for j, try := range tries {
 			letter := string([]rune{rune(j) + 97})
