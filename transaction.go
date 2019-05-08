@@ -174,63 +174,56 @@ func decimalize(v float64) string {
 }
 
 func renderLogInfo(hash string) (logInfo string) {
-	calls, err := rds.LRange("tries:"+hash, 0, -1).Result()
+	lastCall, err := rds.Get("tries:" + hash).Result()
 	if err != nil {
 		return ""
 	}
 
-	if len(calls) > 0 {
-		logInfo += "<b>Payment attempts:</b>"
+	logInfo += "<b>Routes tried:</b>"
+
+	var tries []lightning.Try
+	err = json.Unmarshal([]byte(lastCall), &tries)
+	if err != nil {
+		logInfo += " [error fetching]"
 	}
 
-	if len(calls) == 0 {
-		logInfo += "\nNone stored."
+	if len(tries) == 0 {
+		logInfo += " No routes found."
 	}
 
-	for i, call := range calls {
-		logInfo += fmt.Sprintf("\n%d.", i+1)
-
-		var tries []lightning.Try
-		json.Unmarshal([]byte(call), &tries)
-
-		if len(tries) == 0 {
-			logInfo += " No routes found."
+	for j, try := range tries {
+		letter := string([]rune{rune(j) + 97})
+		logInfo += fmt.Sprintf("\n  <b>%s</b>. ", letter)
+		if try.Success {
+			logInfo += "<i>Succeeded.</i>"
+		} else {
+			logInfo += "<i>Failed.</i>"
 		}
 
-		for j, try := range tries {
-			letter := string([]rune{rune(j) + 97})
-			logInfo += fmt.Sprintf("\n  <b>%s</b>. ", letter)
-			if try.Success {
-				logInfo += "<i>Succeeded.</i>"
-			} else {
-				logInfo += "<i>Failed.</i>"
-			}
+		routeStr := ""
+		arrihop, ok := try.Route.([]interface{})
+		if !ok {
+			return "\n    [error]"
+		}
+		for l, ihop := range arrihop {
+			hop := ihop.(map[string]interface{})
+			peer := hop["id"].(string)
+			msat := int(hop["msatoshi"].(float64))
+			delay := int(hop["delay"].(float64))
+			routeStr += fmt.Sprintf("\n    <code>%s</code>. %s, %dmsat, delay: %d",
+				strings.ToLower(roman(l+1)), nodeLink(peer), msat, delay)
+		}
+		logInfo += routeStr
 
-			routeStr := ""
-			arrihop, ok := try.Route.([]interface{})
-			if !ok {
-				return "\n    [error]"
-			}
-			for l, ihop := range arrihop {
-				hop := ihop.(map[string]interface{})
-				peer := hop["id"].(string)
-				msat := int(hop["msatoshi"].(float64))
-				delay := int(hop["delay"].(float64))
-				routeStr += fmt.Sprintf("\n    <code>%s</code>. %s, %dmsat, delay: %d",
-					strings.ToLower(roman(l+1)), nodeLink(peer), msat, delay)
-			}
-			logInfo += routeStr
-
-			if try.Error != nil {
-				logInfo += fmt.Sprintf("\nError: %s (%d). ", try.Error.Message, try.Error.Code)
-				if try.Error.Data != nil {
-					data, _ := try.Error.Data.(map[string]interface{})
-					ichannel, _ := data["erring_channel"]
-					inode, _ := data["erring_node"]
-					channel, _ := ichannel.(string)
-					node, _ := inode.(string)
-					logInfo += fmt.Sprintf("<b>Erring:</b> %s, %s", channel, nodeLink(node))
-				}
+		if try.Error != nil {
+			logInfo += fmt.Sprintf("\nError: %s (%d). ", try.Error.Message, try.Error.Code)
+			if try.Error.Data != nil {
+				data, _ := try.Error.Data.(map[string]interface{})
+				ichannel, _ := data["erring_channel"]
+				inode, _ := data["erring_node"]
+				channel, _ := ichannel.(string)
+				node, _ := inode.(string)
+				logInfo += fmt.Sprintf("<b>Erring:</b> %s, %s", channel, nodeLink(node))
 			}
 		}
 	}

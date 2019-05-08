@@ -297,14 +297,13 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 		success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
 
 		// save payment attempts for future counsultation
-		// only save the latest 3 tries for brevity
-		from := len(tries) - 3
+		// only save the latest 10 tries for brevity
+		from := len(tries) - 10
 		if from < 0 {
 			from = 0
 		}
 		if jsontries, err := json.Marshal(tries[from:]); err == nil {
-			rds.RPush("tries:"+hash[:5], jsontries)
-			rds.Expire("tries:"+hash[:5], time.Hour*24)
+			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
 		}
 
 		if err != nil {
