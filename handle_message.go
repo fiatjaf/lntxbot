@@ -341,7 +341,7 @@ parsed:
 		chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
 		bot.Send(chattable)
 		break
-	case opts["coinflip"].(bool):
+	case opts["coinflip"].(bool), opts["lottery"].(bool):
 		// open a lottery between a number of users in a group
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
@@ -377,7 +377,7 @@ Registered: %s`, sats, nparticipants, sats*nparticipants, u.AtName()),
 		rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
 		chattable.BaseChat.ReplyMarkup = coinflipKeyboard(coinflipid, nparticipants, sats)
 		bot.Send(chattable)
-	case opts["fundraise"].(bool):
+	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
