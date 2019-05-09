@@ -444,6 +444,7 @@ func (u User) paymentReceived(
 INSERT INTO lightning.transaction
   (to_id, amount, description, payment_hash, preimage, label)
 VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
     `, u.Id, amount, desc, hash, preimage, label)
 	if err != nil {
 		log.Error().Err(err).

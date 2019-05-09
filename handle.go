@@ -46,7 +46,7 @@ func handleInvoicePaid(res gjson.Result) {
 	)
 	if err != nil {
 		u.notify(
-			"Payment received, but failed to save on database. Please report this issue: " + label + ".",
+			"Payment received, but failed to save on database. Please report this issue: <code>" + label + "</code>, hash: <code>" + hash + "</code>",
 		)
 	}
 
