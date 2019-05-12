@@ -36,7 +36,9 @@ var methods = []def{
 	def{
 		aliases:     []string{"receive", "invoice", "fund"},
 		explanation: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
-		argstr:      "[<satoshis> [sat]] [<description>...] [--preimage=<preimage>]",
+		// the "any" is here only for illustrative purposes. if you call this with 'any' it will
+		// actually be assigned to the <satoshis> variable, and that's how the code handles it.
+		argstr: "(<satoshis> [sat]|any) [<description>...] [--preimage=<preimage>]",
 		flags: []flag{
 			{
 				"--preimage",
@@ -49,7 +51,7 @@ var methods = []def{
 				"Generates an invoice for 320 sat with the description \"for something\".",
 			},
 			{
-				"/invoice",
+				"/invoice any",
 				"Generates an invoice with undefined amount.",
 			},
 		},

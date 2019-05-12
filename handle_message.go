@@ -160,6 +160,7 @@ parsed:
 				break
 			}
 
+			// will be this if "any"
 			sats = INVOICE_UNDEFINED_AMOUNT
 		}
 		var desc string
