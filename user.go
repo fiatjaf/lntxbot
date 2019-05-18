@@ -237,6 +237,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	hash := inv.Get("payment_hash").String()
 	payee := inv.Get("payee").String()
 	params := map[string]interface{}{
+		"riskfactor":    3,
 		"maxfeepercent": 1,
 		"exemptfee":     3,
 		"label":         fmt.Sprintf("user=%d", u.Id),
