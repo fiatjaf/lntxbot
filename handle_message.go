@@ -452,11 +452,12 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 		}
 
 		u.notify(fmt.Sprintf(`
-<b>Balance</b>: %.3f sat
+<b>Balance</b>: %.3f sat (%s)
 <b>Total received</b>: %.3f sat
 <b>Total sent</b>: %.3f sat
 <b>Total fees paid</b>: %.3f sat
-        `, info.Balance, info.TotalReceived, info.TotalSent, info.TotalFees))
+        `, info.Balance, getDollarPrice(int64(info.Balance*1000)),
+			info.TotalReceived, info.TotalSent, info.TotalFees))
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		// pay invoice
