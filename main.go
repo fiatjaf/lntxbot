@@ -30,7 +30,8 @@ type Settings struct {
 	PayConfirmTimeout time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
 	GiveAwayTimeout   time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"5h"`
 
-	Usage string
+	NodeId string
+	Usage  string
 }
 
 var err error
@@ -117,20 +118,19 @@ func main() {
 	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
 
 	// pause here until lightningd works
-	probeLightningd()
+	s.NodeId = probeLightningd()
 
 	for update := range updates {
 		handle(update)
 	}
 }
 
-func probeLightningd() {
+func probeLightningd() string {
 	nodeinfo, err := ln.Call("getinfo")
 	if err != nil {
 		log.Warn().Err(err).Msg("can't talk to lightningd. retrying.")
 		time.Sleep(time.Second * 5)
-		probeLightningd()
-		return
+		return probeLightningd()
 	}
 	log.Info().
 		Str("id", nodeinfo.Get("id").String()).
@@ -139,4 +139,6 @@ func probeLightningd() {
 		Int64("blockheight", nodeinfo.Get("blockheight").Int()).
 		Str("version", nodeinfo.Get("version").String()).
 		Msg("lightning node connected")
+
+	return nodeinfo.Get("id").String()
 }

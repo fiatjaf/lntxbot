@@ -21,7 +21,8 @@ type Transaction struct {
 	Amount         float64        `db:"amount"`
 	Fees           float64        `db:"fees"`
 	Hash           string         `db:"payment_hash"`
-	Preimage       string         `db:"preimage"`
+	Preimage       sql.NullString `db:"preimage"`
+	Label          sql.NullString `db:"label"`
 	Description    string         `db:"description"`
 	Payee          sql.NullString `db:"payee_node"`
 
@@ -93,10 +94,6 @@ WHERE tx.payment_hash = $1
 
 	t.unclaimed = &unclaimed
 	return unclaimed
-}
-
-func (t Transaction) HasPreimage() bool {
-	return t.Preimage != ""
 }
 
 func (t Transaction) TimeFormat() string {

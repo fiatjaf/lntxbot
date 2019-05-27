@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
-	"github.com/tidwall/gjson"
 )
 
 type User struct {
@@ -232,10 +231,10 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	}
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
+	payee := inv.Get("payee").String()
 	amount := int(inv.Get("msatoshi").Int())
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
-	payee := inv.Get("payee").String()
 	params := map[string]interface{}{
 		"riskfactor":    3,
 		"maxfeepercent": 1,
@@ -256,7 +255,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		log.Debug().Err(err).Msg("database error")
+		log.Debug().Err(err).Msg("database error starting transaction")
 		return errors.New("Database error.")
 	}
 	defer txn.Rollback()
@@ -270,7 +269,7 @@ INSERT INTO lightning.transaction
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, u.Id, amount, desc, hash, fakeLabel, true, messageId, payee)
 	if err != nil {
-		log.Debug().Err(err).Msg("database error")
+		log.Debug().Err(err).Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
 	}
 
@@ -278,7 +277,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 SELECT balance::int FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
-		log.Debug().Err(err).Msg("database error")
+		log.Debug().Err(err).Msg("database error fetching balance")
 		return errors.New("Database error.")
 	}
 
@@ -289,58 +288,86 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 
 	err = txn.Commit()
 	if err != nil {
-		log.Debug().Err(err).Msg("database error")
+		log.Debug().Err(err).Msg("database error committing transaction")
 		return errors.New("Database error.")
 	}
 
-	// actually send the lightning payment
-	go func(u User, messageId int, params map[string]interface{}) {
-		success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
-
-		// save payment attempts for future counsultation
-		// only save the latest 10 tries for brevity
-		from := len(tries) - 10
-		if from < 0 {
-			from = 0
-		}
-		if jsontries, err := json.Marshal(tries[from:]); err == nil {
-			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
-		}
-
+	if payee == s.NodeId {
+		// it's an internal invoice. mark as paid internally.
+		var txn Transaction
+		err = pg.Get(&txn, `
+SELECT payment_hash, preimage, label, amount
+FROM lightning.transaction WHERE payment_hash = $1`, hash)
 		if err != nil {
-			log.Warn().Err(err).
-				Interface("params", params).
-				Interface("tries", tries).
-				Msg("Unexpected error paying invoice.")
-			return
+			return err
 		}
 
-		if success {
-			u.paymentHasSucceeded(messageId, payment)
-		} else {
-			log.Warn().
-				Str("user", u.Username).
-				Int("user-id", u.Id).
-				Interface("params", params).
-				Interface("tries", tries).
-				Str("payment", payment.String()).
-				Str("hash", hash).
-				Msg("payment failed")
-
-			u.paymentHasFailed(messageId, payment.Get("payment_hash").String())
+		invpaid, err := ln.Call("listinvoices", txn.Label.String)
+		if err != nil {
+			return err
 		}
-	}(u, messageId, params)
+
+		u.paymentHasSucceeded(messageId, txn.Amount, txn.Amount, txn.Preimage.String, txn.Hash)
+		handleInvoicePaid(invpaid)
+		ln.Call("delinvoice", txn.Label.String, "unpaid")
+	} else {
+		// it's an invoice from elsewhere, continue and
+		// actually send the lightning payment
+		go func(u User, messageId int, params map[string]interface{}) {
+			success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
+
+			// save payment attempts for future counsultation
+			// only save the latest 10 tries for brevity
+			from := len(tries) - 10
+			if from < 0 {
+				from = 0
+			}
+			if jsontries, err := json.Marshal(tries[from:]); err == nil {
+				rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
+			}
+
+			if err != nil {
+				log.Warn().Err(err).
+					Interface("params", params).
+					Interface("tries", tries).
+					Msg("Unexpected error paying invoice.")
+				return
+			}
+
+			if success {
+				u.paymentHasSucceeded(messageId,
+					payment.Get("msatoshi").Float(),
+					payment.Get("msatoshi_sent").Float(),
+					payment.Get("payment_preimage").String(),
+					payment.Get("payment_hash").String(),
+				)
+			} else {
+				log.Warn().
+					Str("user", u.Username).
+					Int("user-id", u.Id).
+					Interface("params", params).
+					Interface("tries", tries).
+					Str("payment", payment.String()).
+					Str("hash", hash).
+					Msg("payment failed")
+
+				u.paymentHasFailed(messageId, payment.Get("payment_hash").String())
+			}
+		}(u, messageId, params)
+	}
 
 	return nil
 }
 
-func (u User) paymentHasSucceeded(messageId int, payment gjson.Result) {
+func (u User) paymentHasSucceeded(messageId int,
+	msatoshi float64,
+	msatoshi_sent float64,
+	preimage string,
+	hash string,
+) {
 	// if it succeeds we mark the transaction as not pending anymore
 	// plus save fees and preimage
-	msats := payment.Get("msatoshi").Float()
-	fees := payment.Get("msatoshi_sent").Float() - msats
-	preimage := payment.Get("payment_preimage").String()
-	hash := payment.Get("payment_hash").String()
+	fees := msatoshi_sent - msatoshi
 
 	_, err = pg.Exec(`
 UPDATE lightning.transaction
@@ -357,7 +384,7 @@ WHERE payment_hash = $3
 
 	u.notifyAsReply(fmt.Sprintf(
 		"Paid with <b>%d sat</b> (+ %.3f fee). \n\n<b>Hash:</b> %s\n\n<b>Proof:</b> %s\n\n/tx%s",
-		int(msats/1000),
+		int(msatoshi/1000),
 		fees/1000,
 		hash,
 		preimage,

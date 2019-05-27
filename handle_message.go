@@ -67,8 +67,8 @@ func handleMessage(message *tgbotapi.Message) {
 <code>{{Status}}</code> {{#TelegramPeer.Valid}}{{PeerActionDescription}}{{/TelegramPeer.Valid}} on {{TimeFormat}} {{#IsUnclaimed}}(💤 unclaimed){{/IsUnclaimed}}
 <i>{{Description}}</i>{{^TelegramPeer.Valid}} 
 {{#Payee.Valid}}<b>Payee</b>: {{{PayeeLink}}} ({{PayeeAlias}}){{/Payee.Valid}}
-<b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#HasPreimage}} 
-<b>Preimage</b>: {{Preimage}}{{/HasPreimage}}
+<b>Hash</b>: {{Hash}}{{/TelegramPeer.Valid}}{{#Preimage.Valid}} 
+<b>Preimage</b>: {{Preimage.String}}{{/Preimage.Valid}}
 <b>Amount</b>: {{Satoshis}} sat
 {{^IsReceive}}<b>Fee paid</b>: {{FeeSatoshis}}{{/IsReceive}}
         `, txn) + "\n" + renderLogInfo(hashfirstchars)

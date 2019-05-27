@@ -393,7 +393,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 		go func(u User, messageId int, hash string) {
-			res, err := ln.Call("waitsendpay", hash)
+			payment, err := ln.Call("waitsendpay", hash)
 			if err != nil {
 				// an error we know it's a final error
 				if cmderr, ok := err.(lightning.ErrorCommand); ok {
@@ -403,6 +403,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 							Str("hash", hash).
 							Msg("canceling failed payment because it has failed failed")
 						u.paymentHasFailed(messageId, hash)
+						return
 					}
 
 					// if it's not a final error but it's been a long time call it final
@@ -429,7 +430,12 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			}
 
 			// payment succeeded
-			u.paymentHasSucceeded(messageId, res)
+			u.paymentHasSucceeded(messageId,
+				payment.Get("msatoshi").Float(),
+				payment.Get("msatoshi_sent").Float(),
+				payment.Get("payment_preimage").String(),
+				payment.Get("payment_hash").String(),
+			)
 		}(u, txn.TriggerMessage, txn.Hash)
 
 		appendTextToMessage(cb, "Checking.")
