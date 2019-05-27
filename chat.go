@@ -18,8 +18,9 @@ type GroupChat struct {
 
 type KickData struct {
 	InvoiceMessage   tgbotapi.Message          `json:"invoice_message"`
-	NotifyMessage    tgbotapi.Message          `json:"invoice_message"`
+	NotifyMessage    tgbotapi.Message          `json:"notify_message"`
 	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
+	Hash             string                    `json:"hash"`
 }
 
 var spammy_cache = map[int64]bool{}

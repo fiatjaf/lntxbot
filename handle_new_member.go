@@ -19,7 +19,7 @@ func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 	}
 
 	if sats == 0 {
-		// no fee policy
+		// no ticket policy
 		return
 	}
 
@@ -36,12 +36,14 @@ func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 
 	label := fmt.Sprintf("newmember:%d:%d", newmember.ID, chat.ID)
 
-	ln.Call("delinvoice", label, "unpaid") // we don't care if it doesn't exist
+	ln.Call("delinvoice", label, "unpaid")  // we don't care if it doesn't exist
+	ln.Call("delinvoice", label, "paid")    // we don't care if it doesn't exist
+	ln.Call("delinvoice", label, "expired") // we don't care if it doesn't exist
 
 	res, err := ln.Call("invoice", map[string]interface{}{
 		"msatoshi":    sats * 1000,
 		"label":       label,
-		"description": fmt.Sprintf("For %s to join %s (%d).", username, chat.Title, chat.ID),
+		"description": fmt.Sprintf("Ticket for %s to join %s (%d).", username, chat.Title, chat.ID),
 		"expiry":      int(time.Minute * 30 / time.Second),
 	})
 	if err != nil {
@@ -61,24 +63,32 @@ func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 			UserID: newmember.ID,
 			ChatID: chat.ID,
 		},
+		res.Get("payment_hash").String(),
 	}
 
+	kickdatajson, _ := json.Marshal(kickdata)
+	err = rds.HSet("ticket-pending", label, string(kickdatajson)).Err()
+	if err != nil {
+		log.Warn().Err(err).Str("kickdata", string(kickdatajson)).Msg("error saving kickdata")
+	}
 	pendingApproval[label] = kickdata
-	waitToKick(label, kickdata)
+	go waitToKick(label, kickdata)
 }
 
 func waitToKick(label string, kickdata KickData) {
+	log.Debug().Str("label", label).Msg("waiting to kick")
 	invpaid, err := ln.CallWithCustomTimeout(time.Minute*60, "waitinvoice", label)
 	if err == nil && invpaid.Get("status").String() == "paid" {
 		// the user did pay. allow.
-		delete(pendingApproval, label)
-		rds.HDel("ticket-pending", label)
-		replaceMessage(&kickdata.InvoiceMessage, "Invoice paid.")
+		ticketPaid(label, kickdata)
 		return
 	} else if err != nil {
 		if cmderr, ok := err.(lightning.ErrorCommand); ok {
 			if cmderr.Code == -1 {
-				log.Info().Str("label", label).Msg("invoice deleted, ignore as user may be trying to join again")
+				log.Info().Str("label", label).
+					Msg("invoice deleted, assume it was paid internally")
+				delete(pendingApproval, label)
+				rds.HDel("ticket-pending", label)
 				return
 			} else if cmderr.Code == -2 {
 				// didn't pay. kick.
@@ -93,6 +103,7 @@ func waitToKick(label string, kickdata KickData) {
 				})
 
 				delete(pendingApproval, label)
+				rds.HDel("ticket-pending", label)
 
 				// delete messages
 				deleteMessage(&kickdata.NotifyMessage)
@@ -108,9 +119,29 @@ func waitToKick(label string, kickdata KickData) {
 	}
 }
 
+func ticketPaid(label string, kickdata KickData) {
+	log.Debug().Str("label", label).Msg("ticket paid")
+	delete(pendingApproval, label)
+	rds.HDel("ticket-pending", label)
+
+	// replace caption
+	_, err := bot.Send(tgbotapi.NewEditMessageText(
+		kickdata.NotifyMessage.Chat.ID,
+		kickdata.NotifyMessage.MessageID,
+		"Invoice paid. User allowed.",
+	))
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")
+	}
+
+	// delete the other message
+	deleteMessage(&kickdata.InvoiceMessage)
+}
+
 func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 	label := fmt.Sprintf("newmember:%d:%d", message.From.ID, message.Chat.ID)
 	if _, isPending := pendingApproval[label]; isPending {
+		log.Debug().Str("user", message.From.String()).Msg("user pending, can't speak")
 		return false
 	}
 	return true

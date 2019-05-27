@@ -153,14 +153,6 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 	})
 }
 
-func replaceMessage(message *tgbotapi.Message, text string) {
-	bot.Send(tgbotapi.NewEditMessageText(
-		message.Chat.ID,
-		message.MessageID,
-		text,
-	))
-}
-
 func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
 	edit := tgbotapi.NewEditMessageText(chat, msg, text)
 	edit.ParseMode = "HTML"

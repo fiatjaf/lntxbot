@@ -295,20 +295,34 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 	if payee == s.NodeId {
 		// it's an internal invoice. mark as paid internally.
 		var txn Transaction
-		err = pg.Get(&txn, `
+		if err := pg.Get(&txn, `
 SELECT payment_hash, preimage, label, amount
-FROM lightning.transaction WHERE payment_hash = $1`, hash)
-		if err != nil {
-			return err
+FROM lightning.transaction
+WHERE payment_hash = $1
+  AND label != $2`,
+			hash, fakeLabel,
+		); err != nil {
+			// if it's generated here but is not in the database maybe it's a ticket invoice
+			if err == sql.ErrNoRows && strings.HasPrefix(desc, "Ticket for") {
+				for label, kickdata := range pendingApproval {
+					if kickdata.Hash == hash {
+						ticketPaid(label, kickdata)
+						u.paymentHasSucceeded(messageId, float64(amount), float64(amount), "", hash)
+						break
+					}
+				}
+			} else {
+				return err
+			}
+		} else {
+			invpaid, err := ln.Call("listinvoices", txn.Label.String)
+			if err != nil {
+				return err
+			}
+			handleInvoicePaid(invpaid)
+			u.paymentHasSucceeded(messageId, txn.Amount, txn.Amount, txn.Preimage.String, txn.Hash)
 		}
 
-		invpaid, err := ln.Call("listinvoices", txn.Label.String)
-		if err != nil {
-			return err
-		}
-
-		u.paymentHasSucceeded(messageId, txn.Amount, txn.Amount, txn.Preimage.String, txn.Hash)
-		handleInvoicePaid(invpaid)
 		ln.Call("delinvoice", txn.Label.String, "unpaid")
 	} else {
 		// it's an invoice from elsewhere, continue and
