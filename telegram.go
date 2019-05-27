@@ -41,17 +41,19 @@ func notifyMarkdown(chatId int64, msg string) tgbotapi.Message {
 	return message
 }
 
-func notifyWithPicture(chatId int64, picturepath string, message string) {
+func notifyWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
 	if picturepath == "" {
-		notify(chatId, message)
+		return notify(chatId, message)
 	} else {
 		defer os.Remove(picturepath)
 		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
 		photo.Caption = message
-		_, err := bot.Send(photo)
+		c, err := bot.Send(photo)
 		if err != nil {
 			log.Warn().Str("path", picturepath).Str("message", message).Err(err).Msg("error sending photo")
-			notify(chatId, message)
+			return notify(chatId, message)
+		} else {
+			return c
 		}
 	}
 }
@@ -151,6 +153,14 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 	})
 }
 
+func replaceMessage(message *tgbotapi.Message, text string) {
+	bot.Send(tgbotapi.NewEditMessageText(
+		message.Chat.ID,
+		message.MessageID,
+		text,
+	))
+}
+
 func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
 	edit := tgbotapi.NewEditMessageText(chat, msg, text)
 	edit.ParseMode = "HTML"
@@ -182,4 +192,8 @@ func isAdmin(message *tgbotapi.Message) bool {
 	} else {
 		return false
 	}
+}
+
+func deleteMessage(message *tgbotapi.Message) {
+	bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID))
 }

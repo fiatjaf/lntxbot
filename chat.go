@@ -1,5 +1,11 @@
 package main
 
+import (
+	"database/sql"
+
+	"github.com/go-telegram-bot-api/telegram-bot-api"
+)
+
 /*
    ALL GROUP CHAT TELEGRAM IDS ARE NEGATIVE
 */
@@ -8,6 +14,12 @@ type GroupChat struct {
 	TelegramId int  `db:"telegram_id"`
 	Spammy     bool `db:"spammy"`
 	Ticket     int  `db:"ticket"`
+}
+
+type KickData struct {
+	InvoiceMessage   tgbotapi.Message          `json:"invoice_message"`
+	NotifyMessage    tgbotapi.Message          `json:"invoice_message"`
+	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
 }
 
 var spammy_cache = map[int64]bool{}
@@ -56,5 +68,9 @@ func getTicketPrice(telegramId int64) (sat int, err error) {
 	err = pg.Get(&sat, `
       SELECT ticket FROM telegram.chat WHERE telegram_id = $1
     `, -telegramId)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+
 	return
 }

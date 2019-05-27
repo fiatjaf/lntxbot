@@ -120,6 +120,9 @@ func main() {
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()
 
+	// dispatch kick job for pending users
+	startKicking()
+
 	for update := range updates {
 		handle(update)
 	}

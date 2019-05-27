@@ -17,6 +17,8 @@ func handle(upd tgbotapi.Update) {
 			proceed := interceptMessage(upd.Message)
 			if proceed {
 				handleMessage(upd.Message)
+			} else {
+				deleteMessage(upd.Message)
 			}
 		}
 	} else if upd.CallbackQuery != nil {
@@ -38,26 +40,36 @@ func handleInvoicePaid(res gjson.Result) {
 
 	// extract user id and preimage from label
 	messageId, userId, preimage, ok := parseLabel(label)
-	u, err := loadUser(userId, 0)
-	if !ok || err != nil {
-		log.Warn().Err(err).
-			Int("userid", userId).Str("label", label).Int64("index", index).
-			Msg("failed to parse label for received payment or loading user")
-		return
-	}
+	if ok {
+		// normal invoice
+		u, err := loadUser(userId, 0)
+		if err != nil {
+			log.Warn().Err(err).
+				Int("userid", userId).Str("label", label).Int64("index", index).
+				Msg("failed to parse label for received payment or loading user")
+			return
+		}
 
-	err = u.paymentReceived(
-		int(msats),
-		desc,
-		hash,
-		preimage,
-		label,
-	)
-	if err != nil {
-		u.notify(
-			"Payment received, but failed to save on database. Please report this issue: <code>" + label + "</code>, hash: <code>" + hash + "</code>",
+		err = u.paymentReceived(
+			int(msats),
+			desc,
+			hash,
+			preimage,
+			label,
 		)
-	}
+		if err != nil {
+			u.notify(
+				"Payment received, but failed to save on database. Please report this issue: <code>" + label + "</code>, hash: <code>" + hash + "</code>",
+			)
+		}
 
-	u.notifyAsReply(fmt.Sprintf("Payment received: %d. /tx%s.", msats/1000, hash[:5]), messageId)
+		u.notifyAsReply(fmt.Sprintf("Payment received: %d. /tx%s.", msats/1000, hash[:5]), messageId)
+	} else {
+		// could be a ticket invoice
+		if _, ok := pendingApproval[label]; ok {
+			// but we won't handle it here
+		} else {
+			log.Debug().Str("label", label).Int64("msat", msats).Msg("unrecognized payment received.")
+		}
+	}
 }

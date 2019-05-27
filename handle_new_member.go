@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-var pendingApproval = make(map[string]bool)
+var pendingApproval = make(map[string]KickData)
 
 func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 	sats, err := getTicketPrice(chat.ID)
@@ -29,11 +30,13 @@ func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 		username = newmember.FirstName
 	}
 
-	notify(chat.ID, fmt.Sprintf(
-		"Hello, %s. Please pay the following invoice for %d sat if you want to stay in this group:",
+	notifyMessage := notify(chat.ID, fmt.Sprintf(
+		"Hello, %s. You have 30min to pay the following invoice for %d sat if you want to stay in this group:",
 		username, sats))
 
 	label := fmt.Sprintf("newmember:%d:%d", newmember.ID, chat.ID)
+
+	ln.Call("delinvoice", label, "unpaid") // we don't care if it doesn't exist
 
 	res, err := ln.Call("invoice", map[string]interface{}{
 		"msatoshi":    sats * 1000,
@@ -49,49 +52,60 @@ func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 	bolt11 := res.Get("bolt11").String()
 	qrpath := generateQR(label, bolt11)
 
-	notifyWithPicture(chat.ID, qrpath, bolt11)
+	invoiceMessage := notifyWithPicture(chat.ID, qrpath, bolt11)
 
-	chatmemberconfig := tgbotapi.ChatMemberConfig{
-		ChatID: chat.ID,
-		UserID: newmember.ID,
+	kickdata := KickData{
+		invoiceMessage,
+		notifyMessage,
+		tgbotapi.ChatMemberConfig{
+			UserID: newmember.ID,
+			ChatID: chat.ID,
+		},
 	}
 
-	pendingApproval[label] = true
+	pendingApproval[label] = kickdata
+	waitToKick(label, kickdata)
+}
 
-	go func(label string, chatmemberconfig tgbotapi.ChatMemberConfig) {
-		inv, err := ln.CallWithCustomTimeout(time.Minute*31, "waitinvoice", label)
-
-		banuntil := time.Now()
-		banuntil.AddDate(0, 0, 1)
-
-		if err != nil {
-			if _, ok := err.(lightning.ErrorTimeout); ok {
-				goto kick
-			} else {
-				log.Error().Err(err).Msg("error on waitinvoice for kicking user")
-			}
-		}
-
-		if inv.Get("status").String() != "paid" {
-			goto kick
-		} else {
-			goto allow
-		}
-
-	kick:
-		// didn't pay. kick.
-		bot.KickChatMember(tgbotapi.KickChatMemberConfig{
-			chatmemberconfig,
-			banuntil.Unix(),
-		})
-		return
-
-	allow:
+func waitToKick(label string, kickdata KickData) {
+	invpaid, err := ln.CallWithCustomTimeout(time.Minute*60, "waitinvoice", label)
+	if err == nil && invpaid.Get("status").String() == "paid" {
 		// the user did pay. allow.
 		delete(pendingApproval, label)
+		rds.HDel("ticket-pending", label)
+		replaceMessage(&kickdata.InvoiceMessage, "Invoice paid.")
 		return
+	} else if err != nil {
+		if cmderr, ok := err.(lightning.ErrorCommand); ok {
+			if cmderr.Code == -1 {
+				log.Info().Str("label", label).Msg("invoice deleted, ignore as user may be trying to join again")
+				return
+			} else if cmderr.Code == -2 {
+				// didn't pay. kick.
+				log.Info().Str("label", label).Msg("invoice expired, kicking user")
 
-	}(label, chatmemberconfig)
+				banuntil := time.Now()
+				banuntil.AddDate(0, 0, 1)
+
+				bot.KickChatMember(tgbotapi.KickChatMemberConfig{
+					kickdata.ChatMemberConfig,
+					banuntil.Unix(),
+				})
+
+				delete(pendingApproval, label)
+
+				// delete messages
+				deleteMessage(&kickdata.NotifyMessage)
+				deleteMessage(&kickdata.InvoiceMessage)
+				return
+			}
+		}
+		log.Warn().Err(err).Msg("unexpected error while waiting to kick")
+	} else {
+		// should never happen
+		log.Error().Str("invoice", invpaid.String()).
+			Msg("got a waitinvoice response for an invoice that wasn't paid")
+	}
 }
 
 func interceptMessage(message *tgbotapi.Message) (proceed bool) {
@@ -100,4 +114,24 @@ func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 		return false
 	}
 	return true
+}
+
+func startKicking() {
+	data, err := rds.HGetAll("ticket-pending").Result()
+	if err != nil {
+		log.Warn().Err(err).Msg("error getting tickets pending")
+		return
+	}
+
+	for label, kickdatastr := range data {
+		var kickdata KickData
+		err := json.Unmarshal([]byte(kickdatastr), &kickdata)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to unmarshal kickdata from redis")
+			continue
+		}
+
+		pendingApproval[label] = kickdata
+		go waitToKick(label, kickdata)
+	}
 }
