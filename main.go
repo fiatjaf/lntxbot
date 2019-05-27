@@ -82,7 +82,26 @@ func main() {
 	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
 
 	// lightningd connection
-	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
+	lastinvoiceindex, err := rds.Get("lastinvoiceindex").Int64()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get lastinvoiceindex from redis")
+		return
+	}
+	if lastinvoiceindex < 10 {
+		res, err := ln.Call("listinvoices")
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to get lastinvoiceindex from listinvoices")
+			return
+		}
+		indexes := res.Get("invoices.#.pay_index").Array()
+		for _, indexr := range indexes {
+			index := indexr.Int()
+			if index > lastinvoiceindex {
+				lastinvoiceindex = index
+			}
+		}
+	}
+
 	ln = &lightning.Client{
 		Path:             s.SocketPath,
 		LastInvoiceIndex: int(lastinvoiceindex),
