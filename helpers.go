@@ -18,7 +18,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/renstrom/fuzzysearch/fuzzy"
-	"github.com/skip2/go-qrcode"
+	qrcode "github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -246,19 +246,11 @@ func makeInvoice(
 	if err != nil {
 		return
 	}
+
 	bolt11 = res.Get("bolt11").String()
+	qrpath = generateQR(label, bolt11)
 
-	// generate qr code
-	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
-	if err != nil {
-		log.Warn().Err(err).Str("invoice", bolt11).
-			Msg("failed to generate qr.")
-		err = nil
-	} else {
-		qrpath = qrImagePath(label)
-	}
-
-	return
+	return bolt11, qrpath, nil
 }
 
 func messageFromError(err error, prefix string) string {
@@ -422,4 +414,16 @@ func roman(number int) string {
 func nodeLink(nodeId string) string {
 	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
+}
+
+func generateQR(label, bolt11 string) (qrpath string) {
+	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
+	if err != nil {
+		log.Warn().Err(err).Str("invoice", bolt11).
+			Msg("failed to generate qr.")
+		err = nil
+	} else {
+		qrpath = qrImagePath(label)
+	}
+	return
 }

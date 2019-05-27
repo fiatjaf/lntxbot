@@ -161,8 +161,16 @@ var methods = []def{
 	def{
 		aliases:     []string{"toggle"},
 		explanation: "Toggles bot features in groups on/off. In supergroups it only be run by group admins.",
-		argstr:      "spammy",
+		argstr:      "(ticket [<price>]|spammy)",
 		examples: []example{
+			{
+				"/toggle ticket 10",
+				"New group entrants will be prompted to pay 10 satoshis in 30 minutes or be kicked. Useful as an antispam measure.",
+			},
+			{
+				"/toggle ticket",
+				"Stop charging new entrants a fee.",
+			},
 			{
 				"/toggle spammy",
 				"'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.",

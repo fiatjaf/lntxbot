@@ -13,7 +13,8 @@ CREATE INDEX ON telegram.account (telegram_id);
 
 CREATE TABLE telegram.chat (
   telegram_id bigint PRIMARY KEY,
-  spammy boolean NOT NULL DEFAULT false
+  spammy boolean NOT NULL DEFAULT false,
+  ticket int NOT NULL DEFAULT 0,
 );
 
 CREATE TABLE lightning.transaction (

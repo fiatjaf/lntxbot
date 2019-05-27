@@ -9,7 +9,16 @@ import (
 
 func handle(upd tgbotapi.Update) {
 	if upd.Message != nil {
-		handleMessage(upd.Message)
+		if upd.Message.NewChatMembers != nil {
+			for _, newmember := range *upd.Message.NewChatMembers {
+				handleNewMember(upd.Message.Chat, newmember)
+			}
+		} else {
+			proceed := interceptMessage(upd.Message)
+			if proceed {
+				handleMessage(upd.Message)
+			}
+		}
 	} else if upd.CallbackQuery != nil {
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -180,21 +179,8 @@ parsed:
 			return
 		}
 
-		if qrpath == "" {
-			u.notify(bolt11)
-		} else {
-			defer os.Remove(qrpath)
-			photo := tgbotapi.NewPhotoUpload(message.Chat.ID, qrpath)
-			photo.Caption = bolt11
-			_, err := bot.Send(photo)
-			if err != nil {
-				log.Warn().Str("user", u.Username).Err(err).
-					Msg("error sending photo")
-
-					// send just the bolt11
-				notify(message.Chat.ID, bolt11)
-			}
-		}
+		// send invoice with qr code
+		notifyWithPicture(message.Chat.ID, qrpath, bolt11)
 
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
@@ -544,29 +530,23 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 			break
 		}
 
-		switch {
-		case opts["spammy"].(bool):
-			if message.Chat.Type == "supergroup" {
-				userchatconfig := tgbotapi.ChatConfigWithUser{
-					ChatID:             message.Chat.ID,
-					SuperGroupUsername: message.Chat.ChatConfig().SuperGroupUsername,
-					UserID:             message.From.ID,
-				}
-				chatmember, err := bot.GetChatMember(userchatconfig)
-				if err != nil ||
-					(chatmember.Status != "administrator" && chatmember.Status != "creator") {
-					log.Warn().Err(err).
-						Int64("group", message.Chat.ID).
-						Int("user", message.From.ID).
-						Msg("toggle impossible. can't get user or not an admin.")
-					break
-				}
-			} else if message.Chat.Type == "group" {
-				// ok, everybody can toggle
-			} else {
-				break
-			}
+		if !isAdmin(message) {
+			break
+		}
 
+		switch {
+		case opts["ticket"].(bool):
+			log.Debug().Int64("group", message.Chat.ID).Msg("toggling ticket")
+			price, err := opts.Int("<price>")
+			if err != nil {
+				setTicketPrice(message.Chat.ID, 0)
+				notify(message.Chat.ID, "This group is now free to join.")
+			}
+			setTicketPrice(message.Chat.ID, price)
+			notify(message.Chat.ID, fmt.Sprintf(
+				"New entrants will have to pay an invoice of %d sat.",
+				price))
+		case opts["spammy"].(bool):
 			log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
 			spammy, err := toggleSpammy(message.Chat.ID)
 			if err != nil {
