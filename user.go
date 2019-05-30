@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 type User struct {
@@ -224,6 +225,69 @@ func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
 	return notifyAsReply(u.ChatId, msg, replyToId)
 }
 
+func (u User) makeInvoice(
+	sats int,
+	desc string,
+	label string,
+	expiry *time.Duration,
+	messageId interface{},
+	preimage string,
+) (bolt11 string, hash string, qrpath string, err error) {
+	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
+		Msg("generating invoice")
+
+	if preimage == "" {
+		preimage, err = randomPreimage()
+		if err != nil {
+			return
+		}
+	}
+
+	if label == "" {
+		label = makeLabel(u.Id, messageId, preimage)
+	}
+
+	var msatoshi interface{}
+	if sats == INVOICE_UNDEFINED_AMOUNT {
+		msatoshi = "any"
+	} else {
+		msatoshi = sats * 1000
+	}
+
+	var exp time.Duration
+	if expiry == nil {
+		exp = s.InvoiceTimeout / time.Second
+	} else {
+		exp = *expiry
+	}
+
+	// make invoice
+	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
+		"msatoshi":    msatoshi,
+		"label":       label,
+		"description": desc + " [" + s.ServiceId + "/" + u.AtName() + "]",
+		"expiry":      int(exp),
+		"preimage":    preimage,
+	})
+	if err != nil {
+		return
+	}
+
+	bolt11 = res.Get("bolt11").String()
+	hash = res.Get("payment_hash").String()
+
+	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
+	if err != nil {
+		log.Warn().Err(err).Str("invoice", bolt11).
+			Msg("failed to generate qr.")
+		err = nil
+	} else {
+		qrpath = qrImagePath(label)
+	}
+
+	return bolt11, hash, qrpath, nil
+}
+
 func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
@@ -307,6 +371,13 @@ WHERE payment_hash = $1
 				for label, kickdata := range pendingApproval {
 					if kickdata.Hash == hash {
 						ticketPaid(label, kickdata)
+						handleInvoicePaid(
+							-1,
+							int64(amount),
+							desc,
+							hash,
+							label,
+						)
 						u.paymentHasSucceeded(messageId, float64(amount), float64(amount), "", hash)
 						break
 					}
@@ -319,7 +390,13 @@ WHERE payment_hash = $1
 			if err != nil {
 				return err
 			}
-			handleInvoicePaid(invpaid)
+			handleInvoicePaid(
+				invpaid.Get("pay_index").Int(),
+				invpaid.Get("msatoshi_received").Int(),
+				invpaid.Get("description").String(),
+				invpaid.Get("payment_hash").String(),
+				invpaid.Get("label").String(),
+			)
 			u.paymentHasSucceeded(messageId, txn.Amount, txn.Amount, txn.Preimage.String, txn.Hash)
 		}
 
@@ -480,7 +557,8 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 }
 
 func (u User) paymentReceived(
-	amount int, desc, hash, preimage, label string,
+	amount int,
+	desc, hash, preimage, label string,
 ) (err error) {
 	_, err = pg.Exec(`
 INSERT INTO lightning.transaction

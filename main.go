@@ -105,7 +105,7 @@ func main() {
 	ln = &lightning.Client{
 		Path:             s.SocketPath,
 		LastInvoiceIndex: int(lastinvoiceindex),
-		PaymentHandler:   handleInvoicePaid,
+		PaymentHandler:   invoicePaidListener,
 	}
 	ln.ListenForInvoices()
 

@@ -18,7 +18,6 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/renstrom/fuzzysearch/fuzzy"
-	qrcode "github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -209,50 +208,6 @@ begin:
 	goto begin
 }
 
-func makeInvoice(
-	u User,
-	sats int,
-	desc string,
-	messageId interface{},
-	preimage string,
-) (bolt11 string, qrpath string, err error) {
-	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
-		Msg("generating invoice")
-
-	if preimage == "" {
-		preimage, err = randomPreimage()
-		if err != nil {
-			return
-		}
-	}
-
-	label := makeLabel(u.Id, messageId, preimage)
-
-	var msatoshi interface{}
-	if sats == INVOICE_UNDEFINED_AMOUNT {
-		msatoshi = "any"
-	} else {
-		msatoshi = sats * 1000
-	}
-
-	// make invoice
-	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
-		"msatoshi":    msatoshi,
-		"label":       label,
-		"description": desc + " [" + s.ServiceId + "/" + u.AtName() + "]",
-		"expiry":      int(s.InvoiceTimeout / time.Second),
-		"preimage":    preimage,
-	})
-	if err != nil {
-		return
-	}
-
-	bolt11 = res.Get("bolt11").String()
-	qrpath = generateQR(label, bolt11)
-
-	return bolt11, qrpath, nil
-}
-
 func messageFromError(err error, prefix string) string {
 	var msg string
 	switch terr := err.(type) {
@@ -414,16 +369,4 @@ func roman(number int) string {
 func nodeLink(nodeId string) string {
 	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
-}
-
-func generateQR(label, bolt11 string) (qrpath string) {
-	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
-	if err != nil {
-		log.Warn().Err(err).Str("invoice", bolt11).
-			Msg("failed to generate qr.")
-		err = nil
-	} else {
-		qrpath = qrImagePath(label)
-	}
-	return
 }

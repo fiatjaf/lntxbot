@@ -11,15 +11,24 @@ import (
 
 var pendingApproval = make(map[string]KickData)
 
-func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
-	sats, err := getTicketPrice(chat.ID)
+func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
+	sats, err := getTicketPrice(joinMessage.Chat.ID)
 	if err != nil {
-		log.Error().Err(err).Str("chat", chat.Title).Msg("error fetching ticket price for chat")
+		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).Msg("error fetching ticket price for chat")
 		return
 	}
 
 	if sats == 0 {
 		// no ticket policy
+		return
+	}
+
+	// label for the invoice that will be shown
+	label := fmt.Sprintf("newmember:%d:%d", newmember.ID, joinMessage.Chat.ID)
+
+	if _, isPending := pendingApproval[label]; isPending {
+		// user joined, left and joined again.
+		// do nothing as the old timer is still counting.
 		return
 	}
 
@@ -30,40 +39,38 @@ func handleNewMember(chat *tgbotapi.Chat, newmember tgbotapi.User) {
 		username = newmember.FirstName
 	}
 
-	notifyMessage := notify(chat.ID, fmt.Sprintf(
+	notifyMessage := notify(joinMessage.Chat.ID, fmt.Sprintf(
 		"Hello, %s. You have 30min to pay the following invoice for %d sat if you want to stay in this group:",
 		username, sats))
-
-	label := fmt.Sprintf("newmember:%d:%d", newmember.ID, chat.ID)
 
 	ln.Call("delinvoice", label, "unpaid")  // we don't care if it doesn't exist
 	ln.Call("delinvoice", label, "paid")    // we don't care if it doesn't exist
 	ln.Call("delinvoice", label, "expired") // we don't care if it doesn't exist
 
-	res, err := ln.Call("invoice", map[string]interface{}{
-		"msatoshi":    sats * 1000,
-		"label":       label,
-		"description": fmt.Sprintf("Ticket for %s to join %s (%d).", username, chat.Title, chat.ID),
-		"expiry":      int(time.Minute * 30 / time.Second),
-	})
+	chatOwner, err := getChatOwner(joinMessage.Chat.ID)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to make invoice on new member")
+		log.Warn().Err(err).Msg("chat has no owner, failed to create a ticket invoice. allowing user.")
 		return
 	}
 
-	bolt11 := res.Get("bolt11").String()
-	qrpath := generateQR(label, bolt11)
+	expiration := time.Minute * 30
 
-	invoiceMessage := notifyWithPicture(chat.ID, qrpath, bolt11)
+	bolt11, hash, qrpath, err := chatOwner.makeInvoice(sats, fmt.Sprintf(
+		"Ticket for %s to join %s (%d).",
+		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
+	), label, nil, &expiration, "")
+
+	invoiceMessage := notifyWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 
 	kickdata := KickData{
 		invoiceMessage,
 		notifyMessage,
+		*joinMessage,
 		tgbotapi.ChatMemberConfig{
 			UserID: newmember.ID,
-			ChatID: chat.ID,
+			ChatID: joinMessage.Chat.ID,
 		},
-		res.Get("payment_hash").String(),
+		hash,
 	}
 
 	kickdatajson, _ := json.Marshal(kickdata)
@@ -91,6 +98,11 @@ func waitToKick(label string, kickdata KickData) {
 				rds.HDel("ticket-pending", label)
 				return
 			} else if cmderr.Code == -2 {
+				if _, isPending := pendingApproval[label]; !isPending {
+					// not pending anymore, means the invoice was paid internally. don't kick.
+					return
+				}
+
 				// didn't pay. kick.
 				log.Info().Str("label", label).Msg("invoice expired, kicking user")
 
@@ -106,6 +118,7 @@ func waitToKick(label string, kickdata KickData) {
 				rds.HDel("ticket-pending", label)
 
 				// delete messages
+				deleteMessage(&kickdata.JoinMessage)
 				deleteMessage(&kickdata.NotifyMessage)
 				deleteMessage(&kickdata.InvoiceMessage)
 				return
@@ -115,7 +128,7 @@ func waitToKick(label string, kickdata KickData) {
 	} else {
 		// should never happen
 		log.Error().Str("invoice", invpaid.String()).
-			Msg("got a waitinvoice response for an invoice that wasn't paid")
+			Msg("got a response for an invoice that wasn't paid. shouldn't have happened.")
 	}
 }
 
@@ -138,15 +151,6 @@ func ticketPaid(label string, kickdata KickData) {
 	deleteMessage(&kickdata.InvoiceMessage)
 }
 
-func interceptMessage(message *tgbotapi.Message) (proceed bool) {
-	label := fmt.Sprintf("newmember:%d:%d", message.From.ID, message.Chat.ID)
-	if _, isPending := pendingApproval[label]; isPending {
-		log.Debug().Str("user", message.From.String()).Msg("user pending, can't speak")
-		return false
-	}
-	return true
-}
-
 func startKicking() {
 	data, err := rds.HGetAll("ticket-pending").Result()
 	if err != nil {
@@ -165,4 +169,13 @@ func startKicking() {
 		pendingApproval[label] = kickdata
 		go waitToKick(label, kickdata)
 	}
+}
+
+func interceptMessage(message *tgbotapi.Message) (proceed bool) {
+	label := fmt.Sprintf("newmember:%d:%d", message.From.ID, message.Chat.ID)
+	if _, isPending := pendingApproval[label]; isPending {
+		log.Debug().Str("user", message.From.String()).Msg("user pending, can't speak")
+		return false
+	}
+	return true
 }

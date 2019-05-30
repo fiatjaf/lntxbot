@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -188,4 +189,30 @@ func isAdmin(message *tgbotapi.Message) bool {
 
 func deleteMessage(message *tgbotapi.Message) {
 	bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID))
+}
+
+func getChatOwner(chatId int64) (User, error) {
+	admins, err := bot.GetChatAdministrators(tgbotapi.ChatConfig{
+		ChatID: chatId,
+	})
+	if err != nil {
+		return User{}, err
+	}
+
+	for _, admin := range admins {
+		if admin.Status == "creator" {
+			user, t, err := ensureUser(admin.User.ID, admin.User.UserName)
+			if err != nil {
+				log.Warn().Err(err).Int("case", t).
+					Str("username", admin.User.UserName).
+					Int("id", admin.User.ID).
+					Msg("failed to ensure user when fetching chat owner")
+				return user, err
+			}
+
+			return user, nil
+		}
+	}
+
+	return User{}, errors.New("chat has no owner")
 }
