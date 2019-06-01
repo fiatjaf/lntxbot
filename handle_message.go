@@ -325,7 +325,35 @@ parsed:
 			message.Chat.ID,
 			fmt.Sprintf("%s is giving %d sat away!", u.AtName(), sats),
 		)
-		chattable.BaseChat.ReplyMarkup = giveAwayKeyboard(u, sats)
+		chattable.BaseChat.ReplyMarkup = giveawayKeyboard(u.Id, sats)
+		bot.Send(chattable)
+		break
+	case opts["giveflip"].(bool):
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			break
+		}
+		if !u.checkBalanceFor(sats, "giveaway") {
+			break
+		}
+
+		var nparticipants int
+		if n, err := opts.Int("<num_participants>"); err == nil {
+			if n < 2 || n > 100 {
+				u.notify("Invalid number of participants: " + strconv.Itoa(n))
+				break
+			} else {
+				nparticipants = n
+			}
+		}
+
+		chattable := tgbotapi.NewMessage(
+			message.Chat.ID,
+			fmt.Sprintf("%s is giving %d sat away to a lucky person out of %d!", u.AtName(), sats, nparticipants),
+		)
+		giveflipid := cuid.Slug()
+		chattable.BaseChat.ReplyMarkup = giveflipKeyboard(giveflipid, u.Id, nparticipants, sats)
 		bot.Send(chattable)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):

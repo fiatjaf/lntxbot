@@ -172,6 +172,11 @@ begin:
 	goto begin
 }
 
+func nodeLink(nodeId string) string {
+	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
+		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
+}
+
 func getDollarPrice(msats int64) string {
 	rate, err := getDollarRate()
 	if err != nil {
@@ -366,7 +371,11 @@ func roman(number int) string {
 	return roman
 }
 
-func nodeLink(nodeId string) string {
-	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
-		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
+func listAnd(names []string) string {
+	if len(names) == 1 {
+		return names[0]
+	}
+	str := strings.Join(names[:len(names)-1], ", ")
+	str += " and " + names[len(names)-1]
+	return str
 }

@@ -148,6 +148,19 @@ var methods = []def{
 		inline_example: "coinflip <satoshis> <num_participants>",
 	},
 	def{
+		aliases:     []string{"giveflip"},
+		explanation: "Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.",
+		argstr:      "<satoshis> [sat] <num_participants>",
+		examples: []example{
+			{
+				"/giveflip 100 5",
+				"5 participants needed, winner will get 500 satoshis from the command issuer.",
+			},
+		},
+		inline:         true,
+		inline_example: "giveflip <satoshis> <num_participants>",
+	},
+	def{
 		aliases:     []string{"fundraise", "crowdfund"},
 		explanation: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
 		argstr:      "<satoshis> [sat] <num_participants> <receiver>...",

@@ -159,6 +159,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		nparticipants, err1 := strconv.Atoi(params[0])
 		sats, err2 := strconv.Atoi(params[1])
 		if err1 != nil || err2 != nil {
+			log.Warn().Err(err1).Err(err2).Msg("coinflip error")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, "\n\nCoinflip error.")
 			goto answerEmpty
@@ -218,7 +219,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			// winner id
 			winnerId, err := strconv.Atoi(swinnerId)
 			if err != nil {
-				log.Warn().Err(err).Str("winnnerId", swinnerId).Msg("winner id is not an int")
+				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
 				removeKeyboardButtons(cb)
 				appendTextToMessage(cb, "\n\nCoinflip error.")
 				goto answerEmpty
@@ -259,6 +260,131 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				appendTextToMessage(cb, "Winner: "+winner.AtName())
 			}
 		}
+	case strings.HasPrefix(cb.Data, "gifl="):
+		// join a new participant in a giveflip lottery
+		// if the total of participants is reached run the giveflip
+		params := strings.Split(cb.Data[5:], "-")
+		if len(params) != 4 {
+			goto answerEmpty
+		}
+
+		giverId, err0 := strconv.Atoi(params[0])
+		nparticipants, err1 := strconv.Atoi(params[1])
+		sats, err2 := strconv.Atoi(params[2])
+		if err0 != nil || err1 != nil || err2 != nil {
+			log.Warn().Err(err0).Err(err1).Err(err2).Msg("giveflip error")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "\n\nGiveflip error.")
+			goto answerEmpty
+		}
+
+		giveflipid := params[3]
+		rkey := "giveflip:" + giveflipid
+
+		nregistered := int(rds.SCard(rkey).Val())
+
+		joiner, t, err := ensureUser(cb.From.ID, cb.From.UserName)
+		if err != nil {
+			log.Warn().Err(err).Int("case", t).
+				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
+				Msg("failed to ensure joiner user on giveflip.")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "\n\nGiveflip error.")
+			goto answerEmpty
+		}
+
+		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
+			joiner.notify("You can't join a giveflip twice.")
+			goto answerEmpty
+		}
+
+		if err := rds.SAdd("giveflip:"+giveflipid, joiner.Id).Err(); err != nil {
+			log.Warn().Err(err).Str("giveflip", giveflipid).Msg("error adding participant to giveflip.")
+			goto answerEmpty
+		}
+		rds.Expire("giveflip:"+giveflipid, s.GiveAwayTimeout)
+
+		// append @user to the giveflip message (without removing the keyboard)
+		baseEdit := getBaseEdit(cb)
+		keyboard := giveflipKeyboard(giveflipid, giverId, nparticipants, sats)
+		baseEdit.ReplyMarkup = &keyboard
+		edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
+		if cb.Message != nil {
+			edit.Text = cb.Message.Text + " " + joiner.AtName() + "?"
+		} else {
+			edit.Text = fmt.Sprintf(
+				"Join and get a change to win %d! %d out of %d spots left!",
+				sats, nparticipants-nregistered, nparticipants)
+		}
+		bot.Send(edit)
+
+		if nregistered+1 >= nparticipants {
+			// even if for some bug we registered more participants than we should
+			// we run the lottery with them all
+			sparticipants, err := rds.SMembers(rkey).Result()
+			go rds.Del(rkey)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to get giveflip participants")
+				removeKeyboardButtons(cb)
+				appendTextToMessage(cb, "\n\nGiveflip error.")
+				goto answerEmpty
+			}
+			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
+
+			// winner
+			winnerId, err := strconv.Atoi(swinnerId)
+			if err != nil {
+				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
+				removeKeyboardButtons(cb)
+				appendTextToMessage(cb, "\n\nGiveflip error.")
+				goto answerEmpty
+			}
+			winner, err := loadUser(winnerId, 0)
+			if err != nil {
+				log.Warn().Err(err).Int("winnerId", winnerId).Msg("failed to load winner on giveflip")
+				removeKeyboardButtons(cb)
+				appendTextToMessage(cb, "\n\nGiveflip error.")
+				goto answerEmpty
+			}
+
+			// giver
+			giver, err := loadUser(giverId, 0)
+			if err != nil {
+				log.Warn().Err(err).Int("giverId", giverId).Msg("failed to load giver on giveflip")
+				removeKeyboardButtons(cb)
+				appendTextToMessage(cb, "\n\nGiveflip error.")
+				goto answerEmpty
+			}
+
+			// get loser names
+			loserNames := make([]string, nregistered+1)
+			for i, spart := range sparticipants {
+				partId, _ := strconv.Atoi(spart)
+				loser, _ := loadUser(partId, 0)
+				loserNames[i] = loser.AtName()
+			}
+
+			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "giveflip", nil)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to give flip")
+				winner.notify("Failed to claim complete giveflip lottery: " + errMsg)
+				goto answerEmpty
+			}
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
+			removeKeyboardButtons(cb)
+			winner.notify(fmt.Sprintf("%s has sent you %d sat on a /giveflip.", giver.AtName(), sats))
+
+			var howtoclaimmessage = ""
+			if winner.ChatId == 0 {
+				howtoclaimmessage = " To manage your funds, start a conversation with @lntxbot."
+			}
+
+			appendTextToMessage(cb,
+				fmt.Sprintf(fmt.Sprintf("%s got them.", winner.AtName()))+howtoclaimmessage,
+			)
+		}
+
+		return
 	case strings.HasPrefix(cb.Data, "raise="):
 		// join a new giver in a fundraising event
 		// if the total of givers is reached commit the fundraise

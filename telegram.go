@@ -72,18 +72,30 @@ func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
 	return baseedit
 }
 
-func giveAwayKeyboard(u User, sats int) tgbotapi.InlineKeyboardMarkup {
+func giveawayKeyboard(giverId, sats int) tgbotapi.InlineKeyboardMarkup {
 	giveawayid := cuid.Slug()
-	buttonData := fmt.Sprintf("give=%d-%d-%s", u.Id, sats, giveawayid)
+	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
 
 	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", u.Id)),
+			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", giverId)),
 			tgbotapi.NewInlineKeyboardButtonData(
 				"Claim!",
 				buttonData,
+			),
+		),
+	)
+}
+
+func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", giverId)),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Try to win!",
+				fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
 			),
 		),
 	)

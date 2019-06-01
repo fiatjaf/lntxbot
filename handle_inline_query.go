@@ -88,7 +88,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			fmt.Sprintf("%s is giving %d sat away!", u.AtName(), sats),
 		)
 
-		keyboard := giveAwayKeyboard(u, sats)
+		keyboard := giveawayKeyboard(u.Id, sats)
 		result.ReplyMarkup = &keyboard
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
