@@ -632,6 +632,11 @@ SELECT * FROM (
 }
 
 func (u User) checkBalanceFor(sats int, purpose string) bool {
+	if sats < 40 {
+		u.notify("That's too small, please start your " + purpose + " with at least 40 sat.")
+		return false
+	}
+
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
 		u.notify(fmt.Sprintf("Insufficient balance for %s. Needs %.0f sat more.",
 			purpose, float64(sats)-info.Balance))
