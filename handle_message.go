@@ -334,7 +334,7 @@ parsed:
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveaway") {
+		if !u.checkBalanceFor(sats, "giveflip") {
 			break
 		}
 

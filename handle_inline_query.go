@@ -134,6 +134,40 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			Results:       []interface{}{result},
 			IsPersonal:    true,
 		})
+	case "giveflip":
+		if len(argv) < 3 {
+			goto answerEmpty
+		}
+
+		var sats int
+		if sats, err = strconv.Atoi(argv[1]); err != nil {
+			break
+		}
+		if !u.checkBalanceFor(sats, "giveflip") {
+			break
+		}
+
+		var nparticipants int
+		if n, err := strconv.Atoi(argv[2]); err == nil {
+			nparticipants = n
+		}
+
+		result := tgbotapi.NewInlineQueryResultArticle(
+			fmt.Sprintf("gifl-%d-%d-%d", u.Id, sats, nparticipants),
+			fmt.Sprintf("Give out %d sat for one out of %d participants", sats, nparticipants),
+			fmt.Sprintf("Join and get a change to win %d! %d out of %d spots left!",
+				sats, nparticipants, nparticipants),
+		)
+
+		giveflipid := cuid.Slug()
+		keyboard := giveflipKeyboard(giveflipid, u.Id, nparticipants, sats)
+		result.ReplyMarkup = &keyboard
+
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       []interface{}{result},
+			IsPersonal:    true,
+		})
 	default:
 		goto answerEmpty
 	}

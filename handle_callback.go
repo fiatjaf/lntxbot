@@ -304,21 +304,21 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 		rds.Expire("giveflip:"+giveflipid, s.GiveAwayTimeout)
 
-		// append @user to the giveflip message (without removing the keyboard)
-		baseEdit := getBaseEdit(cb)
-		keyboard := giveflipKeyboard(giveflipid, giverId, nparticipants, sats)
-		baseEdit.ReplyMarkup = &keyboard
-		edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
-		if cb.Message != nil {
-			edit.Text = cb.Message.Text + " " + joiner.AtName() + "?"
+		if nregistered+1 < nparticipants {
+			// append @user to the giveflip message (without removing the keyboard)
+			baseEdit := getBaseEdit(cb)
+			keyboard := giveflipKeyboard(giveflipid, giverId, nparticipants, sats)
+			baseEdit.ReplyMarkup = &keyboard
+			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
+			if cb.Message != nil {
+				edit.Text = cb.Message.Text + " " + joiner.AtName() + "?"
+			} else {
+				edit.Text = fmt.Sprintf(
+					"Join and get a change to win %d! %d out of %d spots left!",
+					sats, nparticipants-nregistered, nparticipants)
+			}
+			bot.Send(edit)
 		} else {
-			edit.Text = fmt.Sprintf(
-				"Join and get a change to win %d! %d out of %d spots left!",
-				sats, nparticipants-nregistered, nparticipants)
-		}
-		bot.Send(edit)
-
-		if nregistered+1 >= nparticipants {
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
 			sparticipants, err := rds.SMembers(rkey).Result()
@@ -360,6 +360,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			loserNames := make([]string, nregistered+1)
 			for i, spart := range sparticipants {
 				partId, _ := strconv.Atoi(spart)
+				if partId == winnerId {
+					continue
+				}
+
 				loser, _ := loadUser(partId, 0)
 				loserNames[i] = loser.AtName()
 			}
@@ -379,9 +383,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				howtoclaimmessage = " To manage your funds, start a conversation with @lntxbot."
 			}
 
-			appendTextToMessage(cb,
-				fmt.Sprintf(fmt.Sprintf("%s got them.", winner.AtName()))+howtoclaimmessage,
-			)
+			bot.Send(tgbotapi.EditMessageTextConfig{
+				BaseEdit: getBaseEdit(cb),
+				Text: fmt.Sprintf("%s got %d from %s. %s didn't get anything.",
+					winner.AtName(), sats, giver.AtName(), listAnd(loserNames)) + howtoclaimmessage,
+			})
 		}
 
 		return
