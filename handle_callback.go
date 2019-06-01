@@ -180,7 +180,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
-			joiner.notify("You can't join a coinflip twice.")
+			// can't join twice
 			goto answerEmpty
 		}
 
@@ -293,8 +293,13 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
+		if joiner.Id == giverId {
+			// giver can't join
+			goto answerEmpty
+		}
+
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
-			joiner.notify("You can't join a giveflip twice.")
+			// can't join twice
 			goto answerEmpty
 		}
 
@@ -433,7 +438,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
-			joiner.notify("You can't join a fundraise twice.")
+			// can't join twice
 			goto answerEmpty
 		}
 
