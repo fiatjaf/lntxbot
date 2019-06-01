@@ -357,15 +357,15 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			}
 
 			// get loser names
-			loserNames := make([]string, nregistered+1)
-			for i, spart := range sparticipants {
+			var loserNames []string
+			for _, spart := range sparticipants {
 				partId, _ := strconv.Atoi(spart)
 				if partId == winnerId {
 					continue
 				}
 
 				loser, _ := loadUser(partId, 0)
-				loserNames[i] = loser.AtName()
+				loserNames = append(loserNames, loser.AtName())
 			}
 
 			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "giveflip", nil)
