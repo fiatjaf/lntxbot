@@ -258,7 +258,7 @@ func (u User) makeInvoice(
 	if expiry == nil {
 		exp = s.InvoiceTimeout / time.Second
 	} else {
-		exp = *expiry
+		exp = *expiry / time.Second
 	}
 
 	// make invoice

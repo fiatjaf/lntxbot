@@ -40,7 +40,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	}
 
 	notifyMessage := notify(joinMessage.Chat.ID, fmt.Sprintf(
-		"Hello, %s. You have 30min to pay the following invoice for %d sat if you want to stay in this group:",
+		"Hello, %s. You have 15min to pay the following invoice for %d sat if you want to stay in this group:",
 		username, sats))
 
 	ln.Call("delinvoice", label, "unpaid")  // we don't care if it doesn't exist
@@ -53,12 +53,12 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
-	expiration := time.Minute * 30
+	expiration := time.Minute * 15
 
 	bolt11, hash, qrpath, err := chatOwner.makeInvoice(sats, fmt.Sprintf(
 		"Ticket for %s to join %s (%d).",
 		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
-	), label, nil, &expiration, "")
+	), label, &expiration, nil, "")
 
 	invoiceMessage := notifyWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 
@@ -94,8 +94,7 @@ func waitToKick(label string, kickdata KickData) {
 			if cmderr.Code == -1 {
 				log.Info().Str("label", label).
 					Msg("invoice deleted, assume it was paid internally")
-				delete(pendingApproval, label)
-				rds.HDel("ticket-pending", label)
+				ticketPaid(label, kickdata)
 				return
 			} else if cmderr.Code == -2 {
 				if _, isPending := pendingApproval[label]; !isPending {
@@ -166,6 +165,7 @@ func startKicking() {
 			continue
 		}
 
+		log.Debug().Msg("restarted kick invoice wait")
 		pendingApproval[label] = kickdata
 		go waitToKick(label, kickdata)
 	}
