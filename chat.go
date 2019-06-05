@@ -21,6 +21,7 @@ type KickData struct {
 	NotifyMessage    tgbotapi.Message          `json:"notify_message"`
 	JoinMessage      tgbotapi.Message          `json:"join_message"`
 	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
+	NewMember        tgbotapi.User             `json:"new_member"`
 	Hash             string                    `json:"hash"`
 }
 

@@ -70,6 +70,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 			UserID: newmember.ID,
 			ChatID: joinMessage.Chat.ID,
 		},
+		newmember,
 		hash,
 	}
 
@@ -136,18 +137,20 @@ func ticketPaid(label string, kickdata KickData) {
 	delete(pendingApproval, label)
 	rds.HDel("ticket-pending", label)
 
+	// delete the invoice message
+	deleteMessage(&kickdata.InvoiceMessage)
+
+	user, _, _ := ensureUser(kickdata.NewMember.ID, kickdata.NewMember.UserName)
+
 	// replace caption
 	_, err := bot.Send(tgbotapi.NewEditMessageText(
 		kickdata.NotifyMessage.Chat.ID,
 		kickdata.NotifyMessage.MessageID,
-		"Invoice paid. User allowed.",
+		"Invoice paid. "+user.AtName()+" allowed.",
 	))
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")
 	}
-
-	// delete the other message
-	deleteMessage(&kickdata.InvoiceMessage)
 }
 
 func startKicking() {
