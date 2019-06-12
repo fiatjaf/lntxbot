@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -124,10 +125,17 @@ func handleMessage(message *tgbotapi.Message) {
 				u.notify("Could not understand the command. /help")
 			}
 		}
+
+		// save the fact that we didn't understand this so it can be edited and reevaluated
+		rds.Set(fmt.Sprintf("parseerror:%d", message.MessageID), "1", time.Minute*5)
+
 		return
 	}
 
 parsed:
+	// if we reached this point we should make sure the command won't be editable again
+	rds.Del(fmt.Sprintf("parseerror:%d", message.MessageID))
+
 	if opts["paynow"].(bool) {
 		opts["pay"] = true
 		opts["now"] = true
@@ -589,4 +597,17 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 			}
 		}
 	}
+}
+
+func handleEditedMessage(message *tgbotapi.Message) {
+	res, err := rds.Get(fmt.Sprintf("parseerror:%d", message.MessageID)).Result()
+	if err != nil {
+		return
+	}
+
+	if res != "1" {
+		return
+	}
+
+	handleMessage(message)
 }

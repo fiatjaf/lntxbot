@@ -38,7 +38,7 @@ var methods = []def{
 		explanation: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 		// the "any" is here only for illustrative purposes. if you call this with 'any' it will
 		// actually be assigned to the <satoshis> variable, and that's how the code handles it.
-		argstr: "(<satoshis> [sat]|any) [<description>...] [--preimage=<preimage>]",
+		argstr: "(<satoshis>|any) [<description>...] [--preimage=<preimage>]",
 		flags: []flag{
 			{
 				"--preimage",
@@ -61,19 +61,19 @@ var methods = []def{
 	def{
 		aliases:     []string{"pay", "decode", "paynow", "withdraw"},
 		explanation: "Decodes a BOLT11 invoice and asks if you want to pay it (unless `/paynow`). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
-		argstr:      "[now] [<invoice>] [<satoshis> [sat]]",
+		argstr:      "[now] [<invoice>] [<satoshis>]",
 		examples: []example{
 			{
 				"/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm",
-				"Pay this invoice for 100 sat.",
+				"Asks if you want to pay this invoice for 100 sat.",
 			},
 			{
 				"/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm",
-				"Pay this invoice without asking for confirmation.",
+				"Pays this invoice without asking for confirmation.",
 			},
 			{
 				"/pay lnbc1pwvm0pxpp5n2qa3pnfmu7p9vaqspn2cwp7ej44mh6tf77pnxpvfked8z5wg64sdqlypdkcmn50p3x7ap0gpnxjct5dfskvhgxqyz5vqcqp2rzjqfxj8p6qjf5l8du7yuytkwdcjhylfd4gxgs48t65awjg04ye80mq7zyhg5qq5ysqqqqqqqqqqqqqqqsqrcaycpuwzwv4u5yg94ne4ct2lrkmleuq4ly5qcjueuu6qkx5d4qdun5xx0wxp6djch093svm06szy0ru9kvcpmzs7vzjpvxfwyep8fugsq96d3ww 3000",
-				"Pay 3000 sat for this invoice with undefined amount.",
+				"Asks if you want to pay 3000 sat for this invoice with undefined amount.",
 			},
 			{
 				"/pay",
@@ -84,7 +84,7 @@ var methods = []def{
 	def{
 		aliases:     []string{"send", "tip"},
 		explanation: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
-		argstr:      "<satoshis> [sat] [<receiver>...] [--anonymous]",
+		argstr:      "<satoshis> [<receiver>...] [--anonymous]",
 		flags: []flag{
 			{
 				"--anonymous",
@@ -124,7 +124,7 @@ var methods = []def{
 	def{
 		aliases:     []string{"giveaway"},
 		explanation: "Creates a button in a group chat. The first person to click the button gets the satoshis.",
-		argstr:      "<satoshis> [sat]",
+		argstr:      "<satoshis>",
 		examples: []example{
 			{
 				"/giveaway 1000",
@@ -137,7 +137,7 @@ var methods = []def{
 	def{
 		aliases:     []string{"coinflip", "lottery"},
 		explanation: "Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
-		argstr:      "<satoshis> [sat] [<num_participants>]",
+		argstr:      "<satoshis> [<num_participants>]",
 		examples: []example{
 			{
 				"/coinflip 100 5",
@@ -150,7 +150,7 @@ var methods = []def{
 	def{
 		aliases:     []string{"giveflip"},
 		explanation: "Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.",
-		argstr:      "<satoshis> [sat] <num_participants>",
+		argstr:      "<satoshis> <num_participants>",
 		examples: []example{
 			{
 				"/giveflip 100 5",
@@ -163,7 +163,7 @@ var methods = []def{
 	def{
 		aliases:     []string{"fundraise", "crowdfund"},
 		explanation: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
-		argstr:      "<satoshis> [sat] <num_participants> <receiver>...",
+		argstr:      "<satoshis> <num_participants> <receiver>...",
 		examples: []example{
 			{
 				"/fundraise 10000 8 @user",

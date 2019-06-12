@@ -29,6 +29,8 @@ func handle(upd tgbotapi.Update) {
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {
 		handleInlineQuery(upd.InlineQuery)
+	} else if upd.EditedMessage != nil {
+		handleEditedMessage(upd.EditedMessage)
 	}
 }
 
