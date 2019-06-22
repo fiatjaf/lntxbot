@@ -82,9 +82,9 @@ var methods = []def{
 		},
 	},
 	def{
-		aliases:     []string{"send", "tip"},
+		aliases:     []string{"send", "tip", "sendanonymously"},
 		explanation: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
-		argstr:      "<satoshis> [<receiver>...] [--anonymous]",
+		argstr:      "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
 		flags: []flag{
 			{
 				"--anonymous",
@@ -101,7 +101,7 @@ var methods = []def{
 				"When sent as a reply to a message in a group where the bot is added, this will send 100 satoshis to the author of the message.",
 			},
 			{
-				"/send 1000 @someone --anonymous",
+				"/send anonymously 1000 @someone",
 				"Telegram user @someone will see just: \"Someone has sent you 1000 satoshis\".",
 			},
 		},

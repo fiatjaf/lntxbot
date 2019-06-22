@@ -232,7 +232,10 @@ parsed:
 		}
 
 	gotusername:
-		anonymous, _ := opts.Bool("--anonymous")
+		anonymous := false
+		if opts["anonymously"].(bool) || opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
+			anonymous = true
+		}
 
 		receiver, todisplayname, err = parseUsername(message, usernameval)
 		if err != nil {
