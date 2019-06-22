@@ -525,7 +525,7 @@ func (u User) sendInternally(
 	}
 	defer txn.Rollback()
 
-	var balance int
+	var balance int64
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, to_id, anonymous, amount, description, label, trigger_message)
@@ -536,7 +536,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 	}
 
 	err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		return "Database error.", err

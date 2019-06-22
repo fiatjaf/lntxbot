@@ -21,7 +21,7 @@ CREATE TABLE lightning.transaction (
   time timestamp NOT NULL DEFAULT now(),
   from_id int REFERENCES telegram.account (id),
   to_id int REFERENCES telegram.account (id),
-  amount int NOT NULL, -- in msatoshis
+  amount numeric(13) NOT NULL, -- in msatoshis
   fees int NOT NULL DEFAULT 0, -- in msatoshis
   description text,
   payment_hash text UNIQUE NOT NULL DEFAULT md5(random()::text) || md5(random()::text),
