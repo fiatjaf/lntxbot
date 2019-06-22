@@ -284,7 +284,7 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 		if entity.Type == "mention" {
 			// user with username
 			uname := username[1:]
-			display = uname
+			display = "@" + uname
 			user, err = ensureUsername(uname)
 			u = &user
 			return
