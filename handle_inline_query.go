@@ -155,7 +155,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		result := tgbotapi.NewInlineQueryResultArticle(
 			fmt.Sprintf("gifl-%d-%d-%d", u.Id, sats, nparticipants),
 			fmt.Sprintf("Give out %d sat for one out of %d participants", sats, nparticipants),
-			fmt.Sprintf("Join and get a change to win %d! %d out of %d spots left!",
+			fmt.Sprintf("Join and get a chance to win %d! %d out of %d spots left!",
 				sats, nparticipants, nparticipants),
 		)
 
