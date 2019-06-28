@@ -564,7 +564,7 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 		}
 		break
 	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
-		u.notify(fmt.Sprintf("lndhub://%d:%s@%s", u.Id, userPassword(u.Id), s.ServiceURL, "/"))
+		u.notify(fmt.Sprintf("lndhub://%d:%s@%s", u.Id, userPassword(u.Id), s.ServiceURL))
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		handleHelp(u, command)
