@@ -172,6 +172,10 @@ var methods = []def{
 		},
 	},
 	def{
+		aliases:     []string{"bluewallet", "lndhub"},
+		explanation: "Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.",
+	},
+	def{
 		aliases:     []string{"toggle"},
 		explanation: "Toggles bot features in groups on/off. In supergroups it only be run by group admins.",
 		argstr:      "(ticket [<price>]|spammy)",

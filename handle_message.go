@@ -563,6 +563,8 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 			u.payInvoice(message.MessageID, bolt11, optmsats)
 		}
 		break
+	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
+		u.notify(fmt.Sprintf("lndhub://%d:%s@%s", u.Id, userPassword(u.Id), s.ServiceURL, "/"))
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		handleHelp(u, command)

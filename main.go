@@ -133,6 +133,9 @@ func main() {
 		}
 	})
 
+	// lndhub-compatible routes
+	startLndHub()
+
 	// start http server
 	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
 

@@ -129,7 +129,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		var howtoclaimmessage = ""
 		if claimer.ChatId == 0 {
-			howtoclaimmessage = " To manage your funds, start a conversation with @lntxbot."
+			howtoclaimmessage = " To manage your funds, start a conversation with @" + s.ServiceId + "."
 		}
 
 		appendTextToMessage(cb,
@@ -385,7 +385,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 			var howtoclaimmessage = ""
 			if winner.ChatId == 0 {
-				howtoclaimmessage = " To manage your funds, start a conversation with @lntxbot."
+				howtoclaimmessage = " To manage your funds, start a conversation with @" + s.ServiceId + "."
 			}
 
 			bot.Send(tgbotapi.EditMessageTextConfig{
