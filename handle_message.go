@@ -453,7 +453,7 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 			offset = limit * (page - 1)
 		}
 
-		txns, err := u.listTransactions(limit, offset)
+		txns, err := u.listTransactions(limit, offset, 16, Both)
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).
 				Msg("failed to list transactions")

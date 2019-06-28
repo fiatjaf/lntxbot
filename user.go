@@ -599,7 +599,27 @@ GROUP BY b.account_id, b.balance
 	return
 }
 
-func (u User) listTransactions(limit int, offset int) (txns []Transaction, err error) {
+type InOut int
+
+const (
+	In InOut = iota
+	Out
+	Both
+)
+
+func (u User) listTransactions(limit, offset, descCharLimit int, inOrOut InOut) (txns []Transaction, err error) {
+	filterBy := func(inOrOut InOut) string {
+		switch inOrOut {
+		case In:
+			return " AND amount > 0 "
+		case Out:
+			return " AND amount < 0 "
+		case Both:
+			return ""
+		}
+		return ""
+	}
+
 	err = pg.Select(&txns, `
 SELECT * FROM (
   SELECT
@@ -607,19 +627,20 @@ SELECT * FROM (
     telegram_peer,
     anonymous,
     status,
-    CASE WHEN char_length(coalesce(description, '')) <= 16
+    CASE WHEN char_length(coalesce(description, '')) <= $4
       THEN coalesce(description, '')
-      ELSE substring(coalesce(description, '') from 0 for 15) || '…'
+      ELSE substring(coalesce(description, '') from 0 for ($4 - 1)) || '…'
     END AS description,
     amount::float/1000 AS amount,
-    payment_hash
+    payment_hash,
+    preimage
   FROM lightning.account_txn
-  WHERE account_id = $1
+  WHERE account_id = $1 `+filterBy(inOrOut)+`
   ORDER BY time DESC
   LIMIT $2
   OFFSET $3
 ) AS latest ORDER BY time ASC
-    `, u.Id, limit, offset)
+    `, u.Id, limit, offset, descCharLimit)
 	if err != nil {
 		return
 	}

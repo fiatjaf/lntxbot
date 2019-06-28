@@ -141,7 +141,8 @@ func startLndHub() {
 			return
 		}
 
-		txns, err := user.listTransactions(100, 0)
+		limit, offset := getLimitAndOffset(r)
+		txns, err := user.listTransactions(limit, offset, 120, Out)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -156,20 +157,16 @@ func startLndHub() {
 			Memo            string  `json:"memo"`
 		}
 
-		var payments []Payment
-		for _, txn := range txns {
-			if txn.Amount > 0 {
-				continue
-			}
-
-			payments = append(payments, Payment{
+		payments := make([]Payment, len(txns))
+		for i, txn := range txns {
+			payments[i] = Payment{
 				txn.Preimage.String,
 				"paid_invoice",
 				txn.Fees,
 				-txn.Amount,
 				txn.Time.Unix(),
 				txn.Description,
-			})
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -188,7 +185,8 @@ func startLndHub() {
 			return
 		}
 
-		txns, err := user.listTransactions(100, 0)
+		limit, offset := getLimitAndOffset(r)
+		txns, err := user.listTransactions(limit, offset, 120, In)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -323,6 +321,17 @@ func decodeInvoiceAsLndHub(bolt11 string) (Decoded, error) {
 		CLTVExpiry:      inv.Get("min_final_cltv_expiry").String(),
 		RouteHints:      inv.Get("routes").Value(),
 	}, nil
+}
+
+func getLimitAndOffset(r *http.Request) (limit int, offset int) {
+	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit == 0 {
+		limit = 50
+	}
+
+	offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
+
+	return
 }
 
 func errorInvalidParams(w http.ResponseWriter) {
