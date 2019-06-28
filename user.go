@@ -265,7 +265,7 @@ func (u User) makeInvoice(
 	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
 		"msatoshi":    msatoshi,
 		"label":       label,
-		"description": desc + " [" + s.ServiceId + "/" + u.AtName() + "]",
+		"description": desc,
 		"expiry":      int(exp),
 		"preimage":    preimage,
 	})
