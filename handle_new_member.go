@@ -58,7 +58,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	bolt11, hash, qrpath, err := chatOwner.makeInvoice(sats, fmt.Sprintf(
 		"Ticket for %s to join %s (%d).",
 		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
-	), label, &expiration, nil, "")
+	), label, &expiration, nil, "", false)
 
 	invoiceMessage := notifyWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 

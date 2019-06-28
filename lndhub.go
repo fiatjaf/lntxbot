@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func startLndHub() {
@@ -61,7 +62,7 @@ func startLndHub() {
 			return
 		}
 
-		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "")
+		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", true)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -72,7 +73,7 @@ func startLndHub() {
 			PayReq         string `json:"pay_req"`
 			PaymentRequest string `json:"payment_request"`
 			AddIndex       string `json:"add_index"`
-			RHash          Buffer `r_hash`
+			RHash          Buffer `json:"r_hash"`
 		}{bolt11, bolt11, "1000", Buffer(hash)})
 	})
 
@@ -206,18 +207,14 @@ func startLndHub() {
 			PaymentHash    string  `json:"payment_hash"`
 			IsPaid         bool    `json:"ispaid"`
 			Amount         float64 `json:"amt"`
-			ExpireTime     int64   `json:"expire_time"`
+			ExpireTime     float64 `json:"expire_time"`
 			Timestamp      int64   `json:"timestamp"`
 			Type           string  `json:"type"`
 		}
 
-		var invs []Inv
-		for _, txn := range txns {
-			if txn.Amount < 0 {
-				continue
-			}
-
-			invs = append(invs, Inv{
+		invs := make([]Inv, len(txns))
+		for i, txn := range txns {
+			invs[i] = Inv{
 				Buffer(txn.Hash),
 				"",
 				"",
@@ -226,8 +223,27 @@ func startLndHub() {
 				txn.Hash,
 				true,
 				txn.Amount,
-				int64(s.InvoiceTimeout.Seconds()),
+				float64(s.InvoiceTimeout.Seconds()),
 				txn.Time.Unix(),
+				"user_invoice",
+			}
+		}
+
+		iinv, err := rds.Get("justcreatedbluewalletinvoice:" + strconv.Itoa(user.Id)).Result()
+		if err == nil {
+			var inv map[string]interface{}
+			json.Unmarshal([]byte(iinv), &inv)
+			invs = append(invs, Inv{
+				Buffer(inv["hash"].(string)),
+				inv["bolt11"].(string),
+				inv["bolt11"].(string),
+				"1000",
+				inv["desc"].(string),
+				inv["hash"].(string),
+				false,
+				inv["amount"].(float64),
+				inv["expiry"].(float64),
+				time.Now().Unix(),
 				"user_invoice",
 			})
 		}

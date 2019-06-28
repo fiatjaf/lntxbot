@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -232,6 +233,7 @@ func (u User) makeInvoice(
 	expiry *time.Duration,
 	messageId interface{},
 	preimage string,
+	bluewallet bool,
 ) (bolt11 string, hash string, qrpath string, err error) {
 	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
 		Msg("generating invoice")
@@ -276,13 +278,24 @@ func (u User) makeInvoice(
 	bolt11 = res.Get("bolt11").String()
 	hash = res.Get("payment_hash").String()
 
-	err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
-	if err != nil {
-		log.Warn().Err(err).Str("invoice", bolt11).
-			Msg("failed to generate qr.")
-		err = nil
+	if bluewallet {
+		encodedinv, _ := json.Marshal(map[string]interface{}{
+			"hash":   hash,
+			"bolt11": bolt11,
+			"desc":   desc,
+			"amount": sats,
+			"expiry": int(exp),
+		})
+		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
 	} else {
-		qrpath = qrImagePath(label)
+		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
+		if err != nil {
+			log.Warn().Err(err).Str("invoice", bolt11).
+				Msg("failed to generate qr.")
+			err = nil
+		} else {
+			qrpath = qrImagePath(label)
+		}
 	}
 
 	return bolt11, hash, qrpath, nil

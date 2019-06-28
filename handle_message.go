@@ -183,7 +183,7 @@ parsed:
 			preimage, _ = param.(string)
 		}
 
-		bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage)
+		bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, false)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
 			notify(message.Chat.ID, messageFromError(err, "Failed to generate invoice"))
