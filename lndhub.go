@@ -177,7 +177,7 @@ func startLndHub() {
 				txn.Fees,
 				-txn.Amount,
 				txn.Time.Unix(),
-				txn.Description,
+				txn.PeerActionDescription() + txn.Description,
 			}
 		}
 
@@ -225,7 +225,7 @@ func startLndHub() {
 				"",
 				"",
 				"1000",
-				txn.Description,
+				txn.PeerActionDescription() + txn.Description,
 				txn.Hash,
 				true,
 				txn.Amount,
