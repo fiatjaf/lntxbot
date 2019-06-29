@@ -11,9 +11,8 @@ import (
 	"time"
 )
 
-func startLndHub() {
+func startBlueWallet() {
 	http.HandleFunc("/getinfo", func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Msg("lndhub /getinfo")
 		errorBadAuth(w)
 	})
 
@@ -30,7 +29,7 @@ func startLndHub() {
 		}
 		log.Debug().
 			Str("login", params.Login).Str("password", params.Password).Str("token", params.RefreshToken).
-			Msg("lndhub /auth")
+			Msg("bluewallet /auth")
 
 		var token string
 		if params.Password == "" {
@@ -67,6 +66,8 @@ func startLndHub() {
 			errorInvalidParams(w)
 			return
 		}
+
+		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).Msg("bluewallet /addinvoice")
 
 		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", true)
 		if err != nil {
@@ -105,7 +106,7 @@ func startLndHub() {
 			return
 		}
 
-		log.Debug().Str("bolt11", params.Invoice).Str("customAmount", params.Amount).Msg("lndhub /payinvoice")
+		log.Debug().Str("bolt11", params.Invoice).Str("customAmount", params.Amount).Msg("bluewallet /payinvoice")
 
 		err = user.payInvoice(0, params.Invoice, customAmount)
 		if err != nil {
