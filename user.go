@@ -395,7 +395,11 @@ WHERE payment_hash = $1
 		}
 
 		ln.Call("delinvoice", tx.Label.String, "unpaid")
-		var balance int
+	} else {
+		// it's an invoice from elsewhere, continue and
+		// actually send the lightning payment
+
+		// insert payment as pending
 		_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
@@ -406,12 +410,13 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			return errors.New("Payment already in course.")
 		}
 
+		var balance int
 		err = txn.Get(&balance, `
 SELECT balance::int FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 		if err != nil {
 			log.Debug().Err(err).Msg("database error fetching balance")
-			return errors.New("Database error.")
+			return errors.New("Database error. Couldn't fetch balance.")
 		}
 
 		if balance < 0 {
@@ -425,9 +430,6 @@ SELECT balance::int FROM lightning.balance WHERE account_id = $1
 			return errors.New("Database error.")
 		}
 
-	} else {
-		// it's an invoice from elsewhere, continue and
-		// actually send the lightning payment
 		go func(u User, messageId int, params map[string]interface{}) {
 			success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
 
@@ -480,11 +482,20 @@ func (u User) paymentHasSucceeded(messageId int,
 	preimage string,
 	hash string,
 ) {
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		log.Debug().Err(err).Msg("database error marking transaction as succeeded")
+		u.notifyAsReply("Database error.", messageId)
+		return
+	}
+	defer txn.Rollback()
+
 	// if it succeeds we mark the transaction as not pending anymore
 	// plus save fees and preimage
 	fees := msatoshi_sent - msatoshi
 
-	_, err = pg.Exec(`
+	_, err = txn.Exec(`
 UPDATE lightning.transaction
 SET fees = $1, preimage = $2, pending = false
 WHERE payment_hash = $3
@@ -495,6 +506,32 @@ WHERE payment_hash = $3
 			Str("hash", hash).
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
+		u.notifyAsReply("Database error: failed to mark the transaction as not pending.", messageId)
+		return
+	}
+
+	var balance int
+	err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
+	if err != nil {
+		log.Debug().Err(err).Msg("database error fetching balance")
+		u.notifyAsReply("Database error: couldn't fetch balance.", messageId)
+		return
+	}
+
+	if balance < 0 {
+		u.notifyAsReply(
+			fmt.Sprintf("Insufficient balance. Needs %.3f sat more.", -float64(balance)/1000),
+			messageId)
+		return
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		log.Debug().Err(err).Msg("database error marking transaction as succeeded")
+		u.notifyAsReply("Database error.", messageId)
+		return
 	}
 
 	u.notifyAsReply(fmt.Sprintf(
@@ -567,7 +604,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	}
 
 	if balance < 0 {
-		return fmt.Sprintf("Insufficient balance. Needs %.0f sat more.",
+		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
 				-float64(balance)/1000),
 			errors.New("insufficient balance")
 	}
