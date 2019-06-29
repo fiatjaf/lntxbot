@@ -21,17 +21,25 @@ func startLndHub() {
 
 	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
 		var params struct {
-			Login    string `json:"login"`
-			Password string `json:"password"`
+			Login        string `json:"login"`
+			Password     string `json:"password"`
+			RefreshToken string `json:"refresh_token"`
 		}
 		err := json.NewDecoder(r.Body).Decode(&params)
 		if err != nil {
 			errorInvalidParams(w)
 			return
 		}
-		log.Debug().Str("login", params.Login).Str("password", params.Password[:5]).Msg("lndhub /auth")
+		log.Debug().
+			Str("login", params.Login).Str("password", params.Password).Str("token", params.RefreshToken).
+			Msg("lndhub /auth")
 
-		token := base64.StdEncoding.EncodeToString([]byte(params.Login + ":" + params.Password))
+		var token string
+		if params.Password == "" {
+			token = params.RefreshToken
+		} else {
+			token = base64.StdEncoding.EncodeToString([]byte(params.Login + ":" + params.Password))
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
