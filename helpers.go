@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -49,6 +51,40 @@ func parseLabel(label string) (messageId, userId int, preimage string, ok bool) 
 		preimage = parts[3]
 	}
 	return
+}
+
+func chatOwnerFromTicketLabel(label string) (owner User, err error) {
+	parts := strings.Split(label, ":")
+	chatId, err := strconv.Atoi(parts[2])
+	if err != nil {
+		log.Error().Err(err).Str("label", label).Msg("failed to parse ticket invoice")
+		return
+	}
+
+	owner, err = getChatOwner(int64(chatId))
+	if err != nil {
+		log.Error().Err(err).Str("label", label).Msg("failed to get chat owner in ticket invoice handling")
+		return
+	}
+
+	return
+}
+
+func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
+	if hash == "" {
+		hash = hashFromPreimage(preimage)
+	}
+
+	invs, err := ln.Call("listinvoices")
+	if err == nil {
+		for _, inv := range invs.Get("invoices").Array() {
+			if inv.Get("payment_hash").String() == hash {
+				return inv, true
+			}
+		}
+	}
+
+	return gjson.Result{}, false
 }
 
 func qrImagePath(label string) string {
@@ -241,6 +277,12 @@ func randomPreimage() (string, error) {
 		b[i] = hex[r.Int64()]
 	}
 	return string(b), nil
+}
+
+func hashFromPreimage(preimage string) string {
+	preimagehex, _ := hex.DecodeString("16663a53ce660965853ed2d2609950b253f683933c069d2d610274f3339df0c1")
+	sum := sha256.Sum256(preimagehex)
+	return hex.EncodeToString(sum[:])
 }
 
 func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, display string, err error) {

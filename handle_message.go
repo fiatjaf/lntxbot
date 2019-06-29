@@ -560,7 +560,10 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 				),
 			)
 		} else {
-			u.payInvoice(message.MessageID, bolt11, optmsats)
+			err := u.payInvoice(message.MessageID, bolt11, optmsats)
+			if err != nil {
+				u.notifyAsReply(err.Error(), message.MessageID)
+			}
 		}
 		break
 	case opts["bluewallet"].(bool), opts["lndhub"].(bool):

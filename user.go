@@ -320,7 +320,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
 	payee := inv.Get("payee").String()
-	amount := int(inv.Get("msatoshi").Int())
+	amount := inv.Get("msatoshi").Int()
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
 	params := map[string]interface{}{
@@ -332,7 +332,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 
 	if amount == 0 {
 		// amount is optional, so let's use the provided on the command
-		amount = msatoshi
+		amount = int64(msatoshi)
 		params["msatoshi"] = msatoshi
 	}
 	if amount == 0 {
@@ -352,49 +352,76 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 
 	if payee == s.NodeId {
 		// it's an internal invoice. mark as paid internally.
-		var tx Transaction
-		if err := pg.Get(&tx, `
-SELECT payment_hash, preimage, label, amount
-FROM lightning.transaction
-WHERE payment_hash = $1
-  AND label != $2`,
-			hash, fakeLabel,
-		); err != nil {
-			// if it's generated here but is not in the database maybe it's a ticket invoice
-			if err == sql.ErrNoRows && strings.HasPrefix(desc, "Ticket for") {
-				for label, kickdata := range pendingApproval {
-					if kickdata.Hash == hash {
-						ticketPaid(label, kickdata)
-						handleInvoicePaid(
-							-1,
-							int64(amount),
-							desc,
-							hash,
-							label,
-						)
-						u.paymentHasSucceeded(messageId, float64(amount), float64(amount), "", hash)
-						break
+
+		// handle ticket invoices
+		if strings.HasPrefix(desc, "Ticket for") {
+			for label, kickdata := range pendingApproval {
+				if kickdata.Hash == hash {
+					var target User
+					target, err = chatOwnerFromTicketLabel(label)
+					if err != nil {
+						return
 					}
+
+					err = u.addInternalPendingInvoice(
+						0,
+						target.Id,
+						amount,
+						hash,
+						desc,
+						label,
+					)
+					if err != nil {
+						return
+					}
+
+					ticketPaid(label, kickdata)
+					handleInvoicePaid(
+						-1,
+						amount,
+						desc,
+						hash,
+						label,
+					)
+					u.paymentHasSucceeded(messageId, float64(amount), float64(amount), "", hash)
+					break
 				}
-			} else {
-				return err
 			}
-		} else {
-			invpaid, err := ln.Call("listinvoices", tx.Label.String)
-			if err != nil {
-				return err
-			}
-			handleInvoicePaid(
-				invpaid.Get("pay_index").Int(),
-				invpaid.Get("msatoshi_received").Int(),
-				invpaid.Get("description").String(),
-				invpaid.Get("payment_hash").String(),
-				invpaid.Get("label").String(),
-			)
-			u.paymentHasSucceeded(messageId, tx.Amount, tx.Amount, tx.Preimage.String, tx.Hash)
 		}
 
-		ln.Call("delinvoice", tx.Label.String, "unpaid")
+		// search the invoices list
+		invoice, ok := findInvoiceOnNode(hash, "")
+		if !ok {
+			return errors.New("Couldn't find internal invoice.")
+		}
+
+		label := invoice.Get("label").String()
+		messageId, targetId, preimage, ok := parseLabel(label)
+		if ok {
+			err = u.addInternalPendingInvoice(
+				messageId,
+				targetId,
+				amount,
+				hash,
+				desc,
+				label,
+			)
+			if err != nil {
+				return
+			}
+
+			handleInvoicePaid(
+				0,
+				amount,
+				desc,
+				hash,
+				label,
+			)
+			u.paymentHasSucceeded(messageId, float64(amount), float64(amount), preimage, hash)
+			ln.Call("delinvoice", label, "unpaid")
+		} else {
+			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")
+		}
 	} else {
 		// it's an invoice from elsewhere, continue and
 		// actually send the lightning payment
@@ -482,20 +509,11 @@ func (u User) paymentHasSucceeded(messageId int,
 	preimage string,
 	hash string,
 ) {
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		log.Debug().Err(err).Msg("database error marking transaction as succeeded")
-		u.notifyAsReply("Database error.", messageId)
-		return
-	}
-	defer txn.Rollback()
-
 	// if it succeeds we mark the transaction as not pending anymore
 	// plus save fees and preimage
 	fees := msatoshi_sent - msatoshi
 
-	_, err = txn.Exec(`
+	_, err = pg.Exec(`
 UPDATE lightning.transaction
 SET fees = $1, preimage = $2, pending = false
 WHERE payment_hash = $3
@@ -507,31 +525,6 @@ WHERE payment_hash = $3
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
 		u.notifyAsReply("Database error: failed to mark the transaction as not pending.", messageId)
-		return
-	}
-
-	var balance int
-	err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error fetching balance")
-		u.notifyAsReply("Database error: couldn't fetch balance.", messageId)
-		return
-	}
-
-	if balance < 0 {
-		u.notifyAsReply(
-			fmt.Sprintf("Insufficient balance. Needs %.3f sat more.", -float64(balance)/1000),
-			messageId)
-		return
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		log.Debug().Err(err).Msg("database error marking transaction as succeeded")
-		u.notifyAsReply("Database error.", messageId)
-		return
 	}
 
 	u.notifyAsReply(fmt.Sprintf(
@@ -553,6 +546,55 @@ func (u User) paymentHasFailed(messageId int, hash string) {
 		log.Error().Err(err).Str("hash", hash).
 			Msg("failed to cancel transaction after routing failure.")
 	}
+}
+
+func (u User) addInternalPendingInvoice(
+	messageId int,
+	targetId int,
+	msats int64,
+	hash string,
+	desc, label interface{},
+) (err error) {
+	// insert payment as pending
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		log.Debug().Err(err).Msg("database error starting transaction")
+		return errors.New("Database error.")
+	}
+	defer txn.Rollback()
+
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction
+  (from_id, to_id, amount, description, payment_hash, label, pending, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, u.Id, targetId, msats, desc, hash, label, true, messageId)
+	if err != nil {
+		log.Debug().Err(err).Msg("database error inserting transaction")
+		return errors.New("Payment already in course.")
+	}
+
+	var balance int
+	err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
+	if err != nil {
+		log.Debug().Err(err).Msg("database error fetching balance")
+		return errors.New("Database error. Couldn't fetch balance.")
+	}
+
+	if balance < 0 {
+		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
+			-float64(balance)/1000)
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		log.Debug().Err(err).Msg("database error committing transaction")
+		return errors.New("Database error.")
+	}
+
+	return nil
 }
 
 func (u User) sendInternally(

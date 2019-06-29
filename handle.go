@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -66,21 +65,11 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
 	} else {
 		// could be a ticket invoice
 		if strings.HasPrefix(label, "newmember:") {
-			parts := strings.Split(label, ":")
-			chatId, err := strconv.Atoi(parts[2])
+			receiver, err = chatOwnerFromTicketLabel(label)
 			if err != nil {
-				log.Error().Err(err).Str("label", label).Msg("failed to parse ticket invoice")
 				return
 			}
-
 			messageId = 0
-
-			receiver, err = getChatOwner(int64(chatId))
-			if err != nil {
-				log.Error().Err(err).Str("label", label).Msg("failed to get chat owner in ticket invoice handling")
-				return
-			}
-
 			preimage = ""
 		} else {
 			// otherwise we don't know what is this
