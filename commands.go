@@ -172,6 +172,11 @@ var methods = []def{
 		},
 	},
 	def{
+		aliases:     []string{"app", "lapp"},
+		explanation: "Interacts with an external app from within the bot and using your balance.",
+		argstr:      "(microbet [bets | balance | withdraw])",
+	},
+	def{
 		aliases:     []string{"bluewallet", "lndhub"},
 		explanation: "Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.",
 		argstr:      "[refresh]",

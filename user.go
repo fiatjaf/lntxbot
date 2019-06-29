@@ -12,7 +12,9 @@ import (
 
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/jmoiron/sqlx/types"
+	"github.com/skip2/go-qrcode"
+	"github.com/tidwall/gjson"
 )
 
 type User struct {
@@ -319,17 +321,11 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 	}
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
-	payee := inv.Get("payee").String()
 	amount := inv.Get("msatoshi").Int()
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
-	params := map[string]interface{}{
-		"riskfactor":    3,
-		"maxfeepercent": 1,
-		"exemptfee":     3,
-		"label":         fmt.Sprintf("user=%d", u.Id),
-	}
 
+	params := map[string]interface{}{}
 	if amount == 0 {
 		// amount is optional, so let's use the provided on the command
 		amount = int64(msatoshi)
@@ -340,17 +336,9 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 		return errors.New("no amount provided")
 	}
 
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		log.Debug().Err(err).Msg("database error starting transaction")
-		return errors.New("Database error.")
-	}
-	defer txn.Rollback()
-
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
 
-	if payee == s.NodeId {
+	if inv.Get("payee").String() == s.NodeId {
 		// it's an internal invoice. mark as paid internally.
 
 		// handle ticket invoices
@@ -383,7 +371,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 						hash,
 						label,
 					)
-					u.paymentHasSucceeded(messageId, float64(amount), float64(amount), "", hash)
+					paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", hash)
 					break
 				}
 			}
@@ -417,7 +405,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 				hash,
 				label,
 			)
-			u.paymentHasSucceeded(messageId, float64(amount), float64(amount), preimage, hash)
+			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), preimage, hash)
 			ln.Call("delinvoice", label, "unpaid")
 		} else {
 			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")
@@ -426,126 +414,132 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 		// it's an invoice from elsewhere, continue and
 		// actually send the lightning payment
 
-		// insert payment as pending
-		_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, u.Id, amount, desc, hash, fakeLabel, true, messageId, payee)
+		err := u.actuallySendExternalPayment(
+			messageId, bolt11, inv, amount, fakeLabel, params,
+			paymentHasSucceeded, paymentHasFailed,
+		)
 		if err != nil {
-			log.Debug().Err(err).Msg("database error inserting transaction")
-			return errors.New("Payment already in course.")
+			return err
 		}
-
-		var balance int
-		err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-		if err != nil {
-			log.Debug().Err(err).Msg("database error fetching balance")
-			return errors.New("Database error. Couldn't fetch balance.")
-		}
-
-		if balance < 0 {
-			return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
-				-float64(balance)/1000)
-		}
-
-		err = txn.Commit()
-		if err != nil {
-			log.Debug().Err(err).Msg("database error committing transaction")
-			return errors.New("Database error.")
-		}
-
-		go func(u User, messageId int, params map[string]interface{}) {
-			success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
-
-			// save payment attempts for future counsultation
-			// only save the latest 10 tries for brevity
-			from := len(tries) - 10
-			if from < 0 {
-				from = 0
-			}
-			if jsontries, err := json.Marshal(tries[from:]); err == nil {
-				rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
-			}
-
-			if err != nil {
-				log.Warn().Err(err).
-					Interface("params", params).
-					Interface("tries", tries).
-					Msg("Unexpected error paying invoice.")
-				return
-			}
-
-			if success {
-				u.paymentHasSucceeded(messageId,
-					payment.Get("msatoshi").Float(),
-					payment.Get("msatoshi_sent").Float(),
-					payment.Get("payment_preimage").String(),
-					payment.Get("payment_hash").String(),
-				)
-			} else {
-				log.Warn().
-					Str("user", u.Username).
-					Int("user-id", u.Id).
-					Interface("params", params).
-					Interface("tries", tries).
-					Str("payment", payment.String()).
-					Str("hash", hash).
-					Msg("payment failed")
-
-				u.paymentHasFailed(messageId, payment.Get("payment_hash").String())
-			}
-		}(u, messageId, params)
 	}
 
 	return nil
 }
 
-func (u User) paymentHasSucceeded(messageId int,
-	msatoshi float64,
-	msatoshi_sent float64,
-	preimage string,
-	hash string,
-) {
-	// if it succeeds we mark the transaction as not pending anymore
-	// plus save fees and preimage
-	fees := msatoshi_sent - msatoshi
+func (u User) actuallySendExternalPayment(
+	messageId int,
+	bolt11 string,
+	inv gjson.Result,
+	msatoshi int64,
+	label string,
+	params map[string]interface{},
+	onSuccess func(
+		u User,
+		messageId int,
+		msatoshi float64,
+		msatoshi_sent float64,
+		preimage string,
+		hash string,
+	),
+	onFailure func(
+		u User,
+		messageId int,
+		hash string,
+	),
+) (err error) {
+	hash := inv.Get("payment_hash").String()
 
-	_, err = pg.Exec(`
-UPDATE lightning.transaction
-SET fees = $1, preimage = $2, pending = false
-WHERE payment_hash = $3
-    `, fees, preimage, hash)
+	// insert payment as pending
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		log.Error().Err(err).
-			Str("user", u.Username).
-			Str("hash", hash).
-			Float64("fees", fees).
-			Msg("failed to update transaction fees.")
-		u.notifyAsReply("Database error: failed to mark the transaction as not pending.", messageId)
+		log.Debug().Err(err).Msg("database error starting transaction")
+		return errors.New("Database error.")
+	}
+	defer txn.Rollback()
+
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction
+  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, u.Id, msatoshi, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
+	if err != nil {
+		log.Debug().Err(err).Msg("database error inserting transaction")
+		return errors.New("Payment already in course.")
 	}
 
-	u.notifyAsReply(fmt.Sprintf(
-		"Paid with <b>%d sat</b> (+ %.3f fee). \n\n<b>Hash:</b> %s\n\n<b>Proof:</b> %s\n\n/tx%s",
-		int(msatoshi/1000),
-		fees/1000,
-		hash,
-		preimage,
-		hash[:5],
-	), messageId)
-}
-
-func (u User) paymentHasFailed(messageId int, hash string) {
-	u.notifyAsReply(fmt.Sprintf("Payment failed. /log%s", hash[:5]), messageId)
-
-	_, err := pg.Exec(
-		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
+	var balance int
+	err = txn.Get(&balance, `
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
 	if err != nil {
-		log.Error().Err(err).Str("hash", hash).
-			Msg("failed to cancel transaction after routing failure.")
+		log.Debug().Err(err).Msg("database error fetching balance")
+		return errors.New("Database error. Couldn't fetch balance.")
 	}
+
+	if balance < 0 {
+		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
+			-float64(balance)/1000)
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		log.Debug().Err(err).Msg("database error committing transaction")
+		return errors.New("Database error.")
+	}
+
+	// set common params
+	params["riskfactor"] = 3
+	params["maxfeepercent"] = 1
+	params["exemptfee"] = 3
+	params["label"] = fmt.Sprintf("user=%d", u.Id)
+
+	// perform payment
+	go func() {
+		success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
+
+		// save payment attempts for future counsultation
+		// only save the latest 10 tries for brevity
+		from := len(tries) - 10
+		if from < 0 {
+			from = 0
+		}
+		if jsontries, err := json.Marshal(tries[from:]); err == nil {
+			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
+		}
+
+		if err != nil {
+			log.Warn().Err(err).
+				Interface("params", params).
+				Interface("tries", tries).
+				Msg("Unexpected error paying invoice.")
+			return
+		}
+
+		if success {
+			onSuccess(
+				u,
+				messageId,
+				payment.Get("msatoshi").Float(),
+				payment.Get("msatoshi_sent").Float(),
+				payment.Get("payment_preimage").String(),
+				payment.Get("payment_hash").String(),
+			)
+		} else {
+			log.Warn().
+				Str("user", u.Username).
+				Int("user-id", u.Id).
+				Interface("params", params).
+				Interface("tries", tries).
+				Str("payment", payment.String()).
+				Str("hash", hash).
+				Msg("payment failed")
+
+			onFailure(u, messageId, payment.Get("payment_hash").String())
+		}
+	}()
+
+	return nil
 }
 
 func (u User) addInternalPendingInvoice(
@@ -832,6 +826,82 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			sats*len(fromIds), strings.Join(giverNames, " ")),
 	)
 	return
+}
+
+func (u User) setAppData(appname string, data interface{}) (err error) {
+	j, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+
+	_, err = pg.Exec(`
+UPDATE telegram.account AS u
+SET appdata = jsonb_set(u.appdata, ARRAY[$2], $3, true)
+WHERE id = $1
+    `, u.Id, appname, types.JSONText(j))
+	return
+}
+
+func (u User) getAppData(appname string, data interface{}) (err error) {
+	var j types.JSONText
+	err = pg.Get(&j, `
+SELECT jsonb_extract_path(appdata, $2)
+FROM telegram.account
+WHERE id = $1
+    `, u.Id, appname)
+	if err != nil {
+		return err
+	}
+
+	err = j.Unmarshal(data)
+	return
+}
+
+func paymentHasSucceeded(
+	u User,
+	messageId int,
+	msatoshi float64,
+	msatoshi_sent float64,
+	preimage string,
+	hash string,
+) {
+	// if it succeeds we mark the transaction as not pending anymore
+	// plus save fees and preimage
+	fees := msatoshi_sent - msatoshi
+
+	_, err = pg.Exec(`
+UPDATE lightning.transaction
+SET fees = $1, preimage = $2, pending = false
+WHERE payment_hash = $3
+    `, fees, preimage, hash)
+	if err != nil {
+		log.Error().Err(err).
+			Str("user", u.Username).
+			Str("hash", hash).
+			Float64("fees", fees).
+			Msg("failed to update transaction fees.")
+		u.notifyAsReply("Database error: failed to mark the transaction as not pending.", messageId)
+	}
+
+	u.notifyAsReply(fmt.Sprintf(
+		"Paid with <b>%d sat</b> (+ %.3f fee). \n\n<b>Hash:</b> %s\n\n<b>Proof:</b> %s\n\n/tx%s",
+		int(msatoshi/1000),
+		fees/1000,
+		hash,
+		preimage,
+		hash[:5],
+	), messageId)
+}
+
+func paymentHasFailed(u User, messageId int, hash string) {
+	u.notifyAsReply(fmt.Sprintf("Payment failed. /log%s", hash[:5]), messageId)
+
+	_, err := pg.Exec(
+		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).
+			Msg("failed to cancel transaction after routing failure.")
+	}
 }
 
 type Info struct {

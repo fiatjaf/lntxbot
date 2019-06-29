@@ -6,7 +6,8 @@ CREATE TABLE telegram.account (
   telegram_id int UNIQUE, -- telegram id
   username text UNIQUE, -- telegram name
   chat_id int, -- telegram private chat id
-  password text NOT NULL DEFAULT encode(digest(random()::text, 'sha256'), 'hex') -- used in lndhub interface
+  password text NOT NULL DEFAULT encode(digest(random()::text, 'sha256'), 'hex'), -- used in lndhub interface
+  appdata jsonb NOT NULL DEFAULT '{}' -- data for all apps this user have, as a map of {"appname": {anything}}
 );
 
 CREATE INDEX ON telegram.account (username);
@@ -15,7 +16,7 @@ CREATE INDEX ON telegram.account (telegram_id);
 CREATE TABLE telegram.chat (
   telegram_id bigint PRIMARY KEY,
   spammy boolean NOT NULL DEFAULT false,
-  ticket int NOT NULL DEFAULT 0,
+  ticket int NOT NULL DEFAULT 0
 );
 
 CREATE TABLE lightning.transaction (

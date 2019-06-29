@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -539,7 +539,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 							Err(err).
 							Str("hash", hash).
 							Msg("canceling failed payment because it has failed failed")
-						u.paymentHasFailed(messageId, hash)
+						paymentHasFailed(u, messageId, hash)
 						return
 					}
 
@@ -555,7 +555,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 							Str("hash", hash).
 							Str("pay", res.Get("payments.0").String()).
 							Msg("canceling failed payment because it's been a long time")
-						u.paymentHasFailed(messageId, hash)
+						paymentHasFailed(u, messageId, hash)
 					}
 				}
 
@@ -567,7 +567,9 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			}
 
 			// payment succeeded
-			u.paymentHasSucceeded(messageId,
+			paymentHasSucceeded(
+				u,
+				messageId,
 				payment.Get("msatoshi").Float(),
 				payment.Get("msatoshi_sent").Float(),
 				payment.Get("payment_preimage").String(),
@@ -576,6 +578,9 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}(u, txn.TriggerMessage, txn.Hash)
 
 		appendTextToMessage(cb, "Checking.")
+	case strings.HasPrefix(cb.Data, "app="):
+		answer := handleExternalAppCallback(u, messageId, cb.Data)
+		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))
 	}
 
 answerEmpty:
