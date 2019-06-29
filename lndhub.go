@@ -141,9 +141,9 @@ func startLndHub() {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]map[string]float64{
+		json.NewEncoder(w).Encode(map[string]map[string]int64{
 			"BTC": {
-				"AvailableBalance": info.Balance / 1000,
+				"AvailableBalance": int64(info.Balance),
 			},
 		})
 	})
