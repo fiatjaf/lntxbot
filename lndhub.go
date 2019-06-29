@@ -1,12 +1,10 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -275,12 +273,12 @@ func startLndHub() {
 }
 
 func loadUserFromBlueWalletCall(r *http.Request) (user User, err error) {
+	// decode user id and password from auth token
 	token := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")[1]
 	res, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
 		return
 	}
-
 	parts := strings.Split(string(res), ":")
 	userId, err := strconv.Atoi(parts[0])
 	if err != nil {
@@ -288,18 +286,19 @@ func loadUserFromBlueWalletCall(r *http.Request) (user User, err error) {
 	}
 	password := parts[1]
 
+	// load user
+	user, err = loadUser(userId, 0)
+	if err != nil {
+		return
+	}
+
 	// check password
-	if password != userPassword(userId) {
+	if password != user.Password {
 		err = errors.New("invalid password")
 		return
 	}
 
-	user, err = loadUser(userId, 0)
 	return
-}
-
-func userPassword(userId int) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(s.BotToken+"?"+strconv.Itoa(userId))))
 }
 
 type Buffer string

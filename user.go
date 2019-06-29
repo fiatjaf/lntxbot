@@ -20,13 +20,15 @@ type User struct {
 	TelegramId int    `db:"telegram_id"`
 	Username   string `db:"username"`
 	ChatId     int64  `db:"chat_id"`
+	Password   string `db:"password"`
 }
 
 const USERFIELDS = `
   id,
   coalesce(telegram_id, 0) AS telegram_id,
   coalesce(username, '') AS username,
-  coalesce(chat_id, 0) AS chat_id
+  coalesce(chat_id, 0) AS chat_id,
+  password
 `
 
 func loadUser(id int, telegramId int) (u User, err error) {
@@ -140,6 +142,15 @@ RETURNING `+USERFIELDS,
 		err = errors.New("odd error with more than 2 rows for the same user.")
 		return
 	}
+}
+
+func (u User) updatePassword() (newpassword string, err error) {
+	err = pg.Get(&newpassword, `
+UPDATE telegram.account
+SET password = DEFAULT WHERE id = $1
+RETURNING password;                            
+    `, u.Id)
+	return
 }
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {

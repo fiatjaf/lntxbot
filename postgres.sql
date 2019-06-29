@@ -5,7 +5,8 @@ CREATE TABLE telegram.account (
   id serial PRIMARY KEY,
   telegram_id int UNIQUE, -- telegram id
   username text UNIQUE, -- telegram name
-  chat_id int -- telegram private chat id
+  chat_id int, -- telegram private chat id
+  password text NOT NULL DEFAULT encode(digest(random()::text, 'sha256'), 'hex') -- used in lndhub interface
 );
 
 CREATE INDEX ON telegram.account (username);

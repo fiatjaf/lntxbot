@@ -174,6 +174,17 @@ var methods = []def{
 	def{
 		aliases:     []string{"bluewallet", "lndhub"},
 		explanation: "Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.",
+		argstr:      "[refresh]",
+		examples: []example{
+			{
+				"/bluewallet",
+				"Prints a string like `lndhub://<login>:<password>@<url>` which must be copied and pasted on BlueWallet's import screen.",
+			},
+			{
+				"/bluewallet refresh",
+				"Erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.",
+			},
+		},
 	},
 	def{
 		aliases:     []string{"toggle"},
