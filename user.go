@@ -350,40 +350,10 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
 
-	var balance int
-	_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, u.Id, amount, desc, hash, fakeLabel, true, messageId, payee)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error inserting transaction")
-		return errors.New("Payment already in course.")
-	}
-
-	err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error fetching balance")
-		return errors.New("Database error.")
-	}
-
-	if balance < 0 {
-		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
-			-float64(balance)/1000)
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		log.Debug().Err(err).Msg("database error committing transaction")
-		return errors.New("Database error.")
-	}
-
 	if payee == s.NodeId {
 		// it's an internal invoice. mark as paid internally.
-		var txn Transaction
-		if err := pg.Get(&txn, `
+		var tx Transaction
+		if err := pg.Get(&tx, `
 SELECT payment_hash, preimage, label, amount
 FROM lightning.transaction
 WHERE payment_hash = $1
@@ -410,7 +380,7 @@ WHERE payment_hash = $1
 				return err
 			}
 		} else {
-			invpaid, err := ln.Call("listinvoices", txn.Label.String)
+			invpaid, err := ln.Call("listinvoices", tx.Label.String)
 			if err != nil {
 				return err
 			}
@@ -421,10 +391,40 @@ WHERE payment_hash = $1
 				invpaid.Get("payment_hash").String(),
 				invpaid.Get("label").String(),
 			)
-			u.paymentHasSucceeded(messageId, txn.Amount, txn.Amount, txn.Preimage.String, txn.Hash)
+			u.paymentHasSucceeded(messageId, tx.Amount, tx.Amount, tx.Preimage.String, tx.Hash)
 		}
 
-		ln.Call("delinvoice", txn.Label.String, "unpaid")
+		ln.Call("delinvoice", tx.Label.String, "unpaid")
+		var balance int
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction
+  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, u.Id, amount, desc, hash, fakeLabel, true, messageId, payee)
+		if err != nil {
+			log.Debug().Err(err).Msg("database error inserting transaction")
+			return errors.New("Payment already in course.")
+		}
+
+		err = txn.Get(&balance, `
+SELECT balance::int FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
+		if err != nil {
+			log.Debug().Err(err).Msg("database error fetching balance")
+			return errors.New("Database error.")
+		}
+
+		if balance < 0 {
+			return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
+				-float64(balance)/1000)
+		}
+
+		err = txn.Commit()
+		if err != nil {
+			log.Debug().Err(err).Msg("database error committing transaction")
+			return errors.New("Database error.")
+		}
+
 	} else {
 		// it's an invoice from elsewhere, continue and
 		// actually send the lightning payment
