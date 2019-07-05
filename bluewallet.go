@@ -172,13 +172,18 @@ func startBlueWallet() {
 
 		payments := make([]Payment, len(txns))
 		for i, txn := range txns {
+			preimage := txn.Preimage.String
+			if preimage == "" {
+				preimage = "0000000000000000000000000000000000000000000000000000000000000000"
+			}
+
 			payments[i] = Payment{
-				txn.Preimage.String,
+				preimage,
 				"paid_invoice",
 				txn.Fees,
 				-txn.Amount,
 				txn.Time.Unix(),
-				txn.PeerActionDescription() + txn.Description,
+				txn.Description + " " + txn.PeerActionDescription(),
 			}
 		}
 

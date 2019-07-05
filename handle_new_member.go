@@ -56,7 +56,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	expiration := time.Minute * 15
 
 	bolt11, hash, qrpath, err := chatOwner.makeInvoice(sats, fmt.Sprintf(
-		"Ticket for %s to join %s (%d).",
+		"ticket for %s to join %s (%d).",
 		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
 	), label, &expiration, nil, "", false)
 

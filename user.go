@@ -354,7 +354,7 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 		// it's an internal invoice. mark as paid internally.
 
 		// handle ticket invoices
-		if strings.HasPrefix(desc, "Ticket for") {
+		if strings.HasPrefix(desc, "ticket for") {
 			for label, kickdata := range pendingApproval {
 				if kickdata.Hash == hash {
 					var target User
