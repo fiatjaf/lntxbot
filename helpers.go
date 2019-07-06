@@ -12,19 +12,21 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/kballard/go-shellquote"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
 const INVOICE_UNDEFINED_AMOUNT = -273
+
+var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
 
 var dollarPrice = struct {
 	lastUpdate time.Time
@@ -149,23 +151,13 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 
 func getBolt11(text string) (bolt11 string, ok bool) {
 	text = strings.ToLower(text)
+	results := bolt11regex.FindStringSubmatch(text)
 
-	argv, err := shellquote.Split(text)
-	if err != nil {
+	if len(results) == 0 {
 		return
 	}
 
-	for _, arg := range argv {
-		if strings.HasPrefix(arg, "lightning:") {
-			arg = arg[10:]
-		}
-
-		if strings.HasPrefix(arg, "lnbc") {
-			return arg, true
-		}
-	}
-
-	return
+	return results[1], true
 }
 
 func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias, usd string, err error) {
