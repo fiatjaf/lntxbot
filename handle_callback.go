@@ -579,7 +579,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		appendTextToMessage(cb, "Checking.")
 	case strings.HasPrefix(cb.Data, "app="):
-		answer := handleExternalAppCallback(u, messageId, cb.Data)
+		answer := handleExternalAppCallback(u, messageId, cb)
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))
 	}
 

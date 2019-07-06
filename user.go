@@ -842,10 +842,35 @@ WHERE id = $1
 	return
 }
 
+func (u User) appendAppdata(appname string, path string, data interface{}) (err error) {
+	j, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+
+	_, err = pg.Exec(`
+UPDATE telegram.account AS u
+SET appdata = jsonb_insert(
+  jsonb_set(
+    u.appdata,
+    ARRAY[$2] || string_to_array($4, '.'),
+    CASE WHEN u.appdata -> $2 #> string_to_array($4, '.') IS NOT NULL
+      THEN u.appdata -> $2 #> string_to_array($4, '.')
+      ELSE '[]'::jsonb
+    END
+  ),
+  ARRAY[$2] || string_to_array($4, '.') || ARRAY['999'],
+  $3
+)
+WHERE id = $1
+    `, u.Id, appname, types.JSONText(j), path)
+	return
+}
+
 func (u User) getAppData(appname string, data interface{}) (err error) {
 	var j types.JSONText
 	err = pg.Get(&j, `
-SELECT jsonb_extract_path(appdata, $2)
+SELECT appdata -> $2
 FROM telegram.account
 WHERE id = $1
     `, u.Id, appname)
