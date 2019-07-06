@@ -158,6 +158,9 @@ parsed:
 			u.notify("Notifications stopped.")
 		}
 		break
+	case opts["app"].(bool), opts["lapp"].(bool):
+		handleExternalApp(u, opts, message.MessageID)
+		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
@@ -577,9 +580,6 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 		}
 
 		u.notify(fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL))
-	case opts["app"].(bool), opts["lapp"].(bool):
-		handleExternalApp(u, opts, message.MessageID)
-		break
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		handleHelp(u, command)

@@ -97,9 +97,33 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 
 			u.notify("<b>[Microbet]</b> Your bets\n" + strings.Join(message, "\n"))
 		} else if opts["balance"].(bool) {
+			balance, err := getMicrobetBalance(u)
+			if err != nil {
+				u.notify("Error fetching Microbet balance: " + err.Error())
+				return
+			}
 
+			chattable := tgbotapi.NewMessage(u.ChatId,
+				fmt.Sprintf(`<b>[Microbet]</b> balance: <i>%d sat</i>`, balance))
+			chattable.ParseMode = "HTML"
+			chattable.BaseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("Withdraw?", "app=microbet-withdraw"),
+				),
+			)
+			bot.Send(chattable)
 		} else if opts["withdraw"].(bool) {
+			balance, err := getMicrobetBalance(u)
+			if err != nil {
+				u.notify("Error fetching Microbet balance: " + err.Error())
+				return
+			}
 
+			err = withdrawMicrobet(u, int(float64(balance)*0.99))
+			if err != nil {
+				u.notify("Withdraw error: " + err.Error())
+				return
+			}
 		} else {
 			u.notify(`
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
@@ -194,24 +218,40 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 	parts := strings.Split(cb.Data[4:], "-")
 	switch parts[0] {
 	case "microbet":
-		betId := parts[1]
-		back := parts[2] == "true"
-		bet, err := getMicrobetBet(betId)
-		if err != nil {
-			return "Bet not available."
+		if parts[1] == "withdraw" {
+			balance, err := getMicrobetBalance(u)
+			if err != nil {
+				u.notify("Error fetching Microbet balance: " + err.Error())
+				return "Failure."
+			}
+
+			err = withdrawMicrobet(u, int(float64(balance)*0.99))
+			if err != nil {
+				u.notify("Withdraw error: " + err.Error())
+				return "Failure."
+			}
+
+			return "Withdrawing."
+		} else {
+			betId := parts[1]
+			back := parts[2] == "true"
+			bet, err := getMicrobetBet(betId)
+			if err != nil {
+				return "Bet not available."
+			}
+
+			// post a notification message to identify this bet attempt
+			gamename := strings.Split(bet.Description, "→")[0]
+			message := u.notify(fmt.Sprintf("Placing bet on <b>%s</b>.", strings.TrimSpace(gamename)))
+
+			err = placeMicrobetBet(u, message.MessageID, betId, back)
+			if err != nil {
+				u.notify(err.Error())
+				return "Failure."
+			}
+
+			return "Placing bet."
 		}
-
-		// post a notification message to identify this bet attempt
-		gamename := strings.Split(bet.Description, "→")[0]
-		message := u.notify(fmt.Sprintf("Placing bet on <b>%s</b>.", strings.TrimSpace(gamename)))
-
-		err = placeMicrobetBet(u, message.MessageID, betId, back)
-		if err != nil {
-			u.notify(err.Error())
-			return "Failure."
-		}
-
-		return "Placing bet."
 	case "bitflash":
 		chargeId := parts[1]
 

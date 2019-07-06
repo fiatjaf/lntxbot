@@ -170,14 +170,42 @@ func getMyMicrobetBets(user User) (mybets []MyMicrobetBet, err error) {
 	return
 }
 
-func withdrawMicrobet(user User) (err error) {
+func getMicrobetBalance(user User) (_ int64, err error) {
 	session := &napping.Session{
 		Client: &http.Client{
 			Jar: &microbetCookiejar{user},
 		},
 	}
 
-	bolt11, _, _, err := user.makeInvoice(100, "withdraw from microbet.fun", "", nil, nil, "", true)
+	var balance struct {
+		Success bool  `json:"success"`
+		Balance int64 `json:"balance"`
+	}
+	resp, err := session.Get("https://microbet.fun/api/v1/get_balance", nil, &balance, nil)
+	if err != nil {
+		return
+	}
+	if resp.Status() >= 300 {
+		err = errors.New("microbet.fun returned an invalid response.")
+		return
+	}
+
+	if !balance.Success {
+		err = errors.New("microbet.fun balance request failed.")
+		return
+	}
+
+	return balance.Balance, nil
+}
+
+func withdrawMicrobet(user User, sats int) (err error) {
+	session := &napping.Session{
+		Client: &http.Client{
+			Jar: &microbetCookiejar{user},
+		},
+	}
+
+	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from microbet.fun", "", nil, nil, "", true)
 
 	var success struct {
 		PaymentStatus string  `json:"payment_status"`
