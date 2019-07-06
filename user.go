@@ -439,7 +439,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 
 		var balance int
 		err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 		if err != nil {
 			log.Debug().Err(err).Msg("database error fetching balance")
@@ -576,7 +576,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 
 	var balance int
 	err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error fetching balance")
@@ -805,7 +805,7 @@ VALUES ($1, $2, $3, $4, $5)
 
 		var balance int
 		err = txn.Get(&balance, `
-SELECT balance::int FROM lightning.balance WHERE account_id = $1
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
     `, fromId)
 		if err != nil {
 			return
