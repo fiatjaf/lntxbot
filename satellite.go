@@ -298,7 +298,7 @@ func getSatelliteOrderToken(user User, uuid string) (token string, ok bool) {
 
 func formatSatelliteOrderLine(order SatelliteOrder) string {
 	parsedtime, _ := time.Parse("2006-01-02T15:04:05Z", order.CreatedAt)
-	return fmt.Sprintf("<code>%s</code> <i>%s</i> <code>%db</code> <code>%.2fmsat/b</code> <i>%s</i>",
+	return fmt.Sprintf("📡 <code>%s</code> <i>%s</i> <code>%db</code> <code>%.2fmsat/b</code> <i>%s</i>",
 		order.UUID, order.Status, order.MessageSize, order.BidPerByte,
 		parsedtime.Format("2 Jan 15:04"))
 }

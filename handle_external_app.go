@@ -173,7 +173,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				}
 
 				message[i] = fmt.Sprintf(
-					`<code>%s</code> to <code>%s</code> <i>%s</i>`,
+					`🧱 <code>%s</code> to <code>%s</code> <i>%s</i>`,
 					amount, address, status,
 				)
 			}
