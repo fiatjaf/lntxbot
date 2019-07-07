@@ -12,7 +12,7 @@ import (
 func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 	switch {
 	case opts["microbet"].(bool):
-		if opts["list"].(bool) {
+		if opts["bet"].(bool) {
 			// list available bets as actionable buttons
 			bets, err := getMicrobetBets()
 			if err != nil {
@@ -285,8 +285,8 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 <code>/app satellite &lt;bid_satoshis&gt; &lt;message...&gt;</code> to queue a transmission.
 <code>/app satellite transmissions</code> lists your transmissions.
 <code>/app satellite queue</code> lists the next queued transmissions.
-<code>/app satellite &lt;bid_increase_satoshis&gt; &lt;message_id&gt;</code> to increaase the bid for a transmission.
-<code>/app satellite &lt;message_id&gt;</code> to delete a transmission.
+<code>/app satellite bump &lt;bid_increase_satoshis&gt; &lt;message_id&gt;</code> to increaase the bid for a transmission.
+<code>/app satellite delete &lt;message_id&gt;</code> to delete a transmission.
             `)
 				return
 			}

@@ -174,7 +174,25 @@ var methods = []def{
 	def{
 		aliases:     []string{"app", "lapp"},
 		explanation: "Interacts with external apps from within the bot and using your balance.",
-		argstr:      "(microbet [list | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
+		argstr:      "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
+		examples: []example{
+			{
+				"/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ",
+				"Buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.",
+			},
+			{
+				"/app microbet bet",
+				"Displays a list of currently opened bets from microbet.fun as buttons you can click to place back or lay bets.",
+			},
+			{
+				"/app microbet bets",
+				"Lists all your open bets. Your microbet.fun session will be tied to your Telegram user.",
+			},
+			{
+				"/app satellite 26 hello from the satellite! vote trump!",
+				"Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.",
+			},
+		},
 	},
 	def{
 		aliases:     []string{"bluewallet", "lndhub"},
