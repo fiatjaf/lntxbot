@@ -59,6 +59,11 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				return
 			}
 
+			if len(bets) == 0 {
+				u.notify("<b>[Microbet]</b>: no bets.")
+				return
+			}
+
 			message := make([]string, 0, len(bets))
 			for _, bet := range bets {
 				result := "open"
@@ -147,6 +152,11 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				return
 			}
 
+			if len(data.Orders) == 0 {
+				u.notify("<b>[bitflash]</b>: no past orders.")
+				return
+			}
+
 			message := make([]string, len(data.Orders))
 			for i, id := range data.Orders {
 				order, err := getBitflashOrder(id)
@@ -168,7 +178,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				)
 			}
 
-			u.notify("<b>[Bitflash]</b> Your past orders\n" + strings.Join(message, "\n"))
+			u.notify("<b>[bitflash]</b> Your past orders\n" + strings.Join(message, "\n"))
 		} else if opts["status"].(bool) {
 
 		} else if opts["rate"].(bool) {
@@ -185,6 +195,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 <b>Commands:</b>
 
 <code>/app bitflash &lt;satoshi_amount&gt; &lt;bitcoin_address&gt;</code> to queue a transaction.
+<code>/app bitflash orders</code> lists your previous transactions.
             `)
 				return
 			}
@@ -198,7 +209,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 			inv, _ := ln.Call("decodepay", ordercreated.Bolt11)
 
 			// confirm
-			chattable := tgbotapi.NewMessage(u.ChatId, fmt.Sprintf(`<b>[Bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>%s</b> to <code>%s</code>? You will pay <b>%.0f</b>.`, ordercreated.ReceiverAmount, ordercreated.Receiver, inv.Get("msatoshi").Float()/1000))
+			chattable := tgbotapi.NewMessage(u.ChatId, fmt.Sprintf(`<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>%s</b> to <code>%s</code>? You will pay <b>%.0f</b>.`, ordercreated.ReceiverAmount, ordercreated.Receiver, inv.Get("msatoshi").Float()/1000))
 			chattable.ParseMode = "HTML"
 			chattable.BaseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
@@ -210,6 +221,87 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				),
 			)
 			bot.Send(chattable)
+		}
+	case opts["satellite"].(bool):
+		if opts["transmissions"].(bool) {
+			var satdata SatelliteData
+			err := u.getAppData("satellite", &satdata)
+			if err != nil {
+				u.notify("Failed to get stored satellite data: " + err.Error())
+				return
+			}
+
+			message := make([]string, len(satdata.Orders))
+			for i, tuple := range satdata.Orders {
+				order, err := fetchSatelliteOrder(tuple[0], tuple[1])
+				if err == nil {
+					message[i] = formatSatelliteOrderLine(order)
+				}
+			}
+
+			u.notify("<b>[Satellite]</b> Your transmissions\n" + strings.Join(message, "\n"))
+		} else if opts["queue"].(bool) {
+			queue, err := getSatelliteQueue()
+			if err != nil {
+				u.notifyAsReply("Error fetching the queue: "+err.Error(), messageId)
+				return
+			}
+
+			if len(queue) == 0 {
+				u.notify("<b>[Satellite]</b>: no queued transmissions.")
+				return
+			}
+
+			message := make([]string, len(queue))
+			for i, order := range queue {
+				message[i] = formatSatelliteOrderLine(order)
+			}
+
+			u.notify("<b>[Satellite]</b> Queued transmissions\n" + strings.Join(message, "\n"))
+		} else if opts["bump"].(bool) {
+			err := bumpSatelliteOrder(u, messageId, opts["<transaction_id>"].(string), opts["<satoshis>"].(int))
+			if err != nil {
+				u.notifyAsReply("Error bumping transmission: "+err.Error(), messageId)
+				return
+			}
+		} else if opts["delete"].(bool) {
+			err := deleteSatelliteOrder(u, opts["<transaction_id>"].(string))
+			if err != nil {
+				u.notifyAsReply("Error deleting transmission: "+err.Error(), messageId)
+				return
+			}
+			u.notifyAsReply("Transmission deleted.", messageId)
+			return
+		} else {
+			// either show help or create an order
+			satoshis, err := opts.Int("<satoshis>")
+
+			if err != nil {
+				u.notify(`
+The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
+
+<b>Commands:</b>
+
+<code>/app satellite &lt;bid_satoshis&gt; &lt;message...&gt;</code> to queue a transmission.
+<code>/app satellite transmissions</code> lists your transmissions.
+<code>/app satellite queue</code> lists the next queued transmissions.
+<code>/app satellite &lt;bid_increase_satoshis&gt; &lt;message_id&gt;</code> to increaase the bid for a transmission.
+<code>/app satellite &lt;message_id&gt;</code> to delete a transmission.
+            `)
+				return
+			}
+
+			// create an order
+			var message string
+			if imessage, ok := opts["<message>"]; ok {
+				message = strings.Join(imessage.([]string), " ")
+			}
+
+			err = createSatelliteOrder(u, messageId, satoshis, message)
+			if err != nil {
+				u.notifyAsReply("Error making transmission: "+err.Error(), messageId)
+				return
+			}
 		}
 	}
 }
@@ -255,29 +347,22 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 	case "bitflash":
 		chargeId := parts[1]
 
+		// get data for this charge
 		order, err := getBitflashOrder(chargeId)
 		if err != nil {
 			u.notify(err.Error())
 			return "Failure."
 		}
 
+		// pay it - just paying the invoice is enough
 		err = payBitflashInvoice(u, order, messageId)
 		if err != nil {
 			u.notify(err.Error())
 			return "Failure."
 		}
 
-		var data struct {
-			Orders []string `json:"orders"`
-		}
-		err = u.getAppData("bitflash", &data)
-		if err == nil {
-			data.Orders = append(data.Orders, order.Id)
-			err = u.setAppData("bitflash", data)
-			if err != nil {
-				u.notify("Failed to save Bitflash order. Please report: " + err.Error())
-			}
-		}
+		// store order id so we can show it later on /app bitflash orders
+		saveBitflashOrder(u, order.Id)
 
 		removeKeyboardButtons(cb)
 		return "Queueing Bitflash transaction."

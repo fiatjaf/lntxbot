@@ -174,7 +174,7 @@ var methods = []def{
 	def{
 		aliases:     []string{"app", "lapp"},
 		explanation: "Interacts with external apps from within the bot and using your balance.",
-		argstr:      "(microbet [list | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>])",
+		argstr:      "(microbet [list | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
 	},
 	def{
 		aliases:     []string{"bluewallet", "lndhub"},

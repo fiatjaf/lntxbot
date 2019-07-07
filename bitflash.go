@@ -112,3 +112,18 @@ func payBitflashInvoice(user User, order BitflashOrder, messageId int) (err erro
 
 	return
 }
+
+func saveBitflashOrder(user User, orderId string) {
+	var data struct {
+		Orders []string `json:"orders"`
+	}
+	err = user.getAppData("bitflash", &data)
+	if err == nil {
+		data.Orders = append(data.Orders, orderId)
+		err = user.setAppData("bitflash", data)
+		if err != nil {
+			user.notify("Failed to save Bitflash order. Please report: " + err.Error())
+		}
+	}
+
+}
