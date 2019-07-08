@@ -330,7 +330,7 @@ parsed:
 		break
 	case opts["giveaway"].(bool):
 		sats, err := opts.Int("<satoshis>")
-		if err != nil {
+		if err != nil || sats == 0 {
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
@@ -347,7 +347,7 @@ parsed:
 		break
 	case opts["giveflip"].(bool):
 		sats, err := opts.Int("<satoshis>")
-		if err != nil {
+		if err != nil || sats == 0 {
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
@@ -376,7 +376,7 @@ parsed:
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
 		// open a lottery between a number of users in a group
 		sats, err := opts.Int("<satoshis>")
-		if err != nil {
+		if err != nil || sats == 0 {
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
@@ -412,7 +412,7 @@ Registered: %s`, sats, nparticipants, sats*nparticipants, u.AtName()),
 	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")
-		if err != nil {
+		if err != nil || sats == 0 {
 			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
 			break
 		}
@@ -447,6 +447,45 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 		rds.SAdd("fundraise:"+fundraiseid, u.Id)
 		rds.Expire("fundraise:"+fundraiseid, s.GiveAwayTimeout)
 		chattable.BaseChat.ReplyMarkup = fundraiseKeyboard(fundraiseid, receiver.Id, nparticipants, sats)
+		bot.Send(chattable)
+	case opts["hide"].(bool):
+		var content string
+		if icontent, ok := opts["<message>"]; ok {
+			content = strings.Join(icontent.([]string), " ")
+		}
+
+		sats, err := opts.Int("<satoshis>")
+		if err != nil || sats == 0 {
+			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			break
+		}
+
+		hiddenid := cuid.Slug()
+		err = rds.Set(fmt.Sprintf("hidden:%d:%s:%d", u.Id, hiddenid, sats), content, s.HiddenMessageTimeout).Err()
+		if err != nil {
+			u.notify("Failed to store hidden content. Please report: " + err.Error())
+			break
+		}
+
+		u.notifyAsReply(fmt.Sprintf("Message hidden with id <code>%s</code>.", hiddenid), message.MessageID)
+	case opts["reveal"].(bool):
+		hiddenid := opts["<hidden_message_id>"].(string)
+
+		found := rds.Keys("hidden:*:" + hiddenid + ":*").Val()
+		if len(found) == 0 {
+			u.notifyAsReply("No hidden message found with the given id.", message.MessageID)
+			break
+		}
+
+		redisKey := found[0]
+		_, _, _, preview, satoshis, err := getHiddenMessage(redisKey)
+		if err != nil {
+			u.notify("Error loading hidden message. Please report: " + err.Error())
+			break
+		}
+
+		chattable := tgbotapi.NewMessage(u.ChatId, preview)
+		chattable.BaseChat.ReplyMarkup = revealKeyboard(redisKey, satoshis)
 		bot.Send(chattable)
 	case opts["transactions"].(bool):
 		// show list of transactions
@@ -579,7 +618,7 @@ Have contributed: %s`, receiverdisplayname, nparticipants, sats, sats*nparticipa
 			}
 		}
 
-		u.notify(fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL))
+		u.notify(fmt.Sprintf("<code>lndhub://%d:%s@%s</code>", u.Id, password, s.ServiceURL))
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		handleHelp(u, command)

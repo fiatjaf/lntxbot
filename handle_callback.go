@@ -518,6 +518,65 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 		appendTextToMessage(cb, "Transaction canceled.")
+	case strings.HasPrefix(cb.Data, "reveal="):
+		// locate hidden message with the key given in the callback data,
+		// perform payment between users,
+		// reveal message.
+		hiddenkey := cb.Data[7:]
+		sourceUserId, hiddenid, content, _, satoshis, err := getHiddenMessage(hiddenkey)
+		if err != nil {
+			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "Hidden message not found.")
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Error locating this hidden message."))
+			return
+		}
+
+		sourceuser, err := loadUser(sourceUserId, 0)
+		if err != nil {
+			log.Warn().Err(err).
+				Int("id", sourceUserId).
+				Msg("failed to load source user on reveal")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "Error.")
+			goto answerEmpty
+		}
+
+		revealer, t, err := ensureUser(cb.From.ID, cb.From.UserName)
+		if err != nil {
+			log.Warn().Err(err).Int("case", t).
+				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
+				Msg("failed to ensure revealer user on reveal")
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "Error.")
+			goto answerEmpty
+		}
+
+		errMsg, err := u.sendInternally(messageId, sourceuser, false, satoshis*1000, "reveal", nil)
+		if err != nil {
+			removeKeyboardButtons(cb)
+			appendTextToMessage(cb, "Failed to reveal: "+errMsg)
+			goto answerEmpty
+		}
+
+		// actually reveal
+		if messageId != 0 {
+			removeKeyboardButtons(cb)
+			revealer.notifyAsReply(content, messageId)
+		} else {
+			baseEdit := getBaseEdit(cb)
+			bot.Send(tgbotapi.EditMessageTextConfig{
+				BaseEdit: baseEdit,
+				Text:     content,
+			})
+		}
+
+		// notify both parties
+		revealer.notify(fmt.Sprintf("%d sat paid to reveal the message <code>%s</code>.", satoshis, hiddenid))
+		sourceuser.notify(
+			fmt.Sprintf("Hidden message <code>%s</code> revealed by %s. You've got %d sat.",
+				hiddenid, revealer.AtName(), satoshis),
+		)
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
 		// either confirmed or deleted automatically

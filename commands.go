@@ -172,6 +172,34 @@ var methods = []def{
 		},
 	},
 	def{
+		aliases:     []string{"hide"},
+		argstr:      "<satoshis> <message>...",
+		explanation: "Hides a message so it can be unlocked later with a payment. The special character \"~\" is used to split the message into a preview and the actual message (\"click here to see a secret! ~ this is the secret.\")",
+		examples: []example{
+			{
+				"/hide 500 top secret message here",
+				"Hides \"top secret message\" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal <hidden_message_id> or by using the inline query \"reveal\" in a group.",
+			},
+			{
+				"/hide 2500 only the brave will be able to see this message ~ congratulations, you are very brave!",
+				"In this case instead of the default preview message potential revealers will see the custom teaser written before the \"~\".",
+			},
+		},
+	},
+	def{
+		aliases:     []string{"reveal"},
+		argstr:      "<hidden_message_id>",
+		explanation: "Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.",
+		examples: []example{
+			{
+				"/reveal 5c0b2rh4x",
+				"Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.",
+			},
+		},
+		inline:         true,
+		inline_example: "reveal [hidden_message_id]",
+	},
+	def{
 		aliases:     []string{"app", "lapp"},
 		explanation: "Interacts with external apps from within the bot and using your balance.",
 		argstr:      "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",

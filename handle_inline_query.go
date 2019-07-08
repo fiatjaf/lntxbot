@@ -33,7 +33,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 	text = strings.TrimSpace(q.Query)
 	argv, err = shellquote.Split(text)
-	if err != nil || len(argv) < 2 {
+	if err != nil || len(argv) < 1 || (len(argv) < 2 && argv[0] != "reveal") {
 		goto answerEmpty
 	}
 
@@ -166,6 +166,36 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
 			Results:       []interface{}{result},
+			IsPersonal:    true,
+		})
+	case "reveal":
+		hiddenid := "*"
+		if len(argv) == 2 {
+			hiddenid = argv[1]
+		}
+
+		hiddenkeys := rds.Keys(fmt.Sprintf("hidden:%d:%s:*", u.Id, hiddenid)).Val()
+		results := make([]interface{}, len(hiddenkeys))
+		for i, hiddenkey := range hiddenkeys {
+			_, hiddenid, content, preview, satoshis, err := getHiddenMessage(hiddenkey)
+			if err != nil {
+				continue
+			}
+
+			result := tgbotapi.NewInlineQueryResultArticle(
+				fmt.Sprintf("reveal-%s", hiddenkey),
+				fmt.Sprintf("Hidden message %s: %s", hiddenid, content),
+				preview,
+			)
+
+			keyboard := revealKeyboard(hiddenkey, satoshis)
+			result.ReplyMarkup = &keyboard
+			results[i] = result
+		}
+
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       results,
 			IsPersonal:    true,
 		})
 	default:

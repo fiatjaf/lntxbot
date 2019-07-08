@@ -140,6 +140,8 @@ func (t Transaction) Icon() string {
 			return "🎲"
 		case "fundraise":
 			return "📢"
+		case "reveal":
+			return "🔎"
 		default:
 			if t.Anonymous {
 				return "🕵"

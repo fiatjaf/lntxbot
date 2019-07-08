@@ -26,9 +26,10 @@ type Settings struct {
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
-	InvoiceTimeout    time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
-	PayConfirmTimeout time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
-	GiveAwayTimeout   time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"5h"`
+	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
+	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
+	GiveAwayTimeout      time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"5h"`
+	HiddenMessageTimeout time.Duration `envconfig:"HIDDEN_MESSAGE_TIMEOUT" default:5d"`
 
 	NodeId string
 	Usage  string
