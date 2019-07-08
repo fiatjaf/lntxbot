@@ -135,7 +135,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 
 <b>Commands:</b>
 
-<code>/app microbet list</code> to list all open bets and then place yours.
+<code>/app microbet bet</code> to list all open bets and then place yours.
 <code>/app microbet bets</code> to see all your past bets.
 <code>/app microbet balance</code> to view your balance.
 <code>/app microbet withdraw</code> to withdraw all your balance.
