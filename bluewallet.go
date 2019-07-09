@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func startBlueWallet() {
+func serveBlueWallet() {
 	http.HandleFunc("/getinfo", func(w http.ResponseWriter, r *http.Request) {
 		errorBadAuth(w)
 	})

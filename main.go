@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
@@ -135,7 +136,10 @@ func main() {
 	})
 
 	// lndhub-compatible routes
-	startBlueWallet()
+	serveBlueWallet()
+
+	// random assets
+	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
 
 	// start http server
 	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)

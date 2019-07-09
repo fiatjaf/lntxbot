@@ -3,3 +3,4 @@
 *.swo
 bot
 lntxbot-telegram
+bindata.go

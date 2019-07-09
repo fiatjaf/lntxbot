@@ -21,6 +21,18 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	// it's a game!
+	if cb.GameShortName != "" {
+		switch cb.GameShortName {
+		case "poker":
+			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
+				CallbackQueryID: cb.ID,
+				URL:             s.ServiceURL + "/static/poker/?account=" + getPokerId(u),
+			})
+		}
+		return
+	}
+
 	messageId := 0
 	if cb.Message != nil {
 		messageId = cb.Message.MessageID
@@ -59,7 +71,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 					"The payment confirmation button has expired.",
 				),
 			)
-			goto answerEmpty
+			return
 		}
 
 		bot.AnswerCallbackQuery(

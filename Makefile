@@ -1,5 +1,5 @@
-bot: $(shell find . -name "*.go")
+bot: $(shell find . -name "*.go") bindata.go
 	go build -o ./bot
 
-watch:
-	find . -name "*.go" | entr -r bash -c 'make bot && ./bot'
+bindata.go: $(shell find static)
+	go-bindata static/...
