@@ -493,6 +493,10 @@ p {
 html {
   background-color: #e7ebf0 !important;
 }
-.main-menu {
-  display: none !important;
+#permanent-balance .MuiSnackbarContent-root {
+  min-width: 0 !important;
+  background-color: rgba(49, 49, 49, 0.5);
+}
+#permanent-balance .MuiSnackbarContent-root:hover {
+  background-color: rgb(49, 49, 49);
 }
