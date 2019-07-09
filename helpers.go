@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -412,4 +413,25 @@ func listAnd(names []string) string {
 	str := strings.Join(names[:len(names)-1], ", ")
 	str += " and " + names[len(names)-1]
 	return str
+}
+
+func translate(key, locale string) (string, error) {
+	localizer := i18n.NewLocalizer(bundle, locale)
+	msg, err := localizer.Localize(
+		&i18n.LocalizeConfig{
+			MessageID: key,
+		},
+	)
+	return msg, err
+}
+
+func translateTemplate(key, locale string, template map[string]interface{}) (string, error) {
+	localizer := i18n.NewLocalizer(bundle, locale)
+	msg, err := localizer.Localize(
+		&i18n.LocalizeConfig{
+			MessageID: key,
+			TemplateData: template,
+		},
+	)
+	return msg, err
 }

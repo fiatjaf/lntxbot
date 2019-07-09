@@ -18,6 +18,12 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
+	locale, err := getChatLocale(joinMessage.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).Msg("error fetching locale config for chat")
+		return
+	}
+
 	if sats == 0 {
 		// no ticket policy
 		return
@@ -38,10 +44,12 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	} else {
 		username = newmember.FirstName
 	}
-
-	notifyMessage := notify(joinMessage.Chat.ID, fmt.Sprintf(
-		"Hello, %s. You have 15min to pay the following invoice for %d sat if you want to stay in this group:",
-		username, sats))
+	msgTempl := map[string]interface{}{
+		"User": username,
+		"Sats": sats,
+	}
+	msgStr, _ := translateTemplate("SpamFilterMessage", locale, msgTempl)
+	notifyMessage := notify(joinMessage.Chat.ID, msgStr)
 
 	ln.Call("delinvoice", label, "unpaid")  // we don't care if it doesn't exist
 	ln.Call("delinvoice", label, "paid")    // we don't care if it doesn't exist
@@ -143,10 +151,19 @@ func ticketPaid(label string, kickdata KickData) {
 	user, _, _ := ensureUser(kickdata.NewMember.ID, kickdata.NewMember.UserName)
 
 	// replace caption
-	_, err := bot.Send(tgbotapi.NewEditMessageText(
+	locale, err := getChatLocale(kickdata.NotifyMessage.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Str("chat", kickdata.NotifyMessage.Chat.Title).Msg("error fetching locale config for chat")
+		return
+	}
+	msgTempl := map[string]interface{}{
+		"User": user.AtName(),
+	}
+	msgStr, _ := translateTemplate("UserAllowed", locale, msgTempl)
+	_, err = bot.Send(tgbotapi.NewEditMessageText(
 		kickdata.NotifyMessage.Chat.ID,
 		kickdata.NotifyMessage.MessageID,
-		"Invoice paid. "+user.AtName()+" allowed.",
+		msgStr,
 	))
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")

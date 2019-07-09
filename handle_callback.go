@@ -26,6 +26,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		messageId = cb.Message.MessageID
 	}
 
+	locale :=  cb.From.LanguageCode
+
 	switch {
 	case cb.Data == "noop":
 		goto answerEmpty
@@ -38,7 +40,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 		removeKeyboardButtons(cb)
-		appendTextToMessage(cb, "Canceled.")
+		msgStr, _ := translate("Canceled", locale)
+		appendTextToMessage(cb, msgStr)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		u, t, err := ensureUser(cb.From.ID, cb.From.UserName)
@@ -53,23 +56,26 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		hashfirstchars := cb.Data[4:]
 		bolt11, err := rds.Get("payinvoice:" + hashfirstchars).Result()
 		if err != nil {
+			msgStr, _ := translate("CallbackExpired", locale)
 			bot.AnswerCallbackQuery(
 				tgbotapi.NewCallback(
 					cb.ID,
-					"The payment confirmation button has expired.",
+					msgStr,
 				),
 			)
 			goto answerEmpty
 		}
 
+		msgStr, _ := translate("CallbackSending", locale)
 		bot.AnswerCallbackQuery(
-			tgbotapi.NewCallback(cb.ID, "Sending payment."),
+			tgbotapi.NewCallback(cb.ID, msgStr),
 		)
 
 		optmsats, _ := rds.Get("payinvoice:" + hashfirstchars + ":msats").Int64()
 		err = u.payInvoice(messageId, bolt11, int(optmsats))
 		if err == nil {
-			appendTextToMessage(cb, "Attempting payment.")
+			msgStr, _ := translate("CallbackAttempt", locale)
+			appendTextToMessage(cb, msgStr)
 		} else {
 			appendTextToMessage(cb, err.Error())
 		}
@@ -84,14 +90,16 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		buttonData := rds.Get("giveaway:" + params[2]).Val()
 		if buttonData != cb.Data {
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "Giveaway expired.")
+			msgStr, _ := translate("CallbackButtonExpired", locale)
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 		if err = rds.Del("giveaway:" + params[2]).Err(); err != nil {
 			log.Warn().Err(err).Str("id", params[2]).
 				Msg("error deleting giveaway check from redis")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "Giveaway error.")
+			msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveaway",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -120,22 +128,39 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		errMsg, err := u.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to give away")
-			claimer.notify("Failed to claim giveaway: " + errMsg)
+			msgTempl := map[string]interface{}{
+				"BotOp": "giveaway",
+				"Err": errMsg,
+			}
+			msgStr, _ := translateTemplate("CallbackFailed", locale, msgTempl)
+			claimer.notify(msgStr)
 			goto answerEmpty
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 		removeKeyboardButtons(cb)
-		claimer.notify(fmt.Sprintf("%s has sent you %d sat.", u.AtName(), sats))
+		msgTempl := map[string]interface{}{
+			"BotOp": "giveaway",
+			"User": u.AtName(),
+			"Sats": sats,
+		}
+		msgStr, _ := translateTemplate("CallbackFromUser", locale, msgTempl)
+		claimer.notify(msgStr)
 
 		var howtoclaimmessage = ""
 		if claimer.ChatId == 0 {
-			howtoclaimmessage = " To manage your funds, start a conversation with @" + s.ServiceId + "."
+			msgTempl = map[string]interface{}{
+				"Service": s.ServiceId,
+			}
+			howtoclaimmessage, _ = translateTemplate("HowToClaimMessage", locale, msgTempl)
 		}
-
+		msgTempl = map[string]interface{}{
+			"From": u.AtName(),
+			"To": claimer.AtName(),
+			"Sats": sats,
+		}
+		msgStr, _ = translateTemplate("SatsGivenPublic", locale, msgTempl)
 		appendTextToMessage(cb,
-			fmt.Sprintf(
-				"%d sat given from %s to %s.", sats, u.AtName(), claimer.AtName(),
-			)+howtoclaimmessage,
+			msgStr+howtoclaimmessage,
 		)
 		return
 	case strings.HasPrefix(cb.Data, "flip="):
@@ -152,7 +177,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		nregistered := int(rds.SCard(rkey).Val())
 		if nregistered == 0 {
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nCoinflip expired.")
+			msgStr, _ := translateTemplate("CallbackExpired", locale, map[string]interface{}{"BotOp": "coinflip",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -161,7 +187,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if err1 != nil || err2 != nil {
 			log.Warn().Err(err1).Err(err2).Msg("coinflip error")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nCoinflip error.")
+			msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "coinflip",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -171,7 +198,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to ensure joiner user on coinflip.")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nCoinflip error.")
+			msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "coinflip",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -198,8 +226,13 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if cb.Message != nil {
 				edit.Text = cb.Message.Text + " " + joiner.AtName()
 			} else {
-				edit.Text = fmt.Sprintf("Pay %d and get a chance to win %d! %d out of %d spots left!",
-					sats, sats*nparticipants, nparticipants-nregistered, nparticipants)
+				msgTempl := map[string]interface{}{
+					"Sats": sats,
+					"Prize": sats*nparticipants,
+					"Gamblers": nparticipants-nregistered,
+					"MaxPlayers": nparticipants,
+				}
+				edit.Text, _ = translateTemplate("CoinflipAd", locale, msgTempl)
 			}
 			bot.Send(edit)
 		} else {
@@ -211,7 +244,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to get coinflip participants")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nCoinflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "coinflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
@@ -221,7 +255,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if err != nil {
 				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nCoinflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "coinflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 
@@ -232,32 +267,44 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				if err != nil {
 					log.Warn().Err(err).Str("part", spart).Msg("participant id is not an int")
 					removeKeyboardButtons(cb)
-					appendTextToMessage(cb, "\n\nCoinflip error.")
+					msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "coinflip",})
+					appendTextToMessage(cb, msgStr)
 					goto answerEmpty
 				}
 				participants[i] = part
 			}
 
+			msgTempl := map[string]interface{}{
+				"Prize": sats,
+				"Losers": participants,
+			}
+			receiverMessage, _:= translateTemplate("CoinflipWinnerMsg", locale, msgTempl)
+			giverMessage, _:= translateTemplate("CoinflipGiverMsg", locale, msgTempl)
+
 			winner, err := fromManyToOne(sats, winnerId, participants, "coinflip",
-				"You're the winner of a coinflip for a prize of %[1]d sat. The losers were: %[2]s",
-				"You've lost %[1]d in a coinflip. The winner was %[2]s.")
+				receiverMessage,
+				giverMessage)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing coinflip transactions")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nCoinflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "coinflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 
 			removeKeyboardButtons(cb)
 			if cb.Message != nil {
-				appendTextToMessage(cb, joiner.AtName()+"\nWinner: "+winner.AtName())
+				msgStr, _ := translateTemplate("CallbackWinner", locale, map[string]interface{}{"User": joiner.AtName(), "Winner": winner.AtName()})
+				appendTextToMessage(cb, msgStr)
+				msgStr, _ = translateTemplate("CallbackCoinflipWinner", locale, map[string]interface{}{"Winner": winner.AtName(),})
 				notifyAsReply(
 					cb.Message.Chat.ID,
-					"Coinflip winner: "+winner.AtName(),
+					msgStr,
 					cb.Message.MessageID,
 				)
 			} else {
-				appendTextToMessage(cb, "Winner: "+winner.AtName())
+				msgStr, _ := translateTemplate("CallbackCoinflipWinner", locale, map[string]interface{}{"Winner": winner.AtName(),})
+				appendTextToMessage(cb, msgStr)
 			}
 		}
 	case strings.HasPrefix(cb.Data, "gifl="):
@@ -274,7 +321,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if err0 != nil || err1 != nil || err2 != nil {
 			log.Warn().Err(err0).Err(err1).Err(err2).Msg("giveflip error")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nGiveflip error.")
+			msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveflip",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -289,7 +337,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to ensure joiner user on giveflip.")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nGiveflip error.")
+			msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveflip",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -318,9 +367,12 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if cb.Message != nil {
 				edit.Text = cb.Message.Text + " " + joiner.AtName() + "?"
 			} else {
-				edit.Text = fmt.Sprintf(
-					"Join and get a chance to win %d! %d out of %d spots left!",
-					sats, nparticipants-nregistered, nparticipants)
+				msgTempl := map[string]interface{}{
+					"Prize": sats*nparticipants,
+					"Participants": nparticipants-nregistered,
+					"MaxParticipants": nparticipants,
+				}
+				edit.Text, _ = translateTemplate("GiveflipAd", locale, msgTempl)
 			}
 			bot.Send(edit)
 		} else {
@@ -331,7 +383,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to get giveflip participants")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nGiveflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
@@ -341,14 +394,16 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if err != nil {
 				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nGiveflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 			winner, err := loadUser(winnerId, 0)
 			if err != nil {
 				log.Warn().Err(err).Int("winnerId", winnerId).Msg("failed to load winner on giveflip")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nGiveflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 
@@ -357,7 +412,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if err != nil {
 				log.Warn().Err(err).Int("giverId", giverId).Msg("failed to load giver on giveflip")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nGiveflip error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "giveflip",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 
@@ -376,22 +432,32 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "giveflip", nil)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to give flip")
-				winner.notify("Failed to claim complete giveflip lottery: " + errMsg)
+				msgStr, _ := translateTemplate("CallbackFailed", locale, map[string]interface{}{"BotOp": "giveflip", "Err": errMsg,})
+				winner.notify(msgStr)
 				goto answerEmpty
 			}
 			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 			removeKeyboardButtons(cb)
-			winner.notify(fmt.Sprintf("%s has sent you %d sat on a /giveflip.", giver.AtName(), sats))
+			msgStr, _ := translateTemplate("CallbackFromUser", locale, map[string]interface{}{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip",})
+			winner.notify(msgStr)
 
 			var howtoclaimmessage = ""
 			if winner.ChatId == 0 {
-				howtoclaimmessage = " To manage your funds, start a conversation with @" + s.ServiceId + "."
+				msgTempl := map[string]interface{}{
+					"Service": s.ServiceId,
+				}
+				howtoclaimmessage, _ = translateTemplate("HowToClaimMessage", locale, msgTempl)
 			}
-
+			msgTempl := map[string]interface{}{
+				"Winner": winner.AtName(),
+				"Sats": sats,
+				"Giver": giver.AtName(),
+				"Losers": listAnd(loserNames),
+			}
+			msgStr, _ = translateTemplate("GiveflipWinnerMsg", locale, msgTempl)
 			bot.Send(tgbotapi.EditMessageTextConfig{
 				BaseEdit: getBaseEdit(cb),
-				Text: fmt.Sprintf("%s got %d from %s. %s didn't get anything.",
-					winner.AtName(), sats, giver.AtName(), listAnd(loserNames)) + howtoclaimmessage,
+				Text: msgStr + howtoclaimmessage,
 			})
 		}
 
@@ -410,7 +476,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		nregistered := int(rds.SCard(rkey).Val())
 		if nregistered == 0 {
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nFundraising expired.")
+			msgStr, _ := translateTemplate("CallbackExpired", locale, map[string]interface{}{"BotOp": "fundraising",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -429,7 +496,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to ensure joiner user on fundraise.")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "\n\nFundraising error.")
+			msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "fundraising",})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -456,6 +524,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if cb.Message != nil {
 				edit.Text = cb.Message.Text + " " + joiner.AtName()
 			} else {
+				//TODO: clarify thing about this message
 				edit.Text = fmt.Sprintf("Pay %d and get a chance to win %d! %d out of %d spots left!",
 					sats, sats*ngivers, ngivers-nregistered, ngivers)
 			}
@@ -467,7 +536,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to get fundraise givers")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nFundraising error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "fundraising",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 
@@ -478,29 +548,49 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				if err != nil {
 					log.Warn().Err(err).Str("part", spart).Msg("giver id is not an int")
 					removeKeyboardButtons(cb)
-					appendTextToMessage(cb, "\n\nFundraising error.")
+					msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "fundraising",})
+					appendTextToMessage(cb, msgStr)
 					goto answerEmpty
 				}
 				givers[i] = part
 			}
 
+			msgRecvTempl := map[string]interface{}{
+				"Sats": sats,
+				"Donors": givers,
+			}
+			receiverMessage, _:= translateTemplate("CoinflipWinnerMsg", locale, msgRecvTempl)
+			msgGivrTempl := map[string]interface{}{
+				"Donate": sats,
+				"Recepient": receiverId,
+			}
+			giverMessage, _:= translateTemplate("CoinflipGiverMsg", locale, msgGivrTempl)
 			receiver, err := fromManyToOne(sats, receiverId, givers, "fundraise",
-				"You've received %[1]d sat of a fundraise from %[2]s",
-				"You've given %[1]d in a fundraise to %[2]s.")
+				receiverMessage,
+				giverMessage)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing fundraise transactions")
 				removeKeyboardButtons(cb)
-				appendTextToMessage(cb, "\n\nFundraise error.")
+				msgStr, _ := translateTemplate("CallbackError", locale, map[string]interface{}{"BotOp": "fundraising",})
+				appendTextToMessage(cb, msgStr)
 				goto answerEmpty
 			}
 
 			removeKeyboardButtons(cb)
 			if cb.Message != nil {
-				appendTextToMessage(cb, joiner.AtName()+"\nCompleted!")
-				notifyAsReply(cb.Message.Chat.ID,
-					"Fundraising for "+receiver.AtName()+" completed!", cb.Message.MessageID)
+				msgStr, _ := translate("Completed", locale)
+				appendTextToMessage(cb, joiner.AtName()+"\n"+ msgStr+"!")
+				msgTempl := map[string]interface{}{
+					"Recepient": receiver.AtName(),
+				}
+				msgStr, _= translateTemplate("FundraiseComplete", locale, msgTempl)
+				notifyAsReply(cb.Message.Chat.ID, msgStr, cb.Message.MessageID)
 			} else {
-				appendTextToMessage(cb, "Fundraising for "+receiver.AtName()+" completed!")
+				msgTempl := map[string]interface{}{
+					"Recepient": receiver.AtName(),
+				}
+				msgStr, _ := translateTemplate("FundraiseComplete", locale, msgTempl)
+				appendTextToMessage(cb, msgStr)
 			}
 		}
 	case strings.HasPrefix(cb.Data, "remunc="):
@@ -514,10 +604,12 @@ WHERE substring(payment_hash from 0 for $2) = $1
         `, hash, len(hash)+1)
 		if err != nil {
 			log.Error().Err(err).Str("hash", hash).Msg("failed to remove pending payment")
-			appendTextToMessage(cb, "Error.")
+			msgStr, _ := translate("Error", locale)
+			appendTextToMessage(cb, msgStr)
 			return
 		}
-		appendTextToMessage(cb, "Transaction canceled.")
+		msgStr, _ := translate("TxCanceled", locale)
+		appendTextToMessage(cb, msgStr)
 	case strings.HasPrefix(cb.Data, "reveal="):
 		// locate hidden message with the key given in the callback data,
 		// perform payment between users,
@@ -527,8 +619,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		if err != nil {
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "Hidden message not found.")
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Error locating this hidden message."))
+			msgStr, _ := translate("HiddenMsgNotFound", locale)
+			appendTextToMessage(cb, msgStr)
+			msgStr, _ = translate("HiddenMsgError", locale)
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, msgStr))
 			return
 		}
 
@@ -538,7 +632,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				Int("id", sourceUserId).
 				Msg("failed to load source user on reveal")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "Error.")
+			msgStr, _ := translate("Error", locale)
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -548,14 +643,16 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to ensure revealer user on reveal")
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "Error.")
+			msgStr, _ := translate("Error", locale)
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
 		errMsg, err := u.sendInternally(messageId, sourceuser, false, satoshis*1000, "reveal", nil)
 		if err != nil {
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, "Failed to reveal: "+errMsg)
+			msgStr, _ := translateTemplate("HiddenMsgFail", locale, map[string]interface{}{"Err": errMsg,})
+			appendTextToMessage(cb, msgStr)
 			goto answerEmpty
 		}
 
@@ -572,11 +669,11 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}
 
 		// notify both parties
-		revealer.notify(fmt.Sprintf("%d sat paid to reveal the message <code>%s</code>.", satoshis, hiddenid))
-		sourceuser.notify(
-			fmt.Sprintf("Hidden message <code>%s</code> revealed by %s. You've got %d sat.",
-				hiddenid, revealer.AtName(), satoshis),
-		)
+		revealerMsgStr, _ := translateTemplate("HiddenReveal", locale, map[string]interface{}{"Sats": satoshis, "Id": hiddenid,})
+		revealer.notify(revealerMsgStr)
+		sourceMsgStr, _ := translateTemplate("HiddenSource", locale, map[string]interface{}{"Sats": satoshis, "Id": hiddenid, "Revealer": revealer.AtName(),})
+		sourceuser.notify(sourceMsgStr)
+
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
 		// either confirmed or deleted automatically
@@ -585,7 +682,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		if err != nil {
 			log.Warn().Err(err).Str("hash", hashfirstchars).
 				Msg("failed to fetch transaction for checking")
-			appendTextToMessage(cb, "Error.")
+			msgStr, _ := translate("Error", locale)
+			appendTextToMessage(cb, msgStr)
 			return
 		}
 		go func(u User, messageId int, hash string) {
@@ -621,7 +719,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				// unknown error, report
 				log.Warn().Err(err).Str("hash", hash).Str("user", u.Username).
 					Msg("unexpected error waiting payment resolution")
-				appendTextToMessage(cb, "Unexpected error: please report.")
+				msgStr, _ := translate("Unexpected", locale)
+				appendTextToMessage(cb, msgStr)
 				return
 			}
 
@@ -635,8 +734,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				payment.Get("payment_hash").String(),
 			)
 		}(u, txn.TriggerMessage, txn.Hash)
-
-		appendTextToMessage(cb, "Checking.")
+		msgStr, _ := translate("Checking", locale)
+		appendTextToMessage(cb, msgStr)
 	case strings.HasPrefix(cb.Data, "app="):
 		answer := handleExternalAppCallback(u, messageId, cb)
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))

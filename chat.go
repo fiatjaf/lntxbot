@@ -77,3 +77,8 @@ func getTicketPrice(telegramId int64) (sat int, err error) {
 
 	return
 }
+
+func getChatLocale(telegramId int64) (locale string, err error) {
+	//TODO DB request for locale setup
+	return "en", nil
+}

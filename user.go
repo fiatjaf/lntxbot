@@ -23,6 +23,7 @@ type User struct {
 	Username   string `db:"username"`
 	ChatId     int64  `db:"chat_id"`
 	Password   string `db:"password"`
+	Locale     string "en"
 }
 
 const USERFIELDS = `
@@ -751,13 +752,21 @@ SELECT * FROM (
 
 func (u User) checkBalanceFor(sats int, purpose string) bool {
 	if sats < 40 {
-		u.notify("That's too small, please start your " + purpose + " with at least 40 sat.")
+		msgTempl := map[string]interface{}{
+			"Purpose": purpose,
+		}
+		msgStr, _ := translateTemplate("TooSmallPayment", u.Locale, msgTempl)
+		u.notify(msgStr)
 		return false
 	}
 
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
-		u.notify(fmt.Sprintf("Insufficient balance for %s. Needs %.0f sat more.",
-			purpose, float64(sats)-info.Balance))
+		msgTempl := map[string]interface{}{
+			"Purpose": purpose,
+			"Sats": float64(sats)-info.Balance,
+		}
+		msgStr, _ := translateTemplate("InsufficientBalance", u.Locale, msgTempl)
+		u.notify(msgStr)
 		return false
 	}
 	return true
@@ -880,21 +889,27 @@ WHERE payment_hash = $3
 			Str("hash", hash).
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
-		u.notifyAsReply("Database error: failed to mark the transaction as not pending.", messageId)
+		msgStr, _ := translate("DBError", u.Locale)
+		u.notifyAsReply(msgStr, messageId)
 	}
+	msgTempl := map[string]interface{}{
+		"Sats": int(msatoshi/1000),
+		"Fee": fees/1000,
+		"Hash": hash,
+		"Preimage": preimage,
+		"ShortHash": hash[:5],
+	}
+	msgStr, _ := translateTemplate("PaidMessage", u.Locale, msgTempl)
 
-	u.notifyAsReply(fmt.Sprintf(
-		"Paid with <b>%d sat</b> (+ %.3f fee). \n\n<b>Hash:</b> %s\n\n<b>Proof:</b> %s\n\n/tx%s",
-		int(msatoshi/1000),
-		fees/1000,
-		hash,
-		preimage,
-		hash[:5],
-	), messageId)
+	u.notifyAsReply(msgStr, messageId)
 }
 
 func paymentHasFailed(u User, messageId int, hash string) {
-	u.notifyAsReply(fmt.Sprintf("Payment failed. /log%s", hash[:5]), messageId)
+	msgTempl := map[string]interface{}{
+		"ShortHash": hash[:5],
+	}
+	msgStr, _ := translateTemplate("PaymentFailed", u.Locale, msgTempl)
+	u.notifyAsReply(msgStr, messageId)
 
 	_, err := pg.Exec(
 		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)

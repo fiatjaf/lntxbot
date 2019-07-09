@@ -1,3 +1,4 @@
+CREATE EXTENSION pgcrypto;
 CREATE SCHEMA telegram;
 CREATE SCHEMA lightning;
 
