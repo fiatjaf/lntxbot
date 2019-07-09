@@ -2,28 +2,26 @@ package main
 
 import (
 	"fmt"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
-	"strings"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/hoisie/mustache"
 	"github.com/lucsky/cuid"
 )
 
-func handleMessage(message *tgbotapi.Message, bundle *i18n.Bundle) {
-	u, t, err := ensureUser(message.From.ID, message.From.UserName)
+func handleMessage(message *tgbotapi.Message) {
+	u, tcase, err := ensureUser(message.From.ID, message.From.UserName, message.From.LanguageCode)
 	if err != nil {
-		log.Warn().Err(err).Int("case", t).
+		log.Warn().Err(err).Int("case", tcase).
 			Str("username", message.From.UserName).
 			Int("id", message.From.ID).
 			Msg("failed to ensure user")
 		return
 	}
-	locale :=  message.From.LanguageCode
 	//
 	if message.Chat.Type == "private" {
 		// after ensuring the user we should always enable him to
@@ -65,11 +63,7 @@ func handleMessage(message *tgbotapi.Message, bundle *i18n.Bundle) {
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
 				Msg("failed to get transaction")
-			msgTempl := map[string]interface{}{
-				"HashFirstChars":             hashfirstchars,
-			}
-			msgStr, _ := translateTemplate("TxNotFound", locale, msgTempl)
-			u.notifyAsReply(msgStr, message.MessageID)
+			u.notifyAsReply(t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars}, message.MessageID)
 			return
 		}
 
@@ -86,45 +80,39 @@ func handleMessage(message *tgbotapi.Message, bundle *i18n.Bundle) {
 			claimStatus = "(💤 unclaimed)"
 		}
 
-		msgTempl := map[string]interface{}{
-			"Status": txn.Status,
+		txstatus, _ := translateTemplate(t.TXINFO, u.Locale, t.T{
+			"Status":                txn.Status,
 			"PeerActionDescription": txn.PeerActionDescription(),
-			"TimeFormatted": txn.TimeFormat(),
-			"ClaimStatus": claimStatus,
-			"Description": txn.Description,
-			"PayeeLink": txn.PayeeLink(),
-			"PayeeAlias": txn.PayeeAlias(),
-			"Hash": txn.Hash,
-			"PreimageString": txn.Preimage,
-			"Amount": txn.Amount,
-			"Fees": txn.FeeSatoshis(),
+			"TimeFormatted":         txn.TimeFormat(),
+			"ClaimStatus":           claimStatus,
+			"Description":           txn.Description,
+			"PayeeLink":             txn.PayeeLink(),
+			"PayeeAlias":            txn.PayeeAlias(),
+			"Hash":                  txn.Hash,
+			"PreimageString":        txn.Preimage,
+			"Amount":                txn.Amount,
+			"Fees":                  txn.FeeSatoshis(),
+		})
+		txstatus += "\n" + renderLogInfo(hashfirstchars)
 
-		}
-
-		msgStr, _ := translateTemplate("TxInfo", locale, msgTempl)
-		msgStr += "\n" + renderLogInfo(hashfirstchars)
-
-		id := u.notifyAsReply(msgStr, txn.TriggerMessage).MessageID
+		msgId := u.notifyAsReply(txstatus, txn.TriggerMessage).MessageID
 
 		if txn.Status == "PENDING" {
 			// allow people to cancel pending if they're old enough
-			msgStr, _ := translate("RecheckPending", locale)
-			editWithKeyboard(u.ChatId, id, text+msgStr,
+			editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData("Yes", "check="+hashfirstchars),
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
 					),
 				),
 			)
 		}
 
 		if txn.IsUnclaimed() {
-			quesStr, _ := translate("RetractQuestion", locale)
-			answStr, _ := translate("Yes", locale)
-			editWithKeyboard(u.ChatId, id, text+ quesStr,
+			editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(answStr, "remunc="+hashfirstchars),
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
 					),
 				),
 			)
@@ -154,10 +142,9 @@ func handleMessage(message *tgbotapi.Message, bundle *i18n.Bundle) {
 				Msg("Failed to parse command")
 
 			method := strings.Split(text, " ")[0][1:]
-			handled := handleHelp(u, method, locale)
+			handled := handleHelp(u, method, u.Locale)
 			if !handled {
-				msgStr, _ := translate("WrongCommand", locale)
-				u.notify(msgStr)
+				u.notify(t.WRONGCOMMAND)
 			}
 		}
 
@@ -180,16 +167,14 @@ parsed:
 	case opts["start"].(bool):
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
-			msgStr, _ := translate("Welcome", locale)
-			u.notify(msgStr)
+			u.notify(t.WELCOME, nil)
 			handleHelp(u, "", locale)
 		}
 		break
 	case opts["stop"].(bool):
 		if message.Chat.Type == "private" {
 			u.unsetChat()
-			msgStr, _ := translate("StopNotify", locale)
-			u.notify(msgStr)
+			u.notify(t.STOPNOTIFY, nil)
 		}
 		break
 	case opts["app"].(bool), opts["lapp"].(bool):
@@ -203,8 +188,7 @@ parsed:
 
 			if v, exists := opts["<satoshis>"]; exists && v != nil && v.(string) != "any" {
 				// ok, it exists, so it's an invalid amount.
-				msgStr, _ := translate("InvalidAmt", locale)
-				u.notify(msgStr + v.(string))
+				u.notify(t.INVALIDAMT, t.T{"Amount": v})
 				break
 			}
 
@@ -225,12 +209,12 @@ parsed:
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
 			msgStr, _ := translate("FailedInvoice", locale)
-			notify(message.Chat.ID, messageFromError(err, msgStr))
+			sendMessage(message.Chat.ID, messageFromError(err, msgStr))
 			return
 		}
 
 		// send invoice with qr code
-		notifyWithPicture(message.Chat.ID, qrpath, bolt11)
+		sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
 
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
@@ -239,7 +223,7 @@ parsed:
 		if message.Chat.Type == "private" {
 			defaultNotify = func(m string) { u.notifyAsReply(m, message.MessageID) }
 		} else if isSpammy(message.Chat.ID) {
-			defaultNotify = func(m string) { notifyAsReply(message.Chat.ID, m, message.MessageID) }
+			defaultNotify = func(m string) { sendMessageAsReply(message.Chat.ID, m, message.MessageID) }
 		}
 
 		// sending money to others
@@ -291,7 +275,7 @@ parsed:
 			reply := message.ReplyToMessage
 
 			var t int
-			rec, t, err := ensureUser(reply.From.ID, reply.From.UserName)
+			rec, t, err := ensureUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
 			receiver = &rec
 			if err != nil {
 				log.Warn().Err(err).Int("case", t).
@@ -309,9 +293,7 @@ parsed:
 			}
 		} else {
 			// if we ever reach this point then it's because the receiver is missing.
-			msgStr0, _ := translate("CantSend", locale)
-			msgStr1, _ := translate("NoReceiver", locale)
-			defaultNotify( msgStr0 + opts["<satoshis>"].(string) + msgStr1)
+			defaultNotify(translateTemplate(t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]}))
 			break
 		}
 	ensured:
@@ -343,54 +325,36 @@ parsed:
 
 		if receiver.ChatId != 0 {
 			if anonymous {
-				msgTempl := map[string]interface{}{
-					"Sats": sats,
-				}
-				msgStr, _ := translateTemplate("ReceivedSats", locale, msgTempl)
-				receiver.notify(msgStr)
+				receiver.notify(t.RECEIVEDSATS, t.T{"Sats": sats})
 			} else {
-				msgTempl := map[string]interface{}{
+				msgTempl := map[string]interface{}{}
+				msgStr, _ := translateTemplate("UserSentYouSats", locale, msgTempl)
+				receiver.notify(t.USERSENTYOUSATS, t.T{
 					"User": u.AtName(),
 					"Sats": sats,
-				}
-				msgStr, _ := translateTemplate("UserSentYouSats", locale, msgTempl)
-				receiver.notify(msgStr)
+				})
 			}
 		}
 
 		if message.Chat.Type == "private" {
-			warning := ""
-			if receiver.ChatId == 0 {
-				warnTempl := map[string]interface{}{
-					"User": todisplayname,
-				}
-				warning, _ = translateTemplate("NoUserWarning", locale, warnTempl)
-			}
-			msgTempl := map[string]interface{}{
-				"User": todisplayname,
-				"Sats": sats,
-				"Warning": warning,
-			}
-			msgStr, _ := translateTemplate("UserSentToUser", locale, msgTempl)
-			u.notifyAsReply(
-				msgStr,
-				message.MessageID,
-			)
+			u.notifyAsReply(t.USERSENTTOUSER, t.T{
+				"User":              todisplayname,
+				"Sats":              sats,
+				"ReceiverHasNoChat": receiver.ChatId == 0,
+			}, message.MessageID)
 			break
 		}
-		msgTempl := map[string]interface{}{
-			"User": todisplayname,
-			"Sats": sats,
-			"Warning": "",
-		}
-		msgStr, _ := translateTemplate("UserSentToUser", locale, msgTempl)
-		defaultNotify(msgStr)
+
+		defaultNotify(translateTemplate(t.USERSENTTOUSER, locale, t.T{
+			"User":              todisplayname,
+			"Sats":              sats,
+			"ReceiverHasNoChat": false,
+		}))
 		break
 	case opts["giveaway"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			msgStr, _ := translate("InvalidAmount", locale)
-			u.notify(msgStr + opts["<satoshis>"].(string))
+			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !u.checkBalanceFor(sats, "giveaway") {
@@ -411,8 +375,7 @@ parsed:
 	case opts["giveflip"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			msgStr, _ := translate("InvalidAmount", locale)
-			u.notify(msgStr + opts["<satoshis>"].(string))
+			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !u.checkBalanceFor(sats, "giveflip") {
@@ -422,16 +385,15 @@ parsed:
 		var nparticipants int
 		if n, err := opts.Int("<num_participants>"); err == nil {
 			if n < 2 || n > 100 {
-				msgStr, _ := translate("InvalidPartNumber", locale)
-				u.notify(msgStr + strconv.Itoa(n))
+				u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
 				break
 			} else {
 				nparticipants = n
 			}
 		}
 		msgTempl := map[string]interface{}{
-			"User": u.AtName(),
-			"Sats": sats,
+			"User":         u.AtName(),
+			"Sats":         sats,
 			"Participants": nparticipants,
 		}
 		msgStr, _ := translateTemplate("GiveFlipMsg", locale, msgTempl)
@@ -447,8 +409,7 @@ parsed:
 		// open a lottery between a number of users in a group
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			msgStr, _ := translate("InvalidAmount", locale)
-			u.notify(msgStr + opts["<satoshis>"].(string))
+			u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !u.checkBalanceFor(sats, "coinflip") {
@@ -458,21 +419,20 @@ parsed:
 		nparticipants := 2
 		if n, err := opts.Int("<num_participants>"); err == nil {
 			if n < 2 || n > 100 {
-				msgStr, _ := translate("InvalidPartNumber", locale)
-				u.notify(msgStr + strconv.Itoa(n))
+				u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
 				break
 			} else {
 				nparticipants = n
 			}
 		}
 		msgTempl := map[string]interface{}{
-			"EntrySats": sats,
+			"EntrySats":    sats,
 			"Participants": nparticipants,
-			"Prize": sats*nparticipants,
-			"Registered": u.AtName(),
+			"Prize":        sats * nparticipants,
+			"Registered":   u.AtName(),
 		}
 		msgStr, _ := translateTemplate("LotteryMsg", locale, msgTempl)
-		chattable := tgbotapi.NewMessage( message.Chat.ID, msgStr,)
+		chattable := tgbotapi.NewMessage(message.Chat.ID, msgStr)
 
 		coinflipid := cuid.Slug()
 		rds.SAdd("coinflip:"+coinflipid, u.Id)
@@ -483,8 +443,7 @@ parsed:
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			msgStr, _ := translate("InvalidAmount", locale)
-			u.notify(msgStr + opts["<satoshis>"].(string))
+			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !u.checkBalanceFor(sats, "fundraise") {
@@ -493,29 +452,25 @@ parsed:
 
 		nparticipants, err := opts.Int("<num_participants>")
 		if err != nil || nparticipants < 2 || nparticipants > 100 {
-			msgStr, _ := translate("InvalidPartNumber", locale)
-			u.notify(msgStr + strconv.Itoa(nparticipants))
+			u.notify(t.INVALIDPARTNUMBER, t.T{"Number": nparticipants})
 			break
 		}
 
 		receiver, receiverdisplayname, err := parseUsername(message, opts["<receiver>"])
 		if err != nil {
 			log.Warn().Err(err).Msg("parsing fundraise receiver")
-			msgStr, _ := translate("FailedUser", locale)
-			u.notify(msgStr)
+			u.notify(t.FAILEDUSER, nil)
 			break
 		}
-		msgTempl := map[string]interface{}{
-			"ToUser": receiverdisplayname,
-			"Participants": nparticipants,
-			"Sats": sats,
-			"Fund": sats*nparticipants,
-			"Registered": u.AtName(),
-		}
-		msgStr, _ := translateTemplate("FundraiseMsg", locale, msgTempl)
 		chattable := tgbotapi.NewMessage(
 			message.Chat.ID,
-			msgStr,
+			translateTemplate(t.FUNDRAISEAD, g.Locale, t.T{
+				"ToUser":       receiverdisplayname,
+				"Participants": nparticipants,
+				"Sats":         sats,
+				"Fund":         sats * nparticipants,
+				"Registered":   u.AtName(),
+			}),
 		)
 
 		fundraiseid := cuid.Slug()
@@ -531,14 +486,14 @@ parsed:
 
 		sats, err := opts.Int("<satoshis>")
 		if err != nil || sats == 0 {
-			u.notify("Invalid amount: " + opts["<satoshis>"].(string))
+			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 
 		hiddenid := cuid.Slug()
 		err = rds.Set(fmt.Sprintf("hidden:%d:%s:%d", u.Id, hiddenid, sats), content, s.HiddenMessageTimeout).Err()
 		if err != nil {
-			u.notify("Failed to store hidden content. Please report: " + err.Error())
+			u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
 			break
 		}
 
@@ -548,14 +503,14 @@ parsed:
 
 		found := rds.Keys("hidden:*:" + hiddenid + ":*").Val()
 		if len(found) == 0 {
-			u.notifyAsReply("No hidden message found with the given id.", message.MessageID)
+			u.notifyAsReply(t.HIDDENMSGNOTFOUND, nil, message.MessageID)
 			break
 		}
 
 		redisKey := found[0]
 		_, _, _, preview, satoshis, err := getHiddenMessage(redisKey)
 		if err != nil {
-			u.notify("Error loading hidden message. Please report: " + err.Error())
+			u.notify(t.HIDDENMSGERROR, t.T{"Err": err.Error()})
 			break
 		}
 
@@ -576,23 +531,14 @@ parsed:
 				Msg("failed to list transactions")
 			break
 		}
-		titleTempl := map[string]interface{}{
-			"Limit": limit,
-		}
-		titleStr, _ := translateTemplate("TxHistTitle", locale, titleTempl)
 
-		if offset > 0 {
-			titleTempl := map[string]interface{}{
-				"From": offset+1,
-				"To": offset+limit,
-			}
-			titleStr, _ = translateTemplate("TxHistTitleOffset", locale, titleTempl)
-		}
-		u.notify(mustache.Render(`<b>{{title}}</b>
-{{#txns}}
-<code>{{StatusSmall}}</code> <code>{{PaddedSatoshis}}</code> {{Icon}} {{PeerActionDescription}}{{^TelegramPeer.Valid}}<i>{{Description}}</i>{{/TelegramPeer.Valid}} <i>{{TimeFormatSmall}}</i> /tx{{HashReduced}}
-{{/txns}}
-        `, map[string]interface{}{"title": titleStr, "txns": txns}))
+		u.notify(t.TXLIST, t.T{
+			"Offset":       offset,
+			"Limit":        limit,
+			"From":         offset + 1,
+			"To":           offset + limit,
+			"Transactions": txns,
+		})
 		break
 	case opts["balance"].(bool):
 		// show balance
@@ -602,15 +548,13 @@ parsed:
 			break
 		}
 
-		msgTempl := map[string]interface{}{
-			"Sats": info.Balance,
-			"USD": getDollarPrice(int64(info.Balance*1000)),
+		u.notify(t.BALANCEMSG, t.T{
+			"Sats":     info.Balance,
+			"USD":      getDollarPrice(int64(info.Balance * 1000)),
 			"Received": info.TotalReceived,
-			"Sent": info.TotalSent,
-			"Fees": info.TotalFees,
-		}
-		msgStr, _ := translateTemplate("BalanceMsg", locale, msgTempl)
-		u.notify(msgStr)
+			"Sent":     info.TotalSent,
+			"Fees":     info.TotalFees,
+		})
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		// pay invoice
@@ -625,13 +569,11 @@ parsed:
 			if message.ReplyToMessage != nil {
 				bolt11, ok = searchForInvoice(*message.ReplyToMessage)
 				if !ok {
-					msgStr, _ := translate("NoInvoice", locale)
-					u.notify(msgStr)
+					u.notify(t.NOINVOICE, nil)
 					break
 				}
 			}
-			msgStr, _ := translate("NoInvoice", locale)
-			u.notify(msgStr)
+			u.notify(t.NOINVOICE, nil)
 			break
 		} else {
 			bolt11 = ibolt11.(string)
@@ -644,8 +586,7 @@ parsed:
 			// decode invoice and show a button for confirmation
 			inv, nodeAlias, usd, err := decodeInvoice(bolt11)
 			if err != nil {
-				errMsg := messageFromError(err, "Failed to decode invoice")
-				notify(u.ChatId, errMsg)
+				sendMessage(u.ChatId, messageFromError(err, "Failed to decode invoice"))
 				break
 			}
 
@@ -655,42 +596,31 @@ parsed:
 			}
 
 			hash := inv.Get("payment_hash").String()
-			msgTempl := map[string]interface{}{
-				"Sats": amount/1000,
-				"USD": usd,
-				"Desc": escapeHTML(inv.Get("description").String()),
-				"Hash": hash,
-				"Node": nodeLink(inv.Get("payee").String()),
-				"Alias": nodeAlias,
-			}
-			msgStr, _ := translateTemplate("ConfirmInvoice", locale, msgTempl)
 
-			msg := notify(u.ChatId, msgStr)
-			id := msg.MessageID
+			msgText := translateTemplate(t.CONFIRMINVOICE, u.Locale, t.T{
+				"Sats":  amount / 1000,
+				"USD":   usd,
+				"Desc":  escapeHTML(inv.Get("description").String()),
+				"Hash":  hash,
+				"Node":  nodeLink(inv.Get("payee").String()),
+				"Alias": nodeAlias,
+			})
+			msgId := sendMessage(u.Id, msgText).MessageID
 
 			hashfirstchars := hash[:5]
 			rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)
 			rds.Set("payinvoice:"+hashfirstchars+":msats", optmsats, s.PayConfirmTimeout)
-			askStr, _ := translate("AskToConfirm", locale)
-			yesStr, _ := translate("Yes", locale)
-			cancelStr, _ := translate("Cancel", locale)
 
-			cancelTempl := map[string]interface{}{
-				"User": u.Id,
-			}
-			calcelInlStr, _ := translateTemplate("CancelTemp", locale, cancelTempl)
-
-			payTempl := map[string]interface{}{
-				"Hash": hashfirstchars,
-			}
-			payInlStr, _ := translateTemplate("PayTemp", locale, payTempl)
-
-			editWithKeyboard(u.ChatId, id,
-				msgStr + askStr,
+			editWithKeyboard(u.ChatId, msgId,
+				msgText+"\n\n"+translate(t.ASKTOCONFIRM, u.Locale),
 				tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(cancelStr, calcelInlStr),
-						tgbotapi.NewInlineKeyboardButtonData(yesStr, payInlStr),
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.CANCEL, u.Locale),
+							fmt.Sprintf("cancel=%d", u.Id)),
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.YES, u.Id),
+							fmt.Sprintf("pay=%s", hashfirstchars)),
 					),
 				),
 			)
@@ -707,14 +637,16 @@ parsed:
 			password, err = u.updatePassword()
 			if err != nil {
 				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
-				u.notify("Error updating password. Please report this issue.")
+				u.notify(t.BLUEWALLETPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
 			}
 		}
 
-		u.notify(fmt.Sprintf("<code>lndhub://%d:%s@%s</code>", u.Id, password, s.ServiceURL))
+		u.notify(t.BLUEWALLETCREDENTIALS, t.T{
+			"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
+		})
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
-		handleHelp(u, command, locale)
+		handleHelp(u, command)
 		break
 	case opts["toggle"].(bool):
 		if message.Chat.Type == "private" {
@@ -725,14 +657,15 @@ parsed:
 			break
 		}
 
+		// fetch group options so we have the locale
+
 		switch {
 		case opts["ticket"].(bool):
 			log.Debug().Int64("group", message.Chat.ID).Msg("toggling ticket")
 			price, err := opts.Int("<price>")
 			if err != nil {
 				setTicketPrice(message.Chat.ID, 0)
-				msgStr, _ := translate("FreeJoin", locale)
-				notify(message.Chat.ID, msgStr)
+				sendMessage(message.Chat.ID, translate("FreeJoin", g.Locale))
 			}
 			setTicketPrice(message.Chat.ID, price)
 			filterTempl := map[string]interface{}{
@@ -742,7 +675,7 @@ parsed:
 			notify(message.Chat.ID, filterStr)
 		case opts["spammy"].(bool):
 			log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
-			spammy, err := toggleSpammy(message.Chat.ID)
+			err = toggleSpammy(message.Chat.ID)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to toggle spammy")
 				break
@@ -759,7 +692,7 @@ parsed:
 	}
 }
 
-func handleEditedMessage(message *tgbotapi.Message, bundle *i18n.Bundle) {
+func handleEditedMessage(message *tgbotapi.Message) {
 	res, err := rds.Get(fmt.Sprintf("parseerror:%d", message.MessageID)).Result()
 	if err != nil {
 		return
@@ -769,5 +702,5 @@ func handleEditedMessage(message *tgbotapi.Message, bundle *i18n.Bundle) {
 		return
 	}
 
-	handleMessage(message, bundle)
+	handleMessage(message)
 }

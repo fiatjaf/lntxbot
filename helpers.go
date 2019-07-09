@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"git.alhur.es/fiatjaf/lntxbot/t"
 
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -406,32 +407,29 @@ func roman(number int) string {
 	return roman
 }
 
-func listAnd(names []string) string {
-	if len(names) == 1 {
-		return names[0]
+func translate(key t.Key, locale string) string {
+	return translateTemplate(key, locale, nil)
+}
+
+func translateTemplate(key t.Key, locale string, data t.T) string {
+	msg, err := bundle.Render(locale, key, data)
+
+	if err != nil {
+		log.Error().Err(err).Str("locale", locale).Str("key", key).
+			Msg("translation failed")
 	}
-	str := strings.Join(names[:len(names)-1], ", ")
-	str += " and " + names[len(names)-1]
-	return str
-}
 
-func translate(key, locale string) (string, error) {
-	localizer := i18n.NewLocalizer(bundle, locale)
-	msg, err := localizer.Localize(
-		&i18n.LocalizeConfig{
-			MessageID: key,
-		},
-	)
 	return msg, err
 }
 
-func translateTemplate(key, locale string, template map[string]interface{}) (string, error) {
-	localizer := i18n.NewLocalizer(bundle, locale)
-	msg, err := localizer.Localize(
-		&i18n.LocalizeConfig{
-			MessageID: key,
-			TemplateData: template,
-		},
-	)
-	return msg, err
+func escapeHTML(m string) string {
+	return strings.Replace(
+		strings.Replace(
+			strings.Replace(
+				strings.Replace(
+					m,
+					"&", "&amp;", -1),
+				"<", "&lt;", -1),
+			">", "&gt;", -1),
+		"\"", "&quot;", -1)
 }

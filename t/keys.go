@@ -1,0 +1,148 @@
+package t
+
+type Key string
+
+const (
+	NO         Key = "No"
+	YES            = "Yes"
+	CANCEL         = "Cancel"
+	CANCELED       = "Canceled"
+	COMPLETED      = "Completed"
+	ERROR          = "Error"
+	CHECKING       = "Checking"
+	TXCANCELED     = "TxCanceled"
+	UNEXPECTED     = "Unexpected"
+
+	CLAIMFAILED = "ClaimFailed"
+
+	CALLBACKCOINFLIPWINNER = "CallbackCoinflipWinner"
+	CALLBACKWINNER         = "CallbackWinner"
+	CALLBACKFROMUSER       = "CallbackFromUser"
+	CALLBACKERROR          = "CallbackError"
+	CALLBACKEXPIRED        = "CallbackExpired"
+	CALLBACKATTEMPT        = "CallbackAttempt"
+	CALLBACKSENDING        = "CallbackSending"
+	CALLBACKBUTTONEXPIRED  = "CallbackButtonExpired"
+
+	USERALLOWED       = "UserAllowed"
+	SPAMFILTERMESSAGE = "SpamFilterMessage"
+
+	PAYMENTFAILED       = "PaymentFailed"
+	PAIDMESSAGE         = "PaidMessage"
+	DBERROR             = "DBError"
+	INSUFFICIENTBALANCE = "InsufficientBalance"
+	TOOSMALLPAYMENT     = "TooSmallPayment"
+
+	PAYMENTRECEIVED      = "PaymentReceived"
+	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
+
+	NOSPAMMYMSG  = "NoSpammyMsg"
+	SPAMMYMSG    = "SpammyMsg"
+	FILTERMSG    = "FilterMsg"
+	FREEJOIN     = "FreeJoin"
+	ASKTOCONFIRM = "AskToConfirm"
+
+	HELPINTRO   = "HelpIntro"
+	HELPSIMILAR = "HelpSimilar"
+	HELPMETHOD  = "HelpMethod"
+
+	RECEIVEHELPARGS    = "receiveHelpArgs"
+	RECEIVEHELPDESC    = "receiveHelpDesc"
+	RECEIVEHELPEXAMPLE = "receiveHelpExample"
+
+	PAYHELPARGS    = "payHelpArgs"
+	PAYHELPDESC    = "payHelpDesc"
+	PAYHELPEXAMPLE = "payHelpExample"
+
+	SENDHELPARGS    = "sendHelpArgs"
+	SENDHELPDESC    = "sendHelpDesc"
+	SENDHELPEXAMPLE = "sendHelpExample"
+
+	BALANCEHELPDESC = "balanceHelpDesc"
+
+	GIVEAWAYHELPARGS        = "giveawayHelpArgs"
+	GIVEAWAYHELPDESC        = "giveawayHelpDesc"
+	GIVEAWAYHELPEXAMPLE     = "giveawayHelpExample"
+	GIVEAWAYMSG             = "GiveAwayMsg"
+	GIVEAWAYSATSGIVENPUBLIC = "GiveawaySatsGivenPublic"
+
+	COINFLIPHELPARGS    = "coinflipHelpArgs"
+	COINFLIPHELPDESC    = "coinflipHelpDesc"
+	COINFLIPHELPEXAMPLE = "coinflipHelpExample"
+	COINFLIPWINNERMSG   = "CoinflipWinnerMsg"
+	COINFLIPGIVERMSG    = "CoinflipGiverMsg"
+	COINFLIPAD          = "CoinflipAd"
+
+	GIVEFLIPHELPARGS    = "giveflipHelpArgs"
+	GIVEFLIPHELPDESC    = "giveflipHelpDesc"
+	GIVEFLIPHELPEXAMPLE = "giveflipHelpExample"
+	GIVEFLIPMSG         = "GiveFlipMsg"
+	GIVEFLIPWINNERMSG   = "GiveflipWinnerMsg"
+	GIVEFLIPAD          = "GiveflipAd"
+
+	FUNDRAISEHELPARGS    = "fundraiseHelpArgs"
+	FUNDRAISEHELPDESC    = "fundraiseHelpDesc"
+	FUNDRAISEHELPEXAMPLE = "fundraiseHelpExample"
+	FUNDRAISEAD          = "FundraiseAd"
+	FUNDRAISECOMPLETE    = "FundraiseComplete"
+	FUNDRAISERECEIVERMSG = "FundraiseReceiverMsg"
+	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
+
+	BLUEWALLETHELPARGS            = "bluewalletHelpArgs"
+	BLUEWALLETHELPDESC            = "bluewalletHelpDesc"
+	BLUEWALLETHELPEXAMPLE         = "bluewalletHelpExample"
+	BLUEWALLETPASSWORDUPDATEERROR = "BluewalletPasswordUpdateError"
+	BLUEWALLETCREDENTIALS         = "BluewalletCredentials"
+
+	HIDEHELPARGS      = "hideHelpArgs"
+	HIDEHELPDESC      = "hideHelpDesc"
+	HIDEHELPEXAMPLE   = "hideHelpExample"
+	REVEALHELPARGS    = "revealHelpArgs"
+	REVEALHELPDESC    = "revealHelpDesc"
+	REVEALHELPEXAMPLE = "revealHelpExample"
+	HIDDENSOURCE      = "HiddenSource"
+	HIDDENREVEAL      = "HiddenReveal"
+	HIDDENSTOREFAIL   = "HiddenStoreFail"
+	HIDDENMSGFAIL     = "HiddenMsgFail"
+	HIDDENMSGNOTFOUND = "HiddenMsgNotFound"
+	HIDDENMSGERROR    = "HiddenMsgError"
+
+	APPHELPARGS    = "appHelpArgs"
+	APPHELPDESC    = "appHelpDesc"
+	APPHELPEXAMPLE = "appHelpExample"
+
+	TOGGLEHELPARGS    = "toggleHelpArgs"
+	TOGGLEHELPDESC    = "toggleHelpDesc"
+	TOGGLEHELPEXAMPLE = "toggleHelpExample"
+
+	HELPHELPARGS = "helpHelpArgs"
+	HELPHELPDESC = "helpHelpDesc"
+
+	STOPHELPDESC = "stopHelpDesc"
+
+	CONFIRMINVOICE     = "ConfirmInvoice"
+	NOINVOICE          = "NoInvoice"
+	BALANCEMSG         = "BalanceMsg"
+	FAILEDUSER         = "FailedUser"
+	LOTTERYMSG         = "LotteryMsg"
+	INVALIDPARTNUMBER  = "InvalidPartNumber"
+	INVALIDAMOUNT      = "InvalidAmount"
+	USERSENTTOUSER     = "UserSentToUser"
+	USERSENTYOUSATS    = "UserSentYouSats"
+	RECEIVEDSATS       = "ReceivedSats"
+	FAILEDSEND         = "FailedSend"
+	SAVERECEIVERFAIL   = "SaveReceiverFail"
+	CANTSENDNORECEIVER = "CantSendNoReceiver"
+	GIVERCANTJOIN      = "GiverCantJoin"
+	CANTJOINTWICE      = "CantJoinTwice"
+	FAILEDINVOICE      = "FailedInvoice"
+	INVALIDAMT         = "InvalidAmt"
+	STOPNOTIFY         = "StopNotify"
+	WELCOME            = "Welcome"
+	WRONGCOMMAND       = "WrongCommand"
+	RETRACTQUESTION    = "RetractQuestion"
+	RECHECKPENDING     = "RecheckPending"
+	TXNOTFOUND         = "TxNotFound"
+	TXINFO             = "TxInfo"
+	TXLIST             = "TxList"
+)

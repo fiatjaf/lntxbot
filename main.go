@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -9,15 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/rs/zerolog"
-	"golang.org/x/text/language"
 	"gopkg.in/redis.v5"
 )
 
@@ -46,7 +43,7 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
-var bundle *i18n.Bundle
+var bundle t.Bundle
 
 func main() {
 	err = envconfig.Process("", &s)
@@ -54,12 +51,9 @@ func main() {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
 	}
 
-	langFiles := []string{"translations/en.toml", "translations/es.toml", "translations/ru.toml"}
-
-	bundle, err = CreateLocalizerBundle(langFiles)
+	bundle, err = createLocalizerBundle()
 	if err != nil {
 		log.Fatal().Err(err).Msg("error initialising localization")
-		panic(err)
 	}
 
 	setupCommands()
@@ -160,7 +154,7 @@ func main() {
 	startKicking()
 
 	for update := range updates {
-		handle(update, bundle)
+		handle(update)
 	}
 }
 
@@ -183,24 +177,13 @@ func probeLightningd() string {
 }
 
 // CreateLocalizerBundle reads language files and registers them in i18n bundle
-func CreateLocalizerBundle(langFiles []string) (*i18n.Bundle, error) {
+func createLocalizerBundle(langFiles []string) (t.Bundle, error) {
 	// Bundle stores a set of messages
-	bundle = i18n.NewBundle(language.English)
+	bundle = t.NewBundle("en")
 
-	// Enable bundle to understand yaml
-	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
-
-	var translations []byte
-	var err error
-	for _, file := range langFiles {
-		// Read our language toml file
-		translations, err = ioutil.ReadFile(file)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Unable to read translation file")
-			return nil, err
-		}
-		// It parses the bytes in buffer to add translations to the bundle
-		bundle.MustParseMessageFileBytes(translations, file)
+	err := bundle.AddLanguage("en", t.EN)
+	if err != nil {
+		return bundle, err
 	}
 
 	return bundle, nil

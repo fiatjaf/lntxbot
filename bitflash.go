@@ -95,7 +95,7 @@ func payBitflashInvoice(user User, order BitflashOrder, messageId int) (err erro
 			// on success
 			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
 
-			u.notifyAsReply("Transaction queued!", messageId)
+			sendMessageAsReply(u.ChatId, "Transaction queued!", messageId)
 		},
 		func(
 			u User,
@@ -122,8 +122,7 @@ func saveBitflashOrder(user User, orderId string) {
 		data.Orders = append(data.Orders, orderId)
 		err = user.setAppData("bitflash", data)
 		if err != nil {
-			user.notify("Failed to save Bitflash order. Please report: " + err.Error())
+			sendMessage(user.ChatId, "Failed to save Bitflash order. Please report: "+err.Error())
 		}
 	}
-
 }

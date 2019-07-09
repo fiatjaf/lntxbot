@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"strings"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
 )
 
-func handle(upd tgbotapi.Update, bundle *i18n.Bundle) {
+func handle(upd tgbotapi.Update) {
 	if upd.Message != nil {
 		// people joining
 		if upd.Message.NewChatMembers != nil {
@@ -20,7 +20,7 @@ func handle(upd tgbotapi.Update, bundle *i18n.Bundle) {
 		// normal message
 		proceed := interceptMessage(upd.Message)
 		if proceed {
-			handleMessage(upd.Message, bundle)
+			handleMessage(upd.Message)
 		} else {
 			deleteMessage(upd.Message)
 		}
@@ -29,7 +29,7 @@ func handle(upd tgbotapi.Update, bundle *i18n.Bundle) {
 	} else if upd.InlineQuery != nil {
 		handleInlineQuery(upd.InlineQuery)
 	} else if upd.EditedMessage != nil {
-		handleEditedMessage(upd.EditedMessage, bundle)
+		handleEditedMessage(upd.EditedMessage)
 	}
 }
 
@@ -86,26 +86,16 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
 		preimage,
 		label,
 	)
-	//TODO: connect locale to user property
-	locale := "en"
 	if err != nil {
-		msgTempl := map[string]interface{}{
+		receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{
 			"Label": label,
-			"Hash": hash,
-		}
-		msgStr, _ := translateTemplate("FailedToSavePayReq", locale, msgTempl)
-		receiver.notify(
-			msgStr,
-		)
+			"Hash":  hash,
+		}, messageId)
 		return
 	}
-	msgTempl := map[string]interface{}{
-		"Sats": msats/1000,
+
+	receiver.notifyAsReply(t.PAYMENTRECEIVED, t.T{
+		"Sats": msats / 1000,
 		"Hash": hash[:5],
-	}
-	msgStr, _ := translateTemplate("PaymentRecieved", locale, msgTempl)
-	receiver.notify(
-		msgStr,
-	)
-	receiver.notifyAsReply(msgStr, messageId)
+	}, messageId)
 }

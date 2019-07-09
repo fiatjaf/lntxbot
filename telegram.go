@@ -10,11 +10,11 @@ import (
 	"github.com/lucsky/cuid"
 )
 
-func notify(chatId int64, msg string) tgbotapi.Message {
+func sendMessage(chatId int64, msg string) tgbotapi.Message {
 	return notifyAsReply(chatId, msg, 0)
 }
 
-func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
+func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
 	chattable.ParseMode = "HTML"
@@ -31,18 +31,7 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	return message
 }
 
-func notifyMarkdown(chatId int64, msg string) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.ParseMode = "Markdown"
-	chattable.DisableWebPagePreview = true
-	message, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
-	}
-	return message
-}
-
-func notifyWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
+func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
 	if picturepath == "" {
 		return notify(chatId, message)
 	} else {
@@ -128,18 +117,6 @@ func fundraiseKeyboard(
 	)
 }
 
-func escapeHTML(m string) string {
-	return strings.Replace(
-		strings.Replace(
-			strings.Replace(
-				strings.Replace(
-					m,
-					"&", "&amp;", -1),
-				"<", "&lt;", -1),
-			">", "&gt;", -1),
-		"\"", "&quot;", -1)
-}
-
 func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
 	baseEdit := getBaseEdit(cb)
 
@@ -163,6 +140,7 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 	bot.Send(tgbotapi.EditMessageTextConfig{
 		BaseEdit: baseEdit,
 		Text:     text,
+		DisableWebPagePreview: true,
 	})
 }
 
@@ -213,9 +191,9 @@ func getChatOwner(chatId int64) (User, error) {
 
 	for _, admin := range admins {
 		if admin.Status == "creator" {
-			user, t, err := ensureUser(admin.User.ID, admin.User.UserName)
+			user, tcase, err := ensureUser(admin.User.ID, admin.User.UserName, admin.User.LanguageCode)
 			if err != nil {
-				log.Warn().Err(err).Int("case", t).
+				log.Warn().Err(err).Int("case", tcase).
 					Str("username", admin.User.UserName).
 					Int("id", admin.User.ID).
 					Msg("failed to ensure user when fetching chat owner")

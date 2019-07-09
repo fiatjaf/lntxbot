@@ -1,0 +1,256 @@
+package t
+
+var EN = map[Key]string{
+	NO:         "No",
+	YES:        "Yes",
+	CANCEL:     "Cancel",
+	CANCELED:   "Canceled.",
+	COMPLETED:  "Completed!",
+	ERROR:      "Error!",
+	CHECKING:   "Checking...",
+	TXCANCELED: "Transaction canceled.",
+	UNEXPECTED: "Unexpected error: please report.",
+
+	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
+	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
+
+	CALLBACKWINNER:        "Winner: {{.Winner}}",
+	CALLBACKFROMUSER:      "{{.User}} has sent you {{.Sats}} sat on {{.BotOp}}.",
+	CALLBACKERROR:         "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
+	CALLBACKEXPIRED:       "{{.BotOp}} expired.",
+	CALLBACKATTEMPT:       "Attempting payment.",
+	CALLBACKSENDING:       "Sending payment.",
+	CALLBACKBUTTONEXPIRED: "The payment confirmation button has expired.",
+
+	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
+	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
+
+	PAYMENTFAILED:       "Payment failed. /log{{.ShortHash}}",
+	PAIDMESSAGE:         "Paid with <b>{{.Sats}} sat</b> (+ {{.Fee}} fee). \n\n<b>Hash:</b> {{.Hash}}\n\n<b>Proof:</b> {{.Preimage}}\n\n/tx{{.ShortHash}}",
+	DBERROR:             "Database error: failed to mark the transaction as not pending.",
+	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
+	TOOSMALLPAYMENT:     "That's too small, please start your {{.Purpose}} with at least 40 sat.",
+
+	PAYMENTRECEIVED:      "Payment received: {{.Sats}}. /tx{{.Hash}}.",
+	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
+
+	NOSPAMMYMSG:  "Not spamming anymore.",
+	SPAMMYMSG:    "This group is now spammy.",
+	FILTERMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat.",
+	FREEJOIN:     "This group is now free to join.",
+	ASKTOCONFIRM: "Pay the invoice described above?",
+
+	HELPINTRO:   "<pre>{{.Help}}</pre>\nFor more information on each command please type <code>/help &lt;command&gt;</code>.",
+	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if len .Similar > 1}} Or maybe /{{index .Similar 1}}?{{if len .Similar > 2}} Perhaps {{.}}?{{end}}{{end}}",
+	HELPMETHOD: `
+<pre>/{{.MainName}} {{.Argstr}}</pre>
+{{.Desc}}
+
+{{if .Examples}}
+<b>Examples</b>
+{{.Examples}}{{end}}
+
+{{if .HasInline}}
+<b>Inline query</b>
+
+Can also be called as an <a href="https://core.telegram.org/bots/inline">inline query</a> from group or personal chats where the bot isn't added. The syntax is similar, but simplified: <code>@{{.ServiceId}} {{.InlineExample}}</code> then wait for a "search result" to appear.{{end}}
+
+{{if .Aliases}}
+<b>Aliases:</b> <code>{{.Aliases}}</code>{{end}}
+    `,
+
+	// the "any" is here only for illustrative purposes. if you call this with 'any' it will
+	// actually be assigned to the <satoshis> variable, and that's how the code handles it.
+	RECEIVEHELPARGS: "(<satoshis>|any) [<description>...] [--preimage=<preimage>]",
+	RECEIVEHELPDESC: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
+	RECEIVEHELPEXAMPLE: `
+<code>/receive 320 for something</code>
+Generates an invoice for 320 sat with the description "for something"
+
+<code>/invoice any</code>
+Generates an invoice with undefined amount.
+    `,
+
+	PAYHELPARGS: "[now] [<invoice>] [<satoshis>] [sat]]",
+	PAYHELPDESC: "Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
+	PAYHELPEXAMPLE: `
+<code>/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm </code>
+Pays this invoice for 100 sat.
+
+<code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm </code> 
+Pays this invoice without asking for confirmation.
+
+<code>/pay lnbc1pwvm0pxpp5n2qa3pnfmu7p9vaqspn2cwp7ej44mh6tf77pnxpvfked8z5wg64sdqlypdkcmn50p3x7ap0gpnxjct5dfskvhgxqyz5vqcqp2rzjqfxj8p6qjf5l8du7yuytkwdcjhylfd4gxgs48t65awjg04ye80mq7zyhg5qq5ysqqqqqqqqqqqqqqqsqrcaycpuwzwv4u5yg94ne4ct2lrkmleuq4ly5qcjueuu6qkx5d4qdun5xx0wxp6djch093svm06szy0ru9kvcpmzs7vzjpvxfwyep8fugsq96d3ww 3000 </code> 
+Pays 3000 sat for this invoice with undefined amount.
+
+<code>/pay</code> 
+When sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
+    `,
+
+	SENDHELPARGS: "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
+	SENDHELPDESC: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
+	SENDHELPEXAMPLE: `
+<code>/send 500 @username</code>
+Sends 500 satoshis to Telegram user @username.
+
+<code>/tip 100</code>
+When sent as a reply to a message in a group where the bot is added, this will send 100 satoshis to the author of the message.
+
+<code>/send anonymously 1000 @someone</code>
+Telegram user @someone will see just: "Someone has sent you 1000 satoshis".
+    `,
+
+	BALANCEHELPDESC: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
+
+	GIVEAWAYHELPARGS: "<satoshis>",
+	GIVEAWAYHELPDESC: "Creates a button in a group chat. The first person to click the button gets the satoshis.",
+	GIVEAWAYHELPEXAMPLE: `
+<code>/giveaway 1000</code>
+Once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
+    `,
+
+	COINFLIPHELPARGS: "<satoshis> [<num_participants>]",
+	COINFLIPHELPDESC: "Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
+	COINFLIPHELPEXAMPLE: `
+<code>/coinflip 100 5</code>
+5 participants needed, winner will get 500 satoshis (including its own 100, so it's 400 net satoshis).
+    `,
+	COINFLIPWINNERMSG:      "You're the winner of a coinflip for a prize of {{.TotalSats}} sat. The losers were: {{.Senders}}.",
+	COINFLIPGIVERMSG:       "You've lost {{.IndividualSats}} in a coinflip. The winner was {{.Receiver}}.",
+	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.Gamblers}} out of {{.MaxPlayers}} spots left!",
+	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
+
+	GIVEFLIPHELPARGS: "<satoshis> [<num_participants>]",
+	GIVEFLIPHELPDESC: "Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.",
+	GIVEFLIPHELPEXAMPLE: `
+<code>/giveflip 100 5</code>
+5 participants needed, winner will get 500 satoshis from the command issuer.
+    `,
+	GIVEFLIPMSG:       "{{.User}} is giving {{.Sats}} sat away to a lucky person out of {{.Participants}}!",
+	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.Participants}} out of {{.MaxParticipants}} spots left!",
+	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
+
+	FUNDRAISEHELPARGS: "<satoshis> <num_participants> <receiver>...",
+	FUNDRAISEHELPDESC: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
+	FUNDRAISEHELPEXAMPLE: `
+<code>/fundraise 10000 8 @user</code>
+Telegram @user will get 80000 satoshis after 8 people contribute.
+    `,
+	FUNDRAISEAD: `
+Fundraising {{.Fund}} to {{.ToUser}}!
+Contributors needed for completion: {{.Participants}}
+Each pays: {{.Sats}} sat
+Have contributed: {{Registered}}
+    `,
+	FUNDRAISECOMPLETE:    "Fundraising for {{.Receiver}} completed!",
+	FUNDRAISERECEIVERMSG: "You've received {{.TotalSats}} sat of a fundraise from {{.Senders}}s",
+	FUNDRAISEGIVERMSG:    "You've given {{.IndividualSats}} in a fundraise to {{.Receiver}}.",
+
+	BLUEWALLETHELPARGS: "[refresh]",
+	BLUEWALLETHELPDESC: "Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.",
+	BLUEWALLETHELPEXAMPLE: `
+<code>/bluewallet</code>
+Prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
+
+<code>/bluewallet refresh</code>
+Erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
+    `,
+	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report this issue: {{.Err}}",
+	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
+
+	HIDEHELPARGS: "<satoshis> <message>...",
+	HIDEHELPDESC: "Hides a message so it can be unlocked later with a payment. The special character \"~\" is used to split the message into a preview and the actual message (\"click here to see a secret! ~ this is the secret.\")",
+	HIDEHELPEXAMPLE: `
+<code>/hide 500 top secret message here</code>
+Hides "top secret message" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal <hidden_message_id> or by using the inline query "reveal" in a group.
+
+<code>/hide 2500 only the brave will be able to see this message ~ congratulations, you are very brave!</code>
+In this case instead of the default preview message potential revealers will see the custom teaser written before the "~".
+    `,
+	REVEALHELPARGS: "<hidden_message_id>",
+	REVEALHELPDESC: "Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.",
+	REVEALHELPEXAMPLE: `
+<code>/reveal 5c0b2rh4x</code>
+Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
+    `,
+	HIDDENSOURCE:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealer}}. You've got {{.Sats}} sat.",
+	HIDDENREVEAL:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
+	HIDDENSTOREFAIL:   "Failed to store hidden content. Please report: {{.Err}}",
+	HIDDENMSGFAIL:     "Failed to reveal: {{.Err}}",
+	HIDDENMSGNOTFOUND: "Hidden message not found.",
+	HIDDENMSGERROR:    "Error loading this hidden message: {{.Err}}",
+
+	APPHELPARGS: "Interacts with external apps from within the bot and using your balance.",
+	APPHELPDESC: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
+	APPHELPEXAMPLE: `
+<code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
+Buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
+<code>/app microbet bet</code>
+Displays a list of currently opened bets from microbet.fun as buttons you can click to place back or lay bets.
+<code>/app microbet bets</code>
+Lists all your open bets. Your microbet.fun session will be tied to your Telegram user.
+<code>/app satellite 26 hello from the satellite! vote trump!</code>
+Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
+    `,
+
+	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",
+	TOGGLEHELPDESC: "Toggles bot features in groups on/off. In supergroups it only be run by group admins.",
+	TOGGLEHELPEXAMPLE: `
+<code>/toggle ticket 10</code>
+New group entrants will be prompted to pay 10 satoshis in 30 minutes or be kicked. Useful as an antispam measure.
+
+<code>/toggle ticket</code>
+Stop charging new entrants a fee.
+
+<code>/toggle spammy</code>
+'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
+    `,
+
+	HELPHELPARGS: "[<command>]",
+	HELPHELPDESC: "Shows full help or help about specific command.",
+
+	STOPHELPDESC: "The bot stops showing you notifications.",
+
+	CONFIRMINVOICE: `
+{{.Sats}} sat ({{.USD}})
+<i>{{.Desc}}</i>
+<b>Hash</b>: {{.Hash}}
+<b>Node</b>: {{.Node}} ({{.Alias}})
+    `,
+	NOINVOICE: "Invoice not provided.",
+	BALANCEMSG: `
+<b>Balance</b>: {{.Sats}} sat ({{.USD}})
+<b>Total received</b>: {{.Received}} sat
+<b>Total sent</b>: {{.Sent}} sat
+<b>Total fees paid</b>: {{.Fees}} sat
+    `,
+	FAILEDUSER:         "Failed to parse receiver name.",
+	LOTTERYMSG:         "A lottery round is starting!\nEntry fee: {{.EntrySats}} sat\nTotal participants: {{.Participants}}\nPrize: {{.Prize}}\nRegistered: {{.Registered}}",
+	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
+	GIVEAWAYMSG:        "{{.User}} is giving {{.Sats}} sat away!",
+	INVALIDAMOUNT:      "Invalid amount: ",
+	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
+	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat.",
+	RECEIVEDSATS:       "Someone has sent you {{.Sats}} sat.",
+	FAILEDSEND:         "Failed to send: ",
+	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
+	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
+	GIVERCANTJOIN:      "Giver can't join!",
+	CANTJOINTWICE:      "Can't join twice!",
+	FAILEDINVOICE:      "Failed to generate invoice",
+	INVALIDAMT:         "Invalid amount: {{.Amount}}",
+	STOPNOTIFY:         "Notifications stopped.",
+	WELCOME:            "Your account is created.",
+	WRONGCOMMAND:       "Could not understand the command. /help",
+	RETRACTQUESTION:    "Retract unclaimed tip?",
+	RECHECKPENDING:     "Recheck pending payment?",
+	TXNOTFOUND:         "Couldn't find transaction {{.HashFirstChars}}.",
+	TXINFO:             "<code>{{.Status}}</code> {{ .PeerActionDescription}} on {{.TimeFormatted}} {{ .ClaimStatus}}\n<i>{{.Description}}</i>\n<b>Payee</b>: {{{.PayeeLink}}} ({{.PayeeAlias}})\n<b>Hash</b>: {{.Hash}}\n<b>Preimage</b>: {{.PreimageString}}\n<b>Amount</b>: {{.Amount}} sat\n<b>Fee paid</b>: {{.Fees}}",
+	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
+{{range .Transactions}}
+<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not TelegramPeer.Valid}}<i>{{Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
+{{else}}
+<i>No transactions made yet.</i>
+{{end}}
+    `,
+}
