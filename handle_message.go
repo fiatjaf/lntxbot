@@ -58,19 +58,19 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 
 	var (
-		opts    = make(docopt.Opts)
-		proceed = false
-		text    = strings.ReplaceAll(
+		opts        = make(docopt.Opts)
+		proceed     = false
+		messageText = strings.ReplaceAll(
 			regexp.MustCompile("/([a-z]+)@"+s.ServiceId).ReplaceAllString(message.Text, "/$1"),
 			"—", "--",
 		)
 	)
 
-	log.Debug().Str("t", text).Str("user", u.Username).Msg("got message")
+	log.Debug().Str("t", messageText).Str("user", u.Username).Msg("got message")
 
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
-	if !strings.HasPrefix(text, "/") {
+	if !strings.HasPrefix(messageText, "/") {
 		if bolt11, ok := searchForInvoice(*message); ok {
 			opts, _, _ = parse("/pay " + bolt11)
 			goto parsed
@@ -78,8 +78,8 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 
 	// individual transaction query
-	if strings.HasPrefix(text, "/tx") {
-		hashfirstchars := text[3:]
+	if strings.HasPrefix(messageText, "/tx") {
+		hashfirstchars := messageText[3:]
 		txn, err := u.getTransaction(hashfirstchars)
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
@@ -119,14 +119,14 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 
 	// query failed transactions (only available in the first 24h after the failure)
-	if strings.HasPrefix(text, "/log") {
-		hashfirstchars := text[4:]
+	if strings.HasPrefix(messageText, "/log") {
+		hashfirstchars := messageText[4:]
 		sendMessage(u.ChatId, renderLogInfo(hashfirstchars))
 		return
 	}
 
 	// otherwise parse the slash command
-	opts, proceed, err = parse(text)
+	opts, proceed, err = parse(messageText)
 	if !proceed {
 		return
 	}
@@ -135,10 +135,10 @@ func handleMessage(message *tgbotapi.Message) {
 			// only tell we don't understand commands when in a private chat
 			// because these commands we're not understanding
 			// may be targeting other bots in a group, so we're spamming people.
-			log.Debug().Err(err).Str("command", text).
+			log.Debug().Err(err).Str("command", messageText).
 				Msg("failed to parse command")
 
-			method := strings.Split(text, " ")[0][1:]
+			method := strings.Split(messageText, " ")[0][1:]
 			handled := handleHelp(u, method)
 			if !handled {
 				u.notify(t.WRONGCOMMAND, nil)
