@@ -47,7 +47,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				}
 			}
 
-			chattable := tgbotapi.NewMessage(u.ChatId, "<b>[Microbet]</b> Bet on one of these predictions:")
+			chattable := tgbotapi.NewMessage(u.ChatId, translate(t.MICROBETBETHEADER, u.Locale))
 			chattable.ParseMode = "HTML"
 			chattable.BaseChat.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}
 			bot.Send(chattable)

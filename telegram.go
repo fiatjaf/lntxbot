@@ -169,7 +169,7 @@ func isAdmin(message *tgbotapi.Message) bool {
 			log.Warn().Err(err).
 				Int64("group", message.Chat.ID).
 				Int("user", message.From.ID).
-				Msg("toggle impossible. can't get user or not an admin.")
+				Msg("can't get user or not an admin.")
 			return false
 		}
 

@@ -126,7 +126,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
 			translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
-				"Sats":       "sats",
+				"Sats":       sats,
 				"MaxPlayers": nparticipants,
 			}),
 			translateTemplate(t.COINFLIPAD, u.Locale, t.T{

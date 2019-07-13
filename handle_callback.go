@@ -46,11 +46,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
-			log.Warn().Err(err).
-				Int("this", u.Id).
-				Str("needed", cb.Data[7:]).
-				Msg("user can't cancel")
-			goto answerEmpty
+			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.CANTCANCEL, locale)))
+			return
 		}
 		removeKeyboardButtons(cb)
 		appendTextToMessage(cb, translate(t.CANCELED, locale))
@@ -141,10 +138,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 		removeKeyboardButtons(cb)
-		claimer.notify(t.CALLBACKFROMUSER, t.T{
-			"BotOp": "giveaway",
+		claimer.notify(t.USERSENTYOUSATS, t.T{
 			"User":  u.AtName(),
 			"Sats":  sats,
+			"BotOp": "/giveaway",
 		})
 
 		appendTextToMessage(cb,
@@ -352,9 +349,9 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				edit.Text = cb.Message.Text + " " + joiner.AtName()
 			} else {
 				edit.Text = translateTemplate(t.GIVEFLIPAD, locale, t.T{
-					"Sats":            sats * nparticipants,
-					"SpotsLeft":       nparticipants - nregistered,
-					"MaxParticipants": nparticipants,
+					"Sats":       sats,
+					"SpotsLeft":  nparticipants - nregistered,
+					"MaxPlayers": nparticipants,
 				})
 			}
 			bot.Send(edit)
@@ -416,7 +413,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			}
 			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 			removeKeyboardButtons(cb)
-			winner.notify(t.CLAIMFAILED, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip"})
+			winner.notify(t.USERSENTYOUSATS, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip"})
 
 			bot.Send(tgbotapi.EditMessageTextConfig{
 				BaseEdit: getBaseEdit(cb),
@@ -570,7 +567,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.HIDDENMSGNOTFOUND, locale))
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGERROR, locale)))
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGFAIL, locale)))
 			return
 		}
 
@@ -581,7 +578,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				Msg("failed to load source user on reveal")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.ERROR, locale))
-			goto answerEmpty
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGFAIL, locale)))
+			return
 		}
 
 		revealer, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
@@ -591,14 +589,19 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				Msg("failed to ensure revealer user on reveal")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.ERROR, locale))
-			goto answerEmpty
+			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGFAIL, locale)))
+			return
 		}
 
 		errMsg, err := u.sendInternally(messageId, sourceuser, false, satoshis*1000, "reveal", nil)
 		if err != nil {
-			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translateTemplate(t.HIDDENMSGFAIL, locale, t.T{"Err": errMsg}))
-			goto answerEmpty
+			log.Warn().Err(err).Str("key", hiddenkey).Int("satoshis", satoshis).
+				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
+				Msg("failed to pay to reveal")
+			bot.AnswerCallbackQuery(
+				tgbotapi.NewCallback(cb.ID, translateTemplate(t.HIDDENMSGFAIL, locale, t.T{"Err": errMsg})),
+			)
+			return
 		}
 
 		// actually reveal

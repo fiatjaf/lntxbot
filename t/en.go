@@ -16,7 +16,6 @@ var EN = map[Key]string{
 	UNEXPECTED: "Unexpected error: please report.",
 
 	CALLBACKWINNER:        "Winner: {{.Winner}}",
-	CALLBACKFROMUSER:      "{{.User}} has sent you {{.Sats}} sat on {{.BotOp}}.",
 	CALLBACKERROR:         "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
 	CALLBACKEXPIRED:       "{{.BotOp}} expired.",
 	CALLBACKATTEMPT:       "Attempting payment.",
@@ -27,7 +26,7 @@ var EN = map[Key]string{
 	INLINEGIVEAWAYRESULT: "Give {{.Sats}} away",
 	INLINEGIVEFLIPRESULT: "Give away {{.Sats}} sat to one out of {{.MaxPlayers}} participants",
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
-	INLINEHIDDENRESULT:   "Hidden message {{.HiddenId}}: {{.Content}}",
+	INLINEHIDDENRESULT:   "Message {{.HiddenId}}: {{.Content}}",
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
@@ -36,9 +35,7 @@ var EN = map[Key]string{
 	PAIDMESSAGE: `Paid with <b>{{.Sats}} sat</b> (+ {{.Fee}} fee). 
 
 <b>Hash:</b> {{.Hash}}
-
-{{if .Preimage}}
-<b>Proof:</b> {{.Preimage}}{{end}}
+{{if .Preimage}}<b>Proof:</b> {{.Preimage}}{{end}}
 
 /tx{{.ShortHash}}`,
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
@@ -61,16 +58,12 @@ For more information on each command please type <code>/help &lt;command&gt;</co
 	HELPMETHOD: `
 <pre>/{{.MainName}} {{.Argstr}}</pre>
 {{.Desc}}
-
 {{if .Examples}}
 <b>Examples</b>
 {{.Examples}}{{end}}
-
 {{if .HasInline}}
 <b>Inline query</b>
-
 Can also be called as an <a href="https://core.telegram.org/bots/inline">inline query</a> from group or personal chats where the bot isn't added. The syntax is similar, but simplified: <code>@{{.ServiceId}} {{.InlineExample}}</code> then wait for a "search result" to appear.{{end}}
-
 {{if .Aliases}}
 <b>Aliases:</b> <code>{{.Aliases}}</code>{{end}}
     `,
@@ -87,7 +80,7 @@ Generates an invoice for 320 sat with the description "for something"
 Generates an invoice with undefined amount.
     `,
 
-	PAYHELPARGS: "[now] [<invoice>] [<satoshis>] [sat]]",
+	PAYHELPARGS: "[now] [<invoice>] [<satoshis>] [sat]",
 	PAYHELPDESC: "Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
 	PAYHELPEXAMPLE: `
 <code>/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm </code>
@@ -162,7 +155,7 @@ Telegram @user will get 80000 satoshis after 8 people contribute.
 Fundraising {{.Fund}} to {{.ToUser}}!
 Contributors needed for completion: {{.Participants}}
 Each pays: {{.Sats}} sat
-Have contributed: {{Registered}}
+Have contributed: {{.Registered}}
     `,
 	FUNDRAISEJOIN:        "Contribute!",
 	FUNDRAISECOMPLETE:    "Fundraising for {{.Receiver}} completed!",
@@ -185,7 +178,7 @@ Erases your previous password and prints a new string. You'll have to reimport t
 	HIDEHELPDESC: "Hides a message so it can be unlocked later with a payment. The special character \"~\" is used to split the message into a preview and the actual message (\"click here to see a secret! ~ this is the secret.\")",
 	HIDEHELPEXAMPLE: `
 <code>/hide 500 top secret message here</code>
-Hides "top secret message" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal <hidden_message_id> or by using the inline query "reveal" in a group.
+Hides "top secret message" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal &lt;hidden_message_id&gt; or by using the inline query "reveal" in a group.
 
 <code>/hide 2500 only the brave will be able to see this message ~ congratulations, you are very brave!</code>
 In this case instead of the default preview message potential revealers will see the custom teaser written before the "~".
@@ -204,10 +197,9 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
-	HIDDENMSGERROR:       "Error loading this hidden message: {{.Err}}",
 
-	APPHELPARGS: "Interacts with external apps from within the bot and using your balance.",
-	APPHELPDESC: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
+	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
+	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
 Buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
@@ -224,8 +216,7 @@ Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
 	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
 	BITFLASHLIST: `
 <b>[bitflash]</b> Your past orders
-{{range .Orders}}
-🧱 <code>{{call .Amount}}</code> to <code>{{call .Address}}</code> <i>{{call .Status}}</i>
+{{range .Orders}}🧱 <code>{{.Amount}}</code> to <code>{{.Address}}</code> <i>{{.Status}}</i>
 {{else}}
 <i>~ no orders were ever made. ~</i>
 {{end}}
@@ -239,6 +230,7 @@ Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
 <code>/app bitflash orders</code> lists your previous transactions.
     `,
 
+	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
 	MICROBETINVALIDRESPONSE:     "microbet.fun returned an invalid response.",
 	MICROBETPAIDBUTNOTCONFIRMED: "Paid, but bet not confirmed. Huge Microbet bug?",
 	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}}</b>.",
@@ -246,8 +238,7 @@ Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
 	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
 	MICROBETLIST: `
 <b>[Microbet]</b> Your bets
-{{range .Bets}}
-<code>{{.Description}}</code> <code>{{.Amount}}</code> {{if gt .UserBack 0}}{{call .BackIcon}}{{.UserBack}}/{{.Backers}} × {{call .Layers}}{{else}}{{call .LayIcon}} {{.UserLay}}/{{call .Layers}} × {{.Backers}}{{end}} ~<i>{{if .Canceled}}canceled{{else if .Closed}}{{if gt .WonAmount 0}}won {{.WonAmount}}{{else}}lost{{end}}{{else}}open{{end}}</i>
+{{range .Bets}}<code>{{.Description}}</code> <code>{{.Amount}}</code> {{if gt .UserBack 0}}{{.BackIcon}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.LayIcon}} {{.UserLay}}/{{.Layers}} × {{.Backers}}{{end}} ~<i>{{if .Canceled}}canceled{{else if .Closed}}{{if gt .WonAmount 0}}won {{.WonAmount}}{{else}}lost{{end}}{{else}}open{{end}}</i>
 {{else}}
 <i>~ no bets were ever made. ~</i>
 {{end}}
@@ -267,7 +258,7 @@ Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
 
 	SATELLITEFAILEDTOSTORE:     "Failed to store satellite order data. Please report: {{.Err}}",
 	SATELLITEFAILEDTOGET:       "Failed to get stored satellite data: {{.Err}}",
-	SATELLITEPAID:              "Transmission paid!",
+	SATELLITEPAID:              "Transmission <code>{{.UUID}}</code> paid!",
 	SATELLITEFAILEDTOPAY:       "Failed to pay for transmission.",
 	SATELLITEBUMPERROR:         "Error bumping transmission: {{.Err}}",
 	SATELLITEFAILEDTODELETE:    "Failed to delete satellite order data. Please report: {{.Err}}",
@@ -277,16 +268,14 @@ Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
 	SATELLITEQUEUEERROR:        "Error fetching the queue: {{.Err}}",
 	SATELLITEQUEUE: `
 <b>[Satellite]</b> Queued transmissions
-{{range .Orders}}
-{{.}}
+{{range .Orders}}{{.}}
 {{else}}
 <i>Queue is empty, everything was already transmitted.</i>
 {{end}}
     `,
 	SATELLITELIST: `
 <b>[Satellite]</b> Your transmissions
-{{range .Orders}}
-{{.}}
+{{range .Orders}}{{.}}
 {{else}}
 <i>No transmissions made yet.</i>
 {{end}}
@@ -346,13 +335,14 @@ Registered: {{.Registered}}
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
 	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
 	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
-	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat.",
+	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat{{if .BotOp}} on a {{.BotOp}}{{end}}.",
 	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat.",
 	FAILEDSEND:         "Failed to send: ",
 	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
 	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
 	GIVERCANTJOIN:      "Giver can't join!",
 	CANTJOINTWICE:      "Can't join twice!",
+	CANTCANCEL:         "You don't have the powers to cancel this.",
 	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
@@ -361,18 +351,17 @@ Registered: {{.Registered}}
 	RETRACTQUESTION:    "Retract unclaimed tip?",
 	RECHECKPENDING:     "Recheck pending payment?",
 	TXNOTFOUND:         "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `<code>{{.Status}}</code> {{ .PeerActionDescription}} on {{.TimeFormatted}} {{ .ClaimStatus}}
-<i>{{.Description}}</i>
-<b>Payee</b>: {{{.PayeeLink}}} ({{.PayeeAlias}})
-<b>Hash</b>: {{.Hash}}
-<b>Preimage</b>: {{.PreimageString}}
-<b>Amount</b>: {{.Amount}} sat
-<b>Fee paid</b>: {{.Fees}}
+	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+<i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
+{{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
+<b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.Valid}}
+<b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
+<b>Amount</b>: {{.Txn.Amount}} sat
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
-{{range .Transactions}}
-<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not TelegramPeer.Valid}}<i>{{Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}

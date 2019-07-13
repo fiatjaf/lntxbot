@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lightningd-gjson-rpc"
 )
 
 type Transaction struct {
@@ -61,10 +61,6 @@ func (t Transaction) StatusSmall() string {
 	default:
 		return t.Status
 	}
-}
-
-func (t Transaction) IsReceive() bool {
-	return t.Status == "RECEIVED"
 }
 
 func (t Transaction) IsPending() bool {

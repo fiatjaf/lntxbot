@@ -21,7 +21,6 @@ const (
 
 	CALLBACKCOINFLIPWINNER = "CallbackCoinflipWinner"
 	CALLBACKWINNER         = "CallbackWinner"
-	CALLBACKFROMUSER       = "CallbackFromUser"
 	CALLBACKERROR          = "CallbackError"
 	CALLBACKEXPIRED        = "CallbackExpired"
 	CALLBACKATTEMPT        = "CallbackAttempt"
@@ -121,7 +120,6 @@ const (
 	HIDDENSTOREFAIL      = "HiddenStoreFail"
 	HIDDENMSGFAIL        = "HiddenMsgFail"
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
-	HIDDENMSGERROR       = "HiddenMsgError"
 
 	APPHELPARGS    = "appHelpArgs"
 	APPHELPDESC    = "appHelpDesc"
@@ -133,6 +131,7 @@ const (
 	BITFLASHLIST         = "BitflashList"
 	BITFLASHHELP         = "BitflashHelp"
 
+	MICROBETBETHEADER           = "MicrobetBetHeader"
 	MICROBETINVALIDRESPONSE     = "MicrobetInvalidResponse"
 	MICROBETPAIDBUTNOTCONFIRMED = "MicrobetPaidButNotConfirmed"
 	MICROBETPLACING             = "MicrobetPlacing"
@@ -182,6 +181,7 @@ const (
 	CANTSENDNORECEIVER = "CantSendNoReceiver"
 	GIVERCANTJOIN      = "GiverCantJoin"
 	CANTJOINTWICE      = "CantJoinTwice"
+	CANTCANCEL         = "CantCancel"
 	FAILEDINVOICE      = "FailedInvoice"
 	INVALIDAMT         = "InvalidAmt"
 	STOPNOTIFY         = "StopNotify"

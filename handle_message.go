@@ -88,32 +88,9 @@ func handleMessage(message *tgbotapi.Message) {
 			return
 		}
 
-		//TxInfo = "<code>{{.Status}}</code> {{ .PeerActionDescription}} on {{.TimeFormatted}} {{ .ClaimStatus}}
-		//<i>{{.Description}}</i>
-		//<b>Payee</b>: {{{.PayeeLink}}} ({{.PayeeAlias}})
-		//<b>Hash</b>: {{.Hash}}
-		//<b>Preimage</b>: {{.PreimageString}}
-		//<b>Amount</b>: {{.Amount}} sat
-		//<b>Fee paid</b>: {{.Fees}}"
-
-		claimStatus := ""
-		if txn.IsUnclaimed() {
-			claimStatus = "(💤 unclaimed)"
-		}
-
 		txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
-			"Status":                txn.Status,
-			"PeerActionDescription": txn.PeerActionDescription(),
-			"TimeFormatted":         txn.TimeFormat(),
-			"ClaimStatus":           claimStatus,
-			"Description":           txn.Description,
-			"PayeeLink":             txn.PayeeLink(),
-			"PayeeAlias":            txn.PayeeAlias(),
-			"Hash":                  txn.Hash,
-			"PreimageString":        txn.Preimage,
-			"Amount":                txn.Amount,
-			"Fees":                  txn.FeeSatoshis(),
-			"LogInfo":               renderLogInfo(hashfirstchars),
+			"Txn":     txn,
+			"LogInfo": renderLogInfo(hashfirstchars),
 		})
 		msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 
@@ -159,7 +136,7 @@ func handleMessage(message *tgbotapi.Message) {
 			// because these commands we're not understanding
 			// may be targeting other bots in a group, so we're spamming people.
 			log.Debug().Err(err).Str("command", text).
-				Msg("Failed to parse command")
+				Msg("failed to parse command")
 
 			method := strings.Split(text, " ")[0][1:]
 			handled := handleHelp(u, method)
@@ -488,7 +465,8 @@ parsed:
 		fundraiseid := cuid.Slug()
 		rds.SAdd("fundraise:"+fundraiseid, u.Id)
 		rds.Expire("fundraise:"+fundraiseid, s.GiveAwayTimeout)
-		chattable.BaseChat.ReplyMarkup = fundraiseKeyboard(fundraiseid, receiver.Id, nparticipants, sats, g.Locale)
+		keyboard := fundraiseKeyboard(fundraiseid, receiver.Id, nparticipants, sats, g.Locale)
+		chattable.BaseChat.ReplyMarkup = &keyboard
 		bot.Send(chattable)
 	case opts["hide"].(bool):
 		var content string
@@ -522,7 +500,7 @@ parsed:
 		redisKey := found[0]
 		_, _, _, preview, satoshis, err := getHiddenMessage(redisKey, g.Locale)
 		if err != nil {
-			u.notify(t.HIDDENMSGERROR, t.T{"Err": err.Error()})
+			u.notify(t.HIDDENMSGFAIL, t.T{"Err": err.Error()})
 			break
 		}
 
