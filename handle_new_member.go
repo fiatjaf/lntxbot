@@ -64,7 +64,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 
 	expiration := time.Minute * 15
 
-	bolt11, hash, qrpath, err := chatOwner.makeInvoice(sats, fmt.Sprintf(
+	bolt11, hash, qrpath, err := chatOwner.makeInvoice(g.Ticket, fmt.Sprintf(
 		"ticket for %s to join %s (%d).",
 		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
 	), label, &expiration, nil, "", false)
@@ -142,9 +142,10 @@ func waitToKick(label string, kickdata KickData) {
 }
 
 func ticketPaid(label string, kickdata KickData) {
-	g, err := loadGroup(joinMessage.Chat.ID)
+	g, err := loadGroup(kickdata.JoinMessage.Chat.ID)
 	if err != nil {
-		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).Msg("error fetching group chat after ticked paid")
+		log.Error().Err(err).Str("chat", kickdata.JoinMessage.Chat.Title).
+			Msg("error fetching group chat after ticked paid")
 		return
 	}
 
@@ -161,7 +162,7 @@ func ticketPaid(label string, kickdata KickData) {
 	_, err = bot.Send(tgbotapi.NewEditMessageText(
 		kickdata.NotifyMessage.Chat.ID,
 		kickdata.NotifyMessage.MessageID,
-		translateTemplate(t.USERALLOWED, g.Locale, t.T{"User": username.AtName()}),
+		translateTemplate(t.USERALLOWED, g.Locale, t.T{"User": user.AtName()}),
 	))
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")

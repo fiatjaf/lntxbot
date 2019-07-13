@@ -6,13 +6,14 @@ var EN = map[Key]string{
 	CANCEL:     "Cancel",
 	CANCELED:   "Canceled.",
 	COMPLETED:  "Completed!",
-	ERROR:      "Error!",
+	CONFIRM:    "Confirm",
+	FAILURE:    "Failure.",
+	PROCESSING: "Processing...",
+	WITHDRAW:   "Withdraw?",
+	ERROR:      "Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
 	TXCANCELED: "Transaction canceled.",
 	UNEXPECTED: "Unexpected error: please report.",
-
-	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
-	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
 
 	CALLBACKWINNER:        "Winner: {{.Winner}}",
 	CALLBACKFROMUSER:      "{{.User}} has sent you {{.Sats}} sat on {{.BotOp}}.",
@@ -22,11 +23,24 @@ var EN = map[Key]string{
 	CALLBACKSENDING:       "Sending payment.",
 	CALLBACKBUTTONEXPIRED: "The payment confirmation button has expired.",
 
+	INLINEINVOICERESULT:  "Payment request for {{.Sats}} sat.",
+	INLINEGIVEAWAYRESULT: "Give {{.Sats}} away",
+	INLINEGIVEFLIPRESULT: "Give away {{.Sats}} sat to one out of {{.MaxPlayers}} participants",
+	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
+	INLINEHIDDENRESULT:   "Hidden message {{.HiddenId}}: {{.Content}}",
+
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
-	PAYMENTFAILED:       "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE:         "Paid with <b>{{.Sats}} sat</b> (+ {{.Fee}} fee). \n\n<b>Hash:</b> {{.Hash}}\n\n<b>Proof:</b> {{.Preimage}}\n\n/tx{{.ShortHash}}",
+	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
+	PAIDMESSAGE: `Paid with <b>{{.Sats}} sat</b> (+ {{.Fee}} fee). 
+
+<b>Hash:</b> {{.Hash}}
+
+{{if .Preimage}}
+<b>Proof:</b> {{.Preimage}}{{end}}
+
+/tx{{.ShortHash}}`,
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 	TOOSMALLPAYMENT:     "That's too small, please start your {{.Purpose}} with at least 40 sat.",
@@ -34,14 +48,16 @@ var EN = map[Key]string{
 	PAYMENTRECEIVED:      "Payment received: {{.Sats}}. /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
-	NOSPAMMYMSG:  "Not spamming anymore.",
-	SPAMMYMSG:    "This group is now spammy.",
-	FILTERMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat.",
+	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
+	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat.",
 	FREEJOIN:     "This group is now free to join.",
 	ASKTOCONFIRM: "Pay the invoice described above?",
 
-	HELPINTRO:   "<pre>{{.Help}}</pre>\nFor more information on each command please type <code>/help &lt;command&gt;</code>.",
-	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if len .Similar > 1}} Or maybe /{{index .Similar 1}}?{{if len .Similar > 2}} Perhaps {{.}}?{{end}}{{end}}",
+	HELPINTRO: `
+<pre>{{.Help}}</pre>
+For more information on each command please type <code>/help &lt;command&gt;</code>.
+    `,
+	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps {{.}}?{{end}}{{end}}",
 	HELPMETHOD: `
 <pre>/{{.MainName}} {{.Argstr}}</pre>
 {{.Desc}}
@@ -108,6 +124,10 @@ Telegram user @someone will see just: "Someone has sent you 1000 satoshis".
 <code>/giveaway 1000</code>
 Once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
     `,
+	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
+	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
+	GIVEAWAYCLAIM:           "Claim",
+	GIVEAWAYMSG:             "{{.User}} is giving {{.Sats}} sat away!",
 
 	COINFLIPHELPARGS: "<satoshis> [<num_participants>]",
 	COINFLIPHELPDESC: "Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
@@ -117,7 +137,8 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
     `,
 	COINFLIPWINNERMSG:      "You're the winner of a coinflip for a prize of {{.TotalSats}} sat. The losers were: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "You've lost {{.IndividualSats}} in a coinflip. The winner was {{.Receiver}}.",
-	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.Gamblers}} out of {{.MaxPlayers}} spots left!",
+	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
+	COINFLIPJOIN:           "Join lottery!",
 	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
 
 	GIVEFLIPHELPARGS: "<satoshis> [<num_participants>]",
@@ -127,7 +148,8 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 5 participants needed, winner will get 500 satoshis from the command issuer.
     `,
 	GIVEFLIPMSG:       "{{.User}} is giving {{.Sats}} sat away to a lucky person out of {{.Participants}}!",
-	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.Participants}} out of {{.MaxParticipants}} spots left!",
+	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
+	GIVEFLIPJOIN:      "Try to win!",
 	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
 
 	FUNDRAISEHELPARGS: "<satoshis> <num_participants> <receiver>...",
@@ -142,6 +164,7 @@ Contributors needed for completion: {{.Participants}}
 Each pays: {{.Sats}} sat
 Have contributed: {{Registered}}
     `,
+	FUNDRAISEJOIN:        "Contribute!",
 	FUNDRAISECOMPLETE:    "Fundraising for {{.Receiver}} completed!",
 	FUNDRAISERECEIVERMSG: "You've received {{.TotalSats}} sat of a fundraise from {{.Senders}}s",
 	FUNDRAISEGIVERMSG:    "You've given {{.IndividualSats}} in a fundraise to {{.Receiver}}.",
@@ -173,12 +196,15 @@ In this case instead of the default preview message potential revealers will see
 <code>/reveal 5c0b2rh4x</code>
 Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENSOURCE:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealer}}. You've got {{.Sats}} sat.",
-	HIDDENREVEAL:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
-	HIDDENSTOREFAIL:   "Failed to store hidden content. Please report: {{.Err}}",
-	HIDDENMSGFAIL:     "Failed to reveal: {{.Err}}",
-	HIDDENMSGNOTFOUND: "Hidden message not found.",
-	HIDDENMSGERROR:    "Error loading this hidden message: {{.Err}}",
+	HIDDENREVEALBUTTON:   "Pay {{.Sats}} sat to reveal the full message",
+	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
+	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>.",
+	HIDDENSOURCE:         "Hidden message <code>{{.Id}}</code> revealed by {{.Revealer}}. You've got {{.Sats}} sat.",
+	HIDDENREVEAL:         "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
+	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
+	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
+	HIDDENMSGNOTFOUND:    "Hidden message not found.",
+	HIDDENMSGERROR:       "Error loading this hidden message: {{.Err}}",
 
 	APPHELPARGS: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPDESC: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
@@ -191,6 +217,90 @@ Displays a list of currently opened bets from microbet.fun as buttons you can cl
 Lists all your open bets. Your microbet.fun session will be tied to your Telegram user.
 <code>/app satellite 26 hello from the satellite! vote trump!</code>
 Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
+    `,
+
+	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .InvoiceSats}}</b>.`,
+	BITFLASHTXQUEUED:     "Transaction queued!",
+	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
+	BITFLASHLIST: `
+<b>[bitflash]</b> Your past orders
+{{range .Orders}}
+🧱 <code>{{call .Amount}}</code> to <code>{{call .Address}}</code> <i>{{call .Status}}</i>
+{{else}}
+<i>~ no orders were ever made. ~</i>
+{{end}}
+    `,
+	BITFLASHHELP: `
+<a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
+
+<b>Commands:</b>
+
+<code>/app bitflash &lt;satoshi_amount&gt; &lt;bitcoin_address&gt;</code> to queue a transaction.
+<code>/app bitflash orders</code> lists your previous transactions.
+    `,
+
+	MICROBETINVALIDRESPONSE:     "microbet.fun returned an invalid response.",
+	MICROBETPAIDBUTNOTCONFIRMED: "Paid, but bet not confirmed. Huge Microbet bug?",
+	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}}</b>.",
+	MICROBETPLACED:              "Bet placed!",
+	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
+	MICROBETLIST: `
+<b>[Microbet]</b> Your bets
+{{range .Bets}}
+<code>{{.Description}}</code> <code>{{.Amount}}</code> {{if gt .UserBack 0}}{{call .BackIcon}}{{.UserBack}}/{{.Backers}} × {{call .Layers}}{{else}}{{call .LayIcon}} {{.UserLay}}/{{call .Layers}} × {{.Backers}}{{end}} ~<i>{{if .Canceled}}canceled{{else if .Closed}}{{if gt .WonAmount 0}}won {{.WonAmount}}{{else}}lost{{end}}{{else}}open{{end}}</i>
+{{else}}
+<i>~ no bets were ever made. ~</i>
+{{end}}
+    `,
+	MICROBETBALANCEERROR: "Error fetching Microbet balance: {{.Err}}",
+	MICROBETBALANCE:      "<b>[Microbet]</b> balance: <i>{{.Balance}} sat</i>",
+	MICROBETHELP: `
+<a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
+
+<b>Commands:</b>
+
+<code>/app microbet bet</code> to list all open bets and then place yours.
+<code>/app microbet bets</code> to see all your past bets.
+<code>/app microbet balance</code> to view your balance.
+<code>/app microbet withdraw</code> to withdraw all your balance.
+    `,
+
+	SATELLITEFAILEDTOSTORE:     "Failed to store satellite order data. Please report: {{.Err}}",
+	SATELLITEFAILEDTOGET:       "Failed to get stored satellite data: {{.Err}}",
+	SATELLITEPAID:              "Transmission paid!",
+	SATELLITEFAILEDTOPAY:       "Failed to pay for transmission.",
+	SATELLITEBUMPERROR:         "Error bumping transmission: {{.Err}}",
+	SATELLITEFAILEDTODELETE:    "Failed to delete satellite order data. Please report: {{.Err}}",
+	SATELLITEDELETEERROR:       "Error deleting transmission: {{.Err}}",
+	SATELLITEDELETED:           "Transmission deleted.",
+	SATELLITETRANSMISSIONERROR: "Error making transmission: {{.Err}}",
+	SATELLITEQUEUEERROR:        "Error fetching the queue: {{.Err}}",
+	SATELLITEQUEUE: `
+<b>[Satellite]</b> Queued transmissions
+{{range .Orders}}
+{{.}}
+{{else}}
+<i>Queue is empty, everything was already transmitted.</i>
+{{end}}
+    `,
+	SATELLITELIST: `
+<b>[Satellite]</b> Your transmissions
+{{range .Orders}}
+{{.}}
+{{else}}
+<i>No transmissions made yet.</i>
+{{end}}
+    `,
+	SATELLITEHELP: `
+The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
+
+<b>Commands:</b>
+
+<code>/app satellite &lt;bid_satoshis&gt; &lt;message...&gt;</code> to queue a transmission.
+<code>/app satellite transmissions</code> lists your transmissions.
+<code>/app satellite queue</code> lists the next queued transmissions.
+<code>/app satellite bump &lt;bid_increase_satoshis&gt; &lt;message_id&gt;</code> to increaase the bid for a transmission.
+<code>/app satellite delete &lt;message_id&gt;</code> to delete a transmission.
     `,
 
 	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",
@@ -217,27 +327,33 @@ Stop charging new entrants a fee.
 <b>Hash</b>: {{.Hash}}
 <b>Node</b>: {{.Node}} ({{.Alias}})
     `,
-	NOINVOICE: "Invoice not provided.",
+	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
+	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
 <b>Balance</b>: {{.Sats}} sat ({{.USD}})
 <b>Total received</b>: {{.Received}} sat
 <b>Total sent</b>: {{.Sent}} sat
 <b>Total fees paid</b>: {{.Fees}} sat
     `,
-	FAILEDUSER:         "Failed to parse receiver name.",
-	LOTTERYMSG:         "A lottery round is starting!\nEntry fee: {{.EntrySats}} sat\nTotal participants: {{.Participants}}\nPrize: {{.Prize}}\nRegistered: {{.Registered}}",
+	FAILEDUSER: "Failed to parse receiver name.",
+	LOTTERYMSG: `
+A lottery round is starting!
+Entry fee: {{.EntrySats}} sat
+Total participants: {{.Participants}}
+Prize: {{.Prize}}
+Registered: {{.Registered}}
+    `,
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
-	GIVEAWAYMSG:        "{{.User}} is giving {{.Sats}} sat away!",
-	INVALIDAMOUNT:      "Invalid amount: ",
+	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
 	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
 	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat.",
-	RECEIVEDSATS:       "Someone has sent you {{.Sats}} sat.",
+	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat.",
 	FAILEDSEND:         "Failed to send: ",
 	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
 	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
 	GIVERCANTJOIN:      "Giver can't join!",
 	CANTJOINTWICE:      "Can't join twice!",
-	FAILEDINVOICE:      "Failed to generate invoice",
+	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
 	WELCOME:            "Your account is created.",
@@ -245,7 +361,15 @@ Stop charging new entrants a fee.
 	RETRACTQUESTION:    "Retract unclaimed tip?",
 	RECHECKPENDING:     "Recheck pending payment?",
 	TXNOTFOUND:         "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO:             "<code>{{.Status}}</code> {{ .PeerActionDescription}} on {{.TimeFormatted}} {{ .ClaimStatus}}\n<i>{{.Description}}</i>\n<b>Payee</b>: {{{.PayeeLink}}} ({{.PayeeAlias}})\n<b>Hash</b>: {{.Hash}}\n<b>Preimage</b>: {{.PreimageString}}\n<b>Amount</b>: {{.Amount}} sat\n<b>Fee paid</b>: {{.Fees}}",
+	TXINFO: `<code>{{.Status}}</code> {{ .PeerActionDescription}} on {{.TimeFormatted}} {{ .ClaimStatus}}
+<i>{{.Description}}</i>
+<b>Payee</b>: {{{.PayeeLink}}} ({{.PayeeAlias}})
+<b>Hash</b>: {{.Hash}}
+<b>Preimage</b>: {{.PreimageString}}
+<b>Amount</b>: {{.Amount}} sat
+<b>Fee paid</b>: {{.Fees}}
+{{.LogInfo}}
+    `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
 {{range .Transactions}}
 <code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not TelegramPeer.Valid}}<i>{{Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}

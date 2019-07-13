@@ -6,14 +6,12 @@ import (
 	"os"
 	"strings"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 )
 
-func sendMessage(chatId int64, msg string) tgbotapi.Message {
-	return notifyAsReply(chatId, msg, 0)
-}
-
+func sendMessage(chatId int64, msg string) tgbotapi.Message { return sendMessageAsReply(chatId, msg, 0) }
 func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
@@ -33,7 +31,7 @@ func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Messag
 
 func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
 	if picturepath == "" {
-		return notify(chatId, message)
+		return sendMessage(chatId, message)
 	} else {
 		defer os.Remove(picturepath)
 		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
@@ -41,7 +39,7 @@ func sendMessageWithPicture(chatId int64, picturepath string, message string) tg
 		c, err := bot.Send(photo)
 		if err != nil {
 			log.Warn().Str("path", picturepath).Str("message", message).Err(err).Msg("error sending photo")
-			return notify(chatId, message)
+			return sendMessage(chatId, message)
 		} else {
 			return c
 		}
@@ -61,7 +59,7 @@ func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
 	return baseedit
 }
 
-func giveawayKeyboard(giverId, sats int) tgbotapi.InlineKeyboardMarkup {
+func giveawayKeyboard(giverId, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	giveawayid := cuid.Slug()
 	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
 
@@ -69,32 +67,38 @@ func giveawayKeyboard(giverId, sats int) tgbotapi.InlineKeyboardMarkup {
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", giverId)),
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Claim!",
+				translate(t.CANCEL, locale),
+				fmt.Sprintf("cancel=%d", giverId),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.GIVEAWAYCLAIM, locale),
 				buttonData,
 			),
 		),
 	)
 }
 
-func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int) tgbotapi.InlineKeyboardMarkup {
+func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", giverId)),
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Try to win!",
+				translate(t.CANCEL, locale),
+				fmt.Sprintf("cancel=%d", giverId),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.GIVEFLIPJOIN, locale),
 				fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
 			),
 		),
 	)
 }
 
-func coinflipKeyboard(coinflipid string, nparticipants, sats int) tgbotapi.InlineKeyboardMarkup {
+func coinflipKeyboard(coinflipid string, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Join lottery",
+				translate(t.COINFLIPJOIN, locale),
 				fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
 			),
 		),
@@ -106,11 +110,12 @@ func fundraiseKeyboard(
 	receiverId int,
 	nparticipants int,
 	sats int,
+	locale string,
 ) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Contribute",
+				translate(t.FUNDRAISEJOIN, locale),
 				fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
 			),
 		),

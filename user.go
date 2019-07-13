@@ -234,11 +234,12 @@ func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
 
 func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
 	if u.ChatId == 0 {
-		log.Info().Str("user", u.Username).Str("msg", msg).
+		log.Info().Str("user", u.Username).Str("key", string(key)).
 			Msg("can't notify user as it hasn't started a chat with the bot.")
 		return tgbotapi.Message{}
 	}
-	log.Debug().Str("user", u.Username).Str("key", key).Interface("data", templateData).Msg("notifying user")
+	log.Debug().Str("user", u.Username).Str("key", string(key)).Interface("data", templateData).
+		Msg("notifying user")
 
 	msg := translateTemplate(key, u.Locale, templateData)
 	return sendMessageAsReply(u.ChatId, msg, replyToId)

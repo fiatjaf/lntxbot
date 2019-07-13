@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/lucsky/cuid"
@@ -52,15 +53,21 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		qrurl := s.ServiceURL + "/qr/" + qrpath
 
-		result := tgbotapi.NewInlineQueryResultPhoto("inv-"+argv[1], qrurl)
-		result.Title = argv[1] + " sat"
-		result.Description = "Payment request for " + argv[1] + " sat"
-		result.ThumbURL = qrurl
-		result.Caption = bolt11
+		resultphoto := tgbotapi.NewInlineQueryResultPhoto("inv-"+argv[1]+"-photo", qrurl)
+		resultphoto.Title = argv[1] + " sat"
+		resultphoto.Description = translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]})
+		resultphoto.ThumbURL = qrurl
+		resultphoto.Caption = bolt11
+
+		resultnophoto := tgbotapi.NewInlineQueryResultArticleHTML(
+			"inv-"+argv[1]+"-nophoto",
+			translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]}),
+			bolt11,
+		)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
-			Results:       []interface{}{result},
+			Results:       []interface{}{resultnophoto, resultphoto},
 			IsPersonal:    true,
 		})
 
@@ -82,13 +89,13 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			break
 		}
 
-		result := tgbotapi.NewInlineQueryResultArticle(
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("give-%d-%d", u.Id, sats),
-			fmt.Sprintf("Giving %d away", sats),
-			fmt.Sprintf("%s is giving %d sat away!", u.AtName(), sats),
+			translateTemplate(t.INLINEGIVEAWAYRESULT, u.Locale, t.T{"Sats": sats}),
+			translateTemplate(t.GIVEAWAYMSG, u.Locale, t.T{"User": u.AtName(), "Sats": sats}),
 		)
 
-		keyboard := giveawayKeyboard(u.Id, sats)
+		keyboard := giveawayKeyboard(u.Id, sats, u.Locale)
 		result.ReplyMarkup = &keyboard
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
@@ -116,17 +123,24 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			}
 		}
 
-		result := tgbotapi.NewInlineQueryResultArticle(
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
-			fmt.Sprintf("Lottery with entry fee of %d sat for %d participants", sats, nparticipants),
-			fmt.Sprintf("Pay %d and get a chance to win %d! %d out of %d spots left!",
-				sats, sats*nparticipants, nparticipants-1, nparticipants),
+			translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
+				"Sats":       "sats",
+				"MaxPlayers": nparticipants,
+			}),
+			translateTemplate(t.COINFLIPAD, u.Locale, t.T{
+				"Sats":       sats,
+				"Prize":      sats * nparticipants,
+				"SpotsLeft":  nparticipants - 1,
+				"MaxPlayers": nparticipants,
+			}),
 		)
 
 		coinflipid := cuid.Slug()
 		rds.SAdd("coinflip:"+coinflipid, u.Id)
 		rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
-		keyboard := coinflipKeyboard(coinflipid, nparticipants, sats)
+		keyboard := coinflipKeyboard(coinflipid, nparticipants, sats, u.Locale)
 		result.ReplyMarkup = &keyboard
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
@@ -152,15 +166,21 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			nparticipants = n
 		}
 
-		result := tgbotapi.NewInlineQueryResultArticle(
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("gifl-%d-%d-%d", u.Id, sats, nparticipants),
-			fmt.Sprintf("Give out %d sat for one out of %d participants", sats, nparticipants),
-			fmt.Sprintf("Join and get a chance to win %d! %d out of %d spots left!",
-				sats, nparticipants, nparticipants),
+			translateTemplate(t.INLINEGIVEFLIPRESULT, u.Locale, t.T{
+				"Sats":       sats,
+				"MaxPlayers": nparticipants,
+			}),
+			translateTemplate(t.GIVEFLIPAD, u.Locale, t.T{
+				"Sats":       sats,
+				"SpotsLeft":  nparticipants,
+				"MaxPlayers": nparticipants,
+			}),
 		)
 
 		giveflipid := cuid.Slug()
-		keyboard := giveflipKeyboard(giveflipid, u.Id, nparticipants, sats)
+		keyboard := giveflipKeyboard(giveflipid, u.Id, nparticipants, sats, u.Locale)
 		result.ReplyMarkup = &keyboard
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
@@ -177,18 +197,18 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		hiddenkeys := rds.Keys(fmt.Sprintf("hidden:%d:%s:*", u.Id, hiddenid)).Val()
 		results := make([]interface{}, len(hiddenkeys))
 		for i, hiddenkey := range hiddenkeys {
-			_, hiddenid, content, preview, satoshis, err := getHiddenMessage(hiddenkey)
+			_, hiddenid, content, preview, satoshis, err := getHiddenMessage(hiddenkey, u.Locale)
 			if err != nil {
 				continue
 			}
 
-			result := tgbotapi.NewInlineQueryResultArticle(
+			result := tgbotapi.NewInlineQueryResultArticleHTML(
 				fmt.Sprintf("reveal-%s", hiddenkey),
-				fmt.Sprintf("Hidden message %s: %s", hiddenid, content),
+				translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{"HiddenId": hiddenid, "Content": content}),
 				preview,
 			)
 
-			keyboard := revealKeyboard(hiddenkey, satoshis)
+			keyboard := revealKeyboard(hiddenkey, satoshis, u.Locale)
 			result.ReplyMarkup = &keyboard
 			results[i] = result
 		}

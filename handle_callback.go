@@ -212,7 +212,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if nregistered+1 < nparticipants {
 			// append @user to the coinflip message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
-			keyboard := coinflipKeyboard(coinflipid, nparticipants, sats)
+			keyboard := coinflipKeyboard(coinflipid, nparticipants, sats, locale)
 			baseEdit.ReplyMarkup = &keyboard
 			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
 			if messageId != 0 {
@@ -221,7 +221,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				edit.Text = translateTemplate(t.COINFLIPAD, locale, t.T{
 					"Sats":       sats,
 					"Prize":      sats * nparticipants,
-					"Gamblers":   nparticipants - nregistered,
+					"SpotsLeft":  nparticipants - nregistered,
 					"MaxPlayers": nparticipants,
 				})
 			}
@@ -345,7 +345,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if nregistered+1 < nparticipants {
 			// append @user to the giveflip message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
-			keyboard := giveflipKeyboard(giveflipid, giverId, nparticipants, sats)
+			keyboard := giveflipKeyboard(giveflipid, giverId, nparticipants, sats, locale)
 			baseEdit.ReplyMarkup = &keyboard
 			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
 			if messageId != 0 {
@@ -353,7 +353,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			} else {
 				edit.Text = translateTemplate(t.GIVEFLIPAD, locale, t.T{
 					"Sats":            sats * nparticipants,
-					"Participants":    nparticipants - nregistered,
+					"SpotsLeft":       nparticipants - nregistered,
 					"MaxParticipants": nparticipants,
 				})
 			}
@@ -487,7 +487,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if nregistered+1 < ngivers {
 			// append @user to the fundraise message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
-			keyboard := fundraiseKeyboard(fundraiseid, receiverId, ngivers, sats)
+			keyboard := fundraiseKeyboard(fundraiseid, receiverId, ngivers, sats, locale)
 
 			// we don't have to check for cb.Message/messageId here because we don't
 			// allow fundraises as inline messages so we always have access to cb.Message
@@ -565,7 +565,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		// perform payment between users,
 		// reveal message.
 		hiddenkey := cb.Data[7:]
-		sourceUserId, hiddenid, content, _, satoshis, err := getHiddenMessage(hiddenkey)
+		sourceUserId, hiddenid, content, _, satoshis, err := getHiddenMessage(hiddenkey, locale)
 		if err != nil {
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
 			removeKeyboardButtons(cb)

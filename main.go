@@ -177,7 +177,7 @@ func probeLightningd() string {
 }
 
 // CreateLocalizerBundle reads language files and registers them in i18n bundle
-func createLocalizerBundle(langFiles []string) (t.Bundle, error) {
+func createLocalizerBundle() (t.Bundle, error) {
 	// Bundle stores a set of messages
 	bundle = t.NewBundle("en")
 

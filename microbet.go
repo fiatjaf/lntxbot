@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -28,6 +29,10 @@ type MyMicrobetBet struct {
 	Closed    bool `json:"closed"`
 	WonAmount int  `json:"wonAmount"`
 }
+
+func (mb MyMicrobetBet) Layers() int      { return mb.TotalUsers - mb.Backers }
+func (mb MyMicrobetBet) BackIcon() string { return "🔵" }
+func (mb MyMicrobetBet) LayIcon() string  { return "🔴" }
 
 func getMicrobetBets() (bets []MicrobetBet, err error) {
 	var betdata struct {
@@ -113,18 +118,18 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 				Back  bool   `json:"back"`
 			}{payreq.RHash, betId, back}, &paidreq, nil)
 			if err != nil {
-				u.notifyAsReply(err.Error(), messageId)
+				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
 			}
 			if resp.Status() >= 300 {
-				u.notifyAsReply("microbet.fun returned an invalid response.", messageId)
+				u.notifyAsReply(t.MICROBETINVALIDRESPONSE, nil, messageId)
 				return
 			}
 			if !paidreq.Settled {
-				u.notifyAsReply("Paid, but bet not confirmed. Huge Microbet bug?", messageId)
+				u.notifyAsReply(t.MICROBETPAIDBUTNOTCONFIRMED, nil, messageId)
 				return
 			}
 
-			u.notifyAsReply("Bet placed!", messageId)
+			u.notifyAsReply(t.MICROBETPLACED, nil, messageId)
 		},
 		func(
 			u User,
@@ -134,7 +139,7 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 			// on failure
 			paymentHasFailed(u, messageId, hash)
 
-			u.notifyAsReply("Failed to pay bet invoice.", messageId)
+			u.notifyAsReply(t.MICROBETFAILEDTOPAY, nil, messageId)
 		},
 	)
 	if err != nil {

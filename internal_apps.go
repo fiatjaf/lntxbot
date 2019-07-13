@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"strings"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // hide and reveal
-func getHiddenMessage(redisKey string) (sourceuser int, id, content, preview string, satoshis int, err error) {
+func getHiddenMessage(redisKey, locale string) (sourceuser int, id, content, preview string, satoshis int, err error) {
 	content, err = rds.Get(redisKey).Result()
 	if err != nil {
 		return
@@ -28,7 +29,7 @@ func getHiddenMessage(redisKey string) (sourceuser int, id, content, preview str
 
 	id = keyparts[2]
 
-	preview = fmt.Sprintf("A message is hidden here. %d sat needed to unlock.", satoshis)
+	preview = translateTemplate(t.HIDDENDEFAULTPREVIEW, locale, t.T{"Sats": satoshis})
 	contentparts := strings.SplitN(content, "~", 2)
 	if len(contentparts) == 2 {
 		preview = contentparts[0]
@@ -38,11 +39,11 @@ func getHiddenMessage(redisKey string) (sourceuser int, id, content, preview str
 	return
 }
 
-func revealKeyboard(fullRedisKey string, sats int) tgbotapi.InlineKeyboardMarkup {
+func revealKeyboard(fullRedisKey string, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf("Pay %d sat to reveal the full message", sats),
+				fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats})),
 				fmt.Sprintf("reveal=%s", fullRedisKey),
 			),
 		),

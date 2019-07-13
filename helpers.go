@@ -243,21 +243,19 @@ begin:
 	goto begin
 }
 
-func messageFromError(err error, prefix string) string {
-	var msg string
+func messageFromError(err error) string {
 	switch terr := err.(type) {
 	case lightning.ErrorTimeout:
-		msg = fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
+		return fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
 	case lightning.ErrorCommand:
-		msg = terr.Message
+		return terr.Message
 	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
-		msg = "Problem connecting to our node. Please try again in a minute."
+		return "Problem connecting to our node. Please try again in a minute."
 	case lightning.ErrorJSONDecode:
-		msg = "Error reading response from lightningd."
+		return "Error reading response from lightningd."
 	default:
-		msg = err.Error()
+		return err.Error()
 	}
-	return prefix + ": " + msg
 }
 
 func randomPreimage() (string, error) {
@@ -415,11 +413,11 @@ func translateTemplate(key t.Key, locale string, data t.T) string {
 	msg, err := bundle.Render(locale, key, data)
 
 	if err != nil {
-		log.Error().Err(err).Str("locale", locale).Str("key", key).
+		log.Error().Err(err).Str("locale", locale).Str("key", string(key)).
 			Msg("translation failed")
 	}
 
-	return msg, err
+	return msg
 }
 
 func escapeHTML(m string) string {

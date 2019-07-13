@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -36,6 +37,13 @@ type SatelliteOrder struct {
 	EndedTransmissionAt   string  `json:"ended_transmission_at"`
 	TxSeqNum              int64   `json:"tx_seq_num"`
 	UnpaidBid             int64   `json:"unpaid_bid"`
+}
+
+func (order SatelliteOrder) String() string {
+	parsedtime, _ := time.Parse("2006-01-02T15:04:05Z", order.CreatedAt)
+	return fmt.Sprintf("📡 <code>%s</code> <i>%s</i> <code>%db</code> <code>%.23mat/b</code> <i>%s</i>",
+		order.UUID, order.Status, order.MessageSize, order.BidPerByte/1000,
+		parsedtime.Format("2 Jan 15:04"))
 }
 
 type SatelliteError struct {
@@ -144,19 +152,19 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 			if err != nil {
 				log.Warn().Err(err).Str("user", u.Username).
 					Msg("failed to get satellite data")
-				u.notify("Failed to store satellite order data. Please report: " + err.Error())
+				u.notify(t.SATELLITEFAILEDTOSTORE, t.T{"Err": err.Error()})
 			} else {
 				satdata.Orders = append(satdata.Orders, []string{orderreq.UUID, orderreq.AuthToken})
 				err = u.setAppData("satellite", satdata)
 				if err != nil {
 					log.Warn().Err(err).Str("user", u.Username).Interface("satdata", satdata).
 						Msg("failed to set satellite data")
-					u.notify("Failed to store satellite order data. Please report: " + err.Error())
+					u.notify(t.SATELLITEFAILEDTOSTORE, t.T{"Err": err.Error()})
 				}
 			}
 
 			// done
-			u.notifyAsReply("Transmission paid!", messageId)
+			u.notifyAsReply(t.SATELLITEPAID, nil, messageId)
 		},
 		func(
 			u User,
@@ -166,7 +174,7 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 			// on failure
 			paymentHasFailed(u, messageId, hash)
 
-			u.notifyAsReply("Failed to pay for transmission.", messageId)
+			u.notifyAsReply(t.SATELLITEFAILEDTOPAY, nil, messageId)
 		},
 	)
 }
@@ -241,7 +249,7 @@ func deleteSatelliteOrder(user User, uuid string) (err error) {
 	if err != nil {
 		log.Warn().Err(err).Str("user", user.Username).
 			Msg("failed to get satellite data")
-		user.notify("Failed to delete satellite order data. Please report: " + err.Error())
+		user.notify(t.SATELLITEFAILEDTODELETE, t.T{"Err": err.Error()})
 	} else {
 		// remove the order we've just deleted -- by cloning the entire array except it.
 		neworders := make([][]string, 0, len(satdata.Orders))
@@ -255,7 +263,7 @@ func deleteSatelliteOrder(user User, uuid string) (err error) {
 		if err != nil {
 			log.Warn().Err(err).Str("user", user.Username).Interface("satdata", satdata).
 				Msg("failed to set satellite data")
-			user.notify("Failed to delete satellite order data. Please report: " + err.Error())
+			user.notify(t.SATELLITEFAILEDTODELETE, t.T{"Err": err.Error()})
 		}
 	}
 
@@ -294,11 +302,4 @@ func getSatelliteOrderToken(user User, uuid string) (token string, ok bool) {
 	}
 
 	return
-}
-
-func formatSatelliteOrderLine(order SatelliteOrder) string {
-	parsedtime, _ := time.Parse("2006-01-02T15:04:05Z", order.CreatedAt)
-	return fmt.Sprintf("📡 <code>%s</code> <i>%s</i> <code>%db</code> <code>%.2fmsat/b</code> <i>%s</i>",
-		order.UUID, order.Status, order.MessageSize, order.BidPerByte,
-		parsedtime.Format("2 Jan 15:04"))
 }
