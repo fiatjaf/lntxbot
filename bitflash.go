@@ -7,6 +7,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
+
+	"git.alhur.es/fiatjaf/lntxbot/t"
 )
 
 type BitflashResponse struct {
@@ -26,6 +30,21 @@ type BitflashOrder struct {
 	Description string `json:"description"`
 	CreatedAt   int64  `json:"created_at"`
 	PaidAt      int64  `json:"paid_at"`
+}
+
+func (o BitflashOrder) Amount() string {
+	return strings.Split(strings.Split(o.Description, " of ")[1], " to ")[0]
+}
+
+func (o BitflashOrder) Address() string {
+	return strings.Split(strings.Split(o.Description, " to ")[1], "(")[0]
+}
+
+func (o BitflashOrder) Status() string {
+	if o.PaidAt > 0 {
+		return fmt.Sprintf("queued at %s", time.Unix(o.PaidAt, 0).Format("2 Jan 15:04"))
+	}
+	return fmt.Sprintf("pending since %s", time.Unix(o.CreatedAt, 0).Format("2 Jan 15:04"))
 }
 
 func prepareBitflashTransaction(user User, messageId int, satoshi int, address string) (bfresp BitflashResponse, err error) {
@@ -95,7 +114,7 @@ func payBitflashInvoice(user User, order BitflashOrder, messageId int) (err erro
 			// on success
 			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
 
-			u.notifyAsReply("Transaction queued!", messageId)
+			u.notifyAsReply(t.BITFLASHTXQUEUED, nil, messageId)
 		},
 		func(
 			u User,
@@ -122,8 +141,7 @@ func saveBitflashOrder(user User, orderId string) {
 		data.Orders = append(data.Orders, orderId)
 		err = user.setAppData("bitflash", data)
 		if err != nil {
-			user.notify("Failed to save Bitflash order. Please report: " + err.Error())
+			user.notify(t.BITFLASHFAILEDTOSAVE, t.T{"Err": err.Error()})
 		}
 	}
-
 }

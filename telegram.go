@@ -6,15 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 )
 
-func notify(chatId int64, msg string) tgbotapi.Message {
-	return notifyAsReply(chatId, msg, 0)
-}
-
-func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
+func sendMessage(chatId int64, msg string) tgbotapi.Message { return sendMessageAsReply(chatId, msg, 0) }
+func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
 	chattable.ParseMode = "HTML"
@@ -31,20 +29,9 @@ func notifyAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	return message
 }
 
-func notifyMarkdown(chatId int64, msg string) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.ParseMode = "Markdown"
-	chattable.DisableWebPagePreview = true
-	message, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Int64("chat", chatId).Str("msg", msg).Err(err).Msg("error sending message")
-	}
-	return message
-}
-
-func notifyWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
+func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
 	if picturepath == "" {
-		return notify(chatId, message)
+		return sendMessage(chatId, message)
 	} else {
 		defer os.Remove(picturepath)
 		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
@@ -52,7 +39,7 @@ func notifyWithPicture(chatId int64, picturepath string, message string) tgbotap
 		c, err := bot.Send(photo)
 		if err != nil {
 			log.Warn().Str("path", picturepath).Str("message", message).Err(err).Msg("error sending photo")
-			return notify(chatId, message)
+			return sendMessage(chatId, message)
 		} else {
 			return c
 		}
@@ -72,7 +59,7 @@ func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
 	return baseedit
 }
 
-func giveawayKeyboard(giverId, sats int) tgbotapi.InlineKeyboardMarkup {
+func giveawayKeyboard(giverId, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	giveawayid := cuid.Slug()
 	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
 
@@ -80,32 +67,38 @@ func giveawayKeyboard(giverId, sats int) tgbotapi.InlineKeyboardMarkup {
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", giverId)),
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Claim!",
+				translate(t.CANCEL, locale),
+				fmt.Sprintf("cancel=%d", giverId),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.GIVEAWAYCLAIM, locale),
 				buttonData,
 			),
 		),
 	)
 }
 
-func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int) tgbotapi.InlineKeyboardMarkup {
+func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Cancel", fmt.Sprintf("cancel=%d", giverId)),
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Try to win!",
+				translate(t.CANCEL, locale),
+				fmt.Sprintf("cancel=%d", giverId),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.GIVEFLIPJOIN, locale),
 				fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
 			),
 		),
 	)
 }
 
-func coinflipKeyboard(coinflipid string, nparticipants, sats int) tgbotapi.InlineKeyboardMarkup {
+func coinflipKeyboard(coinflipid string, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Join lottery",
+				translate(t.COINFLIPJOIN, locale),
 				fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
 			),
 		),
@@ -117,27 +110,16 @@ func fundraiseKeyboard(
 	receiverId int,
 	nparticipants int,
 	sats int,
+	locale string,
 ) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
-				"Contribute",
+				translate(t.FUNDRAISEJOIN, locale),
 				fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
 			),
 		),
 	)
-}
-
-func escapeHTML(m string) string {
-	return strings.Replace(
-		strings.Replace(
-			strings.Replace(
-				strings.Replace(
-					m,
-					"&", "&amp;", -1),
-				"<", "&lt;", -1),
-			">", "&gt;", -1),
-		"\"", "&quot;", -1)
 }
 
 func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
@@ -163,6 +145,7 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 	bot.Send(tgbotapi.EditMessageTextConfig{
 		BaseEdit: baseEdit,
 		Text:     text,
+		DisableWebPagePreview: true,
 	})
 }
 
@@ -186,7 +169,7 @@ func isAdmin(message *tgbotapi.Message) bool {
 			log.Warn().Err(err).
 				Int64("group", message.Chat.ID).
 				Int("user", message.From.ID).
-				Msg("toggle impossible. can't get user or not an admin.")
+				Msg("can't get user or not an admin.")
 			return false
 		}
 
@@ -213,9 +196,9 @@ func getChatOwner(chatId int64) (User, error) {
 
 	for _, admin := range admins {
 		if admin.Status == "creator" {
-			user, t, err := ensureUser(admin.User.ID, admin.User.UserName)
+			user, tcase, err := ensureUser(admin.User.ID, admin.User.UserName, admin.User.LanguageCode)
 			if err != nil {
-				log.Warn().Err(err).Int("case", t).
+				log.Warn().Err(err).Int("case", tcase).
 					Str("username", admin.User.UserName).
 					Int("id", admin.User.ID).
 					Msg("failed to ensure user when fetching chat owner")

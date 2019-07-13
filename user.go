@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
@@ -23,6 +24,7 @@ type User struct {
 	Username   string `db:"username"`
 	ChatId     int64  `db:"chat_id"`
 	Password   string `db:"password"`
+	Locale     string `db:"locale"`
 }
 
 const USERFIELDS = `
@@ -30,7 +32,8 @@ const USERFIELDS = `
   coalesce(telegram_id, 0) AS telegram_id,
   coalesce(username, '') AS username,
   coalesce(chat_id, 0) AS chat_id,
-  password
+  password,
+  locale
 `
 
 func loadUser(id int, telegramId int) (u User, err error) {
@@ -42,7 +45,7 @@ WHERE id = $1 OR telegram_id = $2
 	return
 }
 
-func ensureUser(telegramId int, username string) (u User, tcase int, err error) {
+func ensureUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
 	username = strings.ToLower(username)
 	var vusername sql.NullString
 
@@ -53,10 +56,14 @@ func ensureUser(telegramId int, username string) (u User, tcase int, err error) 
 	}
 
 	var userRows []User
+
+	// always update locale while selecting user
 	err = pg.Select(&userRows, `
-SELECT `+USERFIELDS+` FROM telegram.account
-WHERE telegram_id = $1 OR username = $2
-    `, telegramId, username)
+UPDATE telegram.account AS u
+SET locale = CASE WHEN $3 != '' THEN $3 ELSE u.locale END
+WHERE u.telegram_id = $1 OR u.username = $2
+RETURNING `+USERFIELDS,
+		telegramId, username, locale)
 	if err != nil && err != sql.ErrNoRows {
 		return
 	}
@@ -221,22 +228,21 @@ func (u *User) unsetChat() {
 	pg.Exec(`UPDATE telegram.account SET chat_id = NULL WHERE id = $1`, u.Id)
 }
 
-func (u User) notify(msg string) tgbotapi.Message {
-	return u.notifyAsReply(msg, 0)
+func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
+	return u.notifyAsReply(key, templateData, 0)
 }
 
-func (u User) notifyMarkdown(msg string) tgbotapi.Message {
-	return notifyMarkdown(u.ChatId, msg)
-}
-
-func (u User) notifyAsReply(msg string, replyToId int) tgbotapi.Message {
+func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
 	if u.ChatId == 0 {
-		log.Info().Str("user", u.Username).Str("msg", msg).
+		log.Info().Str("user", u.Username).Str("key", string(key)).
 			Msg("can't notify user as it hasn't started a chat with the bot.")
 		return tgbotapi.Message{}
 	}
-	log.Debug().Str("user", u.Username).Str("msg", msg).Msg("notifying user")
-	return notifyAsReply(u.ChatId, msg, replyToId)
+	log.Debug().Str("user", u.Username).Str("key", string(key)).Interface("data", templateData).
+		Msg("notifying user")
+
+	msg := translateTemplate(key, u.Locale, templateData)
+	return sendMessageAsReply(u.ChatId, msg, replyToId)
 }
 
 func (u User) makeInvoice(
@@ -751,20 +757,23 @@ SELECT * FROM (
 
 func (u User) checkBalanceFor(sats int, purpose string) bool {
 	if sats < 40 {
-		u.notify("That's too small, please start your " + purpose + " with at least 40 sat.")
+		u.notify(t.TOOSMALLPAYMENT, t.T{"Purpose": purpose})
 		return false
 	}
 
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
-		u.notify(fmt.Sprintf("Insufficient balance for %s. Needs %.0f sat more.",
-			purpose, float64(sats)-info.Balance))
+		u.notify(t.INSUFFICIENTBALANCE, t.T{
+			"Purpose": purpose,
+			"Sats":    float64(sats) - info.Balance,
+		})
 		return false
 	}
 	return true
 }
 
-func fromManyToOne(sats int, toId int, fromIds []int,
-	desc, receiverMessage, giverMessage string,
+func fromManyToOne(
+	sats int, toId int, fromIds []int, desc string,
+	receiverMessage, giverMessage t.Key,
 ) (receiver User, err error) {
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -813,7 +822,10 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 		giver, _ := loadUser(fromId, 0)
 		giverNames = append(giverNames, giver.AtName())
 
-		giver.notify(fmt.Sprintf(giverMessage, sats, receiver.AtName()))
+		giver.notify(giverMessage, t.T{
+			"IndividualSats": sats,
+			"Receiver":       receiver.AtName(),
+		})
 	}
 
 	err = txn.Commit()
@@ -821,10 +833,10 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 		return
 	}
 
-	receiver.notify(
-		fmt.Sprintf(receiverMessage,
-			sats*len(fromIds), strings.Join(giverNames, " ")),
-	)
+	receiver.notify(receiverMessage, t.T{
+		"TotalSats": sats * len(fromIds),
+		"Senders":   strings.Join(giverNames, " "),
+	})
 	return
 }
 
@@ -880,27 +892,26 @@ WHERE payment_hash = $3
 			Str("hash", hash).
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
-		u.notifyAsReply("Database error: failed to mark the transaction as not pending.", messageId)
+		u.notifyAsReply(t.DBERROR, nil, messageId)
 	}
 
-	u.notifyAsReply(fmt.Sprintf(
-		"Paid with <b>%d sat</b> (+ %.3f fee). \n\n<b>Hash:</b> %s\n\n<b>Proof:</b> %s\n\n/tx%s",
-		int(msatoshi/1000),
-		fees/1000,
-		hash,
-		preimage,
-		hash[:5],
-	), messageId)
+	u.notifyAsReply(t.PAIDMESSAGE, t.T{
+		"Sats":      int(msatoshi / 1000),
+		"Fee":       fees / 1000,
+		"Hash":      hash,
+		"Preimage":  preimage,
+		"ShortHash": hash[:5],
+	}, messageId)
 }
 
 func paymentHasFailed(u User, messageId int, hash string) {
-	u.notifyAsReply(fmt.Sprintf("Payment failed. /log%s", hash[:5]), messageId)
+	u.notifyAsReply(t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, messageId)
 
 	_, err := pg.Exec(
 		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
 	if err != nil {
 		log.Error().Err(err).Str("hash", hash).
-			Msg("failed to cancel transaction after routing failure.")
+			Msg("failed to cancel transaction after routing failure")
 	}
 }
 

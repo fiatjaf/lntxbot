@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
+
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/renstrom/fuzzysearch/fuzzy"
@@ -241,21 +243,19 @@ begin:
 	goto begin
 }
 
-func messageFromError(err error, prefix string) string {
-	var msg string
+func messageFromError(err error) string {
 	switch terr := err.(type) {
 	case lightning.ErrorTimeout:
-		msg = fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
+		return fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
 	case lightning.ErrorCommand:
-		msg = terr.Message
+		return terr.Message
 	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
-		msg = "Problem connecting to our node. Please try again in a minute."
+		return "Problem connecting to our node. Please try again in a minute."
 	case lightning.ErrorJSONDecode:
-		msg = "Error reading response from lightningd."
+		return "Error reading response from lightningd."
 	default:
-		msg = err.Error()
+		return err.Error()
 	}
-	return prefix + ": " + msg
 }
 
 func randomPreimage() (string, error) {
@@ -405,11 +405,29 @@ func roman(number int) string {
 	return roman
 }
 
-func listAnd(names []string) string {
-	if len(names) == 1 {
-		return names[0]
+func translate(key t.Key, locale string) string {
+	return translateTemplate(key, locale, nil)
+}
+
+func translateTemplate(key t.Key, locale string, data t.T) string {
+	msg, err := bundle.Render(locale, key, data)
+
+	if err != nil {
+		log.Error().Err(err).Str("locale", locale).Str("key", string(key)).
+			Msg("translation failed")
 	}
-	str := strings.Join(names[:len(names)-1], ", ")
-	str += " and " + names[len(names)-1]
-	return str
+
+	return msg
+}
+
+func escapeHTML(m string) string {
+	return strings.Replace(
+		strings.Replace(
+			strings.Replace(
+				strings.Replace(
+					m,
+					"&", "&amp;", -1),
+				"<", "&lt;", -1),
+			">", "&gt;", -1),
+		"\"", "&quot;", -1)
 }

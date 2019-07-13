@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -43,11 +44,17 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var bundle t.Bundle
 
 func main() {
 	err = envconfig.Process("", &s)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
+	}
+
+	bundle, err = createLocalizerBundle()
+	if err != nil {
+		log.Fatal().Err(err).Msg("error initialising localization")
 	}
 
 	setupCommands()
@@ -171,4 +178,17 @@ func probeLightningd() string {
 		Msg("lightning node connected")
 
 	return nodeinfo.Get("id").String()
+}
+
+// CreateLocalizerBundle reads language files and registers them in i18n bundle
+func createLocalizerBundle() (t.Bundle, error) {
+	// Bundle stores a set of messages
+	bundle = t.NewBundle("en")
+
+	err := bundle.AddLanguage("en", t.EN)
+	if err != nil {
+		return bundle, err
+	}
+
+	return bundle, nil
 }

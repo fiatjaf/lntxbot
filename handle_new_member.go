@@ -1,9 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"git.alhur.es/fiatjaf/lntxbot/t"
 
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -12,13 +15,18 @@ import (
 var pendingApproval = make(map[string]KickData)
 
 func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
-	sats, err := getTicketPrice(joinMessage.Chat.ID)
+	g, err := loadGroup(joinMessage.Chat.ID)
 	if err != nil {
-		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).Msg("error fetching ticket price for chat")
+		if err == sql.ErrNoRows {
+			// fine, this group has no settings
+			return
+		}
+
+		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).Msg("error fetching group chat on new member")
 		return
 	}
 
-	if sats == 0 {
+	if g.Ticket == 0 {
 		// no ticket policy
 		return
 	}
@@ -39,13 +47,14 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		username = newmember.FirstName
 	}
 
-	notifyMessage := notify(joinMessage.Chat.ID, fmt.Sprintf(
-		"Hello, %s. You have 15min to pay the following invoice for %d sat if you want to stay in this group:",
-		username, sats))
+	notifyMessage := g.notify(t.SPAMFILTERMESSAGE, t.T{
+		"User": username,
+		"Sats": g.Ticket,
+	})
 
 	ln.Call("delinvoice", label, "unpaid")  // we don't care if it doesn't exist
-	ln.Call("delinvoice", label, "paid")    // we don't care if it doesn't exist
-	ln.Call("delinvoice", label, "expired") // we don't care if it doesn't exist
+	ln.Call("delinvoice", label, "paid")    // idem
+	ln.Call("delinvoice", label, "expired") // idem
 
 	chatOwner, err := getChatOwner(joinMessage.Chat.ID)
 	if err != nil {
@@ -55,12 +64,12 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 
 	expiration := time.Minute * 15
 
-	bolt11, hash, qrpath, err := chatOwner.makeInvoice(sats, fmt.Sprintf(
+	bolt11, hash, qrpath, err := chatOwner.makeInvoice(g.Ticket, fmt.Sprintf(
 		"ticket for %s to join %s (%d).",
 		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
 	), label, &expiration, nil, "", false)
 
-	invoiceMessage := notifyWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
+	invoiceMessage := sendMessageWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 
 	kickdata := KickData{
 		invoiceMessage,
@@ -133,6 +142,13 @@ func waitToKick(label string, kickdata KickData) {
 }
 
 func ticketPaid(label string, kickdata KickData) {
+	g, err := loadGroup(kickdata.JoinMessage.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Str("chat", kickdata.JoinMessage.Chat.Title).
+			Msg("error fetching group chat after ticked paid")
+		return
+	}
+
 	log.Debug().Str("label", label).Msg("ticket paid")
 	delete(pendingApproval, label)
 	rds.HDel("ticket-pending", label)
@@ -140,13 +156,13 @@ func ticketPaid(label string, kickdata KickData) {
 	// delete the invoice message
 	deleteMessage(&kickdata.InvoiceMessage)
 
-	user, _, _ := ensureUser(kickdata.NewMember.ID, kickdata.NewMember.UserName)
+	user, _, _ := ensureUser(kickdata.NewMember.ID, kickdata.NewMember.UserName, kickdata.NewMember.LanguageCode)
 
 	// replace caption
-	_, err := bot.Send(tgbotapi.NewEditMessageText(
+	_, err = bot.Send(tgbotapi.NewEditMessageText(
 		kickdata.NotifyMessage.Chat.ID,
 		kickdata.NotifyMessage.MessageID,
-		"Invoice paid. "+user.AtName()+" allowed.",
+		translateTemplate(t.USERALLOWED, g.Locale, t.T{"User": user.AtName()}),
 	))
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")

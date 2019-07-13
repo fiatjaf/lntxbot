@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
 )
@@ -87,11 +87,15 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
 		label,
 	)
 	if err != nil {
-		receiver.notify(
-			"Payment received, but failed to save on database. Please report this issue: <code>" + label + "</code>, hash: <code>" + hash + "</code>",
-		)
+		receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{
+			"Label": label,
+			"Hash":  hash,
+		}, messageId)
 		return
 	}
 
-	receiver.notifyAsReply(fmt.Sprintf("Payment received: %d. /tx%s.", msats/1000, hash[:5]), messageId)
+	receiver.notifyAsReply(t.PAYMENTRECEIVED, t.T{
+		"Sats": msats / 1000,
+		"Hash": hash[:5],
+	}, messageId)
 }
