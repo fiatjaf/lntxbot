@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type Transaction struct {
@@ -224,4 +226,109 @@ func renderLogInfo(hash string) (logInfo string) {
 	}
 
 	return
+}
+
+func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
+	txn, err := u.getTransaction(hashfirstchars)
+	if err != nil {
+		log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
+			Msg("failed to get transaction")
+		u.notifyAsReply(t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars}, messageId)
+		return
+	}
+
+	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
+		"Txn":     txn,
+		"LogInfo": renderLogInfo(hashfirstchars),
+	})
+	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
+
+	if txn.Status == "PENDING" {
+		// allow people to cancel pending if they're old enough
+		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
+			tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
+				),
+			),
+		)
+	}
+
+	if txn.IsUnclaimed() {
+		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
+			tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
+				),
+			),
+		)
+	}
+}
+
+func handleTransactionList(u User, page int, cb *tgbotapi.CallbackQuery) {
+	// show list of transactions
+	if page == 0 {
+		page = 1
+	}
+	limit := 25
+	offset := limit * (page - 1)
+
+	txns, err := u.listTransactions(limit, offset, 16, Both)
+	if err != nil {
+		log.Warn().Err(err).Str("user", u.Username).Int("page", page).
+			Msg("failed to list transactions")
+		return
+	}
+
+	text := translateTemplate(t.TXLIST, u.Locale, t.T{
+		"Offset":       offset,
+		"Limit":        limit,
+		"From":         offset + 1,
+		"To":           offset + limit,
+		"Transactions": txns,
+	})
+
+	keyboard := tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			[]tgbotapi.InlineKeyboardButton{},
+		},
+	}
+
+	if page > 1 {
+		keyboard.InlineKeyboard[0] = append(
+			keyboard.InlineKeyboard[0],
+			tgbotapi.NewInlineKeyboardButtonData("newer", fmt.Sprintf("txlist=%d", page-1)),
+		)
+	}
+
+	if len(txns) > 0 {
+		keyboard.InlineKeyboard[0] = append(
+			keyboard.InlineKeyboard[0],
+			tgbotapi.NewInlineKeyboardButtonData("older", fmt.Sprintf("txlist=%d", page+1)),
+		)
+	}
+
+	var chattable tgbotapi.Chattable
+	if cb == nil {
+		chattable = tgbotapi.MessageConfig{
+			BaseChat: tgbotapi.BaseChat{
+				ChatID:      u.ChatId,
+				ReplyMarkup: &keyboard,
+			},
+			Text: text,
+			DisableWebPagePreview: true,
+			ParseMode:             "HTML",
+		}
+	} else {
+		baseEdit := getBaseEdit(cb)
+		baseEdit.ReplyMarkup = &keyboard
+		chattable = tgbotapi.EditMessageTextConfig{
+			BaseEdit: baseEdit,
+			Text:     text,
+			DisableWebPagePreview: true,
+			ParseMode:             "HTML",
+		}
+	}
+
+	bot.Send(chattable)
 }

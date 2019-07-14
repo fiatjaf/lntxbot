@@ -80,41 +80,7 @@ func handleMessage(message *tgbotapi.Message) {
 	// individual transaction query
 	if strings.HasPrefix(messageText, "/tx") {
 		hashfirstchars := messageText[3:]
-		txn, err := u.getTransaction(hashfirstchars)
-		if err != nil {
-			log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
-				Msg("failed to get transaction")
-			u.notifyAsReply(t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars}, message.MessageID)
-			return
-		}
-
-		txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
-			"Txn":     txn,
-			"LogInfo": renderLogInfo(hashfirstchars),
-		})
-		msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
-
-		if txn.Status == "PENDING" {
-			// allow people to cancel pending if they're old enough
-			editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
-				tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
-					),
-				),
-			)
-		}
-
-		if txn.IsUnclaimed() {
-			editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
-				tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
-					),
-				),
-			)
-		}
-
+		handleSingleTransaction(u, hashfirstchars, message.MessageID)
 		return
 	}
 
@@ -508,27 +474,8 @@ parsed:
 		chattable.BaseChat.ReplyMarkup = revealKeyboard(redisKey, satoshis, g.Locale)
 		bot.Send(chattable)
 	case opts["transactions"].(bool):
-		// show list of transactions
-		limit := 25
-		offset := 0
-		if page, err := opts.Int("--page"); err == nil {
-			offset = limit * (page - 1)
-		}
-
-		txns, err := u.listTransactions(limit, offset, 16, Both)
-		if err != nil {
-			log.Warn().Err(err).Str("user", u.Username).
-				Msg("failed to list transactions")
-			break
-		}
-
-		u.notify(t.TXLIST, t.T{
-			"Offset":       offset,
-			"Limit":        limit,
-			"From":         offset + 1,
-			"To":           offset + limit,
-			"Transactions": txns,
-		})
+		page, _ := opts.Int("--page")
+		handleTransactionList(u, page, nil)
 		break
 	case opts["balance"].(bool):
 		// show balance

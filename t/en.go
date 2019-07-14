@@ -369,7 +369,7 @@ Registered: {{.Registered}}
 	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
-<b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.Valid}}
+<b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
 <b>Amount</b>: {{.Txn.Amount}} sat
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}

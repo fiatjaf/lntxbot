@@ -56,6 +56,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 	switch {
 	case cb.Data == "noop":
 		goto answerEmpty
+	case strings.HasPrefix(cb.Data, "txlist="):
+		page, _ := strconv.Atoi(cb.Data[7:])
+		handleTransactionList(u, page, cb)
+		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
 			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.CANTCANCEL, locale)))
