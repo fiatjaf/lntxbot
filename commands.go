@@ -176,7 +176,9 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 	var argv []string
 	argv, err = shellquote.Split(message)
 	if err != nil {
-		return
+		// fallback to just a split when people do `/app satellite 23 can't quote`
+		// which would normally break here
+		argv = strings.Split(message, " ")
 	}
 
 	// parse using docopt
