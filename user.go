@@ -474,7 +474,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return errors.New("Payment already in course.")
 	}
 
-	var balance int
+	var balance int64
 	err = txn.Get(&balance, `
 SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
     `, u.Id)
@@ -486,6 +486,16 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	if balance < 0 {
 		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
 			-float64(balance)/1000)
+	}
+
+	if msatoshi >= 5000000 && balance*100 < msatoshi {
+		// if the payment is >= 5000sat, reserve 1% of balance for the transaction fee.
+		// if it's smaller we don't care.
+		// this should provide an easy way for people to empty their wallets while at the same time
+		// protecting against exploits and people who leave with a gigantic negative balance.
+		return errors.New(
+			"Can't use your entire balance for this payment because of fee reserves. Please do smaller payments.",
+		)
 	}
 
 	err = txn.Commit()
