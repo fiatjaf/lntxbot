@@ -23,7 +23,7 @@ func ensureGroup(telegramId int64, locale string) (g GroupChat, err error) {
 INSERT INTO telegram.chat AS g (telegram_id, locale)
 VALUES (
   $1,
-  CASE WHEN $2 != '' THEN $2 ELSE DEFAULT END
+  CASE WHEN $2 != '' THEN $2 ELSE 'en' END
 )
 ON CONFLICT (telegram_id)
   DO UPDATE

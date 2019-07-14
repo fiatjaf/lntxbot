@@ -647,6 +647,12 @@ parsed:
 			break
 		}
 
+		g, err := ensureGroup(message.Chat.ID, message.From.LanguageCode)
+		if err != nil {
+			log.Warn().Err(err).Str("user", u.Username).Int64("group", message.Chat.ID).Msg("failed to ensure group")
+			break
+		}
+
 		switch {
 		case opts["ticket"].(bool):
 			log.Debug().Int64("group", message.Chat.ID).Msg("toggling ticket")
@@ -655,10 +661,13 @@ parsed:
 				setTicketPrice(message.Chat.ID, 0)
 				sendMessage(message.Chat.ID, translate("FreeJoin", g.Locale))
 			}
+
 			setTicketPrice(message.Chat.ID, price)
-			g.notify(t.TICKETMSG, t.T{
-				"Sat": price,
-			})
+			if price > 0 {
+				g.notify(t.TICKETMSG, t.T{
+					"Sat": price,
+				})
+			}
 		case opts["spammy"].(bool):
 			log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
 			spammy, err := toggleSpammy(message.Chat.ID)
