@@ -15,11 +15,12 @@ import (
 
 func handleInlineQuery(q *tgbotapi.InlineQuery) {
 	var (
-		u    User
-		err  error
-		resp tgbotapi.APIResponse
-		argv []string
-		text string
+		u       User
+		err     error
+		resp    tgbotapi.APIResponse
+		argv    []string
+		text    string
+		command string
 	)
 
 	u, err = loadUser(0, int(q.From.ID))
@@ -34,11 +35,16 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 	text = strings.TrimSpace(q.Query)
 	argv, err = shellquote.Split(text)
-	if err != nil || len(argv) < 1 || (len(argv) < 2 && argv[0] != "reveal") {
+	if err != nil || len(argv) < 1 {
 		goto answerEmpty
 	}
 
-	switch argv[0] {
+	command = argv[0]
+	if strings.HasPrefix(command, "/") {
+		command = command[1:]
+	}
+
+	switch command {
 	case "invoice", "receive", "fund":
 		sats, err := strconv.Atoi(argv[1])
 		if err != nil {
