@@ -160,6 +160,13 @@ const (
 	GOLIGHTNINGFINISH = "GoLightningFinish"
 	GOLIGHTNINGHELP   = "GoLightningHelp"
 
+	POKERDEPOSITFAIL  = "PokerDepositFail"
+	POKERWITHDRAWFAIL = "PokerWithdrawFail"
+	POKERBALANCEERROR = "PokerBalanceError"
+	POKERSTATUS       = "PokerStatus"
+	POKERBALANCE      = "PokerBalance"
+	POKERHELP         = "PokerHelp"
+
 	TOGGLEHELPARGS    = "toggleHelpArgs"
 	TOGGLEHELPDESC    = "toggleHelpDesc"
 	TOGGLEHELPEXAMPLE = "toggleHelpExample"

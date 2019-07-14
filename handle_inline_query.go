@@ -224,6 +224,18 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			Results:       results,
 			IsPersonal:    true,
 		})
+	case "poker":
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results: []interface{}{
+				tgbotapi.InlineQueryResultGame{
+					Type:          "game",
+					ID:            "poker",
+					GameShortName: "poker",
+				},
+			},
+			IsPersonal: false,
+		})
 	default:
 		goto answerEmpty
 	}

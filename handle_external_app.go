@@ -235,6 +235,64 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		}
 
 		u.notify(t.GOLIGHTNINGFINISH, t.T{"Order": order})
+	case opts["poker"].(bool):
+		if opts["deposit"].(bool) {
+			satoshis, err := opts.Int("<satoshis>")
+			if err != nil {
+				u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+				break
+			}
+
+			err = pokerDeposit(u, satoshis, messageId)
+			if err != nil {
+				u.notify(t.POKERDEPOSITFAIL, t.T{"Err": err.Error()})
+				break
+			}
+		} else if opts["balance"].(bool) {
+			balance, err := getPokerBalance(u)
+			if err != nil {
+				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				break
+			}
+
+			chattable := tgbotapi.NewMessage(
+				u.ChatId,
+				translateTemplate(t.POKERBALANCE, u.Locale, t.T{"Balance": balance}),
+			)
+			chattable.ParseMode = "HTML"
+			chattable.BaseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=poker-withdraw"),
+				),
+			)
+			bot.Send(chattable)
+		} else if opts["withdraw"].(bool) {
+			balance, err := getPokerBalance(u)
+			if err != nil {
+				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				break
+			}
+
+			err = withdrawPoker(u, balance, messageId)
+			if err != nil {
+				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+				break
+			}
+		} else if opts["status"].(bool) {
+			tables, err1 := getActivePokerTables()
+			chips, err2 := getCurrentPokerStakes()
+			if err1 != nil || err2 != nil {
+				u.notify(t.ERROR, t.T{"Err": "failed to query."})
+				break
+			}
+
+			u.notify(t.POKERSTATUS, t.T{
+				"Tables": tables,
+				"Chips":  chips,
+			})
+		} else {
+			u.notify(t.POKERHELP, nil)
+		}
 	}
 }
 
@@ -298,6 +356,27 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 		removeKeyboardButtons(cb)
 		return translate(t.PROCESSING, u.Locale)
+	case "poker":
+		if parts[1] == "withdraw" {
+			balance, err := getPokerBalance(u)
+			if err != nil {
+				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				return translate(t.FAILURE, u.Locale)
+			}
+
+			if err != nil {
+				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				return translate(t.FAILURE, u.Locale)
+			}
+
+			err = withdrawPoker(u, balance, messageId)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"Err": err.Error()})
+				return translate(t.FAILURE, u.Locale)
+			}
+
+			return translate(t.PROCESSING, u.Locale)
+		}
 	}
 
 	return

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
-
 	"github.com/docopt/docopt-go"
 	"github.com/kballard/go-shellquote"
 )
