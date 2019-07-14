@@ -704,7 +704,17 @@ SELECT
   ( 
     SELECT coalesce(sum(fees), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
-  ) AS fees
+  ) AS fees,
+  (
+    SELECT (coalesce(sum(amount), 0)::float/1000)::numeric(13) FROM lightning.transaction AS t
+    WHERE b.account_id = t.from_id
+      AND t.description = 'coinflip'
+  ) AS coinfliploses,
+  (
+    SELECT (coalesce(sum(amount), 0)::float/1000)::numeric(13) FROM lightning.transaction AS t
+    WHERE b.account_id = t.to_id
+      AND t.description = 'coinflip'
+  ) AS coinflipwins
 FROM lightning.balance AS b
 WHERE b.account_id = $1
 GROUP BY b.account_id, b.balance
@@ -931,4 +941,6 @@ type Info struct {
 	TotalSent     float64 `db:"totalsent"`
 	TotalReceived float64 `db:"totalrecv"`
 	TotalFees     float64 `db:"fees"`
+	CoinflipWins  int64   `db:"coinflipwins"`
+	CoinflipLoses int64   `db:"coinfliploses"`
 }

@@ -539,11 +539,14 @@ parsed:
 		}
 
 		u.notify(t.BALANCEMSG, t.T{
-			"Sats":     info.Balance,
-			"USD":      getDollarPrice(int64(info.Balance * 1000)),
-			"Received": info.TotalReceived,
-			"Sent":     info.TotalSent,
-			"Fees":     info.TotalFees,
+			"Sats":            info.Balance,
+			"USD":             getDollarPrice(int64(info.Balance * 1000)),
+			"Received":        info.TotalReceived,
+			"Sent":            info.TotalSent,
+			"Fees":            info.TotalFees,
+			"CoinflipWins":    info.CoinflipWins,
+			"CoinflipLoses":   info.CoinflipLoses,
+			"CoinflipBalance": info.CoinflipWins - info.CoinflipLoses,
 		})
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
