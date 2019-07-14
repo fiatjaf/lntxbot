@@ -198,7 +198,7 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 
-	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...])",
+	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
@@ -209,6 +209,8 @@ Displays a list of currently opened bets from microbet.fun as buttons you can cl
 Lists all your open bets. Your microbet.fun session will be tied to your Telegram user.
 <code>/app satellite 26 hello from the satellite! vote trump!</code>
 Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
+<code>/app golightning 1000000</code>
+Creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .InvoiceSats}}</b>.`,
@@ -290,6 +292,16 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 <code>/app satellite queue</code> lists the next queued transmissions.
 <code>/app satellite bump &lt;bid_increase_satoshis&gt; &lt;message_id&gt;</code> to increaase the bid for a transmission.
 <code>/app satellite delete &lt;message_id&gt;</code> to delete a transmission.
+    `,
+
+	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
+	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
+	GOLIGHTNINGHELP: `
+<a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
+
+<b>Commands</b>
+
+<code>/app golightning &lt;satoshis&gt;</code> create an order for that number of satoshis.
     `,
 
 	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",

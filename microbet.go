@@ -211,6 +211,9 @@ func withdrawMicrobet(user User, sats int) (err error) {
 	}
 
 	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from microbet.fun", "", nil, nil, "", true)
+	if err != nil {
+		return
+	}
 
 	var success struct {
 		PaymentStatus string  `json:"payment_status"`

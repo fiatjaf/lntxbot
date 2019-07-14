@@ -221,6 +221,20 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				return
 			}
 		}
+	case opts["golightning"].(bool):
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			u.notify(t.GOLIGHTNINGHELP, nil)
+			return
+		}
+
+		order, err := prepareGoLightningTransaction(u, messageId, sats)
+		if err != nil {
+			u.notify(t.GOLIGHTNINGFAIL, t.T{"Err": err.Error()})
+			return
+		}
+
+		u.notify(t.GOLIGHTNINGFINISH, t.T{"Order": order})
 	}
 }
 

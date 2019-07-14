@@ -156,6 +156,10 @@ const (
 	SATELLITELIST              = "SatelliteList"
 	SATELLITEHELP              = "SatelliteHelp"
 
+	GOLIGHTNINGFAIL   = "GoLightningFail"
+	GOLIGHTNINGFINISH = "GoLightningFinish"
+	GOLIGHTNINGHELP   = "GoLightningHelp"
+
 	TOGGLEHELPARGS    = "toggleHelpArgs"
 	TOGGLEHELPDESC    = "toggleHelpDesc"
 	TOGGLEHELPEXAMPLE = "toggleHelpExample"

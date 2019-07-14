@@ -48,11 +48,6 @@ func (o BitflashOrder) Status() string {
 }
 
 func prepareBitflashTransaction(user User, messageId int, satoshi int, address string) (bfresp BitflashResponse, err error) {
-	if satoshi < 1000 {
-		err = errors.New("Amount too small.")
-		return
-	}
-
 	btc := fmt.Sprintf("%.8f", float64(satoshi)/100000000)
 	resp, err := http.PostForm("https://api.bitflash.club/new", url.Values{"amount": {btc}, "address": {address}})
 	if err != nil {
@@ -73,7 +68,6 @@ func prepareBitflashTransaction(user User, messageId int, satoshi int, address s
 }
 
 func getBitflashOrder(chargeId string) (order BitflashOrder, err error) {
-	log.Print(chargeId)
 	resp, err := http.PostForm("https://api.bitflash.club/invoiceinfo", url.Values{"id": {chargeId}})
 	if err != nil {
 		return
