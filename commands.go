@@ -167,12 +167,19 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 		return
 	}
 
+	// turn /app_microbet_bets, for example, into /app microbet bet
+	parts := strings.SplitN(message, " ", 2)
+	parts[0] = strings.ReplaceAll(parts[0], "_", " ")
+	message = strings.Join(parts, " ")
+
+	// apply this to get shell-like quoting rules
 	var argv []string
 	argv, err = shellquote.Split(message)
 	if err != nil {
 		return
 	}
 
+	// parse using docopt
 	opts, err = parser.ParseArgs(s.Usage, argv, "")
 	return
 }
