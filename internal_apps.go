@@ -7,6 +7,7 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/lucsky/cuid"
 )
 
 // hide and reveal
@@ -45,6 +46,73 @@ func revealKeyboard(fullRedisKey string, sats int, locale string) tgbotapi.Inlin
 			tgbotapi.NewInlineKeyboardButtonData(
 				fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats})),
 				fmt.Sprintf("reveal=%s", fullRedisKey),
+			),
+		),
+	)
+}
+
+// giveaway
+func giveawayKeyboard(giverId, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
+	giveawayid := cuid.Slug()
+	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
+
+	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
+
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.CANCEL, locale),
+				fmt.Sprintf("cancel=%d", giverId),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.GIVEAWAYCLAIM, locale),
+				buttonData,
+			),
+		),
+	)
+}
+
+// giveflip
+func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.CANCEL, locale),
+				fmt.Sprintf("cancel=%d", giverId),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.GIVEFLIPJOIN, locale),
+				fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
+			),
+		),
+	)
+}
+
+// coinflip
+func coinflipKeyboard(coinflipid string, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.COINFLIPJOIN, locale),
+				fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
+			),
+		),
+	)
+}
+
+// fundraise
+func fundraiseKeyboard(
+	fundraiseid string,
+	receiverId int,
+	nparticipants int,
+	sats int,
+	locale string,
+) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.FUNDRAISEJOIN, locale),
+				fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
 			),
 		),
 	)
