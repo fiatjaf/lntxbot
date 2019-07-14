@@ -350,6 +350,7 @@ Registered: {{.Registered}}
 	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat{{if .BotOp}} on a {{.BotOp}}{{end}}.",
 	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat.",
 	FAILEDSEND:         "Failed to send: ",
+	QRCODEFAIL:         "QR code reading unsuccessful: {{.Err}}",
 	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
 	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
 	GIVERCANTJOIN:      "Giver can't join!",

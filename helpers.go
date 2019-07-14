@@ -95,7 +95,7 @@ func qrImagePath(label string) string {
 	return filepath.Join(os.TempDir(), s.ServiceId+".invoice."+label+".png")
 }
 
-func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
+func searchForInvoice(u User, message tgbotapi.Message) (bolt11 string, ok bool) {
 	text := message.Text
 	if text == "" {
 		text = message.Caption
@@ -116,6 +116,7 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 		if err != nil {
 			log.Warn().Err(err).Str("fileid", photo.FileID).
 				Msg("failed to get photo URL.")
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, message.MessageID)
 			return
 		}
 
@@ -131,15 +132,18 @@ func searchForInvoice(message tgbotapi.Message) (bolt11 string, ok bool) {
 		_, err = napping.Get("https://api.qrserver.com/v1/read-qr-code/", p, &r, nil)
 		if err != nil {
 			log.Warn().Err(err).Str("url", photourl).Msg("failed to call qrserver")
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": "decoding service unavailable."}, message.MessageID)
 			return
 		}
 		if len(r) == 0 || len(r[0].Symbol) == 0 {
 			log.Warn().Str("url", photourl).Msg("invalid response from  qrserver")
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": "couldn't decode."}, message.MessageID)
 			return
 		}
 		if r[0].Symbol[0].Error != "" {
 			log.Debug().Str("err", r[0].Symbol[0].Error).
 				Str("url", photourl).Msg("qrserver failed to decode")
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": "couldn't decode."}, message.MessageID)
 			return
 		}
 

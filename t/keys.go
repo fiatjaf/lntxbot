@@ -181,6 +181,7 @@ const (
 	USERSENTYOUSATS    = "UserSentYouSats"
 	RECEIVEDSATSANON   = "ReceivedSatsAnon"
 	FAILEDSEND         = "FailedSend"
+	QRCODEFAIL         = "QRCodeFail"
 	SAVERECEIVERFAIL   = "SaveReceiverFail"
 	CANTSENDNORECEIVER = "CantSendNoReceiver"
 	GIVERCANTJOIN      = "GiverCantJoin"
