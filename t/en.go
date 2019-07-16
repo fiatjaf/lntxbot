@@ -335,9 +335,10 @@ Stop charging new entrants a fee.
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
-{{if ne .CoinflipBalance 0}}<b>Coinflip balance</b>: {{.CoinflipBalance}} sat ({{.CoinflipWins}} won, {{.CoinflipLoses}} lost)
-{{end}}
     `,
+	// {{if ne .CoinflipBalance 0}}<b>Coinflip balance</b>: {{.CoinflipBalance}} sat ({{.CoinflipWins}} won, {{.CoinflipLoses}} lost)
+	// {{end}}
+	//     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `
 A lottery round is starting!

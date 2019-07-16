@@ -360,40 +360,43 @@ parsed:
 		bot.Send(chattable)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
-		// open a lottery between a number of users in a group
-		sats, err := opts.Int("<satoshis>")
-		if err != nil {
-			u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
-			break
-		}
-		if !u.checkBalanceFor(sats, "coinflip") {
-			break
-		}
+		sendMessage(g.TelegramId, "Coinflips are temporarily disabled.")
+		break
 
-		nparticipants := 2
-		if n, err := opts.Int("<num_participants>"); err == nil {
-			if n < 2 || n > 100 {
-				u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
-				break
-			} else {
-				nparticipants = n
-			}
-		}
-		chattable := tgbotapi.NewMessage(
-			message.Chat.ID,
-			translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
-				"EntrySats":    sats,
-				"Participants": nparticipants,
-				"Prize":        sats * nparticipants,
-				"Registered":   u.AtName(),
-			}),
-		)
+		// // open a lottery between a number of users in a group
+		// sats, err := opts.Int("<satoshis>")
+		// if err != nil {
+		// 	u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+		// 	break
+		// }
+		// if !u.checkBalanceFor(sats, "coinflip") {
+		// 	break
+		// }
 
-		coinflipid := cuid.Slug()
-		rds.SAdd("coinflip:"+coinflipid, u.Id)
-		rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
-		chattable.BaseChat.ReplyMarkup = coinflipKeyboard(coinflipid, nparticipants, sats, g.Locale)
-		bot.Send(chattable)
+		// nparticipants := 2
+		// if n, err := opts.Int("<num_participants>"); err == nil {
+		// 	if n < 2 || n > 100 {
+		// 		u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
+		// 		break
+		// 	} else {
+		// 		nparticipants = n
+		// 	}
+		// }
+		// chattable := tgbotapi.NewMessage(
+		// 	message.Chat.ID,
+		// 	translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
+		// 		"EntrySats":    sats,
+		// 		"Participants": nparticipants,
+		// 		"Prize":        sats * nparticipants,
+		// 		"Registered":   u.AtName(),
+		// 	}),
+		// )
+
+		// coinflipid := cuid.Slug()
+		// rds.SAdd("coinflip:"+coinflipid, u.Id)
+		// rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
+		// chattable.BaseChat.ReplyMarkup = coinflipKeyboard(coinflipid, nparticipants, sats, g.Locale)
+		// bot.Send(chattable)
 	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")

@@ -110,50 +110,51 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			IsPersonal:    true,
 		})
 	case "coinflip", "lottery":
-		if len(argv) < 2 {
-			goto answerEmpty
-		}
+		goto answerEmpty
+		// if len(argv) < 2 {
+		// 	goto answerEmpty
+		// }
 
-		var sats int
-		if sats, err = strconv.Atoi(argv[1]); err != nil {
-			break
-		}
-		if !u.checkBalanceFor(sats, "coinflip") {
-			break
-		}
+		// var sats int
+		// if sats, err = strconv.Atoi(argv[1]); err != nil {
+		// 	break
+		// }
+		// if !u.checkBalanceFor(sats, "coinflip") {
+		// 	break
+		// }
 
-		nparticipants := 2
-		if len(argv) > 2 {
-			if n, err := strconv.Atoi(argv[2]); err == nil {
-				nparticipants = n
-			}
-		}
+		// nparticipants := 2
+		// if len(argv) > 2 {
+		// 	if n, err := strconv.Atoi(argv[2]); err == nil {
+		// 		nparticipants = n
+		// 	}
+		// }
 
-		result := tgbotapi.NewInlineQueryResultArticleHTML(
-			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
-			translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
-				"Sats":       sats,
-				"MaxPlayers": nparticipants,
-			}),
-			translateTemplate(t.COINFLIPAD, u.Locale, t.T{
-				"Sats":       sats,
-				"Prize":      sats * nparticipants,
-				"SpotsLeft":  nparticipants - 1,
-				"MaxPlayers": nparticipants,
-			}),
-		)
+		// result := tgbotapi.NewInlineQueryResultArticleHTML(
+		// 	fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
+		// 	translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
+		// 		"Sats":       sats,
+		// 		"MaxPlayers": nparticipants,
+		// 	}),
+		// 	translateTemplate(t.COINFLIPAD, u.Locale, t.T{
+		// 		"Sats":       sats,
+		// 		"Prize":      sats * nparticipants,
+		// 		"SpotsLeft":  nparticipants - 1,
+		// 		"MaxPlayers": nparticipants,
+		// 	}),
+		// )
 
-		coinflipid := cuid.Slug()
-		rds.SAdd("coinflip:"+coinflipid, u.Id)
-		rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
-		keyboard := coinflipKeyboard(coinflipid, nparticipants, sats, u.Locale)
-		result.ReplyMarkup = &keyboard
+		// coinflipid := cuid.Slug()
+		// rds.SAdd("coinflip:"+coinflipid, u.Id)
+		// rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
+		// keyboard := coinflipKeyboard(coinflipid, nparticipants, sats, u.Locale)
+		// result.ReplyMarkup = &keyboard
 
-		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
-			InlineQueryID: q.ID,
-			Results:       []interface{}{result},
-			IsPersonal:    true,
-		})
+		// resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+		// 	InlineQueryID: q.ID,
+		// 	Results:       []interface{}{result},
+		// 	IsPersonal:    true,
+		// })
 	case "giveflip":
 		if len(argv) < 3 {
 			goto answerEmpty
