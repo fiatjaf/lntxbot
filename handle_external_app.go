@@ -313,6 +313,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return translate(t.FAILURE, u.Locale)
 			}
 
+			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		} else {
 			betId := parts[1]
@@ -375,6 +376,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return translate(t.FAILURE, u.Locale)
 			}
 
+			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		}
 	}
