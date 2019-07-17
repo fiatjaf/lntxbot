@@ -26,7 +26,9 @@
   <body>
     <main></main>
     <script>
-      localStorage.setItem('accountId', location.search.slice(1).split('=')[1])
+      var qs = location.search.slice(1).split('&')
+      localStorage.setItem('accountId', qs[0].split('=')[1])
+      localStorage.setItem('botId', qs[1].split('=')[1])
       window.history.pushState(null, null, '/')</script
     ><script>
       !(function(l) {

@@ -198,7 +198,7 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 
-	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status])",
+	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
@@ -307,6 +307,7 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
 	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
 	POKERBALANCEERROR: "<b>[Poker]</b> Error fetching balance: {{.Err}}",
+	POKERSECRETURL:    `<a href="{{.URL}}">Your personal secret Poker URL is here, never share it with anyone.</a>`,
 	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
 	POKERSTATUS: `
 <b>[Poker]</b>
@@ -324,6 +325,8 @@ Here you can play directly with an account tied to your bot balance against peop
 <code>/app poker balance</code> shows how much you have there.
 <code>/app poker withdraw</code> brings all the money back to the bot balance.
 <code>/app poker status</code> tells you how active are the poker tables right now.
+<code>/app poker url</code> displays the your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
+<code>/app poker play</code> displays the game widget.
     `,
 
 	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",

@@ -360,7 +360,7 @@ parsed:
 		bot.Send(chattable)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
-		sendMessage(g.TelegramId, "Coinflips are temporarily disabled.")
+		sendMessage(-g.TelegramId, "Coinflips are temporarily disabled.")
 		break
 
 		// // open a lottery between a number of users in a group

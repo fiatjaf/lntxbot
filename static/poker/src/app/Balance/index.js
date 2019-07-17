@@ -11,7 +11,10 @@ const Balance = ({balance}) => {
   return (
     <div id="permanent-balance">
       <Snackbar
-        anchorOrigin={{vertical: 'bottom', horizontal: 'right'}}
+        anchorOrigin={{
+          vertical: location.pathname === '/' ? 'bottom' : 'top',
+          horizontal: 'right'
+        }}
         open={true}
         message={`Balance: ${balance} sats`}
         action={

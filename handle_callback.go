@@ -27,7 +27,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		case "poker":
 			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
 				CallbackQueryID: cb.ID,
-				URL:             s.ServiceURL + "/static/poker/?account=" + getPokerId(u),
+				URL:             getPokerURL(u),
 			})
 		}
 		return

@@ -290,6 +290,16 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				"Tables": tables,
 				"Chips":  chips,
 			})
+		} else if opts["play"].(bool) {
+			chattable := tgbotapi.GameConfig{
+				BaseChat: tgbotapi.BaseChat{
+					ChatID: u.ChatId,
+				},
+				GameShortName: "poker",
+			}
+			bot.Send(chattable)
+		} else if opts["url"].(bool) {
+			u.notify(t.POKERSECRETURL, t.T{"URL": getPokerURL(u)})
 		} else {
 			u.notify(t.POKERHELP, nil)
 		}

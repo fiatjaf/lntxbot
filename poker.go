@@ -2,14 +2,15 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/kr/pretty"
 	"github.com/lucsky/cuid"
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -26,12 +27,6 @@ type PokerFirestoreDocumentList struct {
 type PokerFirestoreValue struct {
 	String  string `json:"stringValue,omitempty"`
 	Integer string `json:"integerValue,omitempty"`
-}
-
-func getPokerId(user User) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s.poker.%d", s.BotToken, user.Id)))
-	secret := hex.EncodeToString(sum[:])
-	return s.ServiceId + ":" + secret[:14]
 }
 
 func pokerDeposit(user User, sats int, messageId int) (err error) {
@@ -67,7 +62,6 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 	}
 
 	bolt11 := invdata.Fields["payment_request"].String
-	pretty.Log(invdata)
 
 	// actually pay
 	inv, err := ln.Call("decodepay", bolt11)
@@ -182,4 +176,68 @@ func getCurrentPokerStakes() (int, error) {
 	}
 
 	return totalChips, nil
+}
+
+func getPokerId(user User) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s.poker.%d", s.BotToken, user.Id)))
+	secret := hex.EncodeToString(sum[:])
+	return s.ServiceId + ":" + secret[:14]
+}
+
+func getPokerURL(user User) string {
+	return fmt.Sprintf("%s/static/poker/?account=%s&user=%d", s.ServiceURL, getPokerId(user), user.Id)
+}
+
+func servePoker() {
+	// this is called by the poker app to deposit funds as soon as the user tries to sit on a table
+	// but doesn't have enough money for the buy-in.
+	http.HandleFunc("/app/poker/deposit", func(w http.ResponseWriter, r *http.Request) {
+		sats, err := strconv.Atoi(r.FormValue("satoshis"))
+		if err != nil {
+			http.Error(w, "invalid amount", 400)
+			return
+		}
+
+		token := strings.TrimSpace(r.Header.Get("X-Bot-Poker-Token"))
+		res, err := base64.StdEncoding.DecodeString(token)
+		if err != nil {
+			http.Error(w, "invalid token", 400)
+			return
+		}
+
+		parts := strings.SplitN(string(res), "~", 2)
+		log.Print(parts)
+		if len(parts) != 2 {
+			http.Error(w, "invalid token", 400)
+			return
+		}
+
+		userId, err := strconv.Atoi(parts[0])
+		if err != nil {
+			http.Error(w, "invalid user", 401)
+			return
+		}
+		pokerId := parts[1]
+
+		// load user
+		user, err := loadUser(userId, 0)
+		if err != nil {
+			http.Error(w, "couldn't load user", 401)
+			return
+		}
+
+		// check poker id
+		if getPokerId(user) != pokerId {
+			http.Error(w, "wrong pokerId", 401)
+			return
+		}
+
+		// actually send the deposit
+		err = pokerDeposit(user, sats, 0)
+		if err != nil {
+			http.Error(w, "deposit went wrong", 505)
+		}
+
+		fmt.Fprintf(w, "ok")
+	})
 }

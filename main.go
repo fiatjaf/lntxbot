@@ -145,6 +145,9 @@ func main() {
 	// lndhub-compatible routes
 	serveBlueWallet()
 
+	// app-poker-specific routes
+	servePoker()
+
 	// random assets
 	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
 

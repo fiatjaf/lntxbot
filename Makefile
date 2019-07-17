@@ -1,8 +1,8 @@
 bot: $(shell find . -name "*.go") bindata.go
 	go build -o ./bot
 
-bindata.go: $(shell find static)
-	go-bindata static/...
+bindata.go: poker
+	go-bindata -ignore=node_modules static/...
 
-poker:
-	cd static/poker && make
+poker: $(shell find static/poker/src -name "*.js")
+	cd static/poker && make prod
