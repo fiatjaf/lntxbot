@@ -198,7 +198,7 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 
-	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>])",
+	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
@@ -299,9 +299,31 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	GOLIGHTNINGHELP: `
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
-<b>Commands</b>
+<b>Commands:</b>
 
 <code>/app golightning &lt;satoshis&gt;</code> create an order for that number of satoshis.
+    `,
+
+	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
+	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
+	POKERBALANCEERROR: "<b>[Poker]</b> Error fetching balance: {{.Err}}",
+	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
+	POKERSTATUS: `
+<b>[Poker]</b>
+Tables with players: {{.Tables}}
+Satoshis in play: {{.Chips}}
+    `,
+	POKERHELP: `
+<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
+
+Here you can play directly with an account tied to your bot balance against people playing independently in the site.
+
+<b>Commands:</b>
+
+<code>/app poker deposit &lt;satoshis&gt;</code> puts money in your poker bag.
+<code>/app poker balance</code> shows how much you have there.
+<code>/app poker withdraw</code> brings all the money back to the bot balance.
+<code>/app poker status</code> tells you how active are the poker tables right now.
     `,
 
 	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",
