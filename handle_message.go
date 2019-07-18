@@ -61,7 +61,7 @@ func handleMessage(message *tgbotapi.Message) {
 		opts        = make(docopt.Opts)
 		proceed     = false
 		messageText = strings.ReplaceAll(
-			regexp.MustCompile("/([a-z]+)@"+s.ServiceId).ReplaceAllString(message.Text, "/$1"),
+			regexp.MustCompile("/([\\w_]+)@"+s.ServiceId).ReplaceAllString(message.Text, "/$1"),
 			"—", "--",
 		)
 	)
