@@ -206,7 +206,6 @@ func servePoker() {
 		}
 
 		parts := strings.SplitN(string(res), "~", 2)
-		log.Print(parts)
 		if len(parts) != 2 {
 			http.Error(w, "invalid token", 400)
 			return

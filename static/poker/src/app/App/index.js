@@ -35,8 +35,8 @@ const App = () => {
         <Switch>
           <Route path="/:tableId" component={Table} />
         </Switch>
-        <Route path="/" exact component={Lobby} />
         <Balance balance={balance} />
+        <Route path="/" exact component={Lobby} />
         <Snackbar
           anchorOrigin={{vertical: 'top', horizontal: 'center'}}
           key={'error-message'}
