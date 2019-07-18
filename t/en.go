@@ -46,7 +46,7 @@ var EN = map[Key]string{
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
-	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat.",
+	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:     "This group is now free to join.",
 	ASKTOCONFIRM: "Pay the invoice described above?",
 

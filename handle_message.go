@@ -618,7 +618,8 @@ parsed:
 			setTicketPrice(message.Chat.ID, price)
 			if price > 0 {
 				g.notify(t.TICKETMSG, t.T{
-					"Sat": price,
+					"Sat":     price,
+					"BotName": s.ServiceId,
 				})
 			}
 		case opts["spammy"].(bool):
