@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
@@ -236,6 +237,8 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 
 		u.notify(t.GOLIGHTNINGFINISH, t.T{"Order": order})
 	case opts["poker"].(bool):
+		subscribePoker(u, time.Minute*5, false)
+
 		if opts["deposit"].(bool) {
 			satoshis, err := opts.Int("<satoshis>")
 			if err != nil {
@@ -248,6 +251,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				u.notify(t.POKERDEPOSITFAIL, t.T{"Err": err.Error()})
 				break
 			}
+			subscribePoker(u, time.Minute*15, false)
 		} else if opts["balance"].(bool) {
 			balance, err := getPokerBalance(u)
 			if err != nil {
@@ -279,7 +283,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				break
 			}
 		} else if opts["status"].(bool) {
-			tables, err1 := getActivePokerTables()
+			nplayers, ntables, err1 := getActivePokerTables()
 			chips, err2 := getCurrentPokerStakes()
 			if err1 != nil || err2 != nil {
 				u.notify(t.ERROR, t.T{"Err": "failed to query."})
@@ -287,9 +291,12 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 			}
 
 			u.notify(t.POKERSTATUS, t.T{
-				"Tables": tables,
-				"Chips":  chips,
+				"Tables":  ntables,
+				"Players": nplayers,
+				"Chips":   chips,
 			})
+
+			subscribePoker(u, time.Minute*10, false)
 		} else if opts["play"].(bool) {
 			chattable := tgbotapi.GameConfig{
 				BaseChat: tgbotapi.BaseChat{
@@ -298,8 +305,17 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				GameShortName: "poker",
 			}
 			bot.Send(chattable)
+			subscribePoker(u, time.Minute*15, false)
 		} else if opts["url"].(bool) {
 			u.notify(t.POKERSECRETURL, t.T{"URL": getPokerURL(u)})
+			subscribePoker(u, time.Minute*15, false)
+		} else if opts["available"].(bool) {
+			if minutes, err := opts.Int("<minutes>"); err != nil {
+				u.notify(t.ERROR, t.T{"Err": err})
+			} else {
+				subscribePoker(u, time.Minute*time.Duration(minutes), true)
+				u.notify(t.POKERSUBSCRIBED, t.T{"Minutes": minutes})
+			}
 		} else {
 			u.notify(t.POKERHELP, nil)
 		}

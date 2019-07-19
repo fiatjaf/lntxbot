@@ -164,6 +164,8 @@ const (
 	POKERWITHDRAWFAIL = "PokerWithdrawFail"
 	POKERBALANCEERROR = "PokerBalanceError"
 	POKERSTATUS       = "PokerStatus"
+	POKERNOTIFY       = "PokerNotify"
+	POKERSUBSCRIBED   = "PokerSubscribed"
 	POKERSECRETURL    = "PokerSecretURL"
 	POKERBALANCE      = "PokerBalance"
 	POKERHELP         = "PokerHelp"

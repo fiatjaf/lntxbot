@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/lucsky/cuid"
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -43,7 +44,7 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 		return
 	}
 	if resp.Status() >= 300 {
-		err = errors.New("error calling lightning-poker.com firestore backend")
+		err = errors.New("error calling lightning-poker.com backend")
 		return
 	}
 
@@ -57,7 +58,7 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 		return
 	}
 	if resp.Status() >= 300 {
-		err = errors.New("error calling lightning-poker.com firestore backend")
+		err = errors.New("error calling lightning-poker.com backend")
 		return
 	}
 
@@ -105,7 +106,7 @@ func getPokerBalance(user User) (int, error) {
 		return 0, err
 	}
 	if resp.Status() >= 300 {
-		err = errors.New("error calling lightning-poker.com firestore backend")
+		err = errors.New("error calling lightning-poker.com backend")
 		return 0, err
 	}
 
@@ -130,32 +131,33 @@ func withdrawPoker(user User, sats int, messageId int) (err error) {
 		return
 	}
 	if resp.Status() >= 300 {
-		err = errors.New("error calling lightning-poker.com firestore backend")
+		err = errors.New("error calling lightning-poker.com backend")
 		return
 	}
 
 	return
 }
 
-func getActivePokerTables() (int, error) {
+func getActivePokerTables() (nplayers int, ntables int, err error) {
 	var tables PokerFirestoreDocumentList
 	resp, err := napping.Get("https://firestore.googleapis.com/v1/projects/ln-pkr/databases/(default)/documents/tables", nil, &tables, nil)
 	if err != nil {
-		return 0, err
+		return
 	}
 	if resp.Status() >= 300 {
-		err = errors.New("error calling lightning-poker.com firestore backend")
-		return 0, err
+		err = errors.New("error calling lightning-poker.com backend")
+		return
 	}
 
-	var activeTables int
 	for _, table := range tables.Documents {
-		if table.Fields["playing"].Integer != "0" {
-			activeTables += 1
+		count, _ := strconv.Atoi(table.Fields["playing"].Integer)
+		if count > 0 {
+			ntables += 1
+			nplayers += count
 		}
 	}
 
-	return activeTables, nil
+	return
 }
 
 func getCurrentPokerStakes() (int, error) {
@@ -165,7 +167,7 @@ func getCurrentPokerStakes() (int, error) {
 		return 0, err
 	}
 	if resp.Status() >= 300 {
-		err = errors.New("error calling lightning-poker.com firestore backend")
+		err = errors.New("error calling lightning-poker.com backend")
 		return 0, err
 	}
 
@@ -238,5 +240,59 @@ func servePoker() {
 		}
 
 		fmt.Fprintf(w, "ok")
+
+		subscribePoker(user, time.Minute*15, false)
 	})
+}
+
+func watchPoker() {
+	for {
+		time.Sleep(time.Minute * 3)
+
+		chips, err := getCurrentPokerStakes()
+		if err != nil {
+			log.Warn().Err(err).Msg("error watching")
+			continue
+		}
+
+		if chips > 0 {
+			notifyPokerWatchers()
+		}
+	}
+}
+
+func notifyPokerWatchers() {
+	nplayers, _, err := getActivePokerTables()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to get poker data before notifying people")
+		return
+	}
+
+	watchers := rds.Keys("poker-watcher:*").Val()
+
+	for _, watcherId := range watchers {
+		userId, err := strconv.Atoi(strings.Split(watcherId, ":")[1])
+		if err != nil {
+			continue
+		}
+		watcher, err := loadUser(userId, 0)
+		if err != nil {
+			continue
+		}
+
+		watcher.notify(t.POKERNOTIFY, t.T{"Playing": nplayers, "Waiting": len(watchers)})
+	}
+}
+
+func subscribePoker(user User, howlong time.Duration, active bool) {
+	if active {
+		// "active" means the person has called /app_poker_available which means they really
+		// want to play now. all other poker-related commands will subscribe them too,
+		// but will not trigger notifications to other players who were already subscribed.
+		// an "active" action will.
+		notifyPokerWatchers()
+	}
+
+	// now we just add them to the list so they'll be notified later if someone wants to play
+	rds.Set(fmt.Sprintf("poker-watcher:%d", user.Id), "-", howlong)
 }

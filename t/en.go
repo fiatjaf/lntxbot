@@ -198,7 +198,7 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 
-	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play])",
+	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | available <minutes>])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
@@ -311,13 +311,22 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
 	POKERSTATUS: `
 <b>[Poker]</b>
-Tables with players: {{.Tables}}
+Players online: {{.Players}}
+Active Tables: {{.Tables}}
 Satoshis in play: {{.Chips}}
     `,
+	POKERNOTIFY: `
+<b>[Poker]</b> There are {{.Playing}} people playing and {{.Waiting}} waiting to play poker right now!
+
+/app_poker_status to double-check!
+/app_poker_play to play here!
+/app_poker_url to play in a browser window!
+    `,
+	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
 	POKERHELP: `
 <a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
 
-Here you can play directly with an account tied to your bot balance against people playing independently in the site.
+By playing from an account tied to your bot balance you can just sit on a table and your poker balance will be automatically refilled from your bot account, with minimal friction.
 
 <b>Commands:</b>
 
@@ -327,6 +336,7 @@ Here you can play directly with an account tied to your bot balance against peop
 <code>/app poker status</code> tells you how active are the poker tables right now.
 <code>/app poker url</code> displays the your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
 <code>/app poker play</code> displays the game widget.
+<code>/app poker available &lt;minutes&gt;</code> will put you in a subscribed state on the game for the given time and notify other subscribed people you are waiting to play.
     `,
 
 	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",
