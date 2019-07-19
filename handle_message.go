@@ -318,15 +318,16 @@ parsed:
 		if !u.checkBalanceFor(sats, "giveaway") {
 			break
 		}
-		chattable := tgbotapi.NewMessage(
+
+		sendMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.GIVEAWAYMSG, g.Locale, t.T{
 				"User": u.AtName(),
 				"Sats": sats,
 			}),
+			giveawayKeyboard(u.Id, sats, g.Locale),
+			0,
 		)
-		chattable.BaseChat.ReplyMarkup = giveawayKeyboard(u.Id, sats, g.Locale)
-		bot.Send(chattable)
 		break
 	case opts["giveflip"].(bool):
 		sats, err := opts.Int("<satoshis>")
@@ -347,17 +348,18 @@ parsed:
 				nparticipants = n
 			}
 		}
-		chattable := tgbotapi.NewMessage(
+
+		giveflipid := cuid.Slug()
+		sendMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.GIVEFLIPMSG, g.Locale, t.T{
 				"User":         u.AtName(),
 				"Sats":         sats,
 				"Participants": nparticipants,
 			}),
+			giveflipKeyboard(giveflipid, u.Id, nparticipants, sats, g.Locale),
+			0,
 		)
-		giveflipid := cuid.Slug()
-		chattable.BaseChat.ReplyMarkup = giveflipKeyboard(giveflipid, u.Id, nparticipants, sats, g.Locale)
-		bot.Send(chattable)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
 		sendMessage(-g.TelegramId, "Coinflips are temporarily disabled.")
@@ -382,7 +384,8 @@ parsed:
 		// 		nparticipants = n
 		// 	}
 		// }
-		// chattable := tgbotapi.NewMessage(
+
+		// sendMessageWithKeyboard(
 		// 	message.Chat.ID,
 		// 	translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
 		// 		"EntrySats":    sats,
@@ -390,13 +393,9 @@ parsed:
 		// 		"Prize":        sats * nparticipants,
 		// 		"Registered":   u.AtName(),
 		// 	}),
+		//  coinflipKeyboard("", u.Id, nparticipants, sats, g.Locale),
+		//  0,
 		// )
-
-		// coinflipid := cuid.Slug()
-		// rds.SAdd("coinflip:"+coinflipid, u.Id)
-		// rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
-		// chattable.BaseChat.ReplyMarkup = coinflipKeyboard(coinflipid, nparticipants, sats, g.Locale)
-		// bot.Send(chattable)
 	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")
@@ -420,7 +419,8 @@ parsed:
 			u.notify(t.FAILEDUSER, nil)
 			break
 		}
-		chattable := tgbotapi.NewMessage(
+
+		sendMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.FUNDRAISEAD, g.Locale, t.T{
 				"ToUser":       receiverdisplayname,
@@ -429,14 +429,9 @@ parsed:
 				"Fund":         sats * nparticipants,
 				"Registered":   u.AtName(),
 			}),
+			fundraiseKeyboard("", u.Id, receiver.Id, nparticipants, sats, g.Locale),
+			0,
 		)
-
-		fundraiseid := cuid.Slug()
-		rds.SAdd("fundraise:"+fundraiseid, u.Id)
-		rds.Expire("fundraise:"+fundraiseid, s.GiveAwayTimeout)
-		keyboard := fundraiseKeyboard(fundraiseid, receiver.Id, nparticipants, sats, g.Locale)
-		chattable.BaseChat.ReplyMarkup = &keyboard
-		bot.Send(chattable)
 	case opts["hide"].(bool):
 		var content string
 		if icontent, ok := opts["<message>"]; ok {
@@ -473,9 +468,7 @@ parsed:
 			break
 		}
 
-		chattable := tgbotapi.NewMessage(u.ChatId, preview)
-		chattable.BaseChat.ReplyMarkup = revealKeyboard(redisKey, satoshis, g.Locale)
-		bot.Send(chattable)
+		sendMessageWithKeyboard(u.ChatId, preview, revealKeyboard(redisKey, satoshis, g.Locale), 0)
 	case opts["transactions"].(bool):
 		page, _ := opts.Int("--page")
 		handleTransactionList(u, page, nil)

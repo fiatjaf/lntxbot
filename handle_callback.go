@@ -225,8 +225,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if nregistered+1 < nparticipants {
 			// append @user to the coinflip message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
-			keyboard := coinflipKeyboard(coinflipid, nparticipants, sats, locale)
-			baseEdit.ReplyMarkup = &keyboard
+			baseEdit.ReplyMarkup = coinflipKeyboard(coinflipid, 0, nparticipants, sats, locale)
 			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
 			if messageId != 0 {
 				edit.Text = cb.Message.Text + " " + joiner.AtName()
@@ -358,8 +357,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if nregistered+1 < nparticipants {
 			// append @user to the giveflip message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
-			keyboard := giveflipKeyboard(giveflipid, giverId, nparticipants, sats, locale)
-			baseEdit.ReplyMarkup = &keyboard
+			baseEdit.ReplyMarkup = giveflipKeyboard(giveflipid, giverId, nparticipants, sats, locale)
 			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
 			if messageId != 0 {
 				edit.Text = cb.Message.Text + " " + joiner.AtName()
@@ -501,11 +499,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		if nregistered+1 < ngivers {
 			// append @user to the fundraise message (without removing the keyboard)
 			baseEdit := getBaseEdit(cb)
-			keyboard := fundraiseKeyboard(fundraiseid, receiverId, ngivers, sats, locale)
 
 			// we don't have to check for cb.Message/messageId here because we don't
 			// allow fundraises as inline messages so we always have access to cb.Message
-			baseEdit.ReplyMarkup = &keyboard
+			baseEdit.ReplyMarkup = fundraiseKeyboard(fundraiseid, 0, receiverId, ngivers, sats, locale)
 			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
 			edit.Text = cb.Message.Text + " " + joiner.AtName()
 			bot.Send(edit)

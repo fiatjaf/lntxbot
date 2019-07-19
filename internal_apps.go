@@ -40,80 +40,117 @@ func getHiddenMessage(redisKey, locale string) (sourceuser int, id, content, pre
 	return
 }
 
-func revealKeyboard(fullRedisKey string, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats})),
-				fmt.Sprintf("reveal=%s", fullRedisKey),
-			),
-		),
-	)
+func revealKeyboard(fullRedisKey string, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats})),
+					fmt.Sprintf("reveal=%s", fullRedisKey),
+				),
+			},
+		},
+	}
 }
 
 // giveaway
-func giveawayKeyboard(giverId, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
+func giveawayKeyboard(giverId, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
 	giveawayid := cuid.Slug()
 	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
 
 	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
 
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(t.CANCEL, locale),
-				fmt.Sprintf("cancel=%d", giverId),
-			),
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(t.GIVEAWAYCLAIM, locale),
-				buttonData,
-			),
-		),
-	)
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, locale),
+					fmt.Sprintf("cancel=%d", giverId),
+				),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.GIVEAWAYCLAIM, locale),
+					buttonData,
+				),
+			},
+		},
+	}
 }
 
 // giveflip
-func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(t.CANCEL, locale),
-				fmt.Sprintf("cancel=%d", giverId),
-			),
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(t.GIVEFLIPJOIN, locale),
-				fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
-			),
-		),
-	)
+func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, locale),
+					fmt.Sprintf("cancel=%d", giverId),
+				),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.GIVEFLIPJOIN, locale),
+					fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
+				),
+			},
+		},
+	}
 }
 
 // coinflip
-func coinflipKeyboard(coinflipid string, nparticipants, sats int, locale string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(t.COINFLIPJOIN, locale),
-				fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
-			),
-		),
-	)
+func coinflipKeyboard(
+	coinflipid string,
+	initiatorId int,
+	nparticipants,
+	sats int,
+	locale string,
+) *tgbotapi.InlineKeyboardMarkup {
+	if coinflipid == "" {
+		coinflipid = cuid.Slug()
+	}
+
+	if initiatorId != 0 {
+		rds.SAdd("coinflip:"+coinflipid, initiatorId)
+	}
+
+	rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
+
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.COINFLIPJOIN, locale),
+					fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
+				),
+			},
+		},
+	}
 }
 
 // fundraise
 func fundraiseKeyboard(
 	fundraiseid string,
+	initiatorId int,
 	receiverId int,
 	nparticipants int,
 	sats int,
 	locale string,
-) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(t.FUNDRAISEJOIN, locale),
-				fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
-			),
-		),
-	)
+) *tgbotapi.InlineKeyboardMarkup {
+	if fundraiseid == "" {
+		fundraiseid = cuid.Slug()
+	}
+
+	if initiatorId != 0 {
+		rds.SAdd("fundraise:"+fundraiseid, initiatorId)
+	}
+
+	rds.Expire("fundraise:"+fundraiseid, s.GiveAwayTimeout)
+
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.FUNDRAISEJOIN, locale),
+					fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
+				),
+			},
+		},
+	}
 }

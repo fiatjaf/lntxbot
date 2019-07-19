@@ -48,10 +48,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				}
 			}
 
-			chattable := tgbotapi.NewMessage(u.ChatId, translate(t.MICROBETBETHEADER, u.Locale))
-			chattable.ParseMode = "HTML"
-			chattable.BaseChat.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}
-			bot.Send(chattable)
+			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
 		} else if opts["bets"].(bool) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
@@ -68,17 +65,13 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				return
 			}
 
-			chattable := tgbotapi.NewMessage(
-				u.ChatId,
-				translateTemplate(t.MICROBETBALANCE, u.Locale, t.T{"Balance": balance}),
-			)
-			chattable.ParseMode = "HTML"
-			chattable.BaseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=microbet-withdraw"),
-				),
-			)
-			bot.Send(chattable)
+			u.notifyWithKeyboard(t.MICROBETBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=microbet-withdraw"),
+					},
+				},
+			}, 0)
 		} else if opts["withdraw"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
@@ -139,27 +132,24 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 			inv, _ := ln.Call("decodepay", ordercreated.Bolt11)
 
 			// confirm
-			chattable := tgbotapi.NewMessage(u.ChatId,
-				translateTemplate(t.BITFLASHCONFIRM, u.Locale, t.T{
-					"BTCAmount": ordercreated.ReceiverAmount,
-					"Address":   ordercreated.Receiver,
-					"Sats":      inv.Get("msatoshi").Float() / 1000,
+			u.notifyWithKeyboard(t.BITFLASHCONFIRM, t.T{
+				"BTCAmount": ordercreated.ReceiverAmount,
+				"Address":   ordercreated.Receiver,
+				"Sats":      inv.Get("msatoshi").Float() / 1000,
+			}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.CANCEL, u.Locale),
+							fmt.Sprintf("cancel=%d", u.Id),
+						),
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.CONFIRM, u.Locale),
+							fmt.Sprintf("app=bitflash-%s", ordercreated.ChargeId),
+						),
+					},
 				},
-				))
-			chattable.ParseMode = "HTML"
-			chattable.BaseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(
-						translate(t.CANCEL, u.Locale),
-						fmt.Sprintf("cancel=%d", u.Id),
-					),
-					tgbotapi.NewInlineKeyboardButtonData(
-						translate(t.CONFIRM, u.Locale),
-						fmt.Sprintf("app=bitflash-%s", ordercreated.ChargeId),
-					),
-				),
-			)
-			bot.Send(chattable)
+			}, 0)
 		}
 	case opts["satellite"].(bool):
 		if opts["transmissions"].(bool) {
@@ -259,17 +249,13 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				break
 			}
 
-			chattable := tgbotapi.NewMessage(
-				u.ChatId,
-				translateTemplate(t.POKERBALANCE, u.Locale, t.T{"Balance": balance}),
-			)
-			chattable.ParseMode = "HTML"
-			chattable.BaseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=poker-withdraw"),
-				),
-			)
-			bot.Send(chattable)
+			u.notifyWithKeyboard(t.POKERBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=poker-withdraw"),
+					},
+				},
+			}, 0)
 		} else if opts["withdraw"].(bool) {
 			balance, err := getPokerBalance(u)
 			if err != nil {

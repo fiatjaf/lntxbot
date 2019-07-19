@@ -100,9 +100,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			translateTemplate(t.INLINEGIVEAWAYRESULT, u.Locale, t.T{"Sats": sats}),
 			translateTemplate(t.GIVEAWAYMSG, u.Locale, t.T{"User": u.AtName(), "Sats": sats}),
 		)
-
-		keyboard := giveawayKeyboard(u.Id, sats, u.Locale)
-		result.ReplyMarkup = &keyboard
+		result.ReplyMarkup = giveawayKeyboard(u.Id, sats, u.Locale)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -144,11 +142,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		// 	}),
 		// )
 
-		// coinflipid := cuid.Slug()
-		// rds.SAdd("coinflip:"+coinflipid, u.Id)
-		// rds.Expire("coinflip:"+coinflipid, s.GiveAwayTimeout)
-		// keyboard := coinflipKeyboard(coinflipid, nparticipants, sats, u.Locale)
-		// result.ReplyMarkup = &keyboard
+		// result.ReplyMarkup = coinflipKeyboard("", u.Id, nparticipants, sats, u.Locale)
 
 		// resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 		// 	InlineQueryID: q.ID,
@@ -187,8 +181,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		)
 
 		giveflipid := cuid.Slug()
-		keyboard := giveflipKeyboard(giveflipid, u.Id, nparticipants, sats, u.Locale)
-		result.ReplyMarkup = &keyboard
+		result.ReplyMarkup = giveflipKeyboard(giveflipid, u.Id, nparticipants, sats, u.Locale)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -215,8 +208,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 				preview,
 			)
 
-			keyboard := revealKeyboard(hiddenkey, satoshis, u.Locale)
-			result.ReplyMarkup = &keyboard
+			result.ReplyMarkup = revealKeyboard(hiddenkey, satoshis, u.Locale)
 			results[i] = result
 		}
 

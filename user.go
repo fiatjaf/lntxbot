@@ -229,10 +229,14 @@ func (u *User) unsetChat() {
 }
 
 func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
-	return u.notifyAsReply(key, templateData, 0)
+	return u.notifyWithKeyboard(key, templateData, nil, 0)
 }
 
 func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
+	return u.notifyWithKeyboard(key, templateData, nil, replyToId)
+}
+
+func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
 	if u.ChatId == 0 {
 		log.Info().Str("user", u.Username).Str("key", string(key)).
 			Msg("can't notify user as it hasn't started a chat with the bot.")
@@ -242,7 +246,7 @@ func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi
 		Msg("notifying user")
 
 	msg := translateTemplate(key, u.Locale, templateData)
-	return sendMessageAsReply(u.ChatId, msg, replyToId)
+	return sendMessageWithKeyboard(u.ChatId, msg, keyboard, replyToId)
 }
 
 func (u User) makeInvoice(
