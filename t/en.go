@@ -213,7 +213,7 @@ Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
 Creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
-	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .InvoiceSats}}</b>.`,
+	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Transaction queued!",
 	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
 	BITFLASHLIST: `
