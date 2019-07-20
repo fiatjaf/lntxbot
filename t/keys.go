@@ -33,6 +33,9 @@ const (
 	INLINECOINFLIPRESULT = "InlineCoinflipResult"
 	INLINEHIDDENRESULT   = "InlineHiddenResult"
 
+	LNURLINVALID = "LNURLInvalid"
+	LNURLFAIL    = "LNURLFAIL"
+
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"
 

@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,12 +17,10 @@ import (
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
-
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
-	"gopkg.in/jmcvetta/napping.v3"
 )
 
 const INVOICE_UNDEFINED_AMOUNT = -273
@@ -95,13 +92,17 @@ func qrImagePath(label string) string {
 	return filepath.Join(os.TempDir(), s.ServiceId+".invoice."+label+".png")
 }
 
-func searchForInvoice(u User, message tgbotapi.Message) (bolt11 string, ok bool) {
+func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurl string, ok bool) {
 	text := message.Text
 	if text == "" {
 		text = message.Caption
 	}
 
 	if bolt11, ok = getBolt11(text); ok {
+		return
+	}
+
+	if lnurl, ok = getLNURL(text); ok {
 		return
 	}
 
@@ -120,36 +121,21 @@ func searchForInvoice(u User, message tgbotapi.Message) (bolt11 string, ok bool)
 			return
 		}
 
-		p := &url.Values{}
-		p.Set("fileurl", photourl)
-		var r []struct {
-			Type   string `json:"type"`
-			Symbol []struct {
-				Data  string `json:"data"`
-				Error string `json:"error"`
-			} `json:"symbol"`
-		}
-		_, err = napping.Get("https://api.qrserver.com/v1/read-qr-code/", p, &r, nil)
+		text, err := decodeQR(photourl)
 		if err != nil {
-			log.Warn().Err(err).Str("url", photourl).Msg("failed to call qrserver")
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": "decoding service unavailable."}, message.MessageID)
-			return
-		}
-		if len(r) == 0 || len(r[0].Symbol) == 0 {
-			log.Warn().Str("url", photourl).Msg("invalid response from  qrserver")
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": "couldn't decode."}, message.MessageID)
-			return
-		}
-		if r[0].Symbol[0].Error != "" {
-			log.Debug().Str("err", r[0].Symbol[0].Error).
-				Str("url", photourl).Msg("qrserver failed to decode")
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": "couldn't decode."}, message.MessageID)
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, message.MessageID)
 			return
 		}
 
-		text = r[0].Symbol[0].Data
 		log.Debug().Str("data", text).Msg("got qr code data")
-		return getBolt11(text)
+
+		if bolt11, ok = getBolt11(text); ok {
+			return
+		}
+
+		if lnurl, ok = getLNURL(text); ok {
+			return
+		}
 	}
 
 	return

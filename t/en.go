@@ -28,6 +28,9 @@ var EN = map[Key]string{
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
 	INLINEHIDDENRESULT:   "Message {{.HiddenId}}: {{.Content}}",
 
+	LNURLINVALID: "Invalid LNURL: {{.Err}}",
+	LNURLFAIL:    "Failed to fulfill LNURL: {{.Err}}",
+
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
@@ -70,7 +73,7 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 
 	// the "any" is here only for illustrative purposes. if you call this with 'any' it will
 	// actually be assigned to the <satoshis> variable, and that's how the code handles it.
-	RECEIVEHELPARGS: "(<satoshis>|any) [<description>...] [--preimage=<preimage>]",
+	RECEIVEHELPARGS: "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 	RECEIVEHELPDESC: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 	RECEIVEHELPEXAMPLE: `
 <code>/receive 320 for something</code>

@@ -71,9 +71,15 @@ func handleMessage(message *tgbotapi.Message) {
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(messageText, "/") {
-		if bolt11, ok := searchForInvoice(u, *message); ok {
-			opts, _, _ = parse("/pay " + bolt11)
-			goto parsed
+		if bolt11, lnurl, ok := searchForInvoice(u, *message); ok {
+			if bolt11 != "" {
+				opts, _, _ = parse("/pay " + bolt11)
+				goto parsed
+			}
+			if lnurl != "" {
+				opts, _, _ = parse("/receive lnurl " + lnurl)
+				goto parsed
+			}
 		}
 	}
 
@@ -144,40 +150,43 @@ parsed:
 		handleExternalApp(u, opts, message.MessageID)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		sats, err := opts.Int("<satoshis>")
-		if err != nil {
-			// couldn't get an integer, but maybe it's because nothing was specified, so
-			// it's an invoice of undefined amount.
+		if opts["lnurl"].(bool) {
+			handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
+		} else {
+			sats, err := opts.Int("<satoshis>")
+			if err != nil {
+				// couldn't get an integer, but maybe it's because nothing was specified, so
+				// it's an invoice of undefined amount.
 
-			if v, exists := opts["<satoshis>"]; exists && v != nil && v.(string) != "any" {
-				// ok, it exists, so it's an invalid amount.
-				u.notify(t.INVALIDAMT, t.T{"Amount": v})
-				break
+				if v, exists := opts["<satoshis>"]; exists && v != nil && v.(string) != "any" {
+					// ok, it exists, so it's an invalid amount.
+					u.notify(t.INVALIDAMT, t.T{"Amount": v})
+					break
+				}
+
+				// will be this if "any"
+				sats = INVOICE_UNDEFINED_AMOUNT
+			}
+			var desc string
+			if idesc, ok := opts["<description>"]; ok {
+				desc = strings.Join(idesc.([]string), " ")
 			}
 
-			// will be this if "any"
-			sats = INVOICE_UNDEFINED_AMOUNT
-		}
-		var desc string
-		if idesc, ok := opts["<description>"]; ok {
-			desc = strings.Join(idesc.([]string), " ")
-		}
+			var preimage string
+			if param, ok := opts["--preimage"]; ok {
+				preimage, _ = param.(string)
+			}
 
-		var preimage string
-		if param, ok := opts["--preimage"]; ok {
-			preimage, _ = param.(string)
+			bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, false)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to generate invoice")
+				u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+				return
+			}
+
+			// send invoice with qr code
+			sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
 		}
-
-		bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, false)
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to generate invoice")
-			u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
-			return
-		}
-
-		// send invoice with qr code
-		sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
-
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
@@ -503,8 +512,8 @@ parsed:
 		// when paying, the invoice could be in the message this is replying to
 		if ibolt11, ok := opts["<invoice>"]; !ok || ibolt11 == nil {
 			if message.ReplyToMessage != nil {
-				bolt11, ok = searchForInvoice(u, *message.ReplyToMessage)
-				if !ok {
+				bolt11, _, ok = searchForInvoice(u, *message.ReplyToMessage)
+				if !ok || bolt11 == "" {
 					u.notify(t.NOINVOICE, nil)
 					break
 				}
