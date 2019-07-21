@@ -103,7 +103,7 @@ func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
 		return
 	}
 
-	sendMessageWithPicture(u.ChatId, qrpath, lnurl)
+	sendMessageWithPicture(u.ChatId, qrpath, `<a href="lightning:`+lnurl+`">`+lnurl+"</a>")
 }
 
 func serveLNURL() {

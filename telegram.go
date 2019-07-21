@@ -40,9 +40,11 @@ func sendMessageWithPicture(chatId int64, picturepath string, message string) tg
 		defer os.Remove(picturepath)
 		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
 		photo.Caption = message
+		photo.ParseMode = "HTML"
 		c, err := bot.Send(photo)
 		if err != nil {
-			log.Warn().Str("path", picturepath).Str("message", message).Err(err).Msg("error sending photo")
+			log.Warn().Str("path", picturepath).Str("message", message).Err(err).
+				Msg("error sending photo")
 			return sendMessage(chatId, message)
 		} else {
 			return c
