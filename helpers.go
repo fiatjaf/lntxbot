@@ -122,6 +122,7 @@ func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurl string, o
 		}
 
 		log.Debug().Str("data", text).Msg("got qr code data")
+		sendMessage(u.ChatId, text)
 
 		if bolt11, ok = getBolt11(text); ok {
 			return
