@@ -201,7 +201,7 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 
-	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | available <minutes>])",
+	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
@@ -319,7 +319,7 @@ Active Tables: {{.Tables}}
 Satoshis in play: {{.Chips}}
     `,
 	POKERNOTIFY: `
-<b>[Poker]</b> There are {{.Playing}} people playing and {{.Waiting}} waiting to play poker right now!
+<b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
 
 /app_poker_status to double-check!
 /app_poker_play to play here!

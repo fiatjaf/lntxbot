@@ -160,30 +160,36 @@ func getActivePokerTables() (nplayers int, ntables int, err error) {
 	return
 }
 
-func getCurrentPokerStakes() (int, error) {
+func getCurrentPokerPlayers() (playerHashes []string, totalChips int, err error) {
 	var players PokerFirestoreDocumentList
 	resp, err := napping.Get("https://firestore.googleapis.com/v1/projects/ln-pkr/databases/(default)/documents/players", nil, &players, nil)
 	if err != nil {
-		return 0, err
+		return
 	}
 	if resp.Status() >= 300 {
 		err = errors.New("error calling lightning-poker.com backend")
-		return 0, err
+		return
 	}
 
-	var totalChips int
-	for _, player := range players.Documents {
+	playerHashes = make([]string, len(players.Documents))
+	for i, player := range players.Documents {
 		chips, _ := strconv.Atoi(player.Fields["chips"].Integer)
 		totalChips += chips
+
+		playerHashes[i] = player.Fields["accountHash"].String
 	}
 
-	return totalChips, nil
+	return
 }
 
 func getPokerId(user User) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s.poker.%d", s.BotToken, user.Id)))
 	secret := hex.EncodeToString(sum[:])
 	return s.ServiceId + ":" + secret[:14]
+}
+
+func getPokerAccountHash(user User) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(getPokerId(user)+"this-is-salt-jfkd934343")))[0:10]
 }
 
 func getPokerURL(user User) string {
@@ -249,7 +255,7 @@ func watchPoker() {
 	for {
 		time.Sleep(time.Minute * 3)
 
-		chips, err := getCurrentPokerStakes()
+		_, chips, err := getCurrentPokerPlayers()
 		if err != nil {
 			log.Warn().Err(err).Msg("error watching")
 			continue
@@ -262,16 +268,17 @@ func watchPoker() {
 }
 
 func notifyPokerWatchers() {
-	nplayers, _, err := getActivePokerTables()
+	playerHashes, chips, err := getCurrentPokerPlayers()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to get poker data before notifying people")
 		return
 	}
 
-	watchers := rds.Keys("poker-watcher:*").Val()
-
-	for _, watcherId := range watchers {
-		userId, err := strconv.Atoi(strings.Split(watcherId, ":")[1])
+	watcherKeys := rds.Keys("poker-watcher:*").Val()
+	watchers := make([]User, len(watcherKeys))
+	nwatchers := len(watcherKeys)
+	for i, watcherKey := range watcherKeys {
+		userId, err := strconv.Atoi(strings.Split(watcherKey, ":")[1])
 		if err != nil {
 			continue
 		}
@@ -280,7 +287,39 @@ func notifyPokerWatchers() {
 			continue
 		}
 
-		watcher.notify(t.POKERNOTIFY, t.T{"Playing": nplayers, "Waiting": len(watchers)})
+		watchers[i] = watcher
+
+		if stringIsIn(getPokerAccountHash(watcher), playerHashes) {
+			// watcher is playing, don't count him as watcher
+			nwatchers--
+		}
+	}
+
+	for _, watcher := range watchers {
+		nplayers := len(playerHashes)
+
+		if stringIsIn(getPokerAccountHash(watcher), playerHashes) {
+			// watcher is playing, don't count him as player
+			// in his own notification.
+			nplayers--
+
+			if nwatchers == 0 && nplayers == 0 {
+				// this means there's only this watcher around, so don't notify
+				continue
+			}
+		} else {
+			// watcher is not playing, so he was counted in nwatchers
+			if nwatchers == 1 && nplayers == 0 {
+				// this means there's only this watcher around, so don't notify
+				continue
+			}
+		}
+
+		watcher.notify(t.POKERNOTIFY, t.T{
+			"Sats":    chips,
+			"Playing": nplayers,
+			"Waiting": nwatchers,
+		})
 	}
 }
 
@@ -294,5 +333,8 @@ func subscribePoker(user User, howlong time.Duration, active bool) {
 	}
 
 	// now we just add them to the list so they'll be notified later if someone wants to play
-	rds.Set(fmt.Sprintf("poker-watcher:%d", user.Id), "-", howlong)
+	go func() {
+		time.Sleep(2 * time.Second)
+		rds.Set(fmt.Sprintf("poker-watcher:%d", user.Id), "-", howlong)
+	}()
 }

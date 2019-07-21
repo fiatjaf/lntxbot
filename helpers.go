@@ -416,3 +416,12 @@ func escapeHTML(m string) string {
 			">", "&gt;", -1),
 		"\"", "&quot;", -1)
 }
+
+func stringIsIn(needle string, haystack []string) bool {
+	for _, str := range haystack {
+		if str == needle {
+			return true
+		}
+	}
+	return false
+}

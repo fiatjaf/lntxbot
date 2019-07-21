@@ -270,7 +270,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 			}
 		} else if opts["status"].(bool) {
 			nplayers, ntables, err1 := getActivePokerTables()
-			chips, err2 := getCurrentPokerStakes()
+			_, chips, err2 := getCurrentPokerPlayers()
 			if err1 != nil || err2 != nil {
 				u.notify(t.ERROR, t.T{"Err": "failed to query."})
 				break
@@ -295,12 +295,14 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		} else if opts["url"].(bool) {
 			u.notify(t.POKERSECRETURL, t.T{"URL": getPokerURL(u)})
 			subscribePoker(u, time.Minute*15, false)
-		} else if opts["available"].(bool) {
+		} else if opts["available"].(bool) || opts["wait"].(bool) || opts["watch"].(bool) {
 			if minutes, err := opts.Int("<minutes>"); err != nil {
 				u.notify(t.ERROR, t.T{"Err": err})
+			} else if minutes > 60 {
+				u.notify(t.ERROR, t.T{"Err": "can't be available for that long."})
 			} else {
-				subscribePoker(u, time.Minute*time.Duration(minutes), true)
 				u.notify(t.POKERSUBSCRIBED, t.T{"Minutes": minutes})
+				subscribePoker(u, time.Minute*time.Duration(minutes), true)
 			}
 		} else {
 			u.notify(t.POKERHELP, nil)
