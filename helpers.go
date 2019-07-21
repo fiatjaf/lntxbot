@@ -9,8 +9,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -86,10 +84,6 @@ func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
 	}
 
 	return gjson.Result{}, false
-}
-
-func qrImagePath(label string) string {
-	return filepath.Join(os.TempDir(), s.ServiceId+".invoice."+label+".png")
 }
 
 func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurl string, ok bool) {

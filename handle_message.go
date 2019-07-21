@@ -151,7 +151,7 @@ parsed:
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		if opts["lnurl"].(bool) {
-			handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
+			handleLNURLReceive(u, opts["<lnurl>"].(string), message.MessageID)
 		} else {
 			sats, err := opts.Int("<satoshis>")
 			if err != nil {
@@ -502,78 +502,12 @@ parsed:
 		})
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
-		// pay invoice
-		askConfirmation := true
-		if opts["now"].(bool) {
-			askConfirmation = false
-		}
-
-		var bolt11 string
-		// when paying, the invoice could be in the message this is replying to
-		if ibolt11, ok := opts["<invoice>"]; !ok || ibolt11 == nil {
-			if message.ReplyToMessage != nil {
-				bolt11, _, ok = searchForInvoice(u, *message.ReplyToMessage)
-				if !ok || bolt11 == "" {
-					u.notify(t.NOINVOICE, nil)
-					break
-				}
-			}
-			u.notify(t.NOINVOICE, nil)
-			break
+		if opts["lnurl"].(bool) {
+			// generate an lnurl so a remote wallet can send an invoice through this bizarre protocol
+			handleLNURLPay(u, opts, message.MessageID)
 		} else {
-			bolt11 = ibolt11.(string)
-		}
-
-		optsats, _ := opts.Int("<satoshis>")
-		optmsats := optsats * 1000
-
-		if askConfirmation {
-			// decode invoice and show a button for confirmation
-			inv, nodeAlias, usd, err := decodeInvoice(bolt11)
-			if err != nil {
-				u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
-				break
-			}
-
-			amount := int(inv.Get("msatoshi").Int())
-			if amount == 0 {
-				amount = optmsats
-			}
-
-			hash := inv.Get("payment_hash").String()
-			text := translateTemplate(t.CONFIRMINVOICE, u.Locale, t.T{
-				"Sats":  amount / 1000,
-				"USD":   usd,
-				"Desc":  escapeHTML(inv.Get("description").String()),
-				"Hash":  hash,
-				"Node":  nodeLink(inv.Get("payee").String()),
-				"Alias": nodeAlias,
-			})
-
-			msgId := sendMessage(u.ChatId, text).MessageID
-
-			hashfirstchars := hash[:5]
-			rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)
-			rds.Set("payinvoice:"+hashfirstchars+":msats", optmsats, s.PayConfirmTimeout)
-
-			editWithKeyboard(u.ChatId, msgId,
-				text+"\n\n"+translate(t.ASKTOCONFIRM, u.Locale),
-				tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.CANCEL, u.Locale),
-							fmt.Sprintf("cancel=%d", u.Id)),
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.YES, u.Locale),
-							fmt.Sprintf("pay=%s", hashfirstchars)),
-					),
-				),
-			)
-		} else {
-			err := u.payInvoice(message.MessageID, bolt11, optmsats)
-			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, message.MessageID)
-			}
+			// normal payment flow
+			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
 		}
 		break
 	case opts["bluewallet"].(bool), opts["lndhub"].(bool):

@@ -2,7 +2,7 @@ package bech32
 
 import "errors"
 
-func LNURL(lnurl string) (url string, err error) {
+func LNURLDecode(lnurl string) (url string, err error) {
 	tag, data, err := Decode(lnurl)
 	if err != nil {
 		return
@@ -19,5 +19,16 @@ func LNURL(lnurl string) (url string, err error) {
 	}
 
 	url = string(converted)
+	return
+}
+
+func LNURLEncode(actualurl string) (lnurl string, err error) {
+	asbytes := []byte(actualurl)
+	converted, err := ConvertBits(asbytes, 8, 5, true)
+	if err != nil {
+		return
+	}
+
+	lnurl, err = Encode("lnurl", converted)
 	return
 }

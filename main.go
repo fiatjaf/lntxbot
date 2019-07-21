@@ -145,6 +145,9 @@ func main() {
 	// lndhub-compatible routes
 	serveBlueWallet()
 
+	// lnurl routes
+	serveLNURL()
+
 	// app-poker-specific routes
 	servePoker()
 

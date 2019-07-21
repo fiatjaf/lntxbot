@@ -17,7 +17,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		log.Warn().Err(err).Int("case", tcase).
 			Str("username", cb.From.UserName).
 			Int("id", cb.From.ID).
-			Msg("failed to ensure user on callback query")
+			Msg("failed to ensure user on callback")
 		return
 	}
 
@@ -69,37 +69,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		appendTextToMessage(cb, translate(t.CANCELED, locale))
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
-		u, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", cb.From.UserName).
-				Int("id", cb.From.ID).
-				Msg("failed to ensure user")
-			goto answerEmpty
-		}
-
-		hashfirstchars := cb.Data[4:]
-		bolt11, err := rds.Get("payinvoice:" + hashfirstchars).Result()
-		if err != nil {
-			bot.AnswerCallbackQuery(
-				tgbotapi.NewCallback(
-					cb.ID,
-					translate(t.CALLBACKEXPIRED, locale),
-				),
-			)
-			return
-		}
-
-		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.CALLBACKSENDING, locale)))
-
-		optmsats, _ := rds.Get("payinvoice:" + hashfirstchars + ":msats").Int64()
-		err = u.payInvoice(messageId, bolt11, int(optmsats))
-		if err == nil {
-			appendTextToMessage(cb, translate(t.CALLBACKATTEMPT, locale))
-		} else {
-			appendTextToMessage(cb, err.Error())
-		}
-		removeKeyboardButtons(cb)
+		handlePayCallback(u, messageId, locale, cb)
 		return
 	case strings.HasPrefix(cb.Data, "give="):
 		params := strings.Split(cb.Data[5:], "-")

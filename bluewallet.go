@@ -93,22 +93,16 @@ func serveBlueWallet() {
 
 		var params struct {
 			Invoice string `json:"invoice"`
-			Amount  string `json:"amount"`
 		}
 		err = json.NewDecoder(r.Body).Decode(&params)
 		if err != nil {
 			errorInvalidParams(w)
 			return
 		}
-		customAmount, err := strconv.Atoi(params.Amount)
-		if err != nil {
-			errorInvalidParams(w)
-			return
-		}
 
-		log.Debug().Str("bolt11", params.Invoice).Str("customAmount", params.Amount).Msg("bluewallet /payinvoice")
+		log.Debug().Str("bolt11", params.Invoice).Msg("bluewallet /payinvoice")
 
-		err = user.payInvoice(0, params.Invoice, customAmount)
+		err = user.payInvoice(0, params.Invoice)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return

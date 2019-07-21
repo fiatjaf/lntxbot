@@ -201,6 +201,7 @@ const (
 	CANTJOINTWICE      = "CantJoinTwice"
 	CANTCANCEL         = "CantCancel"
 	FAILEDINVOICE      = "FailedInvoice"
+	ZEROAMOUNTINVOICE  = "ZeroAmountInvoice"
 	INVALIDAMT         = "InvalidAmt"
 	STOPNOTIFY         = "StopNotify"
 	WELCOME            = "Welcome"

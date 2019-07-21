@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	"gopkg.in/jmcvetta/napping.v3"
@@ -73,4 +75,8 @@ func decodeQR(fileurl string) (data string, err error) {
 	case <-time.After(4 * time.Second):
 		return "", errors.New("unable to decode.")
 	}
+}
+
+func qrImagePath(identifier string) string {
+	return filepath.Join(os.TempDir(), s.ServiceId+".qr."+identifier+".png")
 }

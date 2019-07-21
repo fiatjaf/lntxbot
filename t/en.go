@@ -28,8 +28,8 @@ var EN = map[Key]string{
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
 	INLINEHIDDENRESULT:   "Message {{.HiddenId}}: {{.Content}}",
 
-	LNURLINVALID: "Invalid LNURL: {{.Err}}",
-	LNURLFAIL:    "Failed to fulfill LNURL: {{.Err}}",
+	LNURLINVALID: "Invalid lnurl: {{.Err}}",
+	LNURLFAIL:    "Failed to fulfill lnurl withdraw: {{.Err}}",
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
@@ -83,17 +83,17 @@ Generates an invoice for 320 sat with the description "for something"
 Generates an invoice with undefined amount.
     `,
 
-	PAYHELPARGS: "[now] [<invoice>] [<satoshis>] [sat]",
+	PAYHELPARGS: "(lnurl [<satoshis>] | [now] [<invoice>])",
 	PAYHELPDESC: "Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
 	PAYHELPEXAMPLE: `
-<code>/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm </code>
+<code>/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code>
 Pays this invoice for 100 sat.
 
-<code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm </code> 
+<code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> 
 Pays this invoice without asking for confirmation.
 
-<code>/pay lnbc1pwvm0pxpp5n2qa3pnfmu7p9vaqspn2cwp7ej44mh6tf77pnxpvfked8z5wg64sdqlypdkcmn50p3x7ap0gpnxjct5dfskvhgxqyz5vqcqp2rzjqfxj8p6qjf5l8du7yuytkwdcjhylfd4gxgs48t65awjg04ye80mq7zyhg5qq5ysqqqqqqqqqqqqqqqsqrcaycpuwzwv4u5yg94ne4ct2lrkmleuq4ly5qcjueuu6qkx5d4qdun5xx0wxp6djch093svm06szy0ru9kvcpmzs7vzjpvxfwyep8fugsq96d3ww 3000 </code> 
-Pays 3000 sat for this invoice with undefined amount.
+<code>/withdraw 3000</code> 
+Generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a>.
 
 <code>/pay</code> 
 When sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
@@ -398,6 +398,7 @@ Registered: {{.Registered}}
 	CANTJOINTWICE:      "Can't join twice!",
 	CANTCANCEL:         "You don't have the powers to cancel this.",
 	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
+	ZEROAMOUNTINVOICE:  "Invoices with undefined amounts are not supported because they are not safe.",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
 	WELCOME:            "Your account is created.",

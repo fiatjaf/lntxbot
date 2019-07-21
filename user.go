@@ -14,7 +14,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
-	"github.com/skip2/go-qrcode"
+	qrcode "github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 )
 
@@ -312,19 +312,18 @@ func (u User) makeInvoice(
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
 	} else {
 		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
-		if err != nil {
-			log.Warn().Err(err).Str("invoice", bolt11).
-				Msg("failed to generate qr.")
-			err = nil
-		} else {
+		if err == nil {
 			qrpath = qrImagePath(label)
+		} else {
+			log.Warn().Err(err).Str("invoice", bolt11).Msg("failed to generate qr.")
+			err = nil
 		}
 	}
 
 	return bolt11, hash, qrpath, nil
 }
 
-func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error) {
+func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
@@ -337,13 +336,8 @@ func (u User) payInvoice(messageId int, bolt11 string, msatoshi int) (err error)
 
 	params := map[string]interface{}{}
 	if amount == 0 {
-		// amount is optional, so let's use the provided on the command
-		amount = int64(msatoshi)
-		params["msatoshi"] = msatoshi
-	}
-	if amount == 0 {
 		// if nothing was provided, end here
-		return errors.New("no amount provided")
+		return errors.New("unsupported zero-amount invoice")
 	}
 
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
@@ -492,7 +486,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			-float64(balance)/1000)
 	}
 
-	if msatoshi >= 5000000 && balance*100 < msatoshi {
+	if msatoshi >= 5000000 && balance*101 < msatoshi*100 {
 		// if the payment is >= 5000sat, reserve 1% of balance for the transaction fee.
 		// if it's smaller we don't care.
 		// this should provide an easy way for people to empty their wallets while at the same time
