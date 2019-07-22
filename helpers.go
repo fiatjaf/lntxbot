@@ -291,22 +291,24 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	}
 
 	// check entities for user type
-	for _, entity := range *message.Entities {
-		if entity.Type == "text_mention" && entity.User != nil {
-			// user without username
-			uid = entity.User.ID
-			display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
-			user, err = ensureTelegramId(uid)
-			u = &user
-			return
-		}
-		if entity.Type == "mention" {
-			// user with username
-			uname := username[1:]
-			display = "@" + uname
-			user, err = ensureUsername(uname)
-			u = &user
-			return
+	if message.Entities != nil {
+		for _, entity := range *message.Entities {
+			if entity.Type == "text_mention" && entity.User != nil {
+				// user without username
+				uid = entity.User.ID
+				display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
+				user, err = ensureTelegramId(uid)
+				u = &user
+				return
+			}
+			if entity.Type == "mention" {
+				// user with username
+				uname := username[1:]
+				display = "@" + uname
+				user, err = ensureUsername(uname)
+				u = &user
+				return
+			}
 		}
 	}
 
