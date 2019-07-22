@@ -55,7 +55,8 @@ func prepareBitflashTransaction(user User, messageId int, satoshi int, address s
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		err = errors.New("Bitflash call failed.")
+		b, _ := ioutil.ReadAll(resp.Body)
+		err = errors.New("Bitflash call failed (" + string(b) + ").")
 		return
 	}
 
@@ -74,7 +75,8 @@ func getBitflashOrder(chargeId string) (order BitflashOrder, err error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		err = errors.New("Bitflash call failed.")
+		b, _ := ioutil.ReadAll(resp.Body)
+		err = errors.New("Bitflash call failed (" + string(b) + ").")
 		return
 	}
 
