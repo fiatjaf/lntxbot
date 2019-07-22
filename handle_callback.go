@@ -555,7 +555,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			baseEdit := getBaseEdit(cb)
 			bot.Send(tgbotapi.EditMessageTextConfig{
 				BaseEdit: baseEdit,
-				Text:     content,
+				Text:     "revealed:" + content,
 			})
 		}
 
