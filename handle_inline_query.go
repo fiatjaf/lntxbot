@@ -108,47 +108,57 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			IsPersonal:    true,
 		})
 	case "coinflip", "lottery":
-		goto answerEmpty
-		// if len(argv) < 2 {
-		// 	goto answerEmpty
-		// }
+		if len(argv) < 2 {
+			goto answerEmpty
+		}
 
-		// var sats int
-		// if sats, err = strconv.Atoi(argv[1]); err != nil {
-		// 	break
-		// }
-		// if !u.checkBalanceFor(sats, "coinflip") {
-		// 	break
-		// }
+		var sats int
+		if sats, err = strconv.Atoi(argv[1]); err != nil {
+			break
+		}
 
-		// nparticipants := 2
-		// if len(argv) > 2 {
-		// 	if n, err := strconv.Atoi(argv[2]); err == nil {
-		// 		nparticipants = n
-		// 	}
-		// }
+		if !canCreateCoinflip(u.Id) {
+			u.notify(t.COINFLIPRATELIMIT, nil)
+			return
+		}
 
-		// result := tgbotapi.NewInlineQueryResultArticleHTML(
-		// 	fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
-		// 	translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
-		// 		"Sats":       sats,
-		// 		"MaxPlayers": nparticipants,
-		// 	}),
-		// 	translateTemplate(t.COINFLIPAD, u.Locale, t.T{
-		// 		"Sats":       sats,
-		// 		"Prize":      sats * nparticipants,
-		// 		"SpotsLeft":  nparticipants - 1,
-		// 		"MaxPlayers": nparticipants,
-		// 	}),
-		// )
+		if !canJoinCoinflip(u.Id) {
+			u.notify(t.COINFLIPOVERQUOTA, nil)
+			return
+		}
 
-		// result.ReplyMarkup = coinflipKeyboard("", u.Id, nparticipants, sats, u.Locale)
+		if !u.checkBalanceFor(sats, "coinflip") {
+			break
+		}
 
-		// resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
-		// 	InlineQueryID: q.ID,
-		// 	Results:       []interface{}{result},
-		// 	IsPersonal:    true,
-		// })
+		nparticipants := 2
+		if len(argv) > 2 {
+			if n, err := strconv.Atoi(argv[2]); err == nil {
+				nparticipants = n
+			}
+		}
+
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
+			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
+			translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
+				"Sats":       sats,
+				"MaxPlayers": nparticipants,
+			}),
+			translateTemplate(t.COINFLIPAD, u.Locale, t.T{
+				"Sats":       sats,
+				"Prize":      sats * nparticipants,
+				"SpotsLeft":  nparticipants - 1,
+				"MaxPlayers": nparticipants,
+			}),
+		)
+
+		result.ReplyMarkup = coinflipKeyboard("", u.Id, nparticipants, sats, u.Locale)
+
+		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+			InlineQueryID: q.ID,
+			Results:       []interface{}{result},
+			IsPersonal:    true,
+		})
 	case "giveflip":
 		if len(argv) < 3 {
 			goto answerEmpty

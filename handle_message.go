@@ -371,40 +371,48 @@ parsed:
 		)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
-		sendMessage(-g.TelegramId, "Coinflips are temporarily disabled.")
-		break
+		// open a lottery between a number of users in a group
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+			break
+		}
 
-		// // open a lottery between a number of users in a group
-		// sats, err := opts.Int("<satoshis>")
-		// if err != nil {
-		// 	u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
-		// 	break
-		// }
-		// if !u.checkBalanceFor(sats, "coinflip") {
-		// 	break
-		// }
+		if !canCreateCoinflip(u.Id) {
+			u.notify(t.COINFLIPRATELIMIT, nil)
+			return
+		}
 
-		// nparticipants := 2
-		// if n, err := opts.Int("<num_participants>"); err == nil {
-		// 	if n < 2 || n > 100 {
-		// 		u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
-		// 		break
-		// 	} else {
-		// 		nparticipants = n
-		// 	}
-		// }
+		if !canJoinCoinflip(u.Id) {
+			u.notify(t.COINFLIPOVERQUOTA, nil)
+			return
+		}
 
-		// sendMessageWithKeyboard(
-		// 	message.Chat.ID,
-		// 	translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
-		// 		"EntrySats":    sats,
-		// 		"Participants": nparticipants,
-		// 		"Prize":        sats * nparticipants,
-		// 		"Registered":   u.AtName(),
-		// 	}),
-		//  coinflipKeyboard("", u.Id, nparticipants, sats, g.Locale),
-		//  0,
-		// )
+		if !u.checkBalanceFor(sats, "coinflip") {
+			break
+		}
+
+		nparticipants := 2
+		if n, err := opts.Int("<num_participants>"); err == nil {
+			if n < 2 || n > 100 {
+				u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
+				break
+			} else {
+				nparticipants = n
+			}
+		}
+
+		sendMessageWithKeyboard(
+			message.Chat.ID,
+			translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
+				"EntrySats":    sats,
+				"Participants": nparticipants,
+				"Prize":        sats * nparticipants,
+				"Registered":   u.AtName(),
+			}),
+			coinflipKeyboard("", u.Id, nparticipants, sats, g.Locale),
+			0,
+		)
 	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")

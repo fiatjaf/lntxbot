@@ -85,6 +85,8 @@ const (
 	COINFLIPGIVERMSG    = "CoinflipGiverMsg"
 	COINFLIPAD          = "CoinflipAd"
 	COINFLIPJOIN        = "CoinflipJoin"
+	COINFLIPOVERQUOTA   = "CoinflipOverQuota"
+	COINFLIPRATELIMIT   = "CoinflipRateLimit"
 
 	GIVEFLIPHELPARGS    = "giveflipHelpArgs"
 	GIVEFLIPHELPDESC    = "giveflipHelpDesc"

@@ -14,7 +14,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 )
 
@@ -787,75 +787,6 @@ func (u User) checkBalanceFor(sats int, purpose string) bool {
 		return false
 	}
 	return true
-}
-
-func fromManyToOne(
-	sats int, toId int, fromIds []int, desc string,
-	receiverMessage, giverMessage t.Key,
-) (receiver User, err error) {
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		return
-	}
-	defer txn.Rollback()
-
-	receiver, _ = loadUser(toId, 0)
-	giverNames := make([]string, 0, len(fromIds))
-
-	msats := sats * 1000
-	var (
-		vdesc  = &sql.NullString{}
-		vlabel = &sql.NullString{}
-	)
-	vdesc.Scan(desc)
-
-	for _, fromId := range fromIds {
-		if fromId == toId {
-			continue
-		}
-
-		_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description, label)
-VALUES ($1, $2, $3, $4, $5)
-    `, fromId, toId, msats, vdesc, vlabel)
-		if err != nil {
-			return
-		}
-
-		var balance int
-		err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, fromId)
-		if err != nil {
-			return
-		}
-
-		if balance < 0 {
-			err = errors.New("insufficient balance")
-			return
-		}
-
-		giver, _ := loadUser(fromId, 0)
-		giverNames = append(giverNames, giver.AtName())
-
-		giver.notify(giverMessage, t.T{
-			"IndividualSats": sats,
-			"Receiver":       receiver.AtName(),
-		})
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		return
-	}
-
-	receiver.notify(receiverMessage, t.T{
-		"TotalSats": sats * len(fromIds),
-		"Senders":   strings.Join(giverNames, " "),
-	})
-	return
 }
 
 func (u User) setAppData(appname string, data interface{}) (err error) {

@@ -136,6 +136,8 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
 	COINFLIPJOIN:           "Join lottery!",
 	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
+	COINFLIPOVERQUOTA:      "You're joining in too many coinflips! That can't be healthy!",
+	COINFLIPRATELIMIT:      "Please wait a while before creating a new coinflip.",
 
 	GIVEFLIPHELPARGS: "<satoshis> [<num_participants>]",
 	GIVEFLIPHELPDESC: "Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.",

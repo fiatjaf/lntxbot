@@ -105,13 +105,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		claimer, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
-				Msg("failed to ensure claimer user on giveaway.")
-			goto answerEmpty
-		}
+		claimer := u
 
 		errMsg, err := u.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
 		if err != nil {
@@ -167,14 +161,12 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		joiner, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
-				Msg("failed to ensure joiner user on coinflip.")
-			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Coinflip"}))
-			goto answerEmpty
+		joiner := u
+
+		if !canJoinCoinflip(joiner.Id) {
+			bot.AnswerCallbackQuery(
+				tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.COINFLIPOVERQUOTA, joiner.Locale)))
+			return
 		}
 
 		if !joiner.checkBalanceFor(sats, "coinflip") {
@@ -244,11 +236,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				participants[i] = part
 			}
 
-			winner, err := fromManyToOne(sats, winnerId, participants,
-				"coinflip",
-				t.COINFLIPWINNERMSG,
-				t.COINFLIPGIVERMSG,
-			)
+			winner, err := settleCoinflip(sats, winnerId, participants)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing coinflip transactions")
 				removeKeyboardButtons(cb)
@@ -296,15 +284,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		nregistered := int(rds.SCard(rkey).Val())
 
-		joiner, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
-				Msg("failed to ensure joiner user on giveflip.")
-			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Giveflip"}))
-			goto answerEmpty
-		}
+		joiner := u
 
 		if joiner.Id == giverId {
 			// giver can't join
@@ -441,15 +421,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		joiner, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
-				Msg("failed to ensure joiner user on fundraise.")
-			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Fundraise"}))
-			goto answerEmpty
-		}
+		joiner := u
 
 		if !joiner.checkBalanceFor(sats, "fundraise") {
 			goto answerEmpty
@@ -500,11 +472,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				givers[i] = part
 			}
 
-			receiver, err := fromManyToOne(sats, receiverId, givers,
-				"fundraise",
-				t.FUNDRAISERECEIVERMSG,
-				t.FUNDRAISEGIVERMSG,
-			)
+			receiver, err := settleFundraise(sats, receiverId, givers)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing fundraise transactions")
 				removeKeyboardButtons(cb)
@@ -566,16 +534,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
-		revealer, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
-				Msg("failed to ensure revealer user on reveal")
-			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translate(t.ERROR, locale))
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGFAIL, locale)))
-			return
-		}
+		revealer := u
 
 		errMsg, err := u.sendInternally(messageId, sourceuser, false, satoshis*1000, "reveal", nil)
 		if err != nil {
