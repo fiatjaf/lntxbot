@@ -97,7 +97,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		u, err := loadUser(fromid, 0)
+		giver, err := loadUser(fromid, 0)
 		if err != nil {
 			log.Warn().Err(err).
 				Int("id", fromid).
@@ -107,7 +107,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		claimer := u
 
-		errMsg, err := u.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
+		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
 			claimer.notify(t.CALLBACKERROR, t.T{
@@ -119,14 +119,14 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
 		removeKeyboardButtons(cb)
 		claimer.notify(t.USERSENTYOUSATS, t.T{
-			"User":  u.AtName(),
+			"User":  giver.AtName(),
 			"Sats":  sats,
 			"BotOp": "/giveaway",
 		})
 
 		appendTextToMessage(cb,
 			translateTemplate(t.GIVEAWAYSATSGIVENPUBLIC, locale, t.T{
-				"From":             u.AtName(),
+				"From":             giver.AtName(),
 				"To":               claimer.AtName(),
 				"Sats":             sats,
 				"ClaimerHasNoChat": claimer.ChatId == 0,
