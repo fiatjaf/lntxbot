@@ -62,7 +62,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
-			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.CANTCANCEL, locale)))
+			u.alert(cb, t.CANTCANCEL, nil)
 			return
 		}
 		removeKeyboardButtons(cb)
@@ -80,7 +80,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		buttonData := rds.Get("giveaway:" + params[2]).Val()
 		if buttonData != cb.Data {
 			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translate(t.CALLBACKBUTTONEXPIRED, locale))
+			appendTextToMessage(cb, translateTemplate(t.CALLBACKEXPIRED, locale, t.T{"BotOp": "Giveaway"}))
 			goto answerEmpty
 		}
 		if err = rds.Del("giveaway:" + params[2]).Err(); err != nil {
@@ -110,18 +110,21 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
-			claimer.notify(t.CALLBACKERROR, t.T{
-				"BotOp": "giveaway",
-				"Err":   errMsg,
-			})
-			goto answerEmpty
+			claimer.alert(cb, t.ERROR, t.T{"Err": errMsg})
+			return
 		}
-		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
+
 		removeKeyboardButtons(cb)
 		claimer.notify(t.USERSENTYOUSATS, t.T{
 			"User":  giver.AtName(),
 			"Sats":  sats,
 			"BotOp": "/giveaway",
+		})
+
+		giver.notify(t.USERSENTTOUSER, t.T{
+			"Sats":              sats,
+			"User":              claimer.AtName(),
+			"ReceiverHasNoChat": false,
 		})
 
 		appendTextToMessage(cb,
@@ -133,7 +136,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				"BotName":          s.ServiceId,
 			}),
 		)
-		return
+
+		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "flip="):
 		// join a new participant in a coinflip lottery
 		// if the total of participants is reached run the coinflip
@@ -164,18 +168,17 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		joiner := u
 
 		if !canJoinCoinflip(joiner.Id) {
-			bot.AnswerCallbackQuery(
-				tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.COINFLIPOVERQUOTA, joiner.Locale)))
+			u.alert(cb, t.COINFLIPOVERQUOTA, nil)
 			return
 		}
 
-		if !joiner.checkBalanceFor(sats, "coinflip") {
+		if !joiner.checkBalanceFor(sats, "coinflip", cb) {
 			goto answerEmpty
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
 			// can't join twice
-			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.CANTJOINTWICE, joiner.Locale)))
+			u.alert(cb, t.CANTJOINTWICE, nil)
 			return
 		}
 
@@ -288,13 +291,13 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		if joiner.Id == giverId {
 			// giver can't join
-			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.GIVERCANTJOIN, joiner.Locale)))
+			u.alert(cb, t.GIVERCANTJOIN, nil)
 			return
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
 			// can't join twice
-			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.CANTJOINTWICE, joiner.Locale)))
+			u.alert(cb, t.CANTJOINTWICE, nil)
 			return
 		}
 
@@ -375,7 +378,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				winner.notify(t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": errMsg})
 				goto answerEmpty
 			}
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, "Payment sent."))
+
 			removeKeyboardButtons(cb)
 			winner.notify(t.USERSENTYOUSATS, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip"})
 
@@ -392,7 +395,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			})
 		}
 
-		return
+		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "raise="):
 		// join a new giver in a fundraising event
 		// if the total of givers is reached commit the fundraise
@@ -423,19 +426,20 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		joiner := u
 
-		if !joiner.checkBalanceFor(sats, "fundraise") {
+		if !joiner.checkBalanceFor(sats, "fundraise", cb) {
 			goto answerEmpty
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
 			// can't join twice
-			bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translate(t.CANTJOINTWICE, joiner.Locale)))
+			u.alert(cb, t.CANTJOINTWICE, nil)
 			return
 		}
 
 		if err := rds.SAdd("fundraise:"+fundraiseid, joiner.Id).Err(); err != nil {
 			log.Warn().Err(err).Str("fundraise", fundraiseid).Msg("error adding giver to fundraise.")
-			goto answerEmpty
+			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			return
 		}
 
 		if nregistered+1 < ngivers {
@@ -519,7 +523,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.HIDDENMSGNOTFOUND, locale))
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGFAIL, locale)))
+			u.alert(cb, t.HIDDENMSGFAIL, nil)
 			return
 		}
 
@@ -530,7 +534,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				Msg("failed to load source user on reveal")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.ERROR, locale))
-			bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.HIDDENMSGFAIL, locale)))
+			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
@@ -541,9 +545,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			log.Warn().Err(err).Str("key", hiddenkey).Int("satoshis", satoshis).
 				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to pay to reveal")
-			bot.AnswerCallbackQuery(
-				tgbotapi.NewCallback(cb.ID, translateTemplate(t.HIDDENMSGFAIL, locale, t.T{"Err": errMsg})),
-			)
+			u.alert(cb, t.HIDDENMSGFAIL, t.T{"Err": errMsg})
 			return
 		}
 

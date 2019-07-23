@@ -91,7 +91,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		if sats, err = strconv.Atoi(argv[1]); err != nil {
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveaway") {
+		if !u.checkBalanceFor(sats, "giveaway", nil) {
 			break
 		}
 
@@ -127,7 +127,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			return
 		}
 
-		if !u.checkBalanceFor(sats, "coinflip") {
+		if !u.checkBalanceFor(sats, "coinflip", nil) {
 			break
 		}
 
@@ -168,7 +168,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		if sats, err = strconv.Atoi(argv[1]); err != nil {
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveflip") {
+		if !u.checkBalanceFor(sats, "giveflip", nil) {
 			break
 		}
 

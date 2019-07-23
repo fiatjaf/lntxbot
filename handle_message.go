@@ -324,7 +324,7 @@ parsed:
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveaway") {
+		if !u.checkBalanceFor(sats, "giveaway", nil) {
 			break
 		}
 
@@ -344,7 +344,7 @@ parsed:
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveflip") {
+		if !u.checkBalanceFor(sats, "giveflip", nil) {
 			break
 		}
 
@@ -356,6 +356,8 @@ parsed:
 			} else {
 				nparticipants = n
 			}
+		} else {
+			nparticipants = 2
 		}
 
 		giveflipid := cuid.Slug()
@@ -388,7 +390,7 @@ parsed:
 			return
 		}
 
-		if !u.checkBalanceFor(sats, "coinflip") {
+		if !u.checkBalanceFor(sats, "coinflip", nil) {
 			break
 		}
 
@@ -420,7 +422,7 @@ parsed:
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
-		if !u.checkBalanceFor(sats, "fundraise") {
+		if !u.checkBalanceFor(sats, "fundraise", nil) {
 			break
 		}
 

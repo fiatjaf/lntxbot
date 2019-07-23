@@ -25,7 +25,6 @@ const (
 	CALLBACKEXPIRED        = "CallbackExpired"
 	CALLBACKATTEMPT        = "CallbackAttempt"
 	CALLBACKSENDING        = "CallbackSending"
-	CALLBACKBUTTONEXPIRED  = "CallbackButtonExpired"
 
 	INLINEINVOICERESULT  = "InlineInvoiceResult"
 	INLINEGIVEAWAYRESULT = "InlineGiveawayResult"

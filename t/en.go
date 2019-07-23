@@ -15,12 +15,11 @@ var EN = map[Key]string{
 	TXCANCELED: "Transaction canceled.",
 	UNEXPECTED: "Unexpected error: please report.",
 
-	CALLBACKWINNER:        "Winner: {{.Winner}}",
-	CALLBACKERROR:         "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
-	CALLBACKEXPIRED:       "{{.BotOp}} expired.",
-	CALLBACKATTEMPT:       "Attempting payment.",
-	CALLBACKSENDING:       "Sending payment.",
-	CALLBACKBUTTONEXPIRED: "The payment confirmation button has expired.",
+	CALLBACKWINNER:  "Winner: {{.Winner}}",
+	CALLBACKERROR:   "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
+	CALLBACKEXPIRED: "{{.BotOp}} expired.",
+	CALLBACKATTEMPT: "Attempting payment.",
+	CALLBACKSENDING: "Sending payment.",
 
 	INLINEINVOICERESULT:  "Payment request for {{.Sats}} sat.",
 	INLINEGIVEAWAYRESULT: "Give {{.Sats}} away",
@@ -120,7 +119,7 @@ Telegram user @someone will see just: "Someone has sent you 1000 satoshis".
 <code>/giveaway 1000</code>
 Once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
     `,
-	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
+	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:           "Claim",
 	GIVEAWAYMSG:             "{{.User}} is giving {{.Sats}} sat away!",
@@ -148,7 +147,7 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 	GIVEFLIPMSG:       "{{.User}} is giving {{.Sats}} sat away to a lucky person out of {{.Participants}}!",
 	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
 	GIVEFLIPJOIN:      "Try to win!",
-	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}{{end}}.",
+	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 
 	FUNDRAISEHELPARGS: "<satoshis> <num_participants> <receiver>...",
 	FUNDRAISEHELPDESC: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",

@@ -249,6 +249,10 @@ func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi
 	return sendMessageWithKeyboard(u.ChatId, msg, keyboard, replyToId)
 }
 
+func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tgbotapi.APIResponse, error) {
+	return bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translateTemplate(key, u.Locale, templateData)))
+}
+
 func (u User) makeInvoice(
 	sats int,
 	desc string,
@@ -773,14 +777,22 @@ SELECT * FROM (
 	return
 }
 
-func (u User) checkBalanceFor(sats int, purpose string) bool {
+func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQuery) bool {
+	notify := func(key t.Key, templateData t.T) {
+		if cb == nil {
+			u.notify(key, templateData)
+		} else {
+			u.alert(cb, key, templateData)
+		}
+	}
+
 	if sats < 40 {
-		u.notify(t.TOOSMALLPAYMENT, t.T{"Purpose": purpose})
+		notify(t.TOOSMALLPAYMENT, t.T{"Purpose": purpose})
 		return false
 	}
 
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
-		u.notify(t.INSUFFICIENTBALANCE, t.T{
+		notify(t.INSUFFICIENTBALANCE, t.T{
 			"Purpose": purpose,
 			"Sats":    float64(sats) - info.Balance,
 		})
