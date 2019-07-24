@@ -43,13 +43,13 @@ func getHiddenMessage(redisKey, locale string) (sourceuser int, id, content, pre
 	return
 }
 
-func revealKeyboard(fullRedisKey string, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
+func revealKeyboard(fullRedisKey string, sats int, mode string, locale string) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats})),
-					fmt.Sprintf("reveal=%s", fullRedisKey),
+					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats, "Mode": mode})),
+					fmt.Sprintf("reveal=%s-%s", fullRedisKey, mode),
 				),
 			},
 		},

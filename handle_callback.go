@@ -517,7 +517,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		// locate hidden message with the key given in the callback data,
 		// perform payment between users,
 		// reveal message.
-		hiddenkey := cb.Data[7:]
+		parts := strings.Split(cb.Data[7:], "-")
+		hiddenkey := parts[0]
+		mode := parts[1]
+
 		sourceUserId, hiddenid, content, _, satoshis, err := getHiddenMessage(hiddenkey, locale)
 		if err != nil {
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
@@ -549,22 +552,29 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
+		// notify both parties
+		revealer.notify(t.HIDDENREVEAL, t.T{"Sats": satoshis, "Id": hiddenid, "Mode": mode})
+		sourceuser.notify(t.HIDDENSOURCE, t.T{"Sats": satoshis, "Id": hiddenid, "Revealer": revealer.AtName(), "Mode": mode})
+
 		// actually reveal
-		if messageId != 0 {
+		if messageId == 0 { // was prompted from an inline query
+			if mode == "priv" {
+				// reveal message privately, buttons are kept so others still can do the same
+				sendMessage(revealer.ChatId, content)
+			} else {
+				// reveal message in-place
+				baseEdit := getBaseEdit(cb)
+				bot.Send(tgbotapi.EditMessageTextConfig{
+					BaseEdit: baseEdit,
+					Text:     "revealed: " + content,
+				})
+			}
+		} else {
+			// called in the bot's chat
 			removeKeyboardButtons(cb)
 			sendMessageAsReply(revealer.ChatId, content, messageId)
-		} else {
-			baseEdit := getBaseEdit(cb)
-			bot.Send(tgbotapi.EditMessageTextConfig{
-				BaseEdit: baseEdit,
-				Text:     "revealed:" + content,
-			})
 		}
-
-		// notify both parties
-		revealer.notify(t.HIDDENREVEAL, t.T{"Sats": satoshis, "Id": hiddenid})
-		sourceuser.notify(t.HIDDENSOURCE, t.T{"Sats": satoshis, "Id": hiddenid, "Revealer": revealer.AtName()})
-
+		break
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
 		// either confirmed or deleted automatically

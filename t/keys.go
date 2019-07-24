@@ -124,6 +124,7 @@ const (
 	HIDDENSTOREFAIL      = "HiddenStoreFail"
 	HIDDENMSGFAIL        = "HiddenMsgFail"
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
+	HIDDENSHAREBTN       = "HiddenShareBtn"
 
 	APPHELPARGS    = "appHelpArgs"
 	APPHELPDESC    = "appHelpDesc"

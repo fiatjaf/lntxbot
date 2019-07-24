@@ -473,7 +473,20 @@ parsed:
 			break
 		}
 
-		u.notifyAsReply(t.HIDDENWITHID, t.T{"HiddenId": hiddenid}, message.MessageID)
+		siq := "reveal " + hiddenid
+		sendMessageWithKeyboard(u.ChatId,
+			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{"HiddenId": hiddenid}),
+			&tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.InlineKeyboardButton{
+							Text:              translate(t.HIDDENSHAREBTN, u.Locale),
+							SwitchInlineQuery: &siq,
+						},
+					},
+				},
+			}, message.MessageID,
+		)
 	case opts["reveal"].(bool):
 		hiddenid := opts["<hidden_message_id>"].(string)
 
@@ -490,7 +503,7 @@ parsed:
 			break
 		}
 
-		sendMessageWithKeyboard(u.ChatId, preview, revealKeyboard(redisKey, satoshis, g.Locale), 0)
+		sendMessageWithKeyboard(u.ChatId, preview, revealKeyboard(redisKey, satoshis, "", g.Locale), 0)
 	case opts["transactions"].(bool):
 		page, _ := opts.Int("--page")
 		handleTransactionList(u, page, nil)

@@ -25,7 +25,7 @@ var EN = map[Key]string{
 	INLINEGIVEAWAYRESULT: "Give {{.Sats}} away",
 	INLINEGIVEFLIPRESULT: "Give away {{.Sats}} sat to one out of {{.MaxPlayers}} participants",
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
-	INLINEHIDDENRESULT:   "Message {{.HiddenId}}: {{.Content}}",
+	INLINEHIDDENRESULT:   "{{.HiddenId}}{{if .Mode}} ({{.Mode}}){{end}}: {{.Content}}",
 
 	LNURLINVALID: "Invalid lnurl: {{.Err}}",
 	LNURLFAIL:    "Failed to fulfill lnurl withdraw: {{.Err}}",
@@ -193,7 +193,7 @@ In this case instead of the default preview message potential revealers will see
 <code>/reveal 5c0b2rh4x</code>
 Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENREVEALBUTTON:   "Pay {{.Sats}} sat to reveal the full message",
+	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal the message{{if eq .Mode "priv"}} privately{{else if eq .Mode "pub"}} in-place{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>.",
 	HIDDENSOURCE:         "Hidden message <code>{{.Id}}</code> revealed by {{.Revealer}}. You've got {{.Sats}} sat.",
@@ -201,6 +201,7 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
 	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
+	HIDDENSHAREBTN:       "Share in another chat",
 
 	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
