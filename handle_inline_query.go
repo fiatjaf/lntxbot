@@ -159,6 +159,12 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			Results:       []interface{}{result},
 			IsPersonal:    true,
 		})
+
+		go func() {
+			// after a while save this to limit coinflip creation per user
+			time.Sleep(time.Second * 120)
+			rds.Set(fmt.Sprintf("recentcoinflip:%d", u.Id), "t", time.Minute*30)
+		}()
 	case "giveflip":
 		if len(argv) < 3 {
 			goto answerEmpty

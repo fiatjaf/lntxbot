@@ -415,6 +415,9 @@ parsed:
 			coinflipKeyboard("", u.Id, nparticipants, sats, g.Locale),
 			0,
 		)
+
+		// save this to limit coinflip creation per user
+		rds.Set(fmt.Sprintf("recentcoinflip:%d", u.Id), "t", time.Minute*30)
 	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
 		sats, err := opts.Int("<satoshis>")

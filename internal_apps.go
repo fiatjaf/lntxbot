@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -108,9 +107,6 @@ func coinflipKeyboard(
 ) *tgbotapi.InlineKeyboardMarkup {
 	if coinflipid == "" {
 		coinflipid = cuid.Slug()
-
-		// save this to limit coinflip creation per user
-		rds.Set(fmt.Sprintf("recentcoinflip:%d", initiatorId), "t", time.Minute*30)
 	}
 
 	if initiatorId != 0 {
