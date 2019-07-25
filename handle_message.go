@@ -455,55 +455,24 @@ parsed:
 			0,
 		)
 	case opts["hide"].(bool):
-		var content string
-		if icontent, ok := opts["<message>"]; ok {
-			content = strings.Join(icontent.([]string), " ")
-		}
-
-		sats, err := opts.Int("<satoshis>")
-		if err != nil || sats == 0 {
-			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
-			break
-		}
-
-		hiddenid := cuid.Slug()
-		err = rds.Set(fmt.Sprintf("hidden:%d:%s:%d", u.Id, hiddenid, sats), content, s.HiddenMessageTimeout).Err()
-		if err != nil {
-			u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
-			break
-		}
-
-		siq := "reveal " + hiddenid
-		sendMessageWithKeyboard(u.ChatId,
-			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{"HiddenId": hiddenid}),
-			&tgbotapi.InlineKeyboardMarkup{
-				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.InlineKeyboardButton{
-							Text:              translate(t.HIDDENSHAREBTN, u.Locale),
-							SwitchInlineQuery: &siq,
-						},
-					},
-				},
-			}, message.MessageID,
-		)
+		handleHideMessage(u, message, opts)
+		break
 	case opts["reveal"].(bool):
 		hiddenid := opts["<hidden_message_id>"].(string)
 
-		found := rds.Keys("hidden:*:" + hiddenid + ":*").Val()
-		if len(found) == 0 {
+		redisKey, ok := findHiddenKey(hiddenid)
+		if !ok {
 			u.notifyAsReply(t.HIDDENMSGNOTFOUND, nil, message.MessageID)
 			break
 		}
 
-		redisKey := found[0]
-		_, _, _, preview, satoshis, err := getHiddenMessage(redisKey, g.Locale)
+		_, _, hidden, err := getHiddenMessage(redisKey, g.Locale)
 		if err != nil {
 			u.notify(t.HIDDENMSGFAIL, t.T{"Err": err.Error()})
 			break
 		}
 
-		sendMessageWithKeyboard(u.ChatId, preview, revealKeyboard(redisKey, satoshis, "", g.Locale), 0)
+		sendMessageWithKeyboard(u.ChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
 	case opts["transactions"].(bool):
 		page, _ := opts.Int("--page")
 		handleTransactionList(u, page, nil)
@@ -598,6 +567,15 @@ parsed:
 }
 
 func handleEditedMessage(message *tgbotapi.Message) {
+	// is this a hidden message?
+	_, ok := findHiddenKey(getHiddenId(message))
+	if ok {
+		// yes, so we'll process it again even though it wasn't wrong at the first try
+		handleMessage(message)
+		return
+	}
+
+	// proceed
 	res, err := rds.Get(fmt.Sprintf("parseerror:%d", message.MessageID)).Result()
 	if err != nil {
 		return

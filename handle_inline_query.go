@@ -205,63 +205,32 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			IsPersonal:    true,
 		})
 	case "reveal":
-		single := false
 		hiddenid := "*"
 		if len(argv) == 2 {
 			hiddenid = argv[1]
-			single = true
 		}
 
-		hiddenkeys := rds.Keys(fmt.Sprintf("hidden:%d:%s:*", u.Id, hiddenid)).Val()
+		hiddenkeys := rds.Keys(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid)).Val()
 
 		results := make([]interface{}, len(hiddenkeys))
-		if len(hiddenkeys) == 1 && single {
-			hiddenkey := hiddenkeys[0]
-			_, hiddenid, content, preview, satoshis, err := getHiddenMessage(hiddenkey, u.Locale)
+		for i, hiddenkey := range hiddenkeys {
+			_, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, u.Locale)
 			if err != nil {
-				break
+				continue
 			}
 
-			resultpub := tgbotapi.NewInlineQueryResultArticleHTML(
-				fmt.Sprintf("reveal-%s-pub", hiddenkey),
+			result := tgbotapi.NewInlineQueryResultArticleHTML(
+				fmt.Sprintf("reveal-%s", hiddenkey),
 				translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{
 					"HiddenId": hiddenid,
-					"Content":  content,
-					"Mode":     "pub",
+					"Content":  hiddenmessage.Content,
+					"Public":   hiddenmessage.Public,
 				}),
-				preview,
-			)
-			resultpriv := tgbotapi.NewInlineQueryResultArticleHTML(
-				fmt.Sprintf("reveal-%s-priv", hiddenkey),
-				translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{
-					"HiddenId": hiddenid,
-					"Content":  content,
-					"Mode":     "priv",
-				}),
-				preview,
+				hiddenmessage.Preview,
 			)
 
-			results = make([]interface{}, 2)
-			resultpub.ReplyMarkup = revealKeyboard(hiddenkey, satoshis, "pub", u.Locale)
-			results[0] = resultpub
-			resultpriv.ReplyMarkup = revealKeyboard(hiddenkey, satoshis, "priv", u.Locale)
-			results[1] = resultpriv
-		} else {
-			for i, hiddenkey := range hiddenkeys {
-				_, hiddenid, content, preview, satoshis, err := getHiddenMessage(hiddenkey, u.Locale)
-				if err != nil {
-					continue
-				}
-
-				result := tgbotapi.NewInlineQueryResultArticleHTML(
-					fmt.Sprintf("reveal-%s", hiddenkey),
-					translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{"HiddenId": hiddenid, "Content": content}),
-					preview,
-				)
-
-				result.ReplyMarkup = revealKeyboard(hiddenkey, satoshis, "pub", u.Locale)
-				results[i] = result
-			}
+			result.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, 0, u.Locale)
+			results[i] = result
 		}
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{

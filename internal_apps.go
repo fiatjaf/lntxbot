@@ -2,54 +2,165 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 )
 
 // hide and reveal
-func getHiddenMessage(redisKey, locale string) (sourceuser int, id, content, preview string, satoshis int, err error) {
-	content, err = rds.Get(redisKey).Result()
-	if err != nil {
+type HiddenMessage struct {
+	Preview   string `json:"preview"`
+	Content   string `json:"content"`
+	Times     int    `json:"times"`
+	Crowdfund int    `json:"crowdfund"`
+	Public    bool   `json:"public"`
+	Satoshis  int    `json:"satoshis"`
+}
+
+func (h HiddenMessage) revealed() string {
+	return strings.TrimSpace(h.Preview) + "\n~\n" + strings.TrimSpace(h.Content)
+}
+
+func handleHideMessage(u User, message *tgbotapi.Message, opts docopt.Opts) {
+	hiddenid := getHiddenId(message) // deterministic
+
+	var content string
+	if icontent, ok := opts["<message>"]; ok {
+		content = strings.Join(icontent.([]string), " ")
+	} else {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
 		return
 	}
 
-	keyparts := strings.Split(redisKey, ":")
-	satoshis, err = strconv.Atoi(keyparts[3])
-	if err != nil {
-		return
-	}
+	preview := ""
 
-	sourceuser, err = strconv.Atoi(keyparts[1])
-	if err != nil {
-		return
-	}
-
-	id = keyparts[2]
-
-	preview = translateTemplate(t.HIDDENDEFAULTPREVIEW, locale, t.T{"Sats": satoshis})
 	contentparts := strings.SplitN(content, "~", 2)
 	if len(contentparts) == 2 {
 		preview = contentparts[0]
 		content = contentparts[1]
 	}
 
+	sats, err := opts.Int("<satoshis>")
+	if err != nil || sats == 0 {
+		u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+		return
+	}
+
+	public := opts["--public"].(bool)
+	if private := opts["--private"].(bool); private {
+		public = false
+	}
+
+	crowdfund, _ := opts.Int("--crowdfund")
+	if crowdfund > 1 {
+		public = true
+	} else {
+		crowdfund = 1
+	}
+
+	payabletimes, _ := opts.Int("--payable")
+	if payabletimes > 1 {
+		public = false
+		crowdfund = 1
+	} else {
+		payabletimes = 0
+	}
+
+	hiddenmessagejson, err := json.Marshal(HiddenMessage{
+		Preview:   preview,
+		Content:   content,
+		Times:     payabletimes,
+		Crowdfund: crowdfund,
+		Public:    public,
+		Satoshis:  sats,
+	})
+	if err != nil {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+
+	err = rds.Set(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid), string(hiddenmessagejson), s.HiddenMessageTimeout).Err()
+	if err != nil {
+		u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
+		return
+	}
+
+	siq := "reveal " + hiddenid
+	sendMessageWithKeyboard(u.ChatId,
+		translateTemplate(t.HIDDENWITHID, u.Locale, t.T{"HiddenId": hiddenid}),
+		&tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				{
+					tgbotapi.InlineKeyboardButton{
+						Text:              translate(t.HIDDENSHAREBTN, u.Locale),
+						SwitchInlineQuery: &siq,
+					},
+				},
+			},
+		}, message.MessageID,
+	)
+}
+
+func getHiddenId(message *tgbotapi.Message) string {
+	return fmt.Sprintf("%.7x", sha256.Sum256([]byte(fmt.Sprintf("%d%d", message.MessageID, message.Chat.ID))))
+}
+
+func findHiddenKey(hiddenid string) (key string, ok bool) {
+	found := rds.Keys("hidden:*:" + hiddenid).Val()
+	if len(found) == 0 {
+		return "", false
+	}
+
+	return found[0], true
+}
+
+func getHiddenMessage(redisKey, locale string) (sourceuser int, id string, hiddenmessage HiddenMessage, err error) {
+	data, err := rds.Get(redisKey).Bytes()
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(data, &hiddenmessage)
+	if err != nil {
+		return
+	}
+
+	keyparts := strings.Split(redisKey, ":")
+	id = keyparts[2]
+	sourceuser, err = strconv.Atoi(keyparts[1])
+	if err != nil {
+		return
+	}
+
+	if hiddenmessage.Preview == "" {
+		hiddenmessage.Preview = translateTemplate(t.HIDDENDEFAULTPREVIEW, locale, t.T{"Sats": hiddenmessage.Satoshis})
+	}
+
 	return
 }
 
-func revealKeyboard(fullRedisKey string, sats int, mode string, locale string) *tgbotapi.InlineKeyboardMarkup {
+func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid int, locale string) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{"Sats": sats, "Mode": mode})),
-					fmt.Sprintf("reveal=%s-%s", fullRedisKey, mode),
+					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{
+						"Sats":      hiddenmessage.Satoshis,
+						"Public":    hiddenmessage.Public,
+						"Crowdfund": hiddenmessage.Crowdfund,
+						"Times":     hiddenmessage.Times,
+						"HavePaid":  havepaid,
+					})),
+					fmt.Sprintf("reveal=%s", fullRedisKey),
 				),
 			},
 		},

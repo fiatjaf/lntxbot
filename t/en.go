@@ -25,7 +25,7 @@ var EN = map[Key]string{
 	INLINEGIVEAWAYRESULT: "Give {{.Sats}} away",
 	INLINEGIVEFLIPRESULT: "Give away {{.Sats}} sat to one out of {{.MaxPlayers}} participants",
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
-	INLINEHIDDENRESULT:   "{{.HiddenId}}{{if .Mode}} ({{.Mode}}){{end}}: {{.Content}}",
+	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if .Public}}pub{{else}}priv{{end}}): {{.Content}}",
 
 	LNURLINVALID: "Invalid lnurl: {{.Err}}",
 	LNURLFAIL:    "Failed to fulfill lnurl withdraw: {{.Err}}",
@@ -178,7 +178,7 @@ Erases your previous password and prints a new string. You'll have to reimport t
 	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report this issue: {{.Err}}",
 	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
 
-	HIDEHELPARGS: "<satoshis> <message>...",
+	HIDEHELPARGS: "<satoshis> <message>... [--payable=<times>] [--crowdfund=<num_participants>] [--public] [--private]",
 	HIDEHELPDESC: "Hides a message so it can be unlocked later with a payment. The special character \"~\" is used to split the message into a preview and the actual message (\"click here to see a secret! ~ this is the secret.\")",
 	HIDEHELPEXAMPLE: `
 <code>/hide 500 top secret message here</code>
@@ -193,7 +193,7 @@ In this case instead of the default preview message potential revealers will see
 <code>/reveal 5c0b2rh4x</code>
 Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal the message{{if eq .Mode "priv"}} privately{{else if eq .Mode "pub"}} in-place{{end}}`,
+	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}} in-place{{else }} privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Limited to: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>.",
 	HIDDENSOURCE:         "Hidden message <code>{{.Id}}</code> revealed by {{.Revealer}}. You've got {{.Sats}} sat.",

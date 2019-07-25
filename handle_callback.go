@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -519,9 +521,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		// reveal message.
 		parts := strings.Split(cb.Data[7:], "-")
 		hiddenkey := parts[0]
-		mode := parts[1]
 
-		sourceUserId, hiddenid, content, _, satoshis, err := getHiddenMessage(hiddenkey, locale)
+		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, locale)
 		if err != nil {
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
@@ -543,37 +544,110 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		revealer := u
 
-		errMsg, err := u.sendInternally(messageId, sourceuser, false, satoshis*1000, "reveal", nil)
+		// cache reveal so we know who has paid to reveal this for now
+		totalrevealers, err := func() (totalrevealers int, err error) {
+			revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
+
+			// also don't let users pay twice
+			if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
+				return 0, err
+			} else if alreadypaid {
+				return 0, errors.New("Can't reveal twice.")
+			}
+			if err := rds.SAdd(revealedsetkey, u.Id).Err(); err != nil {
+				return 0, err
+			}
+
+			// expire this set after the hidden message has expired
+			if err := rds.Expire(revealedsetkey, s.HiddenMessageTimeout).Err(); err != nil {
+				return 0, err
+			}
+
+			// get the count of people who paid to reveal up to now
+			if totalrevealers, err := rds.SCard(revealedsetkey).Result(); err != nil {
+				return 0, err
+			} else {
+				return int(totalrevealers), nil
+			}
+		}()
 		if err != nil {
-			log.Warn().Err(err).Str("key", hiddenkey).Int("satoshis", satoshis).
+			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+
+		// send the satoshis
+		errMsg, err := u.sendInternally(messageId, sourceuser, false, hiddenmessage.Satoshis*1000, "reveal", nil)
+		if err != nil {
+			log.Warn().Err(err).Str("key", hiddenkey).Int("satoshis", hiddenmessage.Satoshis).
 				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
 				Msg("failed to pay to reveal")
 			u.alert(cb, t.HIDDENMSGFAIL, t.T{"Err": errMsg})
 			return
 		}
 
-		// notify both parties
-		revealer.notify(t.HIDDENREVEAL, t.T{"Sats": satoshis, "Id": hiddenid, "Mode": mode})
-		sourceuser.notify(t.HIDDENSOURCE, t.T{"Sats": satoshis, "Id": hiddenid, "Revealer": revealer.AtName(), "Mode": mode})
+		var revealerReplyTo int
+
+		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
+			// if this is a crowdfund we must only reveal after the threshold of
+			// participants has been reached. before that we will just update the message in-place.
+			baseEdit := getBaseEdit(cb)
+			baseEdit.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, totalrevealers, locale)
+			bot.Send(tgbotapi.EditMessageTextConfig{
+				BaseEdit:              baseEdit,
+				Text:                  hiddenmessage.Preview,
+				ParseMode:             "HTML",
+				DisableWebPagePreview: true,
+			})
+			break
+		}
 
 		// actually reveal
 		if messageId == 0 { // was prompted from an inline query
-			if mode == "priv" {
-				// reveal message privately, buttons are kept so others still can do the same
-				sendMessage(revealer.ChatId, content)
-			} else {
+			if hiddenmessage.Public {
 				// reveal message in-place
 				baseEdit := getBaseEdit(cb)
 				bot.Send(tgbotapi.EditMessageTextConfig{
-					BaseEdit: baseEdit,
-					Text:     "revealed: " + content,
+					BaseEdit:              baseEdit,
+					Text:                  hiddenmessage.revealed(),
+					ParseMode:             "HTML",
+					DisableWebPagePreview: true,
 				})
+			} else {
+				// reveal message privately
+				revealerReplyTo = sendMessage(revealer.ChatId, hiddenmessage.revealed()).MessageID
+				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
+					// more people can still pay for this
+					// buttons are kept so others still can pay, but updated
+					baseEdit := getBaseEdit(cb)
+					baseEdit.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, totalrevealers, locale)
+					bot.Send(tgbotapi.EditMessageTextConfig{
+						BaseEdit:              baseEdit,
+						Text:                  hiddenmessage.Preview,
+						ParseMode:             "HTML",
+						DisableWebPagePreview: true,
+					})
+				} else {
+					// end of quota. no more people can reveal.
+					baseEdit := getBaseEdit(cb)
+					bot.Send(tgbotapi.EditMessageTextConfig{
+						BaseEdit:              baseEdit,
+						Text:                  "A hidden message prompt once lived here.",
+						ParseMode:             "HTML",
+						DisableWebPagePreview: true,
+					})
+				}
+				removeKeyboardButtons(cb)
 			}
 		} else {
 			// called in the bot's chat
 			removeKeyboardButtons(cb)
-			sendMessageAsReply(revealer.ChatId, content, messageId)
+			sendMessageAsReply(revealer.ChatId, hiddenmessage.Content, messageId)
 		}
+
+		// notify both parties
+		revealer.notifyAsReply(t.HIDDENREVEAL, t.T{"Sats": hiddenmessage.Satoshis, "Id": hiddenid}, revealerReplyTo)
+		sourceuser.notify(t.HIDDENSOURCE, t.T{"Sats": hiddenmessage.Satoshis, "Id": hiddenid, "Revealer": revealer.AtName()})
+
 		break
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
