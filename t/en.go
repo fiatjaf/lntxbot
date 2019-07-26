@@ -193,13 +193,12 @@ In this case instead of the default preview message potential revealers will see
 <code>/reveal 5c0b2rh4x</code>
 Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}} in-place{{else }} privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Limited to: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}} in-place{{else }} privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>.",
-	HIDDENSOURCE:         "Hidden message <code>{{.Id}}</code> revealed by {{.Revealer}}. You've got {{.Sats}} sat.",
-	HIDDENREVEAL:         "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
+	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You've got {{.Sats}} sat.",
+	HIDDENREVEALMSG:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
 	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
-	HIDDENMSGFAIL:        "Failed to reveal: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 

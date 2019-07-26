@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 )
@@ -28,86 +27,6 @@ type HiddenMessage struct {
 
 func (h HiddenMessage) revealed() string {
 	return strings.TrimSpace(h.Preview) + "\n~\n" + strings.TrimSpace(h.Content)
-}
-
-func handleHideMessage(u User, message *tgbotapi.Message, opts docopt.Opts) {
-	hiddenid := getHiddenId(message) // deterministic
-
-	var content string
-	if icontent, ok := opts["<message>"]; ok {
-		content = strings.Join(icontent.([]string), " ")
-	} else {
-		u.notify(t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-
-	preview := ""
-
-	contentparts := strings.SplitN(content, "~", 2)
-	if len(contentparts) == 2 {
-		preview = contentparts[0]
-		content = contentparts[1]
-	}
-
-	sats, err := opts.Int("<satoshis>")
-	if err != nil || sats == 0 {
-		u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
-		return
-	}
-
-	public := opts["--public"].(bool)
-	if private := opts["--private"].(bool); private {
-		public = false
-	}
-
-	crowdfund, _ := opts.Int("--crowdfund")
-	if crowdfund > 1 {
-		public = true
-	} else {
-		crowdfund = 1
-	}
-
-	payabletimes, _ := opts.Int("--payable")
-	if payabletimes > 1 {
-		public = false
-		crowdfund = 1
-	} else {
-		payabletimes = 0
-	}
-
-	hiddenmessagejson, err := json.Marshal(HiddenMessage{
-		Preview:   preview,
-		Content:   content,
-		Times:     payabletimes,
-		Crowdfund: crowdfund,
-		Public:    public,
-		Satoshis:  sats,
-	})
-	if err != nil {
-		u.notify(t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-
-	err = rds.Set(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid), string(hiddenmessagejson), s.HiddenMessageTimeout).Err()
-	if err != nil {
-		u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
-		return
-	}
-
-	siq := "reveal " + hiddenid
-	sendMessageWithKeyboard(u.ChatId,
-		translateTemplate(t.HIDDENWITHID, u.Locale, t.T{"HiddenId": hiddenid}),
-		&tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				{
-					tgbotapi.InlineKeyboardButton{
-						Text:              translate(t.HIDDENSHAREBTN, u.Locale),
-						SwitchInlineQuery: &siq,
-					},
-				},
-			},
-		}, message.MessageID,
-	)
 }
 
 func getHiddenId(message *tgbotapi.Message) string {
@@ -165,6 +84,68 @@ func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid i
 			},
 		},
 	}
+}
+
+func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver User, err error) {
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return
+	}
+	defer txn.Rollback()
+
+	receiver, _ = loadUser(toId, 0)
+	giverNames := make([]string, 0, len(fromIds))
+
+	msats := sats * 1000
+
+	for _, fromId := range fromIds {
+		if fromId == toId {
+			continue
+		}
+
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction
+  (from_id, to_id, amount, description)
+VALUES ($1, $2, $3, 'reveal')
+    `, fromId, toId, msats)
+		if err != nil {
+			return
+		}
+
+		var balance int
+		err = txn.Get(&balance, `
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+    `, fromId)
+		if err != nil {
+			return
+		}
+
+		if balance < 0 {
+			err = errors.New("insufficient balance")
+			return
+		}
+
+		giver, _ := loadUser(fromId, 0)
+		giverNames = append(giverNames, giver.AtName())
+
+		giver.notify(t.HIDDENREVEALMSG, t.T{
+			"Sats": sats,
+			"Id":   hiddenid,
+		})
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return
+	}
+
+	receiver.notify(t.HIDDENSOURCEMSG, t.T{
+		"Sats":      sats * len(fromIds),
+		"Revealers": strings.Join(giverNames, " "),
+		"Id":        hiddenid,
+	})
+	return
 }
 
 // giveaway

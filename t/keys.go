@@ -119,10 +119,9 @@ const (
 	HIDDENREVEALBUTTON   = "HiddenRevealButton"
 	HIDDENDEFAULTPREVIEW = "HiddenDefaultPreview"
 	HIDDENWITHID         = "HiddenWithId"
-	HIDDENSOURCE         = "HiddenSource"
-	HIDDENREVEAL         = "HiddenReveal"
+	HIDDENSOURCEMSG      = "HiddenSourceMsg"
+	HIDDENREVEALMSG      = "HiddenRevealMsg"
 	HIDDENSTOREFAIL      = "HiddenStoreFail"
-	HIDDENMSGFAIL        = "HiddenMsgFail"
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 

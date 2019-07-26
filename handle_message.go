@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -455,7 +456,83 @@ parsed:
 			0,
 		)
 	case opts["hide"].(bool):
-		handleHideMessage(u, message, opts)
+		hiddenid := getHiddenId(message) // deterministic
+
+		var content string
+		if icontent, ok := opts["<message>"]; ok {
+			content = strings.Join(icontent.([]string), " ")
+		} else {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+
+		preview := ""
+
+		contentparts := strings.SplitN(content, "~", 2)
+		if len(contentparts) == 2 {
+			preview = contentparts[0]
+			content = contentparts[1]
+		}
+
+		sats, err := opts.Int("<satoshis>")
+		if err != nil || sats == 0 {
+			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			return
+		}
+
+		public := opts["--public"].(bool)
+		if private := opts["--private"].(bool); private {
+			public = false
+		}
+
+		crowdfund, _ := opts.Int("--crowdfund")
+		if crowdfund > 1 {
+			public = true
+		} else {
+			crowdfund = 1
+		}
+
+		payabletimes, _ := opts.Int("--payable")
+		if payabletimes > 1 {
+			public = false
+			crowdfund = 1
+		} else {
+			payabletimes = 0
+		}
+
+		hiddenmessagejson, err := json.Marshal(HiddenMessage{
+			Preview:   preview,
+			Content:   content,
+			Times:     payabletimes,
+			Crowdfund: crowdfund,
+			Public:    public,
+			Satoshis:  sats,
+		})
+		if err != nil {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+
+		err = rds.Set(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid), string(hiddenmessagejson), s.HiddenMessageTimeout).Err()
+		if err != nil {
+			u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
+			return
+		}
+
+		siq := "reveal " + hiddenid
+		sendMessageWithKeyboard(u.ChatId,
+			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{"HiddenId": hiddenid}),
+			&tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.InlineKeyboardButton{
+							Text:              translate(t.HIDDENSHAREBTN, u.Locale),
+							SwitchInlineQuery: &siq,
+						},
+					},
+				},
+			}, message.MessageID,
+		)
 		break
 	case opts["reveal"].(bool):
 		hiddenid := opts["<hidden_message_id>"].(string)
@@ -468,7 +545,7 @@ parsed:
 
 		_, _, hidden, err := getHiddenMessage(redisKey, g.Locale)
 		if err != nil {
-			u.notify(t.HIDDENMSGFAIL, t.T{"Err": err.Error()})
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
 			break
 		}
 

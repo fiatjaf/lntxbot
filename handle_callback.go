@@ -527,65 +527,52 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.HIDDENMSGNOTFOUND, locale))
-			u.alert(cb, t.HIDDENMSGFAIL, nil)
-			return
-		}
-
-		sourceuser, err := loadUser(sourceUserId, 0)
-		if err != nil {
-			log.Warn().Err(err).
-				Int("id", sourceUserId).
-				Msg("failed to load source user on reveal")
-			removeKeyboardButtons(cb)
-			appendTextToMessage(cb, translate(t.ERROR, locale))
-			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			u.alert(cb, t.HIDDENMSGNOTFOUND, nil)
 			return
 		}
 
 		revealer := u
 
 		// cache reveal so we know who has paid to reveal this for now
-		totalrevealers, err := func() (totalrevealers int, err error) {
+		revealerIds, totalrevealers, err := func() (revealerIds []int, totalrevealers int, err error) {
 			revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
 
 			// also don't let users pay twice
 			if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
-				return 0, err
+				return nil, 0, err
 			} else if alreadypaid {
-				return 0, errors.New("Can't reveal twice.")
+				return nil, 0, errors.New("Can't reveal twice.")
 			}
 			if err := rds.SAdd(revealedsetkey, u.Id).Err(); err != nil {
-				return 0, err
+				return nil, 0, err
 			}
 
 			// expire this set after the hidden message has expired
 			if err := rds.Expire(revealedsetkey, s.HiddenMessageTimeout).Err(); err != nil {
-				return 0, err
+				return nil, 0, err
 			}
 
 			// get the count of people who paid to reveal up to now
-			if totalrevealers, err := rds.SCard(revealedsetkey).Result(); err != nil {
-				return 0, err
+			if revealerIdsStr, err := rds.SMembers(revealedsetkey).Result(); err != nil {
+				return nil, 0, err
 			} else {
-				return int(totalrevealers), nil
+				totalrevealers = len(revealerIdsStr)
+				revealerIds := make([]int, totalrevealers)
+				for i, revealerIdsStr := range revealerIdsStr {
+					revealerId, err := strconv.Atoi(revealerIdsStr)
+					if err != nil {
+						return nil, 0, err
+					}
+					revealerIds[i] = revealerId
+				}
+
+				return revealerIds, totalrevealers, nil
 			}
 		}()
 		if err != nil {
 			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
-
-		// send the satoshis
-		errMsg, err := u.sendInternally(messageId, sourceuser, false, hiddenmessage.Satoshis*1000, "reveal", nil)
-		if err != nil {
-			log.Warn().Err(err).Str("key", hiddenkey).Int("satoshis", hiddenmessage.Satoshis).
-				Str("username", cb.From.UserName).Int("tgid", cb.From.ID).
-				Msg("failed to pay to reveal")
-			u.alert(cb, t.HIDDENMSGFAIL, t.T{"Err": errMsg})
-			return
-		}
-
-		var revealerReplyTo int
 
 		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
@@ -601,6 +588,17 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			break
 		}
 
+		// send the satoshis.
+		// if it's a crowdfunding we'll send from everybody at the same time,
+		// otherwise just from the current revealer.
+		_, err = settleReveal(hiddenmessage.Satoshis, hiddenid, sourceUserId, revealerIds)
+		if err != nil {
+			log.Warn().Err(err).Str("id", hiddenid).Int("satoshis", hiddenmessage.Satoshis).
+				Str("revealer", revealer.Username).Msg("failed to pay to reveal")
+			revealer.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+
 		// actually reveal
 		if messageId == 0 { // was prompted from an inline query
 			if hiddenmessage.Public {
@@ -614,7 +612,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				})
 			} else {
 				// reveal message privately
-				revealerReplyTo = sendMessage(revealer.ChatId, hiddenmessage.revealed()).MessageID
+				sendMessage(revealer.ChatId, hiddenmessage.revealed())
 				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated
@@ -635,18 +633,14 @@ WHERE substring(payment_hash from 0 for $2) = $1
 						ParseMode:             "HTML",
 						DisableWebPagePreview: true,
 					})
+					removeKeyboardButtons(cb)
 				}
-				removeKeyboardButtons(cb)
 			}
 		} else {
 			// called in the bot's chat
 			removeKeyboardButtons(cb)
 			sendMessageAsReply(revealer.ChatId, hiddenmessage.Content, messageId)
 		}
-
-		// notify both parties
-		revealer.notifyAsReply(t.HIDDENREVEAL, t.T{"Sats": hiddenmessage.Satoshis, "Id": hiddenid}, revealerReplyTo)
-		sourceuser.notify(t.HIDDENSOURCE, t.T{"Sats": hiddenmessage.Satoshis, "Id": hiddenid, "Revealer": revealer.AtName()})
 
 		break
 	case strings.HasPrefix(cb.Data, "check="):
