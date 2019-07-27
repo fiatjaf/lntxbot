@@ -298,8 +298,6 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		} else if opts["available"].(bool) || opts["wait"].(bool) || opts["watch"].(bool) {
 			if minutes, err := opts.Int("<minutes>"); err != nil {
 				u.notify(t.ERROR, t.T{"Err": err})
-			} else if minutes > 60 {
-				u.notify(t.ERROR, t.T{"Err": "can't be available for that long."})
 			} else {
 				u.notify(t.POKERSUBSCRIBED, t.T{"Minutes": minutes})
 				subscribePoker(u, time.Minute*time.Duration(minutes), true)

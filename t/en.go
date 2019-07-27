@@ -56,13 +56,10 @@ var EN = map[Key]string{
 <pre>{{.Help}}</pre>
 For more information on each command please type <code>/help &lt;command&gt;</code>.
     `,
-	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps {{.}}?{{end}}{{end}}",
+	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps {{index .Similar 2}}?{{end}}{{end}}",
 	HELPMETHOD: `
 <pre>/{{.MainName}} {{.Argstr}}</pre>
-{{.Desc}}
-{{if .Examples}}
-<b>Examples</b>
-{{.Examples}}{{end}}
+{{.Help}}
 {{if .HasInline}}
 <b>Inline query</b>
 Can also be called as an <a href="https://core.telegram.org/bots/inline">inline query</a> from group or personal chats where the bot isn't added. The syntax is similar, but simplified: <code>@{{.ServiceId}} {{.InlineExample}}</code> then wait for a "search result" to appear.{{end}}
@@ -72,58 +69,41 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 
 	// the "any" is here only for illustrative purposes. if you call this with 'any' it will
 	// actually be assigned to the <satoshis> variable, and that's how the code handles it.
-	RECEIVEHELPDESC: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
-	RECEIVEHELPEXAMPLE: `
-<code>/receive 320 for something</code>
-Generates an invoice for 320 sat with the description "for something"
+	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 
-<code>/invoice any</code>
-Generates an invoice with undefined amount.
+<code>/receive_320_for_something</code> generates an invoice for 320 sat with the description "for something"
     `,
 
-	PAYHELPDESC: "Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
-	PAYHELPEXAMPLE: `
-<code>/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code>
-Pays this invoice for 100 sat.
+	PAYHELP: `Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).
 
-<code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> 
-Pays this invoice without asking for confirmation.
-
-<code>/withdraw 3000</code> 
-Generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a>.
-
-<code>/pay</code> 
-When sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
+Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> decodes and prompts to pay the given invoice.  
+<code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> pays the given invoice invoice without asking for confirmation.
+/withdraw_lnurl_3000 generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
+/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the bot chat.
+<code>/pay</code>, when sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
     `,
 
-	SENDHELPDESC: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
-	SENDHELPEXAMPLE: `
-<code>/send 500 @username</code>
-Sends 500 satoshis to Telegram user @username.
+	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
 
-<code>/tip 100</code>
-When sent as a reply to a message in a group where the bot is added, this will send 100 satoshis to the author of the message.
-
-<code>/send anonymously 1000 @someone</code>
-Telegram user @someone will see just: "Someone has sent you 1000 satoshis".
+<code>/tip 100</code>, when sent as a reply to a message in a group where the bot is added, sends 100 satoshis to the author of the message.
+<code>/send 500 @username</code> sends 500 satoshis to Telegram user @username.
+<code>/send anonymously 1000 @someone</code> same as above, but telegram user @someone will see just: "Someone has sent you 1000 satoshis".
     `,
 
-	BALANCEHELPDESC: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
+	BALANCEHELP: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
 
-	GIVEAWAYHELPDESC: "Creates a button in a group chat. The first person to click the button gets the satoshis.",
-	GIVEAWAYHELPEXAMPLE: `
-<code>/giveaway 1000</code>
-Once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
+	GIVEAWAYHELP: `Creates a button in a group chat. The first person to click the button gets the satoshis.
+
+/giveaway_1000: once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
     `,
 	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:           "Claim",
 	GIVEAWAYMSG:             "{{.User}} is giving {{.Sats}} sat away!",
 
-	COINFLIPHELPDESC: "Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
-	COINFLIPHELPEXAMPLE: `
-<code>/coinflip 100 5</code>
-5 participants needed, winner will get 500 satoshis (including its own 100, so it's 400 net satoshis).
+	COINFLIPHELP: `Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.
+
+/coinflip_100_5: 5 participants needed, winner will get 500 satoshis (including its own 100, so it's 400 net satoshis).
     `,
 	COINFLIPWINNERMSG:      "You're the winner of a coinflip for a prize of {{.TotalSats}} sat. The losers were: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "You've lost {{.IndividualSats}} in a coinflip. The winner was {{.Receiver}}.",
@@ -133,20 +113,18 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 	COINFLIPOVERQUOTA:      "You're over your coinflip daily quota.",
 	COINFLIPRATELIMIT:      "Please wait 30 minutes before creating a new coinflip.",
 
-	GIVEFLIPHELPDESC: "Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.",
-	GIVEFLIPHELPEXAMPLE: `
-<code>/giveflip 100 5</code>
-5 participants needed, winner will get 500 satoshis from the command issuer.
+	GIVEFLIPHELP: `Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.
+
+/giveflip_100_5: 5 participants needed, winner will get 500 satoshis from the command issuer.
     `,
 	GIVEFLIPMSG:       "{{.User}} is giving {{.Sats}} sat away to a lucky person out of {{.Participants}}!",
 	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
 	GIVEFLIPJOIN:      "Try to win!",
 	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 
-	FUNDRAISEHELPDESC: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
-	FUNDRAISEHELPEXAMPLE: `
-<code>/fundraise 10000 8 @user</code>
-Telegram @user will get 80000 satoshis after 8 people contribute.
+	FUNDRAISEHELP: `Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.
+
+<code>/fundraise 10000 8 @user</code>: Telegram @user will get 80000 satoshis after 8 people contribute.
     `,
 	FUNDRAISEAD: `
 Fundraising {{.Fund}} to {{.ToUser}}!
@@ -159,29 +137,22 @@ Have contributed: {{.Registered}}
 	FUNDRAISERECEIVERMSG: "You've received {{.TotalSats}} sat of a fundraise from {{.Senders}}s",
 	FUNDRAISEGIVERMSG:    "You've given {{.IndividualSats}} in a fundraise to {{.Receiver}}.",
 
-	BLUEWALLETHELPDESC: "Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.",
-	BLUEWALLETHELPEXAMPLE: `
-<code>/bluewallet</code>
-Prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
+	BLUEWALLETHELP: `Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.
 
-<code>/bluewallet refresh</code>
-Erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
+/bluewallet prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
+/bluewallet_refresh erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
     `,
 	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report this issue: {{.Err}}",
 	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
 
-	HIDEHELPDESC: "Hides a message so it can be unlocked later with a payment. The special character \"~\" is used to split the message into a preview and the actual message (\"click here to see a secret! ~ this is the secret.\")",
-	HIDEHELPEXAMPLE: `
-<code>/hide 500 top secret message here</code>
-Hides "top secret message" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal &lt;hidden_message_id&gt; or by using the inline query "reveal" in a group.
+	HIDEHELP: `Hides a message so it can be unlocked later with a payment. The special character "~" is used to split the message into a preview and the actual message ("click here to see a secret! ~ this is the secret.")
 
-<code>/hide 2500 only the brave will be able to see this message ~ congratulations, you are very brave!</code>
-In this case instead of the default preview message potential revealers will see the custom teaser written before the "~".
+<code>/hide 500 top secret message here</code> hides "top secret message" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal &lt;hidden_message_id&gt; or by using the inline query "reveal" in a group.
+<code>/hide 2500 only the brave will be able to see this message ~ congratulations, you are very brave!</code>: in this case instead of the default preview message potential revealers will see the custom teaser written before the "~".
     `,
-	REVEALHELPDESC: "Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.",
-	REVEALHELPEXAMPLE: `
-<code>/reveal 5c0b2rh4x</code>
-Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
+	REVEALHELP: `Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.
+
+<code>/reveal 5c0b2rh4x</code> creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
 	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}} in-place{{else }} privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
@@ -191,20 +162,6 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
-
-	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
-	APPHELPEXAMPLE: `
-<code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
-Buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
-<code>/app microbet bet</code>
-Displays a list of currently opened bets from microbet.fun as buttons you can click to place back or lay bets.
-<code>/app microbet bets</code>
-Lists all your open bets. Your microbet.fun session will be tied to your Telegram user.
-<code>/app satellite 26 hello from the satellite! vote trump!</code>
-Queues a transmission from the Blockstream Satellite with a bid of 26 satoshis.
-<code>/app golightning 1000000</code>
-Creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
-    `,
 
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Transaction queued!",
@@ -219,10 +176,8 @@ Creates an order to transfer 0.01000000 BTC from an on-chain address to your bot
 	BITFLASHHELP: `
 <a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
 
-<b>Commands:</b>
-
-<code>/app bitflash &lt;satoshi_amount&gt; &lt;bitcoin_address&gt;</code> to queue a transaction.
-<code>/app bitflash orders</code> lists your previous transactions.
+/app_bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
+/app_bitflash_orders</code> lists your previous transactions.
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
@@ -243,12 +198,10 @@ Creates an order to transfer 0.01000000 BTC from an on-chain address to your bot
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
-<b>Commands:</b>
-
-<code>/app microbet bet</code> to list all open bets and then place yours.
-<code>/app microbet bets</code> to see all your past bets.
-<code>/app microbet balance</code> to view your balance.
-<code>/app microbet withdraw</code> to withdraw all your balance.
+/app_microbet_bet displays all open bet markets so you can yours.
+/app_microbet_bets shows your bet history.
+/app_microbet_balance displays your balance.
+/app_microbet_withdraw withdraws all your balance.
     `,
 
 	SATELLITEFAILEDTOSTORE:     "Failed to store satellite order data. Please report: {{.Err}}",
@@ -278,13 +231,8 @@ Creates an order to transfer 0.01000000 BTC from an on-chain address to your bot
 	SATELLITEHELP: `
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
-<b>Commands:</b>
-
-<code>/app satellite &lt;bid_satoshis&gt; &lt;message...&gt;</code> to queue a transmission.
-<code>/app satellite transmissions</code> lists your transmissions.
-<code>/app satellite queue</code> lists the next queued transmissions.
-<code>/app satellite bump &lt;bid_increase_satoshis&gt; &lt;message_id&gt;</code> to increaase the bid for a transmission.
-<code>/app satellite delete &lt;message_id&gt;</code> to delete a transmission.
+<code>/app satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
+/app_satellite_transmissions lists your transmissions.
     `,
 
 	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
@@ -292,9 +240,7 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	GOLIGHTNINGHELP: `
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
-<b>Commands:</b>
-
-<code>/app golightning &lt;satoshis&gt;</code> create an order for that number of satoshis.
+/app_golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
@@ -316,37 +262,29 @@ Satoshis in play: {{.Chips}}
 /app_poker_url to play in a browser window!
     `,
 	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
-	POKERHELP: `
-<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
+	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
 
 By playing from an account tied to your bot balance you can just sit on a table and your poker balance will be automatically refilled from your bot account, with minimal friction.
 
-<b>Commands:</b>
-
-<code>/app poker deposit &lt;satoshis&gt;</code> puts money in your poker bag.
-<code>/app poker balance</code> shows how much you have there.
-<code>/app poker withdraw</code> brings all the money back to the bot balance.
-<code>/app poker status</code> tells you how active are the poker tables right now.
-<code>/app poker url</code> displays the your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
-<code>/app poker play</code> displays the game widget.
-<code>/app poker available &lt;minutes&gt;</code> will put you in a subscribed state on the game for the given time and notify other subscribed people you are waiting to play.
+/app_poker_deposit_10000 puts 10000 satoshis in your poker bag.
+/app_poker_balance shows how much you have there.
+/app_poker_withdraw brings all the money back to the bot balance.
+/app_poker_status tells you how active are the poker tables right now.
+/app_poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
+/app_poker_play displays the game widget.
+/app_poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing.
     `,
 
-	TOGGLEHELPDESC: "Toggles bot features in groups on/off. In supergroups it only be run by group admins.",
-	TOGGLEHELPEXAMPLE: `
-<code>/toggle ticket 10</code>
-New group entrants will be prompted to pay 10 satoshis in 30 minutes or be kicked. Useful as an antispam measure.
+	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
 
-<code>/toggle ticket</code>
-Stop charging new entrants a fee.
-
-<code>/toggle spammy</code>
-'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
+<code>/toggle ticket 10</code> starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
+<code>/toggle ticket</code> stops charging new entrants a fee. 
+<code>/toggle spammy</code>: 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
 
-	HELPHELPDESC: "Shows full help or help about specific command.",
+	HELPHELP: "Shows full help or help about specific command.",
 
-	STOPHELPDESC: "The bot stops showing you notifications.",
+	STOPHELP: "The bot stops showing you notifications.",
 
 	CONFIRMINVOICE: `
 {{.Sats}} sat ({{.USD}})

@@ -147,7 +147,10 @@ parsed:
 			u.notify(t.STOPNOTIFY, nil)
 		}
 		break
-	case opts["app"].(bool), opts["lapp"].(bool):
+	case opts["app"].(bool),
+		opts["microbet"].(bool), opts["bitflash"].(bool),
+		opts["golightning"].(bool), opts["poker"].(bool),
+		opts["satellite"].(bool):
 		handleExternalApp(u, opts, message.MessageID)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):

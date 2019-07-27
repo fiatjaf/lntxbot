@@ -16,16 +16,8 @@ type def struct {
 	inline_example string
 }
 
-func (d def) desc(lang string) string {
-	key := t.Key(d.aliases[0] + "HelpDesc")
-	if _, ok := t.EN[key]; !ok {
-		return ""
-	}
-	return translate(key, lang)
-}
-
-func (d def) examples(lang string) string {
-	key := t.Key(d.aliases[0] + "HelpExample")
+func (d def) help(lang string) string {
+	key := t.Key(strings.ReplaceAll(d.aliases[0], " ", "_") + "Help")
 	if _, ok := t.EN[key]; !ok {
 		return ""
 	}
@@ -42,8 +34,8 @@ var methods = []def{
 		aliases: []string{"start"},
 	},
 	def{
-		argstr:  "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 		aliases: []string{"receive", "invoice", "fund"},
+		argstr:  "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 		flags: []flag{
 			{
 				"--preimage",
@@ -54,12 +46,12 @@ var methods = []def{
 		inline_example: "invoice <satoshis>",
 	},
 	def{
-		argstr:  "(lnurl [<satoshis>] | [now] [<invoice>])",
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
+		argstr:  "(lnurl [<satoshis>] | [now] [<invoice>])",
 	},
 	def{
-		argstr:  "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
 		aliases: []string{"send", "tip", "sendanonymously"},
+		argstr:  "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
 		flags: []flag{
 			{
 				"--anonymous",
@@ -80,52 +72,70 @@ var methods = []def{
 		},
 	},
 	def{
-		argstr:         "<satoshis>",
 		aliases:        []string{"giveaway"},
+		argstr:         "<satoshis>",
 		inline:         true,
 		inline_example: "giveaway <satoshis>",
 	},
 	def{
-		argstr:         "<satoshis> [<num_participants>]",
 		aliases:        []string{"coinflip", "lottery"},
+		argstr:         "<satoshis> [<num_participants>]",
 		inline:         true,
 		inline_example: "coinflip <satoshis> <num_participants>",
 	},
 	def{
-		argstr:         "<satoshis> [<num_participants>]",
 		aliases:        []string{"giveflip"},
+		argstr:         "<satoshis> [<num_participants>]",
 		inline:         true,
 		inline_example: "giveflip <satoshis> <num_participants>",
 	},
 	def{
-		argstr:  "<satoshis> <num_participants> <receiver>...",
 		aliases: []string{"fundraise", "crowdfund"},
+		argstr:  "<satoshis> <num_participants> <receiver>...",
 	},
 	def{
-		argstr:  "<satoshis> <message>... [--payable=<times>] [--crowdfund=<num_participants>] [--public] [--private]",
 		aliases: []string{"hide"},
+		argstr:  "<satoshis> <message>... [--payable=<times>] [--crowdfund=<num_participants>] [--public] [--private]",
 	},
 	def{
-		argstr:         "<hidden_message_id>",
 		aliases:        []string{"reveal"},
+		argstr:         "<hidden_message_id>",
 		inline:         true,
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
-		argstr:  "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>])",
-		aliases: []string{"app", "lapp"},
+		aliases: []string{"microbet", "app microbet"},
+		argstr:  "[bet | bets | balance | withdraw]",
 	},
 	def{
-		argstr:  "[refresh]",
+		aliases: []string{"bitflash", "app bitflash"},
+		argstr:  "[orders | status | rate | <satoshis> <address>]",
+	},
+	def{
+		aliases: []string{"satellite", "app satellite"},
+		argstr:  "[transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...]",
+	},
+	def{
+		aliases: []string{"golightning", "app golightning"},
+		argstr:  "[<satoshis>]",
+	},
+	def{
+		aliases:        []string{"poker", "app poker"},
+		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
+		inline:         true,
+		inline_example: "poker",
+	},
+	def{
 		aliases: []string{"bluewallet", "lndhub"},
+		argstr:  "[refresh]",
 	},
 	def{
-		argstr:  "(ticket [<price>]|spammy)",
 		aliases: []string{"toggle"},
+		argstr:  "(ticket [<price>]|spammy)",
 	},
 	def{
-		argstr:  "[<command>]",
 		aliases: []string{"help"},
+		argstr:  "[<command>]",
 	},
 	def{
 		aliases: []string{"stop"},
@@ -232,8 +242,7 @@ func handleHelp(u User, method string) (handled bool) {
 	helpString = translateTemplate(t.HELPMETHOD, u.Locale, t.T{
 		"MainName":      mainName,
 		"Argstr":        escapeHTML(def.argstr),
-		"Desc":          def.desc(u.Locale),
-		"Examples":      def.examples(u.Locale),
+		"Help":          def.help(u.Locale),
 		"HasInline":     def.inline,
 		"InlineExample": escapeHTML(def.inline_example),
 		"Aliases":       aliases,

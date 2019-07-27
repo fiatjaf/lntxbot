@@ -359,6 +359,7 @@ func findSimilar(source string, targets []string) (result []string) {
 	res = append(first, second...)
 	res = append(res, third...)
 	res = append(res, fourth...)
+
 	return res
 }
 
