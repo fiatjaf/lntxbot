@@ -72,7 +72,6 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 
 	// the "any" is here only for illustrative purposes. if you call this with 'any' it will
 	// actually be assigned to the <satoshis> variable, and that's how the code handles it.
-	RECEIVEHELPARGS: "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 	RECEIVEHELPDESC: "Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 	RECEIVEHELPEXAMPLE: `
 <code>/receive 320 for something</code>
@@ -82,7 +81,6 @@ Generates an invoice for 320 sat with the description "for something"
 Generates an invoice with undefined amount.
     `,
 
-	PAYHELPARGS: "(lnurl [<satoshis>] | [now] [<invoice>])",
 	PAYHELPDESC: "Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).",
 	PAYHELPEXAMPLE: `
 <code>/pay lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code>
@@ -98,7 +96,6 @@ Generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="htt
 When sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
     `,
 
-	SENDHELPARGS: "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
 	SENDHELPDESC: "Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.",
 	SENDHELPEXAMPLE: `
 <code>/send 500 @username</code>
@@ -113,7 +110,6 @@ Telegram user @someone will see just: "Someone has sent you 1000 satoshis".
 
 	BALANCEHELPDESC: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
 
-	GIVEAWAYHELPARGS: "<satoshis>",
 	GIVEAWAYHELPDESC: "Creates a button in a group chat. The first person to click the button gets the satoshis.",
 	GIVEAWAYHELPEXAMPLE: `
 <code>/giveaway 1000</code>
@@ -124,7 +120,6 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 	GIVEAWAYCLAIM:           "Claim",
 	GIVEAWAYMSG:             "{{.User}} is giving {{.Sats}} sat away!",
 
-	COINFLIPHELPARGS: "<satoshis> [<num_participants>]",
 	COINFLIPHELPDESC: "Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.",
 	COINFLIPHELPEXAMPLE: `
 <code>/coinflip 100 5</code>
@@ -138,7 +133,6 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 	COINFLIPOVERQUOTA:      "You're over your coinflip daily quota.",
 	COINFLIPRATELIMIT:      "Please wait 30 minutes before creating a new coinflip.",
 
-	GIVEFLIPHELPARGS: "<satoshis> [<num_participants>]",
 	GIVEFLIPHELPDESC: "Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.",
 	GIVEFLIPHELPEXAMPLE: `
 <code>/giveflip 100 5</code>
@@ -149,7 +143,6 @@ Once someone clicks the 'Claim' button 1000 satoshis will be transferred from yo
 	GIVEFLIPJOIN:      "Try to win!",
 	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 
-	FUNDRAISEHELPARGS: "<satoshis> <num_participants> <receiver>...",
 	FUNDRAISEHELPDESC: "Starts a crowdfunding event with a predefined number of participants and contribution amount. If the given number of participants contribute, it will be actualized. Otherwise it will be canceled in some hours.",
 	FUNDRAISEHELPEXAMPLE: `
 <code>/fundraise 10000 8 @user</code>
@@ -166,7 +159,6 @@ Have contributed: {{.Registered}}
 	FUNDRAISERECEIVERMSG: "You've received {{.TotalSats}} sat of a fundraise from {{.Senders}}s",
 	FUNDRAISEGIVERMSG:    "You've given {{.IndividualSats}} in a fundraise to {{.Receiver}}.",
 
-	BLUEWALLETHELPARGS: "[refresh]",
 	BLUEWALLETHELPDESC: "Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.",
 	BLUEWALLETHELPEXAMPLE: `
 <code>/bluewallet</code>
@@ -178,7 +170,6 @@ Erases your previous password and prints a new string. You'll have to reimport t
 	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report this issue: {{.Err}}",
 	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
 
-	HIDEHELPARGS: "<satoshis> <message>... [--payable=<times>] [--crowdfund=<num_participants>] [--public] [--private]",
 	HIDEHELPDESC: "Hides a message so it can be unlocked later with a payment. The special character \"~\" is used to split the message into a preview and the actual message (\"click here to see a secret! ~ this is the secret.\")",
 	HIDEHELPEXAMPLE: `
 <code>/hide 500 top secret message here</code>
@@ -187,7 +178,6 @@ Hides "top secret message" and returns an id for it. Later one will be able to m
 <code>/hide 2500 only the brave will be able to see this message ~ congratulations, you are very brave!</code>
 In this case instead of the default preview message potential revealers will see the custom teaser written before the "~".
     `,
-	REVEALHELPARGS: "<hidden_message_id>",
 	REVEALHELPDESC: "Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.",
 	REVEALHELPEXAMPLE: `
 <code>/reveal 5c0b2rh4x</code>
@@ -202,7 +192,6 @@ Creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
-	APPHELPARGS: "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>])",
 	APPHELPDESC: "Interacts with external apps from within the bot and using your balance.",
 	APPHELPEXAMPLE: `
 <code>/app bitflash 1000000 3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ</code>
@@ -343,7 +332,6 @@ By playing from an account tied to your bot balance you can just sit on a table 
 <code>/app poker available &lt;minutes&gt;</code> will put you in a subscribed state on the game for the given time and notify other subscribed people you are waiting to play.
     `,
 
-	TOGGLEHELPARGS: "(ticket [<price>]|spammy)",
 	TOGGLEHELPDESC: "Toggles bot features in groups on/off. In supergroups it only be run by group admins.",
 	TOGGLEHELPEXAMPLE: `
 <code>/toggle ticket 10</code>
@@ -356,7 +344,6 @@ Stop charging new entrants a fee.
 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
 
-	HELPHELPARGS: "[<command>]",
 	HELPHELPDESC: "Shows full help or help about specific command.",
 
 	STOPHELPDESC: "The bot stops showing you notifications.",

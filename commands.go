@@ -10,17 +10,10 @@ import (
 
 type def struct {
 	aliases        []string
+	argstr         string
 	flags          []flag
 	inline         bool
 	inline_example string
-}
-
-func (d def) argstr(lang string) string {
-	key := t.Key(d.aliases[0] + "HelpArgs")
-	if _, ok := t.EN[key]; !ok {
-		return ""
-	}
-	return translate(key, lang)
 }
 
 func (d def) desc(lang string) string {
@@ -49,6 +42,7 @@ var methods = []def{
 		aliases: []string{"start"},
 	},
 	def{
+		argstr:  "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 		aliases: []string{"receive", "invoice", "fund"},
 		flags: []flag{
 			{
@@ -60,9 +54,11 @@ var methods = []def{
 		inline_example: "invoice <satoshis>",
 	},
 	def{
+		argstr:  "(lnurl [<satoshis>] | [now] [<invoice>])",
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
 	},
 	def{
+		argstr:  "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
 		aliases: []string{"send", "tip", "sendanonymously"},
 		flags: []flag{
 			{
@@ -84,41 +80,51 @@ var methods = []def{
 		},
 	},
 	def{
+		argstr:         "<satoshis>",
 		aliases:        []string{"giveaway"},
 		inline:         true,
 		inline_example: "giveaway <satoshis>",
 	},
 	def{
+		argstr:         "<satoshis> [<num_participants>]",
 		aliases:        []string{"coinflip", "lottery"},
 		inline:         true,
 		inline_example: "coinflip <satoshis> <num_participants>",
 	},
 	def{
+		argstr:         "<satoshis> [<num_participants>]",
 		aliases:        []string{"giveflip"},
 		inline:         true,
 		inline_example: "giveflip <satoshis> <num_participants>",
 	},
 	def{
+		argstr:  "<satoshis> <num_participants> <receiver>...",
 		aliases: []string{"fundraise", "crowdfund"},
 	},
 	def{
+		argstr:  "<satoshis> <message>... [--payable=<times>] [--crowdfund=<num_participants>] [--public] [--private]",
 		aliases: []string{"hide"},
 	},
 	def{
+		argstr:         "<hidden_message_id>",
 		aliases:        []string{"reveal"},
 		inline:         true,
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
+		argstr:  "(microbet [bet | bets | balance | withdraw] | bitflash [orders | status | rate | <satoshis> <address>] | satellite [transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...] | golightning [<satoshis>] | poker [deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>])",
 		aliases: []string{"app", "lapp"},
 	},
 	def{
+		argstr:  "[refresh]",
 		aliases: []string{"bluewallet", "lndhub"},
 	},
 	def{
+		argstr:  "(ticket [<price>]|spammy)",
 		aliases: []string{"toggle"},
 	},
 	def{
+		argstr:  "[<command>]",
 		aliases: []string{"help"},
 	},
 	def{
@@ -145,7 +151,7 @@ func docoptFromMethodDefinitions() string {
 
 	for _, def := range methods {
 		for _, alias := range def.aliases {
-			lines = append(lines, "  c "+alias+" "+def.argstr("en"))
+			lines = append(lines, "  c "+alias+" "+def.argstr)
 		}
 	}
 
@@ -225,7 +231,7 @@ func handleHelp(u User, method string) (handled bool) {
 	// here we have a working method definition
 	helpString = translateTemplate(t.HELPMETHOD, u.Locale, t.T{
 		"MainName":      mainName,
-		"Argstr":        escapeHTML(def.argstr(u.Locale)),
+		"Argstr":        escapeHTML(def.argstr),
 		"Desc":          def.desc(u.Locale),
 		"Examples":      def.examples(u.Locale),
 		"HasInline":     def.inline,

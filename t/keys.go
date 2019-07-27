@@ -56,28 +56,23 @@ const (
 	HELPSIMILAR = "HelpSimilar"
 	HELPMETHOD  = "HelpMethod"
 
-	RECEIVEHELPARGS    = "receiveHelpArgs"
 	RECEIVEHELPDESC    = "receiveHelpDesc"
 	RECEIVEHELPEXAMPLE = "receiveHelpExample"
 
-	PAYHELPARGS    = "payHelpArgs"
 	PAYHELPDESC    = "payHelpDesc"
 	PAYHELPEXAMPLE = "payHelpExample"
 
-	SENDHELPARGS    = "sendHelpArgs"
 	SENDHELPDESC    = "sendHelpDesc"
 	SENDHELPEXAMPLE = "sendHelpExample"
 
 	BALANCEHELPDESC = "balanceHelpDesc"
 
-	GIVEAWAYHELPARGS        = "giveawayHelpArgs"
 	GIVEAWAYHELPDESC        = "giveawayHelpDesc"
 	GIVEAWAYHELPEXAMPLE     = "giveawayHelpExample"
 	GIVEAWAYMSG             = "GiveAwayMsg"
 	GIVEAWAYCLAIM           = "GiveAwayClaim"
 	GIVEAWAYSATSGIVENPUBLIC = "GiveawaySatsGivenPublic"
 
-	COINFLIPHELPARGS    = "coinflipHelpArgs"
 	COINFLIPHELPDESC    = "coinflipHelpDesc"
 	COINFLIPHELPEXAMPLE = "coinflipHelpExample"
 	COINFLIPWINNERMSG   = "CoinflipWinnerMsg"
@@ -87,7 +82,6 @@ const (
 	COINFLIPOVERQUOTA   = "CoinflipOverQuota"
 	COINFLIPRATELIMIT   = "CoinflipRateLimit"
 
-	GIVEFLIPHELPARGS    = "giveflipHelpArgs"
 	GIVEFLIPHELPDESC    = "giveflipHelpDesc"
 	GIVEFLIPHELPEXAMPLE = "giveflipHelpExample"
 	GIVEFLIPMSG         = "GiveFlipMsg"
@@ -95,7 +89,6 @@ const (
 	GIVEFLIPAD          = "GiveflipAd"
 	GIVEFLIPJOIN        = "GiveflipJoin"
 
-	FUNDRAISEHELPARGS    = "fundraiseHelpArgs"
 	FUNDRAISEHELPDESC    = "fundraiseHelpDesc"
 	FUNDRAISEHELPEXAMPLE = "fundraiseHelpExample"
 	FUNDRAISEAD          = "FundraiseAd"
@@ -104,16 +97,13 @@ const (
 	FUNDRAISERECEIVERMSG = "FundraiseReceiverMsg"
 	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
 
-	BLUEWALLETHELPARGS            = "bluewalletHelpArgs"
 	BLUEWALLETHELPDESC            = "bluewalletHelpDesc"
 	BLUEWALLETHELPEXAMPLE         = "bluewalletHelpExample"
 	BLUEWALLETPASSWORDUPDATEERROR = "BluewalletPasswordUpdateError"
 	BLUEWALLETCREDENTIALS         = "BluewalletCredentials"
 
-	HIDEHELPARGS         = "hideHelpArgs"
 	HIDEHELPDESC         = "hideHelpDesc"
 	HIDEHELPEXAMPLE      = "hideHelpExample"
-	REVEALHELPARGS       = "revealHelpArgs"
 	REVEALHELPDESC       = "revealHelpDesc"
 	REVEALHELPEXAMPLE    = "revealHelpExample"
 	HIDDENREVEALBUTTON   = "HiddenRevealButton"
@@ -125,7 +115,6 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	APPHELPARGS    = "appHelpArgs"
 	APPHELPDESC    = "appHelpDesc"
 	APPHELPEXAMPLE = "appHelpExample"
 
@@ -174,11 +163,9 @@ const (
 	POKERBALANCE      = "PokerBalance"
 	POKERHELP         = "PokerHelp"
 
-	TOGGLEHELPARGS    = "toggleHelpArgs"
 	TOGGLEHELPDESC    = "toggleHelpDesc"
 	TOGGLEHELPEXAMPLE = "toggleHelpExample"
 
-	HELPHELPARGS = "helpHelpArgs"
 	HELPHELPDESC = "helpHelpDesc"
 
 	STOPHELPDESC = "stopHelpDesc"
