@@ -141,6 +141,9 @@ func serveLNURL() {
 				if err != nil {
 					json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Bizarre Redis error. Please report."})
 					return
+				} else if val == "used" {
+					json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "lnurl already used. Please request a new one."})
+					return
 				}
 
 				parts := strings.Split(val, "-")
@@ -178,7 +181,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 				s.ServiceURL, u.Id, max, messageIdstr),
 			K1:                 challenge,
 			MaxWithdrawable:    max,
-			DefaultDescription: u.AtName(),
+			DefaultDescription: fmt.Sprintf("%s lnurl withdraw @%s", u.AtName(), s.ServiceId),
 			Tag:                "withdrawRequest",
 			LNURLResponse:      LNURLResponse{Status: "OK"},
 		})
