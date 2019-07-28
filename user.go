@@ -630,7 +630,10 @@ func (u User) sendInternally(
 		vlabel = &sql.NullString{}
 	)
 
-	vdesc.Scan(desc)
+	if desc != nil {
+		vdesc.Scan(desc)
+	}
+
 	vlabel.Scan(label)
 
 	txn, err := pg.BeginTxx(context.TODO(),

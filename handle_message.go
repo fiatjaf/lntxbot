@@ -209,6 +209,7 @@ parsed:
 			todisplayname string
 			receiver      *User
 			usernameval   interface{}
+			extra         string
 		)
 
 		// get quantity
@@ -236,18 +237,19 @@ parsed:
 			anonymous = true
 		}
 
-		receiver, todisplayname, err = parseUsername(message, usernameval)
-		if err != nil {
-			log.Warn().Interface("val", usernameval).Err(err).Msg("failed to parse username")
-			break
-		}
+		receiver, todisplayname, _ = parseUsername(message, usernameval)
 		if receiver != nil {
 			goto ensured
 		}
 
 		// no username, this may be a reply-tip
 		if message.ReplyToMessage != nil {
-			log.Debug().Msg("it's a reply-tip")
+			if iextra, ok := opts["<receiver>"]; ok {
+				// in this case this may be a tipping message
+				extra = strings.Join(iextra.([]string), " ")
+			}
+
+			log.Debug().Str("extra", extra).Msg("it's a reply-tip")
 			reply := message.ReplyToMessage
 
 			var t int
@@ -284,7 +286,7 @@ parsed:
 			*receiver,
 			anonymous,
 			sats*1000,
-			nil,
+			extra,
 			nil,
 		)
 		if err != nil {
