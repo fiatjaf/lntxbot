@@ -495,7 +495,7 @@ parsed:
 			crowdfund = 1
 		}
 
-		payabletimes, _ := opts.Int("--payable")
+		payabletimes, _ := opts.Int("--revealers")
 		if payabletimes > 1 {
 			public = false
 			crowdfund = 1
@@ -503,14 +503,15 @@ parsed:
 			payabletimes = 0
 		}
 
-		hiddenmessagejson, err := json.Marshal(HiddenMessage{
+		hiddenmessage := HiddenMessage{
 			Preview:   preview,
 			Content:   content,
 			Times:     payabletimes,
 			Crowdfund: crowdfund,
 			Public:    public,
 			Satoshis:  sats,
-		})
+		}
+		hiddenmessagejson, err := json.Marshal(hiddenmessage)
 		if err != nil {
 			u.notify(t.ERROR, t.T{"Err": err.Error()})
 			return
@@ -524,7 +525,10 @@ parsed:
 
 		siq := "reveal " + hiddenid
 		sendMessageWithKeyboard(u.ChatId,
-			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{"HiddenId": hiddenid}),
+			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{
+				"HiddenId": hiddenid,
+				"Message":  hiddenmessage,
+			}),
 			&tgbotapi.InlineKeyboardMarkup{
 				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 					{

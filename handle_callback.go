@@ -591,6 +591,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		// send the satoshis.
 		// if it's a crowdfunding we'll send from everybody at the same time,
 		// otherwise just from the current revealer.
+		if hiddenmessage.Crowdfund <= 1 {
+			revealerIds = []int{u.Id}
+		}
+
 		_, err = settleReveal(hiddenmessage.Satoshis, hiddenid, sourceUserId, revealerIds)
 		if err != nil {
 			log.Warn().Err(err).Str("id", hiddenid).Int("satoshis", hiddenmessage.Satoshis).

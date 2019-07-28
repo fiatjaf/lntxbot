@@ -223,8 +223,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 				fmt.Sprintf("reveal-%s", hiddenkey),
 				translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{
 					"HiddenId": hiddenid,
-					"Content":  hiddenmessage.Content,
-					"Public":   hiddenmessage.Public,
+					"Message":  hiddenmessage,
 				}),
 				hiddenmessage.Preview,
 			)

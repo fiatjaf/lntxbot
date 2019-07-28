@@ -11,7 +11,6 @@ import (
 type def struct {
 	aliases        []string
 	argstr         string
-	flags          []flag
 	inline         bool
 	inline_example string
 }
@@ -24,24 +23,13 @@ func (d def) help(lang string) string {
 	return translate(key, lang)
 }
 
-type flag struct {
-	Name        string
-	Explanation string
-}
-
 var methods = []def{
 	def{
 		aliases: []string{"start"},
 	},
 	def{
-		aliases: []string{"receive", "invoice", "fund"},
-		argstr:  "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
-		flags: []flag{
-			{
-				"--preimage",
-				"If you want to generate an invoice with a specific preimage, write it here as a 32b / 64char hex string.",
-			},
-		},
+		aliases:        []string{"receive", "invoice", "fund"},
+		argstr:         "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 		inline:         true,
 		inline_example: "invoice <satoshis>",
 	},
@@ -52,24 +40,12 @@ var methods = []def{
 	def{
 		aliases: []string{"send", "tip", "sendanonymously"},
 		argstr:  "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
-		flags: []flag{
-			{
-				"--anonymous",
-				"The receiver will never know who sent him the satoshis.",
-			},
-		},
 	},
 	def{
 		aliases: []string{"balance"},
 	},
 	def{
 		aliases: []string{"transactions"},
-		flags: []flag{
-			{
-				"--page",
-				"To show older transactions, specify a page number greater than 1.",
-			},
-		},
 	},
 	def{
 		aliases:        []string{"giveaway"},
@@ -95,7 +71,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"hide"},
-		argstr:  "<satoshis> <message>... [--payable=<times>] [--crowdfund=<num_participants>] [--public] [--private]",
+		argstr:  "<satoshis> <message>... [--revealers=<num_revealers>] [--crowdfund=<num_participants>] [--public] [--private]",
 	},
 	def{
 		aliases:        []string{"reveal"},
