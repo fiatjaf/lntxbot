@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -30,7 +29,7 @@ func (h HiddenMessage) revealed() string {
 }
 
 func getHiddenId(message *tgbotapi.Message) string {
-	return fmt.Sprintf("%.7x", sha256.Sum256([]byte(fmt.Sprintf("%d%d", message.MessageID, message.Chat.ID))))
+	return calculateHash(fmt.Sprintf("%d%d", message.MessageID, message.Chat.ID))[:7]
 }
 
 func findHiddenKey(hiddenid string) (key string, ok bool) {

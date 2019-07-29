@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -183,13 +181,11 @@ func getCurrentPokerPlayers() (playerHashes []string, totalChips int, err error)
 }
 
 func getPokerId(user User) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s.poker.%d", s.BotToken, user.Id)))
-	secret := hex.EncodeToString(sum[:])
-	return s.ServiceId + ":" + secret[:14]
+	return s.ServiceId + ":" + calculateHash(fmt.Sprintf("%s.poker.%d", s.BotToken, user.Id))[:14]
 }
 
 func getPokerAccountHash(user User) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(getPokerId(user)+"this-is-salt-jfkd934343")))[0:10]
+	return calculateHash(getPokerId(user) + "this-is-salt-jfkd934343")[:10]
 }
 
 func getPokerURL(user User) string {

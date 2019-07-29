@@ -11,9 +11,8 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/bech32"
 	"git.alhur.es/fiatjaf/lntxbot/t"
-	docopt "github.com/docopt/docopt-go"
-	"github.com/lucsky/cuid"
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/docopt/docopt-go"
+	"github.com/skip2/go-qrcode"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -21,6 +20,7 @@ type LNURLWithdrawResponse struct {
 	Callback           string `json:"callback"`
 	K1                 string `json:"k1"`
 	MaxWithdrawable    int64  `json:"maxWithdrawable"`
+	AmountIsFixed      bool   `json:"amountIsFixed"`
 	DefaultDescription string `json:"defaultDescription"`
 	Tag                string `json:"tag"`
 	LNURLResponse
@@ -77,11 +77,12 @@ func handleLNURLReceive(u User, lnurl string, messageId int) {
 }
 
 func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
-	challenge := cuid.New() // top secret
+	maxsats, _ := opts.String("<satoshis>")
+	challenge := calculateHash(s.BotToken + ":" + strconv.Itoa(messageId) + ":" + maxsats)
 
 	nexturl := fmt.Sprintf("%s/lnurl/withdraw?user=%d&message=%d&challenge=%s",
 		s.ServiceURL, u.Id, messageId, challenge)
-	if maxsats, err := opts.String("<satoshis>"); err == nil {
+	if maxsats != "" {
 		nexturl += "&max=" + maxsats
 
 		// if max is set it means we won't require confirmation before sending the money
@@ -95,7 +96,7 @@ func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
 		return
 	}
 
-	qrpath := qrImagePath(lnurl)
+	qrpath := qrImagePath(challenge)
 	err = qrcode.WriteFile(strings.ToUpper(lnurl), qrcode.Medium, 256, qrpath)
 	if err != nil {
 		log.Error().Err(err).Str("user", u.Username).Str("lnurl", lnurl).
@@ -108,7 +109,10 @@ func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
 
 func serveLNURL() {
 	http.HandleFunc("/lnurl/withdraw", func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl first request")
+
 		qs := r.URL.Query()
+		challenge := qs.Get("challenge")
 		messageIdstr := qs.Get("message")
 		userId, err := strconv.Atoi(qs.Get("user"))
 		if err != nil {
@@ -122,10 +126,13 @@ func serveLNURL() {
 			return
 		}
 
+		fixed := false
 		max32, _ := strconv.Atoi(qs.Get("max"))
-		max := int64(max32) * 1000 // because until now this was sats, we need msats
-		challenge := cuid.Slug()
+		max := int64(max32)
+		maxmsats := max * 1000
 		if max > 0 {
+			fixed = true
+
 			// if max is set we must check the challenge as it means the withdraw will be made
 			// without conf and we don't want people with invalid challenges draining our money
 			challenge = qs.Get("challenge")
@@ -165,22 +172,14 @@ func serveLNURL() {
 			}
 		} else {
 			// otherwise we set max to the total balance (as msats)
-			var balance int64
-			pg.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-			if balance > 5000000 {
-				max = balance * 99 / 100
-			} else {
-				max = balance
-			}
+			maxmsats = u.getAbsoluteWithdrawable()
 		}
 
 		json.NewEncoder(w).Encode(LNURLWithdrawResponse{
-			Callback: fmt.Sprintf("%s/lnurl/withdraw/invoice/%d/%d/%s",
-				s.ServiceURL, u.Id, max, messageIdstr),
+			Callback:           fmt.Sprintf("%s/lnurl/withdraw/invoice/%d/%d/%s", s.ServiceURL, u.Id, max32, messageIdstr),
 			K1:                 challenge,
-			MaxWithdrawable:    max,
+			MaxWithdrawable:    maxmsats,
+			AmountIsFixed:      fixed,
 			DefaultDescription: fmt.Sprintf("%s lnurl withdraw @%s", u.AtName(), s.ServiceId),
 			Tag:                "withdrawRequest",
 			LNURLResponse:      LNURLResponse{Status: "OK"},
@@ -188,6 +187,23 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	})
 
 	http.HandleFunc("/lnurl/withdraw/invoice/", func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl second request")
+
+		path := strings.Split(r.URL.Path, "/")
+		if len(path) < 7 {
+			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid URL."})
+			return
+		}
+		urlUserId, err1 := strconv.Atoi(path[4])
+		maxsats := path[5]
+		urlMax, err2 := strconv.Atoi(maxsats)
+		messageIdstr := path[6]
+		messageId, _ := strconv.Atoi(messageIdstr)
+		if err1 != nil || err2 != nil {
+			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid user or maximum amount."})
+			return
+		}
+
 		qs := r.URL.Query()
 		challenge := qs.Get("k1")
 		bolt11 := qs.Get("pr")
@@ -206,9 +222,15 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 				return
 			}
 
+			if challenge != calculateHash(s.BotToken+":"+messageIdstr+":"+maxsats) {
+				// double-check the challenge (it's a hash of the parameters + our secret)
+				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid amount for this lnurl."})
+				return
+			}
+
+			// stop here to prevent extra withdrawals
 			if err := rds.Del("lnurlwithdrawnoconf:" + challenge).Err(); err != nil {
 				log.Error().Err(err).Str("challenge", challenge).Msg("error deleting used challenge on lnurl withdraw")
-				// stop here to prevent extra withdrawals
 				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Redis error. Please report."})
 				return
 			}
@@ -219,16 +241,9 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			// otherwise we will ask for confirmation as in the normal /pay flow.
 		}
 
-		path := strings.Split(r.URL.Path, "/")
-		if len(path) < 7 {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid URL."})
-			return
-		}
-		urlUserId, err1 := strconv.Atoi(path[4])
-		urlMax, err2 := strconv.Atoi(path[5])
-		messageId, _ := strconv.Atoi(path[6])
-		if err1 != nil || err2 != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid user or maximum amount."})
+		u, err := loadUser(urlUserId, 0)
+		if err != nil {
+			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Failed to load user."})
 			return
 		}
 
@@ -238,15 +253,16 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			return
 		}
 
-		if inv.Get("msatoshi").Int() > int64(urlMax)*1000 {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Amount too big."})
-			return
-		}
-
-		u, err := loadUser(urlUserId, 0)
-		if err != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Failed to load user."})
-			return
+		if urlMax > 0 {
+			if inv.Get("msatoshi").Int() > int64(urlMax)*1000 {
+				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Amount too big."})
+				return
+			}
+		} else {
+			if inv.Get("msatoshi").Int() > u.getAbsoluteWithdrawable() {
+				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Amount too big."})
+				return
+			}
 		}
 
 		// print the bolt11 just because

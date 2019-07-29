@@ -490,13 +490,13 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			-float64(balance)/1000)
 	}
 
-	if msatoshi >= 5000000 && balance*101 < msatoshi*100 {
+	if msatoshi >= 5000000 && msatoshi*99/100 > balance {
 		// if the payment is >= 5000sat, reserve 1% of balance for the transaction fee.
 		// if it's smaller we don't care.
 		// this should provide an easy way for people to empty their wallets while at the same time
 		// protecting against exploits and people who leave with a gigantic negative balance.
 		return errors.New(
-			"Can't use your entire balance for this payment because of fee reserves. Please do smaller payments.",
+			"Can't use your entire balance for this payment because of fee reserves. Please withdraw in chunks.",
 		)
 	}
 
@@ -778,6 +778,18 @@ SELECT * FROM (
 	}
 
 	return
+}
+
+func (u User) getAbsoluteWithdrawable() (msats int64) {
+	var balance int64
+	pg.Get(&balance, `
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
+	if balance > 5000000 {
+		return balance * 99 / 100
+	} else {
+		return balance
+	}
 }
 
 func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQuery) bool {

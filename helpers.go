@@ -71,7 +71,9 @@ func chatOwnerFromTicketLabel(label string) (owner User, err error) {
 
 func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
 	if hash == "" {
-		hash = hashFromPreimage(preimage)
+		preimagehex, _ := hex.DecodeString(preimage)
+		sum := sha256.Sum256(preimagehex)
+		hash = hex.EncodeToString(sum[:])
 	}
 
 	invs, err := ln.Call("listinvoices")
@@ -256,10 +258,8 @@ func randomPreimage() (string, error) {
 	return string(b), nil
 }
 
-func hashFromPreimage(preimage string) string {
-	preimagehex, _ := hex.DecodeString("16663a53ce660965853ed2d2609950b253f683933c069d2d610274f3339df0c1")
-	sum := sha256.Sum256(preimagehex)
-	return hex.EncodeToString(sum[:])
+func calculateHash(data string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(data)))
 }
 
 func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, display string, err error) {
