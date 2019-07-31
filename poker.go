@@ -288,6 +288,9 @@ func notifyPokerWatchers() {
 		if stringIsIn(getPokerAccountHash(watcher), playerHashes) {
 			// watcher is playing, don't count him as watcher
 			nwatchers--
+
+			// also remove him from the watchers list because he is already playing
+			rds.Del(fmt.Sprintf("poker-watcher:%d", watcher.Id))
 		}
 	}
 
