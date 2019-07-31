@@ -13,43 +13,7 @@ import (
 func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 	switch {
 	case opts["microbet"].(bool):
-		if opts["bet"].(bool) {
-			// list available bets as actionable buttons
-			bets, err := getMicrobetBets()
-			if err != nil {
-				sendMessage(u.ChatId, err.Error())
-				return
-			}
-
-			inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
-			for i, bet := range bets {
-				parts := strings.Split(bet.Description, "→")
-				gamename := parts[0]
-				backbet := parts[1]
-				if bet.Exact {
-					backbet += " (exact)"
-				}
-
-				inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
-					tgbotapi.NewInlineKeyboardButtonURL(
-						fmt.Sprintf("%s (%d sat)", gamename, bet.Amount),
-						"https://www.google.com/search?q="+gamename,
-					),
-				}
-				inlinekeyboard[i*2+1] = []tgbotapi.InlineKeyboardButton{
-					tgbotapi.NewInlineKeyboardButtonData(
-						fmt.Sprintf("%s (%d)", backbet, bet.Backers),
-						fmt.Sprintf("app=microbet-%s-true", bet.Id),
-					),
-					tgbotapi.NewInlineKeyboardButtonData(
-						fmt.Sprintf("NOT (%d)", bet.TotalUsers-bet.Backers),
-						fmt.Sprintf("app=microbet-%s-false", bet.Id),
-					),
-				}
-			}
-
-			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
-		} else if opts["bets"].(bool) {
+		if opts["bets"].(bool) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
 			if err != nil {
@@ -85,7 +49,41 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				return
 			}
 		} else {
-			u.notify(t.MICROBETHELP, nil)
+			// list available bets as actionable buttons
+			bets, err := getMicrobetBets()
+			if err != nil {
+				sendMessage(u.ChatId, err.Error())
+				return
+			}
+
+			inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
+			for i, bet := range bets {
+				parts := strings.Split(bet.Description, "→")
+				gamename := parts[0]
+				backbet := parts[1]
+				if bet.Exact {
+					backbet += " (exact)"
+				}
+
+				inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
+					tgbotapi.NewInlineKeyboardButtonURL(
+						fmt.Sprintf("%s (%d sat)", gamename, bet.Amount),
+						"https://www.google.com/search?q="+gamename,
+					),
+				}
+				inlinekeyboard[i*2+1] = []tgbotapi.InlineKeyboardButton{
+					tgbotapi.NewInlineKeyboardButtonData(
+						fmt.Sprintf("%s (%d)", backbet, bet.Backers),
+						fmt.Sprintf("app=microbet-%s-true", bet.Id),
+					),
+					tgbotapi.NewInlineKeyboardButtonData(
+						fmt.Sprintf("NOT (%d)", bet.TotalUsers-bet.Backers),
+						fmt.Sprintf("app=microbet-%s-false", bet.Id),
+					),
+				}
+			}
+
+			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
 		}
 	case opts["bitflash"].(bool):
 		if opts["orders"].(bool) {
@@ -119,7 +117,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 			address, err2 := opts.String("<address>")
 
 			if err1 != nil || err2 != nil {
-				u.notify(t.BITFLASHHELP, nil)
+				handleHelp(u, "bitflash")
 				return
 			}
 
@@ -194,9 +192,8 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		} else {
 			// either show help or create an order
 			satoshis, err := opts.Int("<satoshis>")
-
 			if err != nil {
-				u.notify(t.SATELLITEHELP, nil)
+				handleHelp(u, "satellite")
 				return
 			}
 
@@ -215,7 +212,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 	case opts["golightning"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			u.notify(t.GOLIGHTNINGHELP, nil)
+			handleHelp(u, "golightning")
 			return
 		}
 
@@ -268,21 +265,6 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
 				break
 			}
-		} else if opts["status"].(bool) {
-			nplayers, ntables, err1 := getActivePokerTables()
-			_, chips, err2 := getCurrentPokerPlayers()
-			if err1 != nil || err2 != nil {
-				u.notify(t.ERROR, t.T{"Err": "failed to query."})
-				break
-			}
-
-			u.notify(t.POKERSTATUS, t.T{
-				"Tables":  ntables,
-				"Players": nplayers,
-				"Chips":   chips,
-			})
-
-			subscribePoker(u, time.Minute*10, false)
 		} else if opts["play"].(bool) {
 			chattable := tgbotapi.GameConfig{
 				BaseChat: tgbotapi.BaseChat{
@@ -303,7 +285,21 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				subscribePoker(u, time.Minute*time.Duration(minutes), true)
 			}
 		} else {
-			u.notify(t.POKERHELP, nil)
+			// default to "status"
+			nplayers, ntables, err1 := getActivePokerTables()
+			_, chips, err2 := getCurrentPokerPlayers()
+			if err1 != nil || err2 != nil {
+				u.notify(t.ERROR, t.T{"Err": "failed to query."})
+				break
+			}
+
+			u.notify(t.POKERSTATUS, t.T{
+				"Tables":  ntables,
+				"Players": nplayers,
+				"Chips":   chips,
+			})
+
+			subscribePoker(u, time.Minute*10, false)
 		}
 	case opts["gifts"].(bool):
 		// create gift or fallback to list gifts

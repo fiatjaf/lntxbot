@@ -54,7 +54,7 @@ var EN = map[Key]string{
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
-For more information on each command please type <code>/help &lt;command&gt;</code>.
+For more information on each command type <code>/help &lt;command&gt;</code>.
     `,
 	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps {{index .Similar 2}}?{{end}}{{end}}",
 	HELPMETHOD: `
@@ -143,7 +143,7 @@ Have contributed: {{.Registered}}
 /bluewallet prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
 /bluewallet_refresh erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
     `,
-	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report this issue: {{.Err}}",
+	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
 	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
 
 	HIDEHELP: `Hides a message so it can be unlocked later with a payment. The special character "~" is used to split the message into a preview and the actual message ("click here to see a secret! ~ this is the secret.")
@@ -292,6 +292,9 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 Players online: {{.Players}}
 Active Tables: {{.Tables}}
 Satoshis in play: {{.Chips}}
+
+/app_poker_play to play here!
+/app_poker_url to play in a browser window!
     `,
 	POKERNOTIFY: `
 <b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!

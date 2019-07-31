@@ -84,19 +84,19 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"microbet", "app microbet"},
-		argstr:  "[bet | bets | balance | withdraw]",
+		argstr:  "[bets | balance | withdraw | bet]",
 	},
 	def{
 		aliases: []string{"bitflash", "app bitflash"},
-		argstr:  "[orders | status | rate | <satoshis> <address>]",
+		argstr:  "(orders | status | rate | <satoshis> <address>)",
 	},
 	def{
 		aliases: []string{"satellite", "app satellite"},
-		argstr:  "[transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...]",
+		argstr:  "(transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...)",
 	},
 	def{
 		aliases: []string{"golightning", "app golightning"},
-		argstr:  "[<satoshis>]",
+		argstr:  "<satoshis>",
 	},
 	def{
 		aliases: []string{"gifts", "app gifts"},
@@ -104,7 +104,7 @@ var methods = []def{
 	},
 	def{
 		aliases:        []string{"poker", "app poker"},
-		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
+		argstr:         "deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>",
 		inline:         true,
 		inline_example: "poker",
 	},
