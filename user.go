@@ -833,7 +833,7 @@ WHERE id = $1
 func (u User) getAppData(appname string, data interface{}) (err error) {
 	var j types.JSONText
 	err = pg.Get(&j, `
-SELECT appdata -> $2
+SELECT coalesce(appdata -> $2, '{}'::jsonb)
 FROM telegram.account
 WHERE id = $1
     `, u.Id, appname)

@@ -80,6 +80,9 @@ var methods = []def{
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
+		aliases: []string{"app"},
+	},
+	def{
 		aliases: []string{"microbet", "app microbet"},
 		argstr:  "[bet | bets | balance | withdraw]",
 	},
@@ -94,6 +97,10 @@ var methods = []def{
 	def{
 		aliases: []string{"golightning", "app golightning"},
 		argstr:  "[<satoshis>]",
+	},
+	def{
+		aliases: []string{"gifts", "app gifts"},
+		argstr:  "(list | [<satoshis>])",
 	},
 	def{
 		aliases:        []string{"poker", "app poker"},

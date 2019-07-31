@@ -305,6 +305,33 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		} else {
 			u.notify(t.POKERHELP, nil)
 		}
+	case opts["gifts"].(bool):
+		// create gift or fallback to list gifts
+		sats, err := opts.Int("<satoshis>")
+		if err == nil {
+			err = createGift(u, sats, messageId)
+			if err != nil {
+				u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
+			}
+			return
+		}
+
+		var data GiftsData
+		err = u.getAppData("gifts", &data.Gifts)
+		if err != nil {
+			u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
+			return
+		}
+
+		gifts := make([]GiftsGift, len(data.Gifts))
+		for i, orderId := range data.Gifts {
+			gift, _ := getGift(orderId)
+			gifts[i] = gift
+		}
+
+		u.notify(t.GIFTSLIST, t.T{"Gifts": gifts})
+	default:
+		handleHelp(u, "app")
 	}
 }
 

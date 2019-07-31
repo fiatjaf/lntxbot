@@ -23,16 +23,22 @@ type MicrobetBet struct {
 
 type MyMicrobetBet struct {
 	MicrobetBet
-	UserBack  int  `json:"userBack"`
-	UserLay   int  `json:"userLay"`
-	Canceled  bool `json:"canceled"`
-	Closed    bool `json:"closed"`
-	WonAmount int  `json:"wonAmount"`
+	UserBack  int     `json:"userBack"`
+	UserLay   int     `json:"userLay"`
+	Canceled  bool    `json:"canceled"`
+	Closed    bool    `json:"closed"`
+	WonAmount float64 `json:"wonAmount"`
 }
 
 func (mb MyMicrobetBet) Layers() int      { return mb.TotalUsers - mb.Backers }
 func (mb MyMicrobetBet) BackIcon() string { return "🔵" }
 func (mb MyMicrobetBet) LayIcon() string  { return "🔴" }
+func (mb MyMicrobetBet) AmountWon() string {
+	return fmt.Sprintf("%.0f", mb.WonAmount-float64(mb.Amount))
+}
+func (mb MyMicrobetBet) AmountLost() string {
+	return fmt.Sprintf("%.0f", float64(mb.Amount)-mb.WonAmount)
+}
 
 func getMicrobetBets() (bets []MicrobetBet, err error) {
 	var betdata struct {

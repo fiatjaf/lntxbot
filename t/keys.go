@@ -105,13 +105,15 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	BITFLASHHELP         = "app_bitflashHelp"
+	APPHELP = "appHelp"
+
+	BITFLASHHELP         = "bitflashHelp"
 	BITFLASHCONFIRM      = "BitflashConfirm"
 	BITFLASHTXQUEUED     = "BitflashTxQueued"
 	BITFLASHFAILEDTOSAVE = "BitflashFailedToSave"
 	BITFLASHLIST         = "BitflashList"
 
-	MICROBETHELP                = "app_microbetHelp"
+	MICROBETHELP                = "microbetHelp"
 	MICROBETBETHEADER           = "MicrobetBetHeader"
 	MICROBETINVALIDRESPONSE     = "MicrobetInvalidResponse"
 	MICROBETPAIDBUTNOTCONFIRMED = "MicrobetPaidButNotConfirmed"
@@ -122,7 +124,7 @@ const (
 	MICROBETBALANCEERROR        = "MicrobetBalanceError"
 	MICROBETBALANCE             = "MicrobetBalance"
 
-	SATELLITEHELP              = "app_satelliteHelp"
+	SATELLITEHELP              = "satelliteHelp"
 	SATELLITEFAILEDTOSTORE     = "SatelliteFailedToStore"
 	SATELLITEFAILEDTOGET       = "SatelliteFailedToGet"
 	SATELLITEPAID              = "SatellitePaid"
@@ -136,11 +138,17 @@ const (
 	SATELLITEQUEUE             = "SatelliteQueue"
 	SATELLITELIST              = "SatelliteList"
 
-	GOLIGHTNINGHELP   = "app_golightningHelp"
+	GOLIGHTNINGHELP   = "golightningHelp"
 	GOLIGHTNINGFAIL   = "GoLightningFail"
 	GOLIGHTNINGFINISH = "GoLightningFinish"
 
-	POKERHELP         = "app_pokerHelp"
+	GIFTSHELP       = "giftsHelp"
+	GIFTSERROR      = "GiftsError"
+	GIFTSCREATED    = "GiftsCreated"
+	GIFTSFAILEDSAVE = "GiftsFailedSave"
+	GIFTSLIST       = "GiftsList"
+
+	POKERHELP         = "pokerHelp"
 	POKERDEPOSITFAIL  = "PokerDepositFail"
 	POKERWITHDRAWFAIL = "PokerWithdrawFail"
 	POKERBALANCEERROR = "PokerBalanceError"

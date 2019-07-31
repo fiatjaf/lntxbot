@@ -175,6 +175,17 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
+	APPHELP: `
+You can use the following bots without leaving your bot chat:
+
+lightning-poker.com, multiplayer texas hold'em: /help_poker
+microbet.fun, simple sports betting: /help_microbet
+lightning.gifts, lightning vouchers: /help_gifts
+bitflash.club, LN->BTC with batched transactions: /help_bitflash
+golightning.club, BTC->LN cheap service: /help_golightning
+Blockstream Satellite, messages from space: /help_satellite
+    `,
+
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Transaction queued!",
 	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
@@ -200,7 +211,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
 	MICROBETLIST: `
 <b>[Microbet]</b> Your bets
-{{range .Bets}}<code>{{.Description}}</code> <code>{{.Amount}}</code> {{if gt .UserBack 0}}{{.BackIcon}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.LayIcon}} {{.UserLay}}/{{.Layers}} × {{.Backers}}{{end}} ~<i>{{if .Canceled}}canceled{{else if .Closed}}{{if gt .WonAmount 0}}won {{.WonAmount}}{{else}}lost{{end}}{{else}}open{{end}}</i>
+{{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}canceled{{else if .Closed}}{{if .WonAmount}}won {{.AmountWon}}{{else}}lost {{.AmountLost}}{{end}}{{else}}open{{end}}</i>
 {{else}}
 <i>~ no bets were ever made. ~</i>
 {{end}}
@@ -253,6 +264,22 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
 /app_golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+    `,
+
+	GIFTSHELP: `
+<a href="https://lightning.gifts/">Lightning Gifts</a> is the best way to send satoshis as gifts to people. A simple service, a simple URL, no vendor lock-in and <b>no fees</b>.
+
+/app_gifts_1000 creates a gift voucher of 1000 satoshis.
+    `,
+	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
+	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem just visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
+	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
+	GIFTSLIST: `
+<b>gifts</b>
+{{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
+{{else}}
+<i>~ no gifts were ever given. ~</i>
+{{end}}
     `,
 
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
