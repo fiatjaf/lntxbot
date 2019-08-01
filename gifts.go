@@ -101,7 +101,7 @@ func createGift(user User, sats int, messageId int) error {
 				data.Gifts = data.Gifts[len(data.Gifts)-50:]
 			}
 
-			err = user.setAppData("gifts", data.Gifts)
+			err = user.setAppData("gifts", data)
 			if err != nil {
 				u.notify(t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
 				return

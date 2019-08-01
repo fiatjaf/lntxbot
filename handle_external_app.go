@@ -313,7 +313,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		}
 
 		var data GiftsData
-		err = u.getAppData("gifts", &data.Gifts)
+		err = u.getAppData("gifts", &data)
 		if err != nil {
 			u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
 			return
