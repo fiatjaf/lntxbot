@@ -27,10 +27,12 @@
     <main></main>
     <script>
       var qs = location.search.slice(1).split('&')
-      localStorage.setItem('accountId', qs[0].split('=')[1])
-      localStorage.setItem('botId', qs[1].split('=')[1])
-      window.history.pushState(null, null, '/')</script
-    ><script>
+      if (qs.length > 1) {
+        localStorage.setItem('accountId', qs[0].split('=')[1])
+        localStorage.setItem('botId', qs[1].split('=')[1])
+        window.history.pushState(null, null, '/')
+      }
+    </script><script>
       !(function(l) {
         function e(e) {
           for (

@@ -5,6 +5,7 @@ import Cards from './cards'
 import className from 'classnames'
 import BetAndState from './bet-and-state'
 import {SHOWDOWN} from '../../lib/types'
+import {useTelegramName} from '../use-telegram'
 
 const CryptoJS = require('crypto-js')
 
@@ -19,12 +20,16 @@ const Player = ({
   allin,
   foldAt,
   accountId,
+  accountHash,
   round,
   position,
   profit,
   dealer,
-  chipsBet
+  chipsBet,
+  xyz
 }) => {
+  let telegramName = useTelegramName(accountHash)
+
   if (me && accountId && typeof cards === 'string') {
     // decode cards
     let bytes = CryptoJS.AES.decrypt(cards, accountId)
@@ -52,7 +57,7 @@ const Player = ({
         }
       />
       <div className={className('chips', {dealer: dealer === position})}>
-        {chips}
+        {chips} {telegramName ? '@' + telegramName : ''}
       </div>
     </React.Fragment>
   )
@@ -82,6 +87,7 @@ export default ({
   children,
   foldAt,
   accountId,
+  accountHash,
   round,
   profit,
   dealer,
@@ -106,6 +112,7 @@ export default ({
           allin={allin}
           foldAt={foldAt}
           accountId={accountId}
+          accountHash={accountHash}
           round={round}
           position={position}
           profit={profit}

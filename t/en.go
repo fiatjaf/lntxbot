@@ -314,7 +314,7 @@ By playing from an account tied to your bot balance you can just sit on a table 
 /app_poker_status tells you how active are the poker tables right now.
 /app_poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
 /app_poker_play displays the game widget.
-/app_poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game for some minutes you'll be unsubscribed.
+/app_poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game you'll be unsubscribed.
     `,
 
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -192,6 +193,43 @@ func getPokerURL(user User) string {
 	return fmt.Sprintf("%s/static/poker/?account=%s&user=%d", s.ServiceURL, getPokerId(user), user.Id)
 }
 
+func loadUserFromPokerCall(r *http.Request) (user User, err error) {
+	token := strings.TrimSpace(r.Header.Get("X-Bot-Poker-Token"))
+	res, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		err = errors.New("invalid token")
+		return
+	}
+
+	parts := strings.SplitN(string(res), "~", 2)
+	if len(parts) != 2 {
+		err = errors.New("invalid token")
+		return
+	}
+
+	userId, err := strconv.Atoi(parts[0])
+	if err != nil {
+		err = errors.New("invalid user")
+		return
+	}
+	pokerId := parts[1]
+
+	// load user
+	user, err = loadUser(userId, 0)
+	if err != nil {
+		err = errors.New("couldn't load user")
+		return
+	}
+
+	// check poker id
+	if getPokerId(user) != pokerId {
+		err = errors.New("wrong pokerId")
+		return
+	}
+
+	return
+}
+
 func servePoker() {
 	// this is called by the poker app to deposit funds as soon as the user tries to sit on a table
 	// but doesn't have enough money for the buy-in.
@@ -202,36 +240,9 @@ func servePoker() {
 			return
 		}
 
-		token := strings.TrimSpace(r.Header.Get("X-Bot-Poker-Token"))
-		res, err := base64.StdEncoding.DecodeString(token)
+		user, err := loadUserFromPokerCall(r)
 		if err != nil {
-			http.Error(w, "invalid token", 400)
-			return
-		}
-
-		parts := strings.SplitN(string(res), "~", 2)
-		if len(parts) != 2 {
-			http.Error(w, "invalid token", 400)
-			return
-		}
-
-		userId, err := strconv.Atoi(parts[0])
-		if err != nil {
-			http.Error(w, "invalid user", 401)
-			return
-		}
-		pokerId := parts[1]
-
-		// load user
-		user, err := loadUser(userId, 0)
-		if err != nil {
-			http.Error(w, "couldn't load user", 401)
-			return
-		}
-
-		// check poker id
-		if getPokerId(user) != pokerId {
-			http.Error(w, "wrong pokerId", 401)
+			http.Error(w, err.Error(), 401)
 			return
 		}
 
@@ -242,8 +253,25 @@ func servePoker() {
 		}
 
 		fmt.Fprintf(w, "ok")
+	})
 
-		subscribePoker(user, time.Minute*15, false)
+	http.HandleFunc("/app/poker/playing", func(w http.ResponseWriter, r *http.Request) {
+		user, err := loadUserFromPokerCall(r)
+		if err != nil {
+			http.Error(w, err.Error(), 401)
+			return
+		}
+
+		rds.HSet("poker-players", getPokerAccountHash(user), user.Username)
+		rds.Expire("poker-players", time.Hour*24)
+
+		// also remove player from the watchers list because he is already playing
+		rds.Del(fmt.Sprintf("poker-watcher:%d", user.Id))
+	})
+
+	http.HandleFunc("/app/poker/online", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(rds.HGetAll("poker-players").Val())
 	})
 }
 
@@ -284,34 +312,15 @@ func notifyPokerWatchers() {
 		}
 
 		watchers[i] = watcher
-
-		if stringIsIn(getPokerAccountHash(watcher), playerHashes) {
-			// watcher is playing, don't count him as watcher
-			nwatchers--
-
-			// also remove him from the watchers list because he is already playing
-			rds.Del(fmt.Sprintf("poker-watcher:%d", watcher.Id))
-		}
 	}
 
 	for _, watcher := range watchers {
 		nplayers := len(playerHashes)
 
-		if stringIsIn(getPokerAccountHash(watcher), playerHashes) {
-			// watcher is playing, don't count him as player
-			// in his own notification.
-			nplayers--
-
-			if nwatchers == 0 && nplayers == 0 {
-				// this means there's only this watcher around, so don't notify
-				continue
-			}
-		} else {
-			// watcher is not playing, so he was counted in nwatchers
-			if nwatchers == 1 && nplayers == 0 {
-				// this means there's only this watcher around, so don't notify
-				continue
-			}
+		// watcher is not playing, so he was counted in nwatchers
+		if nwatchers == 1 && nplayers == 0 {
+			// this means there's only this watcher around, so don't notify
+			continue
 		}
 
 		watcher.notify(t.POKERNOTIFY, t.T{

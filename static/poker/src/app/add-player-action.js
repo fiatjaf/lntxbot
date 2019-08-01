@@ -21,6 +21,7 @@ export default ({position, buyIn}) => {
   // add player action
   const handleAction = async event => {
     if (balance < buyIn) {
+      // this will tell the server to refill the user's balance
       window.fetch('/app/poker/deposit', {
         method: 'POST',
         body: `satoshis=${buyIn - balance}`,
@@ -35,6 +36,16 @@ export default ({position, buyIn}) => {
       showError('Please wait while your balance is refilled then try again.')
       return
     }
+
+    // this well tell the server we are online so it can show our name to other players
+    window.fetch('/app/poker/playing', {
+      method: 'POST',
+      headers: {
+        'X-Bot-Poker-Token': window.btoa(
+          localStorage.getItem('botId') + '~' + accountId
+        )
+      }
+    })
 
     const {error} = await addPlayer(tableId, accountId, position)
     if (error) {
