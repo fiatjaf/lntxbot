@@ -153,240 +153,240 @@ var EN = map[Key]string{
 
 Любой пользователь может открыть любое скрытое сообщение (после уплаты), набрав <code>/reveal &lt;id_скрытого_сообщения&gt;</code> в своём приватном чате с ботом, но id известен только создателю сообщения, если он его не разгласил.
 
-The basic way to share the message, however, is to click the "share" button and use the inline query in a group or chat. That will post the message preview to the chat along with a button people can click to pay and reveal.  You can control if the message will be revealed in-place for the entire group to see or privately just to the payer using the <code>--public</code> flag. By default it's private.
+Основной способ распространить сообщение -- это кликнуть кнопку "Шарить" и использовать inline запрос в группе или чате. Это действите опубликует предпросмотр в чате так же как и кнопку, которую люди могут нажать и открыть сообщение в приватном чате. Вы можете управлять тем, будет ли сообщение открыто в месте публикации в группе, или приватно только тому, кто оплатит его с помощью флага <code>--public</code>. По умолчанию сообщение приватное.
 
-You can also control how many people will be allowed to reveal it privately using the <code>--revealers</code> argument or how many will be required to pay before it is revealed publicly with the <code>--crowdfund</code> argument.
+Вы также можете управлять количеством людей, которые могут просмотреть сообщение приватно с помощью флага <code>--revealers</code> или тем, сколько человек должны будут оплатить показ с помощью флага <code>--crowdfund</code>.
 
-<code>/hide 100 'three people have paid for this message to be revealed' --crowdfund 3</code>: the message will be revealed publicly once 3 people pay 100 сатoshis.
-<code>/hide 321 'only 3 people can see this message' ~ "you're one among 3 privileged" --revealers 3</code>: the message will be revealed privately to the first 3 people who click.
+<code>/hide 100 'три человека должны заплатить, чтобы увидеть это сообщение' --crowdfund 3</code>: сообщение будет опубликовано, если 3 человека заплатят по 100 сатоши.
+<code>/hide 321 'тольок три человека увидят это сообщение' ~ "вы среди 3 привилегированных человек" --revealers 3</code>: сообщение будет показано приватно только тем 3 людям, которые первыми кликнут на него.
     `,
-	REVEALHELP: `Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.
+	REVEALHELP: `Открывает сообщение, которое было скрыто. Автор скрытого сообщения не будет раскрыт. Как только сообщение скрыто, оно может быть открыто глобально, но только теми, кто знает скрытый id.
 
-A reveal prompt can also be created in a group or chat by clicking the "share" button after you hide the message, then the standard message reveal rules apply, see /help_hide for more info.
+Приглашение к открытию может быть создано в чате или группе нажатием кнопки "Шэрить" после того, как было скрыто сообщение. Затем применяются обычные правила открытия сообщения, смотрите /help_hide для подробной справки.
 
-<code>/reveal 5c0b2rh4x</code> creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
+<code>/reveal 5c0b2rh4x</code> создаёт приглашение открыть скрытое сообщение 5c0b2rh4x, если оно существует.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}} in-place{{else }} privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
-	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} сат needed to unlock.",
-	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.",
-	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You've got {{.Sats}} сат.",
-	HIDDENREVEALMSG:      "{{.Sats}} сат paid to reveal the message <code>{{.Id}}</code>.",
-	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
-	HIDDENMSGNOTFOUND:    "Hidden message not found.",
-	HIDDENSHAREBTN:       "Share in another chat",
+	HIDDENREVEALBUTTON:   `{{.Sats}} открыть {{if .Public}} тут же{{else }} приватно{{end}}. {{if gt .Crowdfund 1}}Краудфандинг: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Допущены публикаторы: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENDEFAULTPREVIEW: "Здесь скрыто сообщение. {{.Sats}} сат нужно, чтобы его открыть.",
+	HIDDENWITHID:         "Сообщение скрыто с id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Будет раскрыто публично один раз {{.Message.Crowdfund}} люди заплатят {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Будет раскрыто приватно {{.Message.Times}} пользователям {{else if .Message.Public}}Будет раскрыто публично как только один человек заплатит {{.Message.Satoshis}}{{else}}Будет раскрыто приватно любому заплатившему {{end}}.",
+	HIDDENSOURCEMSG:      "Скрытое сообщение <code>{{.Id}}</code> было открыто {{.Revealers}}. Вы получили {{.Sats}} сат.",
+	HIDDENREVEALMSG:      "{{.Sats}} сат заплачено для открытия сообщения <code>{{.Id}}</code>.",
+	HIDDENSTOREFAIL:      "Не получилось сохранить скрытый контент. Пожалуйста, сообщите об ошибке: {{.Err}}",
+	HIDDENMSGNOTFOUND:    "Скрытое сообщение не найдено.",
+	HIDDENSHAREBTN:       "Распространить в другом чате",
 
 	APPHELP: `
-You can use the following bots without leaving your bot chat:
+Вы можете использовать следующие боты, не покидая чат с этим ботом:
 
-lightning-poker.com, multiplayer texas hold'em: /help_poker
-microbet.fun, simple sports betting: /help_microbet
-lightning.gifts, lightning vouchers: /help_gifts
-bitflash.club, LN->BTC with batched transactions: /help_bitflash
-golightning.club, BTC->LN cheap service: /help_golightning
-Blockstream Satellite, messages from space: /help_сатellite
+lightning-poker.com, техасский холдем: /help_poker
+microbet.fun, простые ставки на спорт: /help_microbet
+lightning.gifts, Лайтнинг ваучеры: /help_gifts
+bitflash.club, LN->BTC с сгруппированными транзакциями: /help_bitflash
+golightning.club, BTC->LN дешевый сервис конвертации: /help_golightning
+Blockstream Satellite, сообщения из космоса: /help_satellite
     `,
 
-	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
-	BITFLASHTXQUEUED:     "Transaction queued!",
-	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
+	BITFLASHCONFIRM:      `<b>[bitflash]</b> Вы подтверждаете запрос транзакции Bitflash на <b>{{.BTCAmount}} BTC</b> на адрес <code>{{.Address}}</code>? Вы заплатите <b>{{printf "%.0f" .Sats}}</b>.`,
+	BITFLASHTXQUEUED:     "Транзакция поставлена в очередь!",
+	BITFLASHFAILEDTOSAVE: "Ошибка сохранения ордера Bitflash. Пожалуйста, сообщите об ошибке: {{.Err}}",
 	BITFLASHLIST: `
-<b>[bitflash]</b> Your past orders
-{{range .Orders}}🧱 <code>{{.Amount}}</code> to <code>{{.Address}}</code> <i>{{.Status}}</i>
+<b>[bitflash]</b> Ваши прошлые ордеры
+{{range .Orders}}🧱 <code>{{.Amount}}</code> на <code>{{.Address}}</code> <i>{{.Status}}</i>
 {{else}}
-<i>~ no orders were ever made. ~</i>
+<i>~ не было ни одного ордера. ~</i>
 {{end}}
     `,
 	BITFLASHHELP: `
-<a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
+<a href="https://bitflash.club/">Bitflash</a> это сервис, которые осуществляет дешёвые ончейн транзакции при получении платежей Lightning. Он может их делать дёшево, поскольку объединяет несколько транзакций Lightning и затем делает ончейн транзакцию после достижения заданного объёма.
 
-/app_bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared комиссия feature. Will ask for confirmation.
-/app_bitflash_orders</code> lists your previous transactions.
+/app_bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ осуществляет ончейн транзакцию на заданный адрес через bitflash.club общую комиссию. Будет запрошено подтверждение.
+/app_bitflash_orders</code> показывает ваши предыдущие транзакции.
     `,
 
-	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
-	MICROBETINVALIDRESPONSE:     "microbet.fun returned an invalid response.",
-	MICROBETPAIDBUTNOTCONFIRMED: "Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}}</b>.",
-	MICROBETPLACED:              "Bet placed!",
-	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
+	MICROBETBETHEADER:           "<b>[Microbet]</b> Сделайте ставки на одно из этих предсказаний:",
+	MICROBETINVALIDRESPONSE:     "microbet.fun вернул неправильный ответ.",
+	MICROBETPAIDBUTNOTCONFIRMED: "Оплачено, но не подтверждено. Крупная ошибка Microbet?",
+	MICROBETPLACING:             "Помещаем ставку на <b>{{.Bet.Description}}</b>.",
+	MICROBETPLACED:              "Ставка размещена!",
+	MICROBETFAILEDTOPAY:         "Ошибка оплаты ставки.",
 	MICROBETLIST: `
-<b>[Microbet]</b> Your bets
-{{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}canceled{{else if .Closed}}{{if .WonAmount}}won {{.AmountWon}}{{else}}lost {{.AmountLost}}{{end}}{{else}}open{{end}}</i>
+<b>[Microbet]</b> Ваши ставки
+{{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}отменено{{else if .Closed}}{{if .WonAmount}}выигрыш {{.AmountWon}}{{else}}проигрыш {{.AmountLost}}{{end}}{{else}}открыты{{end}}</i>
 {{else}}
-<i>~ no bets were ever made. ~</i>
+<i>~ не было ни одной ставки. ~</i>
 {{end}}
     `,
-	MICROBETBALANCEERROR: "Error fetching Microbet balance: {{.Err}}",
-	MICROBETBALANCE:      "<b>[Microbet]</b> balance: <i>{{.Balance}} сат</i>",
+	MICROBETBALANCEERROR: "Ошибка запроса баланса Microbet: {{.Err}}",
+	MICROBETBALANCE:      "<b>[Microbet]</b> баланс: <i>{{.Balance}} сат</i>",
 	MICROBETHELP: `
-<a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% комиссия on all withdraws.
+<a href="https://microbet.fun/">Microbet</a> это простой сервис, который позволяет ставить на результат спортивных игр. Величина ставки фиксирована и шансы вычисляются с учётом количества ставок. Имеется 1% комиссия на все выводы.
 
-/app_microbet_bet displays all open bet markets so you can yours.
-/app_microbet_bets shows your bet history.
-/app_microbet_balance displays your balance.
-/app_microbet_withdraw withdraws all your balance.
+/app_microbet_bet показывает все открытые ставки, в которых может быть и ваша.
+/app_microbet_bets показывает ваши ставки.
+/app_microbet_balance показывает ваш баланс.
+/app_microbet_withdraw выводит весь ваш баланс.
     `,
 
-	SATELLITEFAILEDTOSTORE:     "Failed to store сатellite order data. Please report: {{.Err}}",
-	SATELLITEFAILEDTOGET:       "Failed to get stored сатellite data: {{.Err}}",
-	SATELLITEPAID:              "Transmission <code>{{.UUID}}</code> paid!",
-	SATELLITEFAILEDTOPAY:       "Failed to pay for transmission.",
-	SATELLITEBUMPERROR:         "Error bumping transmission: {{.Err}}",
-	SATELLITEFAILEDTODELETE:    "Failed to delete сатellite order data. Please report: {{.Err}}",
-	SATELLITEDELETEERROR:       "Error deleting transmission: {{.Err}}",
-	SATELLITEDELETED:           "Transmission deleted.",
-	SATELLITETRANSMISSIONERROR: "Error making transmission: {{.Err}}",
-	SATELLITEQUEUEERROR:        "Error fetching the queue: {{.Err}}",
+	SATELLITEFAILEDTOSTORE:     "Ошибка сохранения заказа на передачу данных. Пожалуйста, сообщите: {{.Err}}",
+	SATELLITEFAILEDTOGET:       "Ошибка запроса сохранённых спутниковых данных: {{.Err}}",
+	SATELLITEPAID:              "Передача <code>{{.UUID}}</code> оплачена!",
+	SATELLITEFAILEDTOPAY:       "Ошибка оплаты передачи.",
+	SATELLITEBUMPERROR:         "Ошибка поднятия приоритета передачи: {{.Err}}",
+	SATELLITEFAILEDTODELETE:    "Ошибка удаления заказа. Пожалуйста, сообщите: {{.Err}}",
+	SATELLITEDELETEERROR:       "Ошибка удаления передачи: {{.Err}}",
+	SATELLITEDELETED:           "Передача удалена.",
+	SATELLITETRANSMISSIONERROR: "Ошибка создания передачи: {{.Err}}",
+	SATELLITEQUEUEERROR:        "Ошибка запроса очереди: {{.Err}}",
 	SATELLITEQUEUE: `
-<b>[Satellite]</b> Queued transmissions
+<b>[Satellite]</b> Запрошенные передачи
 {{range .Orders}}{{.}}
 {{else}}
-<i>Queue is empty, everything was already transmitted.</i>
+<i>Очередь пуста, всё было передано.</i>
 {{end}}
     `,
 	SATELLITELIST: `
-<b>[Satellite]</b> Your transmissions
+<b>[Satellite]</b> Ваши спутниковые передачи
 {{range .Orders}}{{.}}
 {{else}}
-<i>Нет transmissions made yet.</i>
+<i>Не было спутниковых сообщений.</i>
 {{end}}
     `,
 	SATELLITEHELP: `
-The <a href="https://blockstream.com/сатellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some сатoshis.
+<a href="https://blockstream.com/сатellite/">Blockstream Satellite</a> это сервис, который вещает блоки Bitcoin и другие данные по всему миру. Вы можете передать любые сообщения, заплатив за них сатоши.
 
-<code>/app сатellite 13 'hello from the сатellite! vote trump!'</code> queues that transmission to the сатellite with a bid of 13 сатoshis.
-/app_сатellite_transmissions lists your transmissions.
+<code>/app сатellite 13 'привет со спутника! голосуйте за трампа!'</code> запрашивает передачу через спутник со ставкой 13 сатоши.
+/app_сатellite_transmissions показывает ваши передачи.
     `,
 
-	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
-	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
+	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Ошибка создания ордера: {{.Err}}",
+	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Завершите свой ордер отправкой <code>{{.Order.Price}} BTC</code> на <code>{{.Order.Address}}</code>.",
 	GOLIGHTNINGHELP: `
-<a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 сатoshi per order. First you specify how much you want to receive, then you send money plus комиссияs to the provided BTC address. Done.
+<a href="https://golightning.club/">GoLightning.club</a> это самый дешёвый путь к получению ончейн средств из Lightning сети, всего за 99 сатоши за ордер. В первую очередь вы указываете, сколько вы хотите получить, затем вы отправляете деньги плюс комиссия провайдеру адреса BTC. Готово.
 
-/app_golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+/app_golightning_1000000 создаёт ордер для перевода 0.01000000 BTC с ончейн адреса на баланс бота.
     `,
 
 	GIFTSHELP: `
-<a href="https://lightning.gifts/">Lightning Gifts</a> is the best way to send сатoshis as gifts to people. A simple service, a simple URL, no vendor lock-in and <b>no комиссияs</b>.
+<a href="https://lightning.gifts/">Lightning Gifts</a> это лучший способ отослать сатоши в качестве подарка. Простой сервис, простая ссылка URL, нет блокировки средств <b>нет комиссии</b>.
 
-/app_gifts_1000 creates a gift voucher of 1000 сатoshis.
+/app_gifts_1000 создаёт ваучер на 1000 сатоши.
     `,
-	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
-	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem just visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
-	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
+	GIFTSERROR:      "<b>[gifts]</b> Ошибка: {{.Err}}",
+	GIFTSCREATED:    "<b>[gifts]</b> Подарок создан. Для получения просто пройдите по ссылке <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
+	GIFTSFAILEDSAVE: "<b>[gifts]</b> Ошибка сохранения вашего подарка. Пожалуйста, сообщите: {{.Err}}",
 	GIFTSLIST: `
 <b>gifts</b>
-{{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}сат</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
+{{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}сат</a> {{if .Spent}}затребовано <i>{{.WithdrawDate}}</i> пользователем {{.RedeemerURL}}{{else}}ещё не затребовано{{end}}
 {{else}}
-<i>~ no gifts were ever given. ~</i>
+<i>~ никаких подарков ещё не было сделано. ~</i>
 {{end}}
     `,
 
-	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
-	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
-	POKERBALANCEERROR: "<b>[Poker]</b> Error fetching balance: {{.Err}}",
-	POKERSECRETURL:    `<a href="{{.URL}}">Your personal secret Poker URL is here, never share it with anyone.</a>`,
-	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
+	POKERDEPOSITFAIL:  "<b>[Poker]</b> Ошибка депозита: {{.Err}}",
+	POKERWITHDRAWFAIL: "<b>[Poker]</b> Ошибка вывода: {{.Err}}",
+	POKERBALANCEERROR: "<b>[Poker]</b> Ошибка запроса баланса: {{.Err}}",
+	POKERSECRETURL:    `<a href="{{.URL}}">Ваша персональная секретная ссылка на покер здесь, никогда не разглашайте её.</a>`,
+	POKERBALANCE:      "<b>[Poker]</b> Баланс: {{.Balance}}",
 	POKERSTATUS: `
 <b>[Poker]</b>
-Players online: {{.Players}}
-Active Tables: {{.Tables}}
-Satoshis in play: {{.Chips}}
+Игроков онлайн: {{.Players}}
+Активных столов: {{.Tables}}
+Сатоши в игре: {{.Chips}}
 
-/app_poker_play to play here!
-/app_poker_url to play in a browser window!
+/app_poker_play чтобы играть здесь!
+/app_poker_url чтобы играть в окне браузера!
     `,
 	POKERNOTIFY: `
-<b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
+<b>[Poker]</b> Играют {{.Playing}} человек {{if ne .Waiting 0}}и {{.Waiting}} ожидают игры {{end}}в покер прямо сейчас{{if ne .Sats 0}} , всего {{.Sats}} сатоши в игре{{end}}!
 
-/app_poker_status to double-check!
-/app_poker_play to play here!
-/app_poker_url to play in a browser window!
+/app_poker_status для двойной проверки!
+/app_poker_play играть здесь!
+/app_poker_url играть в окне браузера!
     `,
-	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
-	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live Нет-Limit Texas Hold'em Poker game played directly with сатoshis. Just join a table and start staking сатs.
+	POKERSUBSCRIBED: "Вы можете играть в покер в течение следующих {{.Minutes}} минут.",
+	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> первый и простейший No-Limit техасский Холдем Покер, разыгрываемый прямо с использованием сатоши. Просто присоединитесь к столу и начните копить сатоши.
 
-By playing from an account tied to your bot balance you can just sit on a table and your poker balance will be automatically refilled from your bot account, with minimal friction.
+Играя с аккаунта, привязанного к балансу бота вы можете просто сесть за стол и ваш покерный аккаунт будет пополнен с баланса бота, с минимальными заботами.
 
-/app_poker_deposit_10000 puts 10000 сатoshis in your poker bag.
-/app_poker_balance shows how much you have there.
-/app_poker_withdraw brings all the money back to the bot balance.
-/app_poker_status tells you how active are the poker tables right now.
-/app_poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
-/app_poker_play displays the game widget.
-/app_poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing.
-    `,
-
-	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
-
-<code>/toggle ticket 10</code> starts charging a комиссия for all new entrants. Useful as an antispam measure. The money goes to the group owner.
-<code>/toggle ticket</code> stops charging new entrants a комиссия. 
-<code>/toggle spammy</code>: 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
+/app_poker_deposit_10000 кладёт 10000 сатоши в ваш стейк.
+/app_poker_balance показывает сколько у вас есть на аккаунте покера.
+/app_poker_withdraw возвращает все деньги обратно на баланс бота.
+/app_poker_status показывает активность покерных столов прямо сейчас.
+/app_poker_url показывает ваш <b>секретный</b> URL, который вы можете открыть из любого браузера и даёт доступ к вашему балансу.
+/app_poker_play показывает виджет игры.
+/app_poker_watch_120 поместит вас в состояние подписки на игры в течение 2 часов и оповестит остальных подписанных людей о том, что вы хотите играть. Вы будете оповещены если кто-то захочет играть.
     `,
 
-	HELPHELP: "Shows full help or help about specific command.",
+	TOGGLEHELP: `Включает/выключает функции бота в группах. В супергруппах команда может быть запущена только администраторами.
 
-	STOPHELP: "The bot stops showing you notifications.",
+<code>/toggle ticket 10</code> начинает брать комиссию для всех новых пользователей. Полезная функция антиспама. Деньги идут владельцу группы.
+<code>/toggle ticket</code> перестаёт брать комиссию с новых участников. 
+<code>/toggle spammy</code>: 'спамная' функция выключена по умолчанию. Когда она включена, нотификации о tip командах будут отсылаться в чат, вместо того, чтобы обрабатываться приватно.
+    `,
+
+	HELPHELP: "Показывает полную справку или справку о конкретной команде.",
+
+	STOPHELP: "Бот перестаёт отсылать оповещения.",
 
 	CONFIRMINVOICE: `
 {{.Sats}} сат ({{.USD}})
 <i>{{.Desc}}</i>
-<b>Hash</b>: {{.Hash}}
-<b>Нетde</b>: {{.Нетde}} ({{.Alias}})
+<b>Хэш</b>: {{.Hash}}
+<b>Узел</b>: {{.Node}} ({{.Alias}})
     `,
-	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
-	NOINVOICE:    "Invoice not provided.",
+	FAILEDDECODE: "Ошибка декодирования счёта: {{.Err}}",
+	NOINVOICE:    "Счёт не был получен.",
 	BALANCEMSG: `
-<b>Balance</b>: {{printf "%.3f" .Sats}} сат ({{.USD}})
-<b>Total received</b>: {{printf "%.3f" .Received}} сат
-<b>Total sent</b>: {{printf "%.3f" .Sent}} сат
-<b>Total комиссияs paid</b>: {{printf "%.3f" .Fees}} сат
+<b>Баланс</b>: {{printf "%.3f" .Sats}} сат ({{.USD}})
+<b>Всего получено</b>: {{printf "%.3f" .Received}} сат
+<b>Всего отправлено</b>: {{printf "%.3f" .Sent}} сат
+<b>Всего комиссияs paid</b>: {{printf "%.3f" .Fees}} сат
     `,
-	// {{if ne .CoinflipBalance 0}}<b>Coinflip balance</b>: {{.CoinflipBalance}} сат ({{.CoinflipWins}} won, {{.CoinflipLoses}} lost)
+	// {{if ne .CoinflipBalance 0}}<b>Баланс Монетки</b>: {{.CoinflipBalance}} сат ({{.CoinflipWins}} выиграно, {{.CoinflipLoses}} проигрыш)
 	// {{end}}
 	//     `,
-	FAILEDUSER: "Failed to parse receiver name.",
+	FAILEDUSER: "Не могу распознать получателя.",
 	LOTTERYMSG: `
-A lottery round is starting!
-Entry комиссия: {{.EntrySats}} сат
-Total participants: {{.Participants}}
-Prize: {{.Prize}}
-Registered: {{.Registered}}
+Раунд лотереи стартовал!
+Билет на вход: {{.EntrySats}} сат
+Всего участников: {{.Participants}}
+Приз: {{.Prize}}
+Зарегистрировано: {{.Registered}}
     `,
-	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
-	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
-	USERSENTTOUSER:     "{{.Sats}} сат sent to {{.User}}{{if .ReceiverHasНетChat}} (couldn't notify {{.User}} as they haven't started a converсатion with the bot){{end}}",
-	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} сат{{if .BotOp}} on a {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} сат.",
-	FAILEDSEND:         "Failed to send: ",
-	QRCODEFAIL:         "QR code reading unsuccessful: {{.Err}}",
-	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
-	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
-	GIVERCANTJOIN:      "Giver can't join!",
-	CANTJOINTWICE:      "Can't join twice!",
-	CANTCANCEL:         "You don't have the powers to cancel this.",
-	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
-	ZEROAMOUNTINVOICE:  "Invoices with undefined amounts are not supported because they are not safe.",
-	INVALIDAMT:         "Invalid amount: {{.Amount}}",
-	STOPNOTIFY:         "Нетtifications stopped.",
-	WELCOME:            "Your account is created.",
-	WRONGCOMMAND:       "Could not understand the command. /help",
-	RETRACTQUESTION:    "Retract unclaimed tip?",
-	RECHECKPENDING:     "Recheck pending payment?",
-	TXNOTFOUND:         "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+	INVALIDPARTNUMBER:  "Неверное количество участников: {{.Number}}",
+	INVALIDAMOUNT:      "Неверное количество: {{.Amount}}",
+	USERSENTTOUSER:     "{{.Sats}} сат отправлено {{.User}}{{if .ReceiverHasНетChat}} (не могу уведомить {{.User}} так как он не начал диалога с ботом{{end}}",
+	USERSENTYOUSATS:    "{{.User}} отправил вам {{.Sats}} сат{{if .BotOp}} в ходе {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:   "Кто-то отослал вам {{.Sats}} сат.",
+	FAILEDSEND:         "Ошибка отправки: ",
+	QRCODEFAIL:         "QR код не был прочитан: {{.Err}}",
+	SAVERECEIVERFAIL:   "Ошибка сохранения получателя. Это вероятно баг.",
+	CANTSENDNORECEIVER: "Не могу отправить {{.Sats}}. Не хватает получателя!",
+	GIVERCANTJOIN:      "Даритель не может присоединиться!",
+	CANTJOINTWICE:      "Нельзя участвовать снова!",
+	CANTCANCEL:         "У вас нет возможности отменить это.",
+	FAILEDINVOICE:      "Ошибка генерации счёта: {{.Err}}",
+	ZEROAMOUNTINVOICE:  "Счета с неопределёнными количествами не поддерживаются поскольку они не являются безопасными.",
+	INVALIDAMT:         "Неверное количество: {{.Amount}}",
+	STOPNOTIFY:         "Оповещения выключены.",
+	WELCOME:            "Ваш аккаунт создан.",
+	WRONGCOMMAND:       "Не могу понять команду. /help",
+	RETRACTQUESTION:    "Вернуть не затребованное поощрение?",
+	RECHECKPENDING:     "Перепроверить платёж в обработке?",
+	TXNOTFOUND:         "Не могу найти транзакцию {{.HashFirstChars}}.",
+	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} в {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤 не затребовано){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
-{{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
-<b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
-<b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Amount</b>: {{.Txn.Amount}} сат
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
+{{if .Txn.Payee.Valid}}<b>Оплатил</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
+<b>Хэш</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
+<b>Преимадж</b>: {{.Txn.Preimage.String}}{{end}}
+<b>Количество</b>: {{.Txn.Amount}} сат
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия уплачена</b>: {{.Txn.FeeSatoshis}}{{end}}
 {{.LogInfo}}
     `,
-	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
+	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>
 {{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
 {{else}}
-<i>Нет transactions made yet.</i>
+<i>Ещё нет ни одной транзакции</i>
 {{end}}
     `,
 }
