@@ -55,9 +55,11 @@ func handleLNURLReceive(u User, lnurl string, messageId int) {
 	bolt11, _, _, err := u.makeInvoice(int(withdrawres.MaxWithdrawable/1000), withdrawres.DefaultDescription,
 		"", nil, messageId, "", true)
 	if err != nil {
+		u.notify(t.LNURLFAIL, t.T{"Err": err.Error()})
 		return
 	}
 
+	log.Debug().Str("bolt11", bolt11).Str("k1", withdrawres.K1).Msg("sending invoice to lnurl callback")
 	var sentinvres LNURLResponse
 	_, err = napping.Get(withdrawres.Callback, &url.Values{
 		"k1": {withdrawres.K1},

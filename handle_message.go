@@ -224,6 +224,7 @@ parsed:
 					sats, _ = strconv.Atoi(asats[0])
 					goto gotusername
 				}
+				err = nil
 			}
 			defaultNotify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
