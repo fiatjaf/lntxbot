@@ -20,7 +20,7 @@ type LNURLWithdrawResponse struct {
 	Callback           string `json:"callback"`
 	K1                 string `json:"k1"`
 	MaxWithdrawable    int64  `json:"maxWithdrawable"`
-	AmountIsFixed      bool   `json:"amountIsFixed"`
+	MinWithdrawable    int64  `json:"minWithdrawable"`
 	DefaultDescription string `json:"defaultDescription"`
 	Tag                string `json:"tag"`
 	LNURLResponse
@@ -128,12 +128,17 @@ func serveLNURL() {
 			return
 		}
 
-		fixed := false
+		// the existence of a "max" parameter means this lnurl withdraw is limited
+		// and can be executed without user confirmation.
 		max32, _ := strconv.Atoi(qs.Get("max"))
 		max := int64(max32)
-		maxmsats := max * 1000
+
+		// these are only used in the lnurl 1st response which can be used by wallets but don't matter much
+		var minmsats int64 = 1000
+		var maxmsats int64 = max * 1000
+
 		if max > 0 {
-			fixed = true
+			minmsats = maxmsats // means it's fixed.
 
 			// if max is set we must check the challenge as it means the withdraw will be made
 			// without conf and we don't want people with invalid challenges draining our money
@@ -181,7 +186,7 @@ func serveLNURL() {
 			Callback:           fmt.Sprintf("%s/lnurl/withdraw/invoice/%d/%d/%s", s.ServiceURL, u.Id, max32, messageIdstr),
 			K1:                 challenge,
 			MaxWithdrawable:    maxmsats,
-			AmountIsFixed:      fixed,
+			MinWithdrawable:    minmsats,
 			DefaultDescription: fmt.Sprintf("%s lnurl withdraw @%s", u.AtName(), s.ServiceId),
 			Tag:                "withdrawRequest",
 			LNURLResponse:      LNURLResponse{Status: "OK"},
