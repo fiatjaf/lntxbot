@@ -220,7 +220,7 @@ func renderLogInfo(hash string) (logInfo string) {
 				inode, _ := data["erring_node"]
 				channel, _ := ichannel.(string)
 				node, _ := inode.(string)
-				logInfo += fmt.Sprintf("<b>Erring:</b> %s, %s", channel, nodeLink(node))
+				logInfo += fmt.Sprintf("<b>Erring:</b> %s, %s", channelLink(channel), nodeLink(node))
 			}
 		}
 	}

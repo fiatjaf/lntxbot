@@ -190,8 +190,12 @@ begin:
 }
 
 func nodeLink(nodeId string) string {
-	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
+	return fmt.Sprintf(`<a href="https://ln.alhur.es/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
+}
+
+func channelLink(scid string) string {
+	return fmt.Sprintf(`<a href="https://ln.alhur.es/node/%s">%s</a>`, scid, scid)
 }
 
 func getDollarPrice(msats int64) string {
