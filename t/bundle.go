@@ -1,8 +1,6 @@
 package t
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 	"text/template"
 )
@@ -36,25 +34,18 @@ func (bundle *Bundle) AddLanguage(lang string, translations map[Key]string) erro
 	return nil
 }
 
-func (bundle *Bundle) Check() error {
+func (bundle *Bundle) Check() (missing map[string][]Key) {
+	missing = make(map[string][]Key)
 	for requiredKey, _ := range bundle.translations[bundle.defaultLanguage] {
 		for lang, translations := range bundle.translations {
-			ok := false
-			for translationKey, _ := range translations {
-				if requiredKey == translationKey {
-					ok = true
-				}
-			}
-
-			if !ok {
-				return errors.New(
-					fmt.Sprintf("Couldn't find required translation key `%s` at language %s",
-						requiredKey, lang))
+			_, exists := translations[requiredKey]
+			if !exists {
+				missing[lang] = append(missing[lang], requiredKey)
 			}
 		}
 	}
 
-	return nil
+	return
 }
 
 func (bundle *Bundle) Render(lang string, key Key, data interface{}) (string, error) {
