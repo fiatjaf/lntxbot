@@ -57,7 +57,7 @@ func main() {
 
 	bundle, err = createLocalizerBundle()
 	if err != nil {
-		log.Fatal().Err(err).Msg("error initialising localization")
+		log.Fatal().Err(err).Msg("error initializing localization")
 	}
 
 	setupCommands()
@@ -198,6 +198,11 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle = t.NewBundle("en")
 
 	err := bundle.AddLanguage("en", t.EN)
+	if err != nil {
+		return bundle, err
+	}
+
+	err = bundle.AddLanguage("ru", t.RU)
 	if err != nil {
 		return bundle, err
 	}
