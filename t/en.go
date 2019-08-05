@@ -199,8 +199,8 @@ Blockstream Satellite, messages from space: /help_satellite
 	BITFLASHHELP: `
 <a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
 
-/app_bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
-/app_bitflash_orders</code> lists your previous transactions.
+/bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
+/bitflash_orders</code> lists your previous transactions.
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
@@ -221,10 +221,10 @@ Blockstream Satellite, messages from space: /help_satellite
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
-/app_microbet_bet displays all open bet markets so you can yours.
-/app_microbet_bets shows your bet history.
-/app_microbet_balance displays your balance.
-/app_microbet_withdraw withdraws all your balance.
+/microbet_bet displays all open bet markets so you can yours.
+/microbet_bets shows your bet history.
+/microbet_balance displays your balance.
+/microbet_withdraw withdraws all your balance.
     `,
 
 	SATELLITEFAILEDTOSTORE:     "Failed to store satellite order data. Please report: {{.Err}}",
@@ -255,7 +255,7 @@ Blockstream Satellite, messages from space: /help_satellite
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
 <code>/app satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
-/app_satellite_transmissions lists your transmissions.
+/satellite_transmissions lists your transmissions.
     `,
 
 	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
@@ -293,28 +293,28 @@ Players online: {{.Players}}
 Active Tables: {{.Tables}}
 Satoshis in play: {{.Chips}}
 
-/app_poker_play to play here!
-/app_poker_url to play in a browser window!
+/poker_play to play here!
+/poker_url to play in a browser window!
     `,
 	POKERNOTIFY: `
 <b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
 
-/app_poker_status to double-check!
-/app_poker_play to play here!
-/app_poker_url to play in a browser window!
+/poker_status to double-check!
+/poker_play to play here!
+/poker_url to play in a browser window!
     `,
 	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
 	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
 
 By playing from an account tied to your bot balance you can just sit on a table and your poker balance will be automatically refilled from your bot account, with minimal friction.
 
-/app_poker_deposit_10000 puts 10000 satoshis in your poker bag.
-/app_poker_balance shows how much you have there.
-/app_poker_withdraw brings all the money back to the bot balance.
-/app_poker_status tells you how active are the poker tables right now.
-/app_poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
-/app_poker_play displays the game widget.
-/app_poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game you'll be unsubscribed.
+/poker_deposit_10000 puts 10000 satoshis in your poker bag.
+/poker_balance shows how much you have there.
+/poker_withdraw brings all the money back to the bot balance.
+/poker_status tells you how active are the poker tables right now.
+/poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
+/poker_play displays the game widget.
+/poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game you'll be unsubscribed.
     `,
 
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
