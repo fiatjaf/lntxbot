@@ -150,7 +150,8 @@ parsed:
 	case opts["app"].(bool),
 		opts["microbet"].(bool), opts["bitflash"].(bool),
 		opts["golightning"].(bool), opts["poker"].(bool),
-		opts["satellite"].(bool), opts["gifts"].(bool):
+		opts["satellite"].(bool), opts["gifts"].(bool),
+		opts["paywall"].(bool):
 		handleExternalApp(u, opts, message.MessageID)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):

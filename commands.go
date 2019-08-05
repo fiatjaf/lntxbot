@@ -103,6 +103,10 @@ var methods = []def{
 		argstr:  "(list | [<satoshis>])",
 	},
 	def{
+		aliases: []string{"paywall", "app paywall"},
+		argstr:  "[list | <satoshis> <url> <memo>... | balance | withdraw]",
+	},
+	def{
 		aliases:        []string{"poker", "app poker"},
 		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
 		inline:         true,

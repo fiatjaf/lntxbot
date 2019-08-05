@@ -263,22 +263,32 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	GOLIGHTNINGHELP: `
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
-/app_golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+/golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
 	GIFTSHELP: `
 <a href="https://lightning.gifts/">Lightning Gifts</a> is the best way to send satoshis as gifts to people. A simple service, a simple URL, no vendor lock-in and <b>no fees</b>.
 
-/app_gifts_1000 creates a gift voucher of 1000 satoshis.
+/gifts_1000 creates a gift voucher of 1000 satoshis.
     `,
 	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
-	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem just visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
+	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
 	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
 	GIFTSLIST: `
-<b>gifts</b>
+<b>[gifts]</b>
 {{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
 {{else}}
 <i>~ no gifts were ever given. ~</i>
+{{end}}
+    `,
+
+	PAYWALLERROR:   "<b>paywall</b> Error: {{.Err}}",
+	PAYWALLBALANCE: "<b>paywall</b> Balance: <i>{{.Balance}} sat</i>",
+	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to?id={{.Link.ShortURL}}"</code>: <i>{{.Link.Memo}}</i>`,
+	PAYWALLLISTLINKS: `<b>paywall</b>
+{{range .Links}}- <code>{{.LndValue}}</code> <a href="https://paywall.link/to?id={{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
+{{else}}
+<i>~ no paywalls were ever erected. ~</i>
 {{end}}
     `,
 
