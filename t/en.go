@@ -291,7 +291,7 @@ By generating your gifts on @{{ .BotName }} you can keep track of the ones that 
 By generating your paywalls on @{{ .BotName }} you can keep track of them all without leaving Telegram and get information on how much of each you've sold.
 
 /paywall will list all your paywalls.
-<code>/paywall 230 https://mysite.com/secret-content 'access my secret content'</code> will create a paywall for a secret content with a price of 230 satoshis.
+<code>/paywall https://mysite.com/secret-content 230 'access my secret content'</code> will create a paywall for a secret content with a price of 230 satoshis.
 /paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
 /paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
     `,

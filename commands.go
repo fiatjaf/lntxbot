@@ -104,7 +104,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"paywall", "app paywall"},
-		argstr:  "[list | <satoshis> <url> <memo>... | balance | withdraw]",
+		argstr:  "[list | <url> <satoshis> <memo>... | balance | withdraw]",
 	},
 	def{
 		aliases:        []string{"poker", "app poker"},
