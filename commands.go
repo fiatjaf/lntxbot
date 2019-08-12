@@ -20,7 +20,7 @@ func (d def) help(lang string) string {
 	if _, ok := t.EN[key]; !ok {
 		return ""
 	}
-	return translate(key, lang)
+	return translateTemplate(key, lang, t.T{"BotName": s.ServiceId})
 }
 
 var methods = []def{

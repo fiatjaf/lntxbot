@@ -69,7 +69,7 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 
 	// the "any" is here only for illustrative purposes. if you call this with 'any' it will
 	// actually be assigned to the <satoshis> variable, and that's how the code handles it.
-	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
+	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your @{{ .BotName }} balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 
 <code>/receive_320_for_something</code> generates an invoice for 320 sat with the description "for something"
 <code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, you might lose money, only use if you know what you're doing).
@@ -80,11 +80,11 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> decodes and prompts to pay the given invoice.  
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> pays the given invoice invoice without asking for confirmation.
 /withdraw_lnurl_3000 generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
-/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the bot chat.
+/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the @{{ .BotName }} chat.
 <code>/pay</code>, when sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
     `,
 
-	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
+	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with @{{ .BotName }}. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
 
 <code>/tip 100</code>, when sent as a reply to a message in a group where the bot is added, sends 100 satoshis to the author of the message.
 <code>/send 500 @username</code> sends 500 satoshis to Telegram user @username.
@@ -269,6 +269,9 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	GIFTSHELP: `
 <a href="https://lightning.gifts/">Lightning Gifts</a> is the best way to send satoshis as gifts to people. A simple service, a simple URL, no vendor lock-in and <b>no fees</b>.
 
+By generating your gifts on @{{ .BotName }} you can keep track of the ones that were redeemed and the ones that weren't.
+
+/gifts lists the gifts you've created.
 /gifts_1000 creates a gift voucher of 1000 satoshis.
     `,
 	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
@@ -282,6 +285,16 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 {{end}}
     `,
 
+	PAYWALLHELP: `
+<a href="https://paywall.link/">paywall.link</a> is a Paywall Generator. It allows you to sell digital goods (files, articles, music, videos, any form of content that can be published on the open web) by simply wrapping their URLs in a paywall.
+
+By generating your paywalls on @{{ .BotName }} you can keep track of them all without leaving Telegram and get information on how much of each you've sold.
+
+/paywall will list all your paywalls.
+<code>/paywall 230 https://mysite.com/secret-content 'access my secret content'</code> will create a paywall for a secret content with a price of 230 satoshis.
+/paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
+/paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
+    `,
 	PAYWALLERROR:   "<b>paywall</b> Error: {{.Err}}",
 	PAYWALLBALANCE: "<b>paywall</b> Balance: <i>{{.Balance}} sat</i>",
 	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}"</code>: <i>{{.Link.Memo}}</i>`,
@@ -316,7 +329,7 @@ Satoshis in play: {{.Chips}}
 	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
 	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
 
-By playing from an account tied to your bot balance you can just sit on a table and your poker balance will be automatically refilled from your bot account, with minimal friction.
+By playing from an account tied to your @{{ .BotName }} balance you can just sit on a table and your poker balance will be automatically refilled from your @{{ .BotName }} account, with minimal friction.
 
 /poker_deposit_10000 puts 10000 satoshis in your poker bag.
 /poker_balance shows how much you have there.
@@ -329,9 +342,9 @@ By playing from an account tied to your bot balance you can just sit on a table 
 
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
 
-<code>/toggle ticket 10</code> starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
-<code>/toggle ticket</code> stops charging new entrants a fee. 
-<code>/toggle spammy</code>: 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
+/toggle_ticket_10 starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
+/toggle_ticket stops charging new entrants a fee. 
+/toggle_spammy toggles 'spammy' mode. 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
 
 	HELPHELP: "Shows full help or help about specific command.",
