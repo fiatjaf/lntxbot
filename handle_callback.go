@@ -11,6 +11,7 @@ import (
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/kr/pretty"
 )
 
 func handleCallback(cb *tgbotapi.CallbackQuery) {
@@ -533,6 +534,11 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		revealer := u
 
+		log.Print("REVEAL")
+		pretty.Log(hiddenmessage)
+		log.Print("source", sourceUserId)
+		log.Print("revealer ", u.Id)
+
 		// cache reveal so we know who has paid to reveal this for now
 		revealerIds, totalrevealers, err := func() (revealerIds []int, totalrevealers int, err error) {
 			revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
@@ -574,6 +580,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
+		pretty.Log("revealers ", revealerIds, totalrevealers)
 		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
 			// participants has been reached. before that we will just update the message in-place.
@@ -585,7 +592,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				ParseMode:             "HTML",
 				DisableWebPagePreview: true,
 			})
-			break
+			return
 		}
 
 		// send the satoshis.

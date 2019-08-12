@@ -284,11 +284,11 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 
 	PAYWALLERROR:   "<b>paywall</b> Error: {{.Err}}",
 	PAYWALLBALANCE: "<b>paywall</b> Balance: <i>{{.Balance}} sat</i>",
-	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to?id={{.Link.ShortURL}}"</code>: <i>{{.Link.Memo}}</i>`,
+	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}"</code>: <i>{{.Link.Memo}}</i>`,
 	PAYWALLLISTLINKS: `<b>paywall</b>
 {{range .Links}}- <code>{{.LndValue}}</code> <a href="https://paywall.link/to?id={{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
 {{else}}
-<i>~ no paywalls were ever erected. ~</i>
+<i>~ no paywalls were ever built. ~</i>
 {{end}}
     `,
 

@@ -352,9 +352,8 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 			}
 		default:
 			// create paywall link or fallback to list paywalls
-			if iurl, ok := opts["<url>"]; ok {
+			if url, ok := opts["<url>"].(string); ok {
 				// create
-				url := iurl.(string)
 				sats, err := opts.Int("<satoshis>")
 				if err != nil {
 					u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})

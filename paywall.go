@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -13,22 +15,22 @@ type PaywallData struct {
 type PaywallUser struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	Balance  int    `json:"balance"`
-	AuthKey  string `json:"auth_key"`
+	Balance  int    `json:"balance,omitempty"`
+	AuthKey  string `json:"auth_key,omitempty"`
 }
 
 type PaywallWithdraw struct {
-	Id             int64  `json:"id"`
+	Id             int64  `json:"id,omitempty"`
 	PaymentRequest string `json:"payment_request"`
 }
 
 type PaywallLink struct {
-	Id             int64  `json:"id"`
-	CreatedAt      int64  `json:"created_at"`
+	Id             int64  `json:"id,omitempty"`
+	CreatedAt      int64  `json:"created_at,omitempty"`
 	DestinationURL string `json:"destination_url"`
 	LndValue       int    `json:"lnd_value"`
-	Expires        int64  `json:"expires"`
-	ShortURL       string `json:"short_url"`
+	Expires        int64  `json:"expires,omitempty"`
+	ShortURL       string `json:"short_url,omitempty"`
 	Memo           string `json:"memo"`
 }
 
@@ -41,7 +43,16 @@ type PaywallError struct {
 }
 
 func (perr PaywallError) Error() string {
-	return "paywall.link error: " + perr.Name + ", " + perr.Message
+	return "paywall.link error " + perr.Type + " (" + strconv.Itoa(perr.Code) + "): " +
+		perr.Name + ", " + perr.Message
+}
+
+var paywallClient = napping.Session{
+	Client: http.DefaultClient,
+	Header: &http.Header{
+		"Content-Type": {"application/json"},
+		"Accept":       {"application/json"},
+	},
 }
 
 func getPaywallKey(user User) (key string, err error) {
@@ -61,7 +72,7 @@ func getPaywallKey(user User) (key string, err error) {
 		Password: calculateHash(fmt.Sprintf("%d~%s", user.Id, s.BotToken)),
 	}
 	var perr PaywallError
-	resp, err := napping.Post("https://paywall.link/v1/user?access-token="+s.PaywallLinkKey, user, &user, &perr)
+	resp, err := paywallClient.Post("https://paywall.link/v1/user?access-token="+s.PaywallLinkKey, puser, &puser, &perr)
 	if err != nil {
 		return
 	}
@@ -84,7 +95,7 @@ func getPaywallBalance(user User) (sats int, err error) {
 
 	var perr PaywallError
 	var puser PaywallUser
-	resp, err := napping.Get("https://paywall.link/v1/user?access-token="+key, nil, &user, &perr)
+	resp, err := paywallClient.Get("https://paywall.link/v1/user?access-token="+key, nil, &puser, &perr)
 	if err != nil {
 		return
 	}
@@ -103,7 +114,7 @@ func listPaywallLinks(user User) (links []PaywallLink, err error) {
 	}
 
 	var perr PaywallError
-	resp, err := napping.Get("https://paywall.link/v1/user/paywalls?access-token="+key, nil, &links, &perr)
+	resp, err := paywallClient.Get("https://paywall.link/v1/user/paywalls?access-token="+key, nil, &links, &perr)
 	if err != nil {
 		return
 	}
@@ -137,7 +148,7 @@ func withdrawPaywall(user User) (err error) {
 
 	withdrawal := PaywallWithdraw{PaymentRequest: bolt11}
 	var perr PaywallError
-	resp, err := napping.Post("https://paywall.link/v1/user/send?access-token="+key, withdrawal, &withdrawal, &perr)
+	resp, err := paywallClient.Post("https://paywall.link/v1/user/send?access-token="+key, withdrawal, &withdrawal, &perr)
 	if err != nil {
 		return
 	}
@@ -161,7 +172,7 @@ func createPaywallLink(user User, sats int, url, memo string) (link PaywallLink,
 		LndValue:       sats,
 	}
 	var perr PaywallError
-	resp, err := napping.Post("https://paywall.link/v1/user/paywalls?access-token="+key, link, &link, &perr)
+	resp, err := paywallClient.Post("https://paywall.link/v1/user/paywall?access-token="+key, link, &link, &perr)
 	if err != nil {
 		return
 	}
