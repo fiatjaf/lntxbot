@@ -709,6 +709,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				payment.Get("msatoshi").Float(),
 				payment.Get("msatoshi_sent").Float(),
 				payment.Get("payment_preimage").String(),
+				"",
 				payment.Get("payment_hash").String(),
 			)
 		}(u, txn.TriggerMessage, txn.Hash)

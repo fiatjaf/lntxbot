@@ -35,7 +35,8 @@ CREATE TABLE lightning.transaction (
   pending boolean NOT NULL DEFAULT false,
   trigger_message int NOT NULL DEFAULT 0,
   remote_node text,
-  anonymous boolean NOT NULL DEFAULT false
+  anonymous boolean NOT NULL DEFAULT false,
+  tag text
 );
 
 CREATE INDEX ON lightning.transaction (from_id);

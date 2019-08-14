@@ -53,7 +53,7 @@ func handleLNURLReceive(u User, lnurl string, messageId int) {
 
 	log.Debug().Interface("data", withdrawres).Msg("making invoice for lnurl server")
 	bolt11, _, _, err := u.makeInvoice(int(withdrawres.MaxWithdrawable/1000), withdrawres.DefaultDescription,
-		"", nil, messageId, "", true)
+		"", nil, messageId, "", "", true)
 	if err != nil {
 		u.notify(t.LNURLFAIL, t.T{"Err": err.Error()})
 		return

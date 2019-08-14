@@ -77,10 +77,11 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
+			tag string,
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
+			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "poker", hash)
 		},
 		func(
 			u User,
@@ -114,7 +115,8 @@ func getPokerBalance(user User) (int, error) {
 }
 
 func withdrawPoker(user User, sats int, messageId int) (err error) {
-	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from lightning-poker.com", "", nil, messageId, "", true)
+	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from lightning-poker.com",
+		"", nil, messageId, "", "poker", true)
 	if err != nil {
 		return
 	}

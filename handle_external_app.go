@@ -67,7 +67,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 
 				inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
 					tgbotapi.NewInlineKeyboardButtonURL(
-						fmt.Sprintf("%s (%d sat)", gamename, bet.Amount),
+						fmt.Sprintf("(%d) %s", bet.Amount, gamename),
 						"https://www.google.com/search?q="+gamename,
 					),
 				}
@@ -409,6 +409,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		} else {
+			// bet on something
 			betId := parts[1]
 			back := parts[2] == "true"
 			bet, err := getMicrobetBet(betId)
@@ -418,7 +419,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 
 			// post a notification message to identify this bet attempt
-			message := u.notify(t.MICROBETPLACING, t.T{"Bet": bet})
+			message := u.notify(t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
 
 			err = placeMicrobetBet(u, message.MessageID, betId, back)
 			if err != nil {

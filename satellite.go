@@ -142,10 +142,11 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
+			tag string,
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
+			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "satellite", hash)
 
 			// save order uuid and token
 			var satdata SatelliteData

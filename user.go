@@ -260,6 +260,7 @@ func (u User) makeInvoice(
 	expiry *time.Duration,
 	messageId interface{},
 	preimage string,
+	tag string,
 	bluewallet bool,
 ) (bolt11 string, hash string, qrpath string, err error) {
 	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
@@ -273,7 +274,7 @@ func (u User) makeInvoice(
 	}
 
 	if label == "" {
-		label = makeLabel(u.Id, messageId, preimage)
+		label = makeLabel(u.Id, messageId, preimage, tag)
 	}
 
 	var msatoshi interface{}
@@ -379,7 +380,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 						hash,
 						label,
 					)
-					paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", hash)
+					paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
 					break
 				}
 			}
@@ -392,7 +393,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 		}
 
 		label := invoice.Get("label").String()
-		messageId, targetId, preimage, ok := parseLabel(label)
+		messageId, targetId, preimage, _, ok := parseLabel(label)
 		if ok {
 			err = u.addInternalPendingInvoice(
 				messageId,
@@ -413,7 +414,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 				hash,
 				label,
 			)
-			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), preimage, hash)
+			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), preimage, "", hash)
 			ln.Call("delinvoice", label, "unpaid")
 		} else {
 			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")
@@ -447,6 +448,7 @@ func (u User) actuallySendExternalPayment(
 		msatoshi float64,
 		msatoshi_sent float64,
 		preimage string,
+		tag string,
 		hash string,
 	),
 	onFailure func(
@@ -541,6 +543,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 				payment.Get("msatoshi").Float(),
 				payment.Get("msatoshi_sent").Float(),
 				payment.Get("payment_preimage").String(),
+				"",
 				payment.Get("payment_hash").String(),
 			)
 		} else {
@@ -676,14 +679,16 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 
 func (u User) paymentReceived(
 	amount int,
-	desc, hash, preimage, label string,
+	desc, hash, preimage, tag, label string,
 ) (err error) {
+	tagn := sql.NullString{String: tag, Valid: tag != ""}
+
 	_, err = pg.Exec(`
 INSERT INTO lightning.transaction
-  (to_id, amount, description, payment_hash, preimage, label)
-VALUES ($1, $2, $3, $4, $5, $6)
+  (to_id, amount, description, payment_hash, preimage, tag, label)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
-    `, u.Id, amount, desc, hash, preimage, label)
+    `, u.Id, amount, desc, hash, preimage, tagn, label)
 	if err != nil {
 		log.Error().Err(err).
 			Str("user", u.Username).Str("label", label).
@@ -851,17 +856,21 @@ func paymentHasSucceeded(
 	msatoshi float64,
 	msatoshi_sent float64,
 	preimage string,
+	tag string,
 	hash string,
 ) {
 	// if it succeeds we mark the transaction as not pending anymore
 	// plus save fees and preimage
 	fees := msatoshi_sent - msatoshi
 
+	// if there's a tag we save that too, otherwise leave it null
+	tagn := sql.NullString{String: tag, Valid: tag != ""}
+
 	_, err = pg.Exec(`
 UPDATE lightning.transaction
-SET fees = $1, preimage = $2, pending = false
+SET fees = $1, preimage = $2, pending = false, tag = $4
 WHERE payment_hash = $3
-    `, fees, preimage, hash)
+    `, fees, preimage, hash, tagn)
 	if err != nil {
 		log.Error().Err(err).
 			Str("user", u.Username).

@@ -49,7 +49,7 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
 	}
 
 	// extract user id and preimage from label
-	messageId, userId, preimage, ok := parseLabel(label)
+	messageId, userId, preimage, tag, ok := parseLabel(label)
 	var receiver User
 
 	if ok {
@@ -85,6 +85,7 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
 		hash,
 		preimage,
 		label,
+		tag,
 	)
 	if err != nil {
 		receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{

@@ -31,14 +31,14 @@ var dollarPrice = struct {
 }{time.Now(), 0}
 var nodeAliases = make(map[string]string)
 
-func makeLabel(userId int, messageId interface{}, preimage string) string {
-	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, preimage)
+func makeLabel(userId int, messageId interface{}, preimage, tag string) string {
+	return fmt.Sprintf("%s.%d.%v.%s.%s", s.ServiceId, userId, messageId, preimage, tag)
 }
 
-func parseLabel(label string) (messageId, userId int, preimage string, ok bool) {
+func parseLabel(label string) (messageId, userId int, preimage, tag string, ok bool) {
 	ok = false
 	parts := strings.Split(label, ".")
-	if len(parts) == 4 {
+	if len(parts) > 3 {
 		userId, err = strconv.Atoi(parts[1])
 		if err == nil {
 			ok = true
@@ -49,6 +49,11 @@ func parseLabel(label string) (messageId, userId int, preimage string, ok bool) 
 		}
 		preimage = parts[3]
 	}
+
+	if len(parts) > 4 {
+		tag = parts[4]
+	}
+
 	return
 }
 

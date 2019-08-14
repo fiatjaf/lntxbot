@@ -17,7 +17,8 @@ type GoLightningResponse struct {
 }
 
 func prepareGoLightningTransaction(user User, messageId int, sats int) (glresp GoLightningResponse, err error) {
-	bolt11, _, _, err := user.makeInvoice(sats, "refill from golightning.club", "", nil, messageId, "", true)
+	bolt11, _, _, err := user.makeInvoice(sats, "refill from golightning.club",
+		"", nil, messageId, "", "golightning", true)
 	if err != nil {
 		return
 	}

@@ -206,7 +206,7 @@ Blockstream Satellite, messages from space: /help_satellite
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
 	MICROBETINVALIDRESPONSE:     "microbet.fun returned an invalid response.",
 	MICROBETPAIDBUTNOTCONFIRMED: "Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}}</b>.",
+	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}} ({{if .Back}}🔳{{else}}🔳{{end}})</b>.",
 	MICROBETPLACED:              "Bet placed!",
 	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
 	MICROBETLIST: `

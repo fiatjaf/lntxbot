@@ -206,9 +206,10 @@ Blockstream Satellite, сообщения из космоса: /help_satellite
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Сделайте ставки на одно из этих предсказаний:",
 	MICROBETINVALIDRESPONSE:     "microbet.fun вернул неправильный ответ.",
 	MICROBETPAIDBUTNOTCONFIRMED: "Оплачено, но не подтверждено. Крупная ошибка Microbet?",
-	MICROBETPLACING:             "Помещаем ставку на <b>{{.Bet.Description}}</b>.",
-	MICROBETPLACED:              "Ставка размещена!",
-	MICROBETFAILEDTOPAY:         "Ошибка оплаты ставки.",
+	MICROBETPLACING:             "Помещаем ставку на <b>{{.Bet.Description}} ({{if .Back}}🔳{{else}}🔳{{end}})</b>.",
+
+	MICROBETPLACED:      "Ставка размещена!",
+	MICROBETFAILEDTOPAY: "Ошибка оплаты ставки.",
 	MICROBETLIST: `
 <b>[Microbet]</b> Ваши ставки
 {{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}отменено{{else if .Closed}}{{if .WonAmount}}выигрыш {{.AmountWon}}{{else}}проигрыш {{.AmountLost}}{{end}}{{else}}открыты{{end}}</i>

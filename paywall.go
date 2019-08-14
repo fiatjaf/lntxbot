@@ -141,7 +141,7 @@ func withdrawPaywall(user User) (err error) {
 		return
 	}
 
-	bolt11, _, _, err := user.makeInvoice(balance, "withdraw from paywall.link", "", nil, nil, "", true)
+	bolt11, _, _, err := user.makeInvoice(balance, "withdraw from paywall.link", "", nil, nil, "", "paywall", true)
 	if err != nil {
 		return
 	}
