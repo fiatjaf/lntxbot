@@ -372,6 +372,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				}
 
 				u.notify(t.PAYWALLCREATED, t.T{"Link": link})
+				sendMessage(u.ChatId, fmt.Sprintf(`<a href="https://paywall.link/to/%s">https://paywall.link/to/%s</a>`, link.ShortURL, link.ShortURL))
 			} else {
 				// list
 				links, err := listPaywallLinks(u)

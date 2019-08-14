@@ -21,7 +21,7 @@ type PaywallUser struct {
 
 type PaywallWithdraw struct {
 	Id             int64  `json:"id,omitempty"`
-	PaymentRequest string `json:"payment_request"`
+	InvoiceRequest string `json:"invoice_request"`
 }
 
 type PaywallLink struct {
@@ -146,7 +146,7 @@ func withdrawPaywall(user User) (err error) {
 		return
 	}
 
-	withdrawal := PaywallWithdraw{PaymentRequest: bolt11}
+	withdrawal := PaywallWithdraw{InvoiceRequest: bolt11}
 	var perr PaywallError
 	resp, err := paywallClient.Post("https://paywall.link/v1/user/send?access-token="+key, withdrawal, &withdrawal, &perr)
 	if err != nil {
