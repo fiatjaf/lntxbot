@@ -67,7 +67,7 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 
 				inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
 					tgbotapi.NewInlineKeyboardButtonURL(
-						fmt.Sprintf("%s (%d sat)", gamename, bet.Amount),
+						fmt.Sprintf("(%d) %s", bet.Amount, gamename),
 						"https://www.google.com/search?q="+gamename,
 					),
 				}
@@ -305,27 +305,85 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		// create gift or fallback to list gifts
 		sats, err := opts.Int("<satoshis>")
 		if err == nil {
+			// create
 			err = createGift(u, sats, messageId)
 			if err != nil {
 				u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
 			}
 			return
-		}
+		} else {
+			// list
+			var data GiftsData
+			err = u.getAppData("gifts", &data)
+			if err != nil {
+				u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
+				return
+			}
 
-		var data GiftsData
-		err = u.getAppData("gifts", &data.Gifts)
-		if err != nil {
-			u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
-			return
-		}
+			gifts := make([]GiftsGift, len(data.Gifts))
+			for i, orderId := range data.Gifts {
+				gift, _ := getGift(orderId)
+				gifts[i] = gift
+			}
 
-		gifts := make([]GiftsGift, len(data.Gifts))
-		for i, orderId := range data.Gifts {
-			gift, _ := getGift(orderId)
-			gifts[i] = gift
+			u.notify(t.GIFTSLIST, t.T{"Gifts": gifts})
 		}
+	case opts["paywall"].(bool):
+		switch {
+		case opts["balance"].(bool):
+			balance, err := getPaywallBalance(u)
+			if err != nil {
+				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				return
+			}
 
-		u.notify(t.GIFTSLIST, t.T{"Gifts": gifts})
+			u.notifyWithKeyboard(t.PAYWALLBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=paywall-withdraw"),
+					},
+				},
+			}, 0)
+		case opts["withdraw"].(bool):
+			err := withdrawPaywall(u)
+			if err != nil {
+				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				return
+			}
+		default:
+			// create paywall link or fallback to list paywalls
+			if url, ok := opts["<url>"].(string); ok {
+				// create
+				sats, err := opts.Int("<satoshis>")
+				if err != nil {
+					u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+					return
+				}
+
+				var memo string
+				if imemo, ok := opts["<memo>"]; ok {
+					memo = strings.Join(imemo.([]string), " ")
+				}
+
+				link, err := createPaywallLink(u, sats, url, memo)
+				if err != nil {
+					u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+					return
+				}
+
+				u.notify(t.PAYWALLCREATED, t.T{"Link": link})
+				sendMessage(u.ChatId, fmt.Sprintf(`<a href="https://paywall.link/to/%s">https://paywall.link/to/%s</a>`, link.ShortURL, link.ShortURL))
+			} else {
+				// list
+				links, err := listPaywallLinks(u)
+				if err != nil {
+					u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+					return
+				}
+
+				u.notify(t.PAYWALLLISTLINKS, t.T{"Links": links})
+			}
+		}
 	default:
 		handleHelp(u, "app")
 	}
@@ -351,6 +409,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		} else {
+			// bet on something
 			betId := parts[1]
 			back := parts[2] == "true"
 			bet, err := getMicrobetBet(betId)
@@ -360,7 +419,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 
 			// post a notification message to identify this bet attempt
-			message := u.notify(t.MICROBETPLACING, t.T{"Bet": bet})
+			message := u.notify(t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
 
 			err = placeMicrobetBet(u, message.MessageID, betId, back)
 			if err != nil {
@@ -413,6 +472,14 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
+		}
+	case "paywall":
+		if parts[1] == "withdraw" {
+			err := withdrawPaywall(u)
+			if err != nil {
+				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				return translate(t.FAILURE, u.Locale)
+			}
 		}
 	}
 

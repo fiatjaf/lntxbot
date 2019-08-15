@@ -158,6 +158,12 @@ const (
 	POKERSECRETURL    = "PokerSecretURL"
 	POKERBALANCE      = "PokerBalance"
 
+	PAYWALLHELP      = "paywallHelp"
+	PAYWALLERROR     = "PaywallError"
+	PAYWALLBALANCE   = "PaywallBalance"
+	PAYWALLCREATED   = "PaywallCreated"
+	PAYWALLLISTLINKS = "PaywallListLinks"
+
 	TOGGLEHELP = "toggleHelp"
 
 	HELPHELP = "helpHelp"

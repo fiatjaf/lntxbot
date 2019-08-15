@@ -69,7 +69,7 @@ func serveBlueWallet() {
 
 		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).Msg("bluewallet /addinvoice")
 
-		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", true)
+		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", "", true)
 		if err != nil {
 			errorInternal(w)
 			return

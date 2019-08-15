@@ -31,14 +31,14 @@ var dollarPrice = struct {
 }{time.Now(), 0}
 var nodeAliases = make(map[string]string)
 
-func makeLabel(userId int, messageId interface{}, preimage string) string {
-	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, preimage)
+func makeLabel(userId int, messageId interface{}, preimage, tag string) string {
+	return fmt.Sprintf("%s.%d.%v.%s.%s", s.ServiceId, userId, messageId, preimage, tag)
 }
 
-func parseLabel(label string) (messageId, userId int, preimage string, ok bool) {
+func parseLabel(label string) (messageId, userId int, preimage, tag string, ok bool) {
 	ok = false
 	parts := strings.Split(label, ".")
-	if len(parts) == 4 {
+	if len(parts) > 3 {
 		userId, err = strconv.Atoi(parts[1])
 		if err == nil {
 			ok = true
@@ -49,6 +49,11 @@ func parseLabel(label string) (messageId, userId int, preimage string, ok bool) 
 		}
 		preimage = parts[3]
 	}
+
+	if len(parts) > 4 {
+		tag = parts[4]
+	}
+
 	return
 }
 
@@ -149,7 +154,7 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	return results[1], true
 }
 
-func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias, usd string, err error) {
+func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias string, err error) {
 	inv, err = ln.Call("decodepay", invoice)
 	if err != nil {
 		return
@@ -160,8 +165,6 @@ func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias, usd string, err
 	}
 
 	nodeAlias = getNodeAlias(inv.Get("payee").String())
-	usd = getDollarPrice(inv.Get("msatoshi").Int())
-
 	return
 }
 
@@ -190,8 +193,12 @@ begin:
 }
 
 func nodeLink(nodeId string) string {
-	return fmt.Sprintf(`<a href="https://lightning.chaintools.io/node/%s">%s…%s</a>`,
+	return fmt.Sprintf(`<a href="https://ln.alhur.es/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
+}
+
+func channelLink(scid string) string {
+	return fmt.Sprintf(`<a href="https://ln.alhur.es/node/%s">%s</a>`, scid, scid)
 }
 
 func getDollarPrice(msats int64) string {
@@ -199,7 +206,7 @@ func getDollarPrice(msats int64) string {
 	if err != nil {
 		return "~ USD"
 	}
-	return fmt.Sprintf("%.3f USD", float64(msats)/rate)
+	return fmt.Sprintf("%.2f USD", float64(msats)/rate)
 }
 
 func getDollarRate() (rate float64, err error) {

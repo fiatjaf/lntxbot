@@ -34,17 +34,17 @@ var EN = map[Key]string{
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
 	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{.Sats}} sat</b> (+ {{.Fee}} fee). 
+	PAIDMESSAGE: `Paid with <b>{{.Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
-<b>Hash:</b> {{.Hash}}
-{{if .Preimage}}<b>Proof:</b> {{.Preimage}}{{end}}
+<b>Hash:</b> {{.Hash}}{{if .Preimage}}
+<b>Proof:</b> {{.Preimage}}{{end}}
 
 /tx{{.ShortHash}}`,
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 	TOOSMALLPAYMENT:     "That's too small, please start your {{.Purpose}} with at least 40 sat.",
 
-	PAYMENTRECEIVED:      "Payment received: {{.Sats}}. /tx{{.Hash}}.",
+	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
@@ -69,7 +69,7 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 
 	// the "any" is here only for illustrative purposes. if you call this with 'any' it will
 	// actually be assigned to the <satoshis> variable, and that's how the code handles it.
-	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your bot balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
+	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your @{{ .BotName }} balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 
 <code>/receive_320_for_something</code> generates an invoice for 320 sat with the description "for something"
 <code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, you might lose money, only use if you know what you're doing).
@@ -80,11 +80,11 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> decodes and prompts to pay the given invoice.  
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> pays the given invoice invoice without asking for confirmation.
 /withdraw_lnurl_3000 generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
-/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the bot chat.
+/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the @{{ .BotName }} chat.
 <code>/pay</code>, when sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
     `,
 
-	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with the bot. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
+	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with @{{ .BotName }}. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
 
 <code>/tip 100</code>, when sent as a reply to a message in a group where the bot is added, sends 100 satoshis to the author of the message.
 <code>/send 500 @username</code> sends 500 satoshis to Telegram user @username.
@@ -199,14 +199,14 @@ Blockstream Satellite, messages from space: /help_satellite
 	BITFLASHHELP: `
 <a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
 
-/app_bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
-/app_bitflash_orders</code> lists your previous transactions.
+/bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
+/bitflash_orders</code> lists your previous transactions.
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
 	MICROBETINVALIDRESPONSE:     "microbet.fun returned an invalid response.",
 	MICROBETPAIDBUTNOTCONFIRMED: "Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}}</b>.",
+	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}} ({{if .Back}}🔳{{else}}🔳{{end}})</b>.",
 	MICROBETPLACED:              "Bet placed!",
 	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
 	MICROBETLIST: `
@@ -221,10 +221,10 @@ Blockstream Satellite, messages from space: /help_satellite
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
-/app_microbet_bet displays all open bet markets so you can yours.
-/app_microbet_bets shows your bet history.
-/app_microbet_balance displays your balance.
-/app_microbet_withdraw withdraws all your balance.
+/microbet_bet displays all open bet markets so you can yours.
+/microbet_bets shows your bet history.
+/microbet_balance displays your balance.
+/microbet_withdraw withdraws all your balance.
     `,
 
 	SATELLITEFAILEDTOSTORE:     "Failed to store satellite order data. Please report: {{.Err}}",
@@ -255,7 +255,7 @@ Blockstream Satellite, messages from space: /help_satellite
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
 <code>/app satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
-/app_satellite_transmissions lists your transmissions.
+/satellite_transmissions lists your transmissions.
     `,
 
 	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
@@ -263,22 +263,45 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 	GOLIGHTNINGHELP: `
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
-/app_golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+/golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
 	GIFTSHELP: `
 <a href="https://lightning.gifts/">Lightning Gifts</a> is the best way to send satoshis as gifts to people. A simple service, a simple URL, no vendor lock-in and <b>no fees</b>.
 
-/app_gifts_1000 creates a gift voucher of 1000 satoshis.
+By generating your gifts on @{{ .BotName }} you can keep track of the ones that were redeemed and the ones that weren't.
+
+/gifts lists the gifts you've created.
+/gifts_1000 creates a gift voucher of 1000 satoshis.
     `,
 	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
-	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem just visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
+	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
 	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
 	GIFTSLIST: `
-<b>gifts</b>
+<b>[gifts]</b>
 {{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
 {{else}}
 <i>~ no gifts were ever given. ~</i>
+{{end}}
+    `,
+
+	PAYWALLHELP: `
+<a href="https://paywall.link/">paywall.link</a> is a Paywall Generator. It allows you to sell digital goods (files, articles, music, videos, any form of content that can be published on the open web) by simply wrapping their URLs in a paywall.
+
+By generating your paywalls on @{{ .BotName }} you can keep track of them all without leaving Telegram and get information on how much of each you've sold.
+
+/paywall will list all your paywalls.
+<code>/paywall https://mysite.com/secret-content 230 'access my secret content'</code> will create a paywall for a secret content with a price of 230 satoshis.
+/paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
+/paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
+    `,
+	PAYWALLERROR:   "<b>paywall</b> Error: {{.Err}}",
+	PAYWALLBALANCE: "<b>paywall</b> Balance: <i>{{.Balance}} sat</i>",
+	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
+	PAYWALLLISTLINKS: `<b>paywall</b>
+{{range .Links}}- <code>{{.LndValue}}</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
+{{else}}
+<i>~ no paywalls were ever built. ~</i>
 {{end}}
     `,
 
@@ -293,35 +316,35 @@ Players online: {{.Players}}
 Active Tables: {{.Tables}}
 Satoshis in play: {{.Chips}}
 
-/app_poker_play to play here!
-/app_poker_url to play in a browser window!
+/poker_play to play here!
+/poker_url to play in a browser window!
     `,
 	POKERNOTIFY: `
 <b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
 
-/app_poker_status to double-check!
-/app_poker_play to play here!
-/app_poker_url to play in a browser window!
+/poker_status to double-check!
+/poker_play to play here!
+/poker_url to play in a browser window!
     `,
 	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
 	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
 
-By playing from an account tied to your bot balance you can just sit on a table and your poker balance will be automatically refilled from your bot account, with minimal friction.
+By playing from an account tied to your @{{ .BotName }} balance you can just sit on a table and your poker balance will be automatically refilled from your @{{ .BotName }} account, with minimal friction.
 
-/app_poker_deposit_10000 puts 10000 satoshis in your poker bag.
-/app_poker_balance shows how much you have there.
-/app_poker_withdraw brings all the money back to the bot balance.
-/app_poker_status tells you how active are the poker tables right now.
-/app_poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
-/app_poker_play displays the game widget.
-/app_poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing.
+/poker_deposit_10000 puts 10000 satoshis in your poker bag.
+/poker_balance shows how much you have there.
+/poker_withdraw brings all the money back to the bot balance.
+/poker_status tells you how active are the poker tables right now.
+/poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
+/poker_play displays the game widget.
+/poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game you'll be unsubscribed.
     `,
 
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
 
-<code>/toggle ticket 10</code> starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
-<code>/toggle ticket</code> stops charging new entrants a fee. 
-<code>/toggle spammy</code>: 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
+/toggle_ticket_10 starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
+/toggle_ticket stops charging new entrants a fee. 
+/toggle_spammy toggles 'spammy' mode. 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
 
 	HELPHELP: "Shows full help or help about specific command.",
@@ -329,7 +352,7 @@ By playing from an account tied to your bot balance you can just sit on a table 
 	STOPHELP: "The bot stops showing you notifications.",
 
 	CONFIRMINVOICE: `
-{{.Sats}} sat ({{.USD}})
+{{.Sats}} sat ({{dollar .Sats}})
 <i>{{.Desc}}</i>
 <b>Hash</b>: {{.Hash}}
 <b>Node</b>: {{.Node}} ({{.Alias}})
@@ -337,7 +360,7 @@ By playing from an account tied to your bot balance you can just sit on a table 
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
-<b>Balance</b>: {{printf "%.3f" .Sats}} sat ({{.USD}})
+<b>Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
@@ -356,8 +379,8 @@ Registered: {{.Registered}}
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
 	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
 	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
-	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat{{if .BotOp}} on a {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat.",
+	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat ({{dollar .Sats}}).",
 	FAILEDSEND:         "Failed to send: ",
 	QRCODEFAIL:         "QR code reading unsuccessful: {{.Err}}",
 	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
@@ -379,7 +402,7 @@ Registered: {{.Registered}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Amount</b>: {{.Txn.Amount}} sat
+<b>Amount</b>: {{.Txn.Amount}} sat ({{dollar .Txn.Amount}})
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
 {{.LogInfo}}
     `,

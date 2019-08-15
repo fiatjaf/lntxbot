@@ -28,6 +28,8 @@ type Settings struct {
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
+	PaywallLinkKey string `envconfig:"PAYWALLLINK_KEY"`
+
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
 	GiveAwayTimeout      time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"5h"`
@@ -57,7 +59,7 @@ func main() {
 
 	bundle, err = createLocalizerBundle()
 	if err != nil {
-		log.Fatal().Err(err).Msg("error initialising localization")
+		log.Fatal().Err(err).Msg("error initializing localization")
 	}
 
 	setupCommands()
@@ -192,14 +194,37 @@ func probeLightningd() string {
 	return nodeinfo.Get("id").String()
 }
 
-// CreateLocalizerBundle reads language files and registers them in i18n bundle
 func createLocalizerBundle() (t.Bundle, error) {
-	// Bundle stores a set of messages
+	// bundle stores a set of messages
 	bundle = t.NewBundle("en")
+
+	// template functions
+	bundle.AddFunc("dollar", func(isat interface{}) string {
+		switch sat := isat.(type) {
+		case int64:
+			return getDollarPrice(sat * 1000)
+		case int:
+			return getDollarPrice(int64(sat) * 1000)
+		case float64:
+			return getDollarPrice(int64(sat * 1000))
+		default:
+			return "~"
+		}
+	})
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {
 		return bundle, err
+	}
+	err = bundle.AddLanguage("ru", t.RU)
+	if err != nil {
+		return bundle, err
+	}
+
+	// print an annoying message if keys are missing from translations
+	for lang, missing := range bundle.Check() {
+		log.Debug().Str("lang", lang).Interface("keys", missing).
+			Msg("missing translation")
 	}
 
 	return bundle, nil

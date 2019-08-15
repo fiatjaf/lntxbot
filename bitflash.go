@@ -105,10 +105,11 @@ func payBitflashInvoice(user User, order BitflashOrder, messageId int) (err erro
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
+			tag string,
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
+			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "bitflash", hash)
 
 			u.notifyAsReply(t.BITFLASHTXQUEUED, nil, messageId)
 		},

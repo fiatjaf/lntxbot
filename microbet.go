@@ -109,10 +109,11 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
+			tag string,
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
+			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "microbet", hash)
 
 			// acknowledge bet on microbet.fun
 			var paidreq struct {
@@ -216,7 +217,7 @@ func withdrawMicrobet(user User, sats int) (err error) {
 		},
 	}
 
-	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from microbet.fun", "", nil, nil, "", true)
+	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from microbet.fun", "", nil, nil, "", "microbet", true)
 	if err != nil {
 		return
 	}

@@ -150,7 +150,8 @@ parsed:
 	case opts["app"].(bool),
 		opts["microbet"].(bool), opts["bitflash"].(bool),
 		opts["golightning"].(bool), opts["poker"].(bool),
-		opts["satellite"].(bool), opts["gifts"].(bool):
+		opts["satellite"].(bool), opts["gifts"].(bool),
+		opts["paywall"].(bool):
 		handleExternalApp(u, opts, message.MessageID)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
@@ -181,7 +182,7 @@ parsed:
 				preimage, _ = param.(string)
 			}
 
-			bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, false)
+			bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, "", false)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to generate invoice")
 				u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
@@ -224,6 +225,7 @@ parsed:
 					sats, _ = strconv.Atoi(asats[0])
 					goto gotusername
 				}
+				err = nil
 			}
 			defaultNotify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
@@ -573,7 +575,6 @@ parsed:
 
 		u.notify(t.BALANCEMSG, t.T{
 			"Sats":            info.Balance,
-			"USD":             getDollarPrice(int64(info.Balance * 1000)),
 			"Received":        info.TotalReceived,
 			"Sent":            info.TotalSent,
 			"Fees":            info.TotalFees,

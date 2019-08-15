@@ -69,10 +69,11 @@ func createGift(user User, sats int, messageId int) error {
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
+			tag string,
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, hash)
+			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "gifts", hash)
 
 			// wait for gift to be available
 			for i := 0; i < 10; i++ {
@@ -101,7 +102,7 @@ func createGift(user User, sats int, messageId int) error {
 				data.Gifts = data.Gifts[len(data.Gifts)-50:]
 			}
 
-			err = user.setAppData("gifts", data.Gifts)
+			err = user.setAppData("gifts", data)
 			if err != nil {
 				u.notify(t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
 				return

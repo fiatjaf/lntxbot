@@ -51,8 +51,9 @@ const Table = ({match, history}) => {
         profit={profit}
         dealer={dealer}
       >
-        {!loading &&
-          !me && <AddPlayerAction position={position} buyIn={buyIn} />}
+        {!loading && !me && (
+          <AddPlayerAction position={position} buyIn={buyIn} />
+        )}
       </Player>
     )
   }
