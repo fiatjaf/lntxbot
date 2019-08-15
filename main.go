@@ -194,10 +194,23 @@ func probeLightningd() string {
 	return nodeinfo.Get("id").String()
 }
 
-// CreateLocalizerBundle reads language files and registers them in i18n bundle
 func createLocalizerBundle() (t.Bundle, error) {
-	// Bundle stores a set of messages
+	// bundle stores a set of messages
 	bundle = t.NewBundle("en")
+
+	// template functions
+	bundle.AddFunc("dollar", func(isat interface{}) string {
+		switch sat := isat.(type) {
+		case int64:
+			return getDollarPrice(sat * 1000)
+		case int:
+			return getDollarPrice(int64(sat) * 1000)
+		case float64:
+			return getDollarPrice(int64(sat * 1000))
+		default:
+			return "~"
+		}
+	})
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

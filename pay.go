@@ -33,7 +33,7 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 
 	if askConfirmation {
 		// decode invoice and show a button for confirmation
-		inv, nodeAlias, usd, err := decodeInvoice(bolt11)
+		inv, nodeAlias, err := decodeInvoice(bolt11)
 		if err != nil {
 			u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
 			return
@@ -48,7 +48,6 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 		hash := inv.Get("payment_hash").String()
 		text := translateTemplate(t.CONFIRMINVOICE, u.Locale, t.T{
 			"Sats":  amount / 1000,
-			"USD":   usd,
 			"Desc":  escapeHTML(inv.Get("description").String()),
 			"Hash":  hash,
 			"Node":  nodeLink(inv.Get("payee").String()),

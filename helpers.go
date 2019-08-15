@@ -154,7 +154,7 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	return results[1], true
 }
 
-func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias, usd string, err error) {
+func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias string, err error) {
 	inv, err = ln.Call("decodepay", invoice)
 	if err != nil {
 		return
@@ -165,8 +165,6 @@ func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias, usd string, err
 	}
 
 	nodeAlias = getNodeAlias(inv.Get("payee").String())
-	usd = getDollarPrice(inv.Get("msatoshi").Int())
-
 	return
 }
 
@@ -208,7 +206,7 @@ func getDollarPrice(msats int64) string {
 	if err != nil {
 		return "~ USD"
 	}
-	return fmt.Sprintf("%.3f USD", float64(msats)/rate)
+	return fmt.Sprintf("%.2f USD", float64(msats)/rate)
 }
 
 func getDollarRate() (rate float64, err error) {

@@ -34,17 +34,17 @@ var EN = map[Key]string{
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
 	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{.Sats}} sat</b> (+ {{.Fee}} fee). 
+	PAIDMESSAGE: `Paid with <b>{{.Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
-<b>Hash:</b> {{.Hash}}
-{{if .Preimage}}<b>Proof:</b> {{.Preimage}}{{end}}
+<b>Hash:</b> {{.Hash}}{{if .Preimage}}
+<b>Proof:</b> {{.Preimage}}{{end}}
 
 /tx{{.ShortHash}}`,
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 	TOOSMALLPAYMENT:     "That's too small, please start your {{.Purpose}} with at least 40 sat.",
 
-	PAYMENTRECEIVED:      "Payment received: {{.Sats}}. /tx{{.Hash}}.",
+	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
@@ -352,7 +352,7 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 	STOPHELP: "The bot stops showing you notifications.",
 
 	CONFIRMINVOICE: `
-{{.Sats}} sat ({{.USD}})
+{{.Sats}} sat ({{dollar .Sats}})
 <i>{{.Desc}}</i>
 <b>Hash</b>: {{.Hash}}
 <b>Node</b>: {{.Node}} ({{.Alias}})
@@ -360,7 +360,7 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
-<b>Balance</b>: {{printf "%.3f" .Sats}} sat ({{.USD}})
+<b>Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
@@ -379,8 +379,8 @@ Registered: {{.Registered}}
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
 	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
 	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
-	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat{{if .BotOp}} on a {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat.",
+	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat ({{dollar .Sats}}).",
 	FAILEDSEND:         "Failed to send: ",
 	QRCODEFAIL:         "QR code reading unsuccessful: {{.Err}}",
 	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
@@ -402,7 +402,7 @@ Registered: {{.Registered}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Amount</b>: {{.Txn.Amount}} sat
+<b>Amount</b>: {{.Txn.Amount}} sat ({{dollar .Txn.Amount}})
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
 {{.LogInfo}}
     `,

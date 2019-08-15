@@ -575,7 +575,6 @@ parsed:
 
 		u.notify(t.BALANCEMSG, t.T{
 			"Sats":            info.Balance,
-			"USD":             getDollarPrice(int64(info.Balance * 1000)),
 			"Received":        info.TotalReceived,
 			"Sent":            info.TotalSent,
 			"Fees":            info.TotalFees,
