@@ -492,11 +492,12 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			-float64(balance)/1000)
 	}
 
-	if msatoshi >= 5000000 && msatoshi*99/100 > balance {
+	if msatoshi >= 5000000 && msatoshi*98/100 > balance {
 		// if the payment is >= 5000sat, reserve 1% of balance for the transaction fee.
 		// if it's smaller we don't care.
 		// this should provide an easy way for people to empty their wallets while at the same time
 		// protecting against exploits and people who leave with a gigantic negative balance.
+		log.Debug().Int("balance", balance).Int("msatoshi", msatoshi).Msg("payment for more than 98% of the balance")
 		return errors.New(
 			"Can't use your entire balance for this payment because of fee reserves. Please withdraw in chunks.",
 		)
