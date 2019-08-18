@@ -84,7 +84,7 @@ func getPaywallKey(user User) (key string, err error) {
 	// created, let's save the auth_key
 	data.AuthKey = puser.AuthKey
 	err = user.setAppData("paywall", data)
-	return
+	return data.AuthKey, err
 }
 
 func getPaywallBalance(user User) (sats int, err error) {
