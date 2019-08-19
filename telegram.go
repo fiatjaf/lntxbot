@@ -52,6 +52,17 @@ func sendMessageWithPicture(chatId int64, picturepath string, message string) tg
 	}
 }
 
+func sendMessageWithAnimationId(chatId int64, fileId string, message string) tgbotapi.Message {
+	video := tgbotapi.NewAnimationShare(chatId, fileId)
+	video.Caption = message
+	video.ParseMode = "HTML"
+	c, err := bot.Send(video)
+	if err != nil {
+		log.Warn().Str("id", fileId).Str("message", message).Err(err).Msg("error sending video")
+	}
+	return c
+}
+
 func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
 	baseedit := tgbotapi.BaseEdit{
 		InlineMessageID: cb.InlineMessageID,

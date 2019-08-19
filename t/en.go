@@ -392,11 +392,17 @@ Registered: {{.Registered}}
 	ZEROAMOUNTINVOICE:  "Invoices with undefined amounts are not supported because they are not safe.",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
-	WELCOME:            "Your account is created.",
-	WRONGCOMMAND:       "Could not understand the command. /help",
-	RETRACTQUESTION:    "Retract unclaimed tip?",
-	RECHECKPENDING:     "Recheck pending payment?",
-	TXNOTFOUND:         "Couldn't find transaction {{.HashFirstChars}}.",
+	WELCOME: `
+Welcome. Your account is created. You're now able to move Bitcoin into, from and inside Telegram. Please remember that we can't guarantee your funds in case we lose funds due to software bug or malicious hacker attacks. Don't keep a balance here greater than what you're willing to lose.
+
+With that said, this bot is pretty safe.
+
+For any questions or just to say hello you can join us at @lntxbot_dev (warning: there may be an entrance fee payable in satoshis).
+    `,
+	WRONGCOMMAND:    "Could not understand the command. /help",
+	RETRACTQUESTION: "Retract unclaimed tip?",
+	RECHECKPENDING:  "Recheck pending payment?",
+	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
 	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
@@ -411,5 +417,22 @@ Registered: {{.Registered}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}
+    `,
+
+	TUTORIALWALLET: `
+@{{.BotName}} is a Lightning wallet that works from your Telegram account.
+
+You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions.
+
+It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
+
+With @{{ .BotName }} you're well equipped for doing online stuff on the Lightning Network.
+    `,
+	TUTORIALBLUE: `
+Although it works, for real-world usage opening a Telegram chat and pasting invoices can be a pain.
+
+For usage on the streets you can import your @{{ .BotName }} funds on <a href="https://bluewallet.io/">BlueWallet</a>. You don't need to keep your on-chain Bitcoin there, nor create a default Lightning wallet, you just have to type /bluewallet here to get an import URL and paste it there on their import screen.
+
+Everything you do on BlueWallet afterwards will be reflected in the bot screen and vice-versa (you'll get notifications for payments made and received from BlueWallet on your Telegram, but not the opposite).
     `,
 }

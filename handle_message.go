@@ -137,8 +137,13 @@ parsed:
 	case opts["start"].(bool):
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
-			u.notify(t.WELCOME, nil)
-			handleHelp(u, "")
+
+			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
+				handleTutorial(u, tutorial)
+			} else {
+				u.notify(t.WELCOME, nil)
+				handleTutorial(u, "")
+			}
 		}
 		break
 	case opts["stop"].(bool):

@@ -199,4 +199,7 @@ const (
 	TXNOTFOUND         = "TxNotFound"
 	TXINFO             = "TxInfo"
 	TXLIST             = "TxList"
+
+	TUTORIALWALLET = "TutorialWallet"
+	TUTORIALBLUE   = "TutorialBlue"
 )
