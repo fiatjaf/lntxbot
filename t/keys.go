@@ -164,6 +164,8 @@ const (
 	PAYWALLCREATED   = "PaywallCreated"
 	PAYWALLLISTLINKS = "PaywallListLinks"
 
+	ETLENEUMFAILEDTOPAY = "EtleneumFailedToPay"
+
 	TOGGLEHELP = "toggleHelp"
 
 	HELPHELP = "helpHelp"
