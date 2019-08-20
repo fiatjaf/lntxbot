@@ -534,11 +534,6 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		revealer := u
 
-		log.Print("REVEAL")
-		pretty.Log(hiddenmessage)
-		log.Print("source", sourceUserId)
-		log.Print("revealer ", u.Id)
-
 		// cache reveal so we know who has paid to reveal this for now
 		revealerIds, totalrevealers, err := func() (revealerIds []int, totalrevealers int, err error) {
 			revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
@@ -668,8 +663,9 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		go func(u User, messageId int, hash string) {
 			payment, err := ln.Call("waitsendpay", hash)
 			if err != nil {
-				// an error we know it's a final error
-				if cmderr, ok := err.(lightning.ErrorCommand); ok {
+				switch cmderr := err.(type) {
+				case lightning.ErrorCommand:
+					// an error we know it's a final error
 					if cmderr.Code == 203 || cmderr.Code == 208 || cmderr.Code == 209 {
 						log.Debug().
 							Err(err).
@@ -693,12 +689,15 @@ WHERE substring(payment_hash from 0 for $2) = $1
 							Msg("canceling failed payment because it's been a long time")
 						paymentHasFailed(u, messageId, hash)
 					}
+				case lightning.ErrorTimeout:
+					// command timed out, should try again later
+					appendTextToMessage(cb, translate(t.TXPENDING, locale))
+				default:
+					// unexpected error, report
+					log.Warn().Err(err).Str("hash", hash).Str("user", u.Username).
+						Msg("unexpected error waiting payment resolution")
+					appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
 				}
-
-				// unknown error, report
-				log.Warn().Err(err).Str("hash", hash).Str("user", u.Username).
-					Msg("unexpected error waiting payment resolution")
-				appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
 				return
 			}
 

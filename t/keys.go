@@ -14,6 +14,7 @@ const (
 	WITHDRAW       = "Withdraw"
 	ERROR          = "Error"
 	CHECKING       = "Checking"
+	TXPENDING      = "TxPending"
 	TXCANCELED     = "TxCanceled"
 	UNEXPECTED     = "Unexpected"
 

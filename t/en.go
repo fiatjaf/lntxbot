@@ -12,6 +12,7 @@ var EN = map[Key]string{
 	WITHDRAW:   "Withdraw?",
 	ERROR:      "Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
+	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
 	UNEXPECTED: "Unexpected error: please report.",
 
