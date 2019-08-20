@@ -327,6 +327,13 @@ Satoshis in play: {{.Chips}}
 /poker_play to play here!
 /poker_url to play in a browser window!
     `,
+	POKERNOTIFYFRIEND: `
+<b>[Poker]</b> @{{.FriendName}} has sitted in a poker table!
+
+/poker_status to double-check!
+/poker_play to play here!
+/poker_url to play in a browser window!
+    `,
 	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
 	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
 

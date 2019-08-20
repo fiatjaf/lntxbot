@@ -171,9 +171,6 @@ func main() {
 	// dispatch kick job for pending users
 	startKicking()
 
-	// watching the poker tables
-	go watchPoker()
-
 	for update := range updates {
 		handle(update)
 	}

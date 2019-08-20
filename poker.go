@@ -195,7 +195,7 @@ func getPokerURL(user User) string {
 	return fmt.Sprintf("%s/static/poker/?account=%s&user=%d", s.ServiceURL, getPokerId(user), user.Id)
 }
 
-func loadUserFromPokerCall(r *http.Request) (user User, err error) {
+func loadUserFromPokerCall(r *http.Request) (user User, pokerFriends []User, err error) {
 	token := strings.TrimSpace(r.Header.Get("X-Bot-Poker-Token"))
 	res, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
@@ -229,6 +229,21 @@ func loadUserFromPokerCall(r *http.Request) (user User, err error) {
 		return
 	}
 
+	// load poker friends (people this person have interacted with and that have already played poker)
+	pg.Select(&pokerFriends, `
+SELECT `+USERFIELDS+`
+FROM telegram.account
+WHERE id IN (
+  SELECT friend FROM (
+      SELECT from_id AS friend FROM lightning.transaction WHERE to_id = $1 AND amount > 100000
+    UNION
+      SELECT to_id AS friend FROM lightning.transaction WHERE from_id = $1 AND amount > 100000
+  ) AS friends INNER JOIN lightning.transaction AS tx ON tx.from_id = friend
+  WHERE tx.remote_node = '03ad156742a9a9d0e82e0022f264d6857addfd534955d5e97de4a695bf8dd12af0'
+    AND tx.time > (now() - make_interval(days := 7))
+) AND username IS NOT NULL
+    `, user.Id)
+
 	return
 }
 
@@ -242,7 +257,7 @@ func servePoker() {
 			return
 		}
 
-		user, err := loadUserFromPokerCall(r)
+		user, _, err := loadUserFromPokerCall(r)
 		if err != nil {
 			http.Error(w, err.Error(), 401)
 			return
@@ -258,7 +273,7 @@ func servePoker() {
 	})
 
 	http.HandleFunc("/app/poker/playing", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromPokerCall(r)
+		user, pokerfriends, err := loadUserFromPokerCall(r)
 		if err != nil {
 			http.Error(w, err.Error(), 401)
 			return
@@ -269,28 +284,20 @@ func servePoker() {
 
 		// also remove player from the watchers list because he is already playing
 		rds.Del(fmt.Sprintf("poker-watcher:%d", user.Id))
+
+		// notify poker friends
+		for _, friend := range pokerfriends {
+			friend.notify(t.POKERNOTIFYFRIEND, t.T{"FriendName": user.AtName()})
+		}
+
+		// notify all watchers
+		notifyPokerWatchers()
 	})
 
 	http.HandleFunc("/app/poker/online", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(rds.HGetAll("poker-players").Val())
 	})
-}
-
-func watchPoker() {
-	for {
-		time.Sleep(time.Minute * 3)
-
-		_, chips, err := getCurrentPokerPlayers()
-		if err != nil {
-			log.Warn().Err(err).Msg("error watching")
-			continue
-		}
-
-		if chips > 0 {
-			notifyPokerWatchers()
-		}
-	}
 }
 
 func notifyPokerWatchers() {

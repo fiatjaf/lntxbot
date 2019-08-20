@@ -155,6 +155,7 @@ const (
 	POKERBALANCEERROR = "PokerBalanceError"
 	POKERSTATUS       = "PokerStatus"
 	POKERNOTIFY       = "PokerNotify"
+	POKERNOTIFYFRIEND = "PokerNotifyFriend"
 	POKERSUBSCRIBED   = "PokerSubscribed"
 	POKERSECRETURL    = "PokerSecretURL"
 	POKERBALANCE      = "PokerBalance"
