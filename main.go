@@ -158,6 +158,8 @@ func main() {
 
 	// app-poker-specific routes
 	servePoker()
+	servePaywallWebhook()
+	serveGiftsWebhook()
 
 	// random assets
 	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))

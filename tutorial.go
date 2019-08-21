@@ -7,6 +7,8 @@ import (
 )
 
 func handleTutorial(u User, section string) {
+	log.Debug().Str("section", section).Str("username", u.Username).Msg("user going through tutorial")
+
 	switch section {
 	case "wallet":
 		tutorialWallet(u)

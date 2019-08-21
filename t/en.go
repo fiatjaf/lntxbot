@@ -182,7 +182,7 @@ You can use the following bots without leaving your bot chat:
 lightning-poker.com, multiplayer texas hold'em: /help_poker
 microbet.fun, simple sports betting: /help_microbet
 lightning.gifts, lightning vouchers: /help_gifts
-bitflash.club, LN->BTC with batched transactions: /help_bitflash
+paywall.link, paywalls for your digital content: /help_paywall
 golightning.club, BTC->LN cheap service: /help_golightning
 Blockstream Satellite, messages from space: /help_satellite
     `,
@@ -278,12 +278,16 @@ By generating your gifts on @{{ .BotName }} you can keep track of the ones that 
 	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
 	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
 	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
-	GIFTSLIST: `
-<b>[gifts]</b>
+	GIFTSLIST: `<b>[gifts]</b>
 {{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
 {{else}}
 <i>~ no gifts were ever given. ~</i>
 {{end}}
+    `,
+	GIFTSSPENTEVENT: `<b>[gifts]</b> Gift redeemed!
+
+Your {{.Amount}} sat gift <code>{{.Id}}</code> was redeemed{{if .Description}} from an invoice described as
+<i>{{.Description}}</i>{{end}}.
     `,
 
 	PAYWALLHELP: `
@@ -296,14 +300,17 @@ By generating your paywalls on @{{ .BotName }} you can keep track of them all wi
 /paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
 /paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
     `,
-	PAYWALLERROR:   "<b>paywall</b> Error: {{.Err}}",
-	PAYWALLBALANCE: "<b>paywall</b> Balance: <i>{{.Balance}} sat</i>",
-	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
-	PAYWALLLISTLINKS: `<b>paywall</b>
-{{range .Links}}- <code>{{.LndValue}}</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
+	PAYWALLERROR:   "<b>[paywall]</b> Error: {{.Err}}",
+	PAYWALLBALANCE: "<b>[paywall]</b> Balance: <i>{{.Balance}} sat</i>",
+	PAYWALLCREATED: `<b>[paywall]</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
+	PAYWALLLISTLINKS: `<b>[paywall]</b>
+{{range .Links}}- <code>{{.LndValue}} sat</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
 {{else}}
 <i>~ no paywalls were ever built. ~</i>
 {{end}}
+    `,
+	PAYWALLPAIDEVENT: `<b>[paywall]</b> New click!
+Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a> for <i>{{.Destination}}</i>.
     `,
 
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",

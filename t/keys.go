@@ -148,6 +148,7 @@ const (
 	GIFTSCREATED    = "GiftsCreated"
 	GIFTSFAILEDSAVE = "GiftsFailedSave"
 	GIFTSLIST       = "GiftsList"
+	GIFTSSPENTEVENT = "GiftsSpentEvent"
 
 	POKERHELP         = "pokerHelp"
 	POKERDEPOSITFAIL  = "PokerDepositFail"
@@ -165,6 +166,7 @@ const (
 	PAYWALLBALANCE   = "PaywallBalance"
 	PAYWALLCREATED   = "PaywallCreated"
 	PAYWALLLISTLINKS = "PaywallListLinks"
+	PAYWALLPAIDEVENT = "PaywallPaidEvent"
 
 	ETLENEUMFAILEDTOPAY = "EtleneumFailedToPay"
 
