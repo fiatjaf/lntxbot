@@ -198,7 +198,7 @@ func nodeLink(nodeId string) string {
 }
 
 func channelLink(scid string) string {
-	return fmt.Sprintf(`<a href="https://ln.alhur.es/node/%s">%s</a>`, scid, scid)
+	return fmt.Sprintf(`<a href="https://ln.alhur.es/channel/%s">%s</a>`, scid, scid)
 }
 
 func getDollarPrice(msats int64) string {
