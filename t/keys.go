@@ -14,6 +14,7 @@ const (
 	WITHDRAW       = "Withdraw"
 	ERROR          = "Error"
 	CHECKING       = "Checking"
+	TXPENDING      = "TxPending"
 	TXCANCELED     = "TxCanceled"
 	UNEXPECTED     = "Unexpected"
 
@@ -147,6 +148,7 @@ const (
 	GIFTSCREATED    = "GiftsCreated"
 	GIFTSFAILEDSAVE = "GiftsFailedSave"
 	GIFTSLIST       = "GiftsList"
+	GIFTSSPENTEVENT = "GiftsSpentEvent"
 
 	POKERHELP         = "pokerHelp"
 	POKERDEPOSITFAIL  = "PokerDepositFail"
@@ -154,6 +156,7 @@ const (
 	POKERBALANCEERROR = "PokerBalanceError"
 	POKERSTATUS       = "PokerStatus"
 	POKERNOTIFY       = "PokerNotify"
+	POKERNOTIFYFRIEND = "PokerNotifyFriend"
 	POKERSUBSCRIBED   = "PokerSubscribed"
 	POKERSECRETURL    = "PokerSecretURL"
 	POKERBALANCE      = "PokerBalance"
@@ -163,6 +166,9 @@ const (
 	PAYWALLBALANCE   = "PaywallBalance"
 	PAYWALLCREATED   = "PaywallCreated"
 	PAYWALLLISTLINKS = "PaywallListLinks"
+	PAYWALLPAIDEVENT = "PaywallPaidEvent"
+
+	ETLENEUMFAILEDTOPAY = "EtleneumFailedToPay"
 
 	TOGGLEHELP = "toggleHelp"
 
@@ -199,4 +205,7 @@ const (
 	TXNOTFOUND         = "TxNotFound"
 	TXINFO             = "TxInfo"
 	TXLIST             = "TxList"
+
+	TUTORIALWALLET = "TutorialWallet"
+	TUTORIALBLUE   = "TutorialBlue"
 )

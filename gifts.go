@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
@@ -10,12 +13,16 @@ import (
 )
 
 type GiftsOrder struct {
-	OrderId          string `json:"orderId"`
-	ChargeId         string `json:"chargeId"`
+	OrderId          string `json:"order_id"`
+	ChargeId         string `json:"charge_id"`
 	Status           string `json:"status"`
 	LightningInvoice struct {
 		PayReq string `json:"payreq"`
 	} `json:"lightning_invoice"`
+}
+
+type GiftsError struct {
+	Message string `json:"message"`
 }
 
 type GiftsGift struct {
@@ -28,6 +35,12 @@ type GiftsGift struct {
 		Reference string `json:"reference"`
 	} `json:"withdrawalInfo"`
 	Amount int `json:"amount"`
+}
+
+type GiftSpentEvent struct {
+	OrderId string `json:"id"`
+	Amount  int    `json:"amount"`
+	Spent   bool   `json:"spent"`
 }
 
 type GiftsData struct {
@@ -44,25 +57,31 @@ func (g GiftsGift) RedeemerURL() string {
 }
 
 func createGift(user User, sats int, messageId int) error {
-	var resp GiftsOrder
-	_, err := napping.Post("https://api.lightning.gifts/create", struct {
-		Amount int `json:"amount"`
-	}{sats}, &resp, nil)
+	var order GiftsOrder
+	var gerr GiftsError
+	resp, err := napping.Post("https://api.lightning.gifts/create", struct {
+		Amount int    `json:"amount"`
+		Notify string `json:"notify"`
+	}{sats, fmt.Sprintf("%s/app/gifts/webhook?user=%d", s.ServiceURL, user.Id)}, &order, &gerr)
 	if err != nil {
 		return err
 	}
-	if resp.LightningInvoice.PayReq == "" {
-		return errors.New("invalid response from lightning.gifts")
+	if resp.Status() >= 300 {
+		if gerr.Message == "GIFT_AMOUNT_UNDER_100" {
+			return errors.New("Gift should be at least 100 sat!")
+		} else {
+			return errors.New("lightning.gifts error: " + gerr.Message)
+		}
 	}
 
-	inv, err := ln.Call("decodepay", resp.LightningInvoice.PayReq)
+	inv, err := ln.Call("decodepay", order.LightningInvoice.PayReq)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
 
 	return user.actuallySendExternalPayment(
-		messageId, resp.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, resp.OrderId, user.Id), map[string]interface{}{},
+		messageId, order.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
+		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, order.OrderId, user.Id), map[string]interface{}{},
 		func(
 			u User,
 			messageId int,
@@ -78,7 +97,7 @@ func createGift(user User, sats int, messageId int) error {
 			// wait for gift to be available
 			for i := 0; i < 10; i++ {
 				var status GiftsOrder
-				napping.Get("https://api.lightning.gifts/status/"+resp.ChargeId, nil, &status, nil)
+				napping.Get("https://api.lightning.gifts/status/"+order.ChargeId, nil, &status, nil)
 				if status.Status == "paid" {
 					break
 				}
@@ -86,7 +105,7 @@ func createGift(user User, sats int, messageId int) error {
 			}
 
 			// we already have the order id which is the gift url
-			u.notifyAsReply(t.GIFTSCREATED, t.T{"OrderId": resp.OrderId}, messageId)
+			u.notifyAsReply(t.GIFTSCREATED, t.T{"OrderId": order.OrderId}, messageId)
 
 			// save gift info as user data
 			var data GiftsData
@@ -95,7 +114,7 @@ func createGift(user User, sats int, messageId int) error {
 				u.notify(t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
 				return
 			}
-			data.Gifts = append(data.Gifts, resp.OrderId)
+			data.Gifts = append(data.Gifts, order.OrderId)
 
 			// limit stored gifts to 50
 			if len(data.Gifts) > 50 {
@@ -121,5 +140,49 @@ func createGift(user User, sats int, messageId int) error {
 
 func getGift(orderId string) (gift GiftsGift, err error) {
 	_, err = napping.Get("https://api.lightning.gifts/gift/"+orderId, nil, &gift, nil)
+	return
+}
+
+func serveGiftsWebhook() {
+	http.HandleFunc("/app/gifts/webhook", func(w http.ResponseWriter, r *http.Request) {
+		// parse the incoming data
+		var event GiftSpentEvent
+		err := json.NewDecoder(r.Body).Decode(&event)
+		if err != nil {
+			log.Warn().Err(err).Msg("error decoding gifts webhook")
+			return
+		}
+
+		// fetch gift
+		gift, err := getGift(event.OrderId)
+		if err != nil {
+			log.Warn().Err(err).Interface("ev", event).Msg("error fetching gift on webhook")
+			return
+		}
+
+		// fetch user
+		userId, err := strconv.Atoi(r.URL.Query().Get("user"))
+		if err != nil {
+			log.Warn().Err(err).Interface("ev", event).Msg("invalid user on gifts webhook")
+		}
+		user, err := loadUser(userId, 0)
+		if err != nil {
+			log.Warn().Err(err).Interface("ev", event).Msg("error loading gifts giver after webhook")
+		}
+
+		user.notify(t.GIFTSSPENTEVENT, t.T{
+			"Id":          gift.OrderId,
+			"Description": gift.WithdrawalInfo.Reference,
+			"Amount":      gift.Amount,
+		})
+	})
+}
+
+func loadUserFromGiftId(giftId string) (u User, err error) {
+	err = pg.Get(&u, `
+SELECT `+USERFIELDS+` 
+FROM telegram.account
+WHERE appdata->'gifts' ?| array[$1]
+    `, giftId)
 	return
 }

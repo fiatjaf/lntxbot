@@ -26,6 +26,7 @@ func (d def) help(lang string) string {
 var methods = []def{
 	def{
 		aliases: []string{"start"},
+		argstr:  "[<tutorial>]",
 	},
 	def{
 		aliases:        []string{"receive", "invoice", "fund"},
@@ -108,7 +109,7 @@ var methods = []def{
 	},
 	def{
 		aliases:        []string{"poker", "app poker"},
-		argstr:         "deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>",
+		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
 		inline:         true,
 		inline_example: "poker",
 	},

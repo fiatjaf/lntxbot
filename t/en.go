@@ -12,6 +12,7 @@ var EN = map[Key]string{
 	WITHDRAW:   "Withdraw?",
 	ERROR:      "Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
+	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
 	UNEXPECTED: "Unexpected error: please report.",
 
@@ -181,7 +182,7 @@ You can use the following bots without leaving your bot chat:
 lightning-poker.com, multiplayer texas hold'em: /help_poker
 microbet.fun, simple sports betting: /help_microbet
 lightning.gifts, lightning vouchers: /help_gifts
-bitflash.club, LN->BTC with batched transactions: /help_bitflash
+paywall.link, paywalls for your digital content: /help_paywall
 golightning.club, BTC->LN cheap service: /help_golightning
 Blockstream Satellite, messages from space: /help_satellite
     `,
@@ -277,12 +278,16 @@ By generating your gifts on @{{ .BotName }} you can keep track of the ones that 
 	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
 	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
 	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
-	GIFTSLIST: `
-<b>[gifts]</b>
+	GIFTSLIST: `<b>[gifts]</b>
 {{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
 {{else}}
 <i>~ no gifts were ever given. ~</i>
 {{end}}
+    `,
+	GIFTSSPENTEVENT: `<b>[gifts]</b> Gift redeemed!
+
+Your {{.Amount}} sat gift <code>{{.Id}}</code> was redeemed{{if .Description}} from an invoice described as
+<i>{{.Description}}</i>{{end}}.
     `,
 
 	PAYWALLHELP: `
@@ -295,14 +300,17 @@ By generating your paywalls on @{{ .BotName }} you can keep track of them all wi
 /paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
 /paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
     `,
-	PAYWALLERROR:   "<b>paywall</b> Error: {{.Err}}",
-	PAYWALLBALANCE: "<b>paywall</b> Balance: <i>{{.Balance}} sat</i>",
-	PAYWALLCREATED: `<b>paywall</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
-	PAYWALLLISTLINKS: `<b>paywall</b>
-{{range .Links}}- <code>{{.LndValue}}</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
+	PAYWALLERROR:   "<b>[paywall]</b> Error: {{.Err}}",
+	PAYWALLBALANCE: "<b>[paywall]</b> Balance: <i>{{.Balance}} sat</i>",
+	PAYWALLCREATED: `<b>[paywall]</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
+	PAYWALLLISTLINKS: `<b>[paywall]</b>
+{{range .Links}}- <code>{{.LndValue}} sat</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
 {{else}}
 <i>~ no paywalls were ever built. ~</i>
 {{end}}
+    `,
+	PAYWALLPAIDEVENT: `<b>[paywall]</b> New click!
+Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a> for <i>{{.Destination}}</i>.
     `,
 
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
@@ -321,6 +329,13 @@ Satoshis in play: {{.Chips}}
     `,
 	POKERNOTIFY: `
 <b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
+
+/poker_status to double-check!
+/poker_play to play here!
+/poker_url to play in a browser window!
+    `,
+	POKERNOTIFYFRIEND: `
+<b>[Poker]</b> @{{.FriendName}} has sitted in a poker table!
 
 /poker_status to double-check!
 /poker_play to play here!
@@ -392,11 +407,17 @@ Registered: {{.Registered}}
 	ZEROAMOUNTINVOICE:  "Invoices with undefined amounts are not supported because they are not safe.",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
-	WELCOME:            "Your account is created.",
-	WRONGCOMMAND:       "Could not understand the command. /help",
-	RETRACTQUESTION:    "Retract unclaimed tip?",
-	RECHECKPENDING:     "Recheck pending payment?",
-	TXNOTFOUND:         "Couldn't find transaction {{.HashFirstChars}}.",
+	WELCOME: `
+Welcome. Your account is created. You're now able to move Bitcoin into, from and inside Telegram. Please remember that we can't guarantee your funds in case we lose funds due to software bug or malicious hacker attacks. Don't keep a balance here greater than what you're willing to lose.
+
+With that said, this bot is pretty safe.
+
+For any questions or just to say hello you can join us at @lntxbot_dev (warning: there may be an entrance fee payable in satoshis).
+    `,
+	WRONGCOMMAND:    "Could not understand the command. /help",
+	RETRACTQUESTION: "Retract unclaimed tip?",
+	RECHECKPENDING:  "Recheck pending payment?",
+	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
 	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
@@ -411,5 +432,22 @@ Registered: {{.Registered}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}
+    `,
+
+	TUTORIALWALLET: `
+@{{.BotName}} is a Lightning wallet that works from your Telegram account.
+
+You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions.
+
+It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
+
+With @{{ .BotName }} you're well equipped for doing online stuff on the Lightning Network.
+    `,
+	TUTORIALBLUE: `
+Although it works, for real-world usage opening a Telegram chat and pasting invoices can be a pain.
+
+For usage on the streets you can import your @{{ .BotName }} funds on <a href="https://bluewallet.io/">BlueWallet</a>. You don't need to keep your on-chain Bitcoin there, nor create a default Lightning wallet, you just have to type /bluewallet here to get an import URL and paste it there on their import screen.
+
+Everything you do on BlueWallet afterwards will be reflected in the bot screen and vice-versa (you'll get notifications for payments made and received from BlueWallet on your Telegram, but not the opposite).
     `,
 }

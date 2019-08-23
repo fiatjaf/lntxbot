@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+
+	"git.alhur.es/fiatjaf/lntxbot/t"
 
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -32,6 +36,16 @@ type PaywallLink struct {
 	Expires        int64  `json:"expires,omitempty"`
 	ShortURL       string `json:"short_url,omitempty"`
 	Memo           string `json:"memo"`
+	Settled        int    `json:"settled"`
+}
+
+type PaywallWebhookEvent struct {
+	AuthKey   string `json:"auth_key"`
+	PaywallId int    `json:"paywall_id"`
+	Link      string `json:"paywall_link"`
+	LndValue  string `json:"lnd_value"`
+	PaidAt    int    `json:"paid_at"`
+	Settled   int    `json:"settled"`
 }
 
 type PaywallError struct {
@@ -84,7 +98,7 @@ func getPaywallKey(user User) (key string, err error) {
 	// created, let's save the auth_key
 	data.AuthKey = puser.AuthKey
 	err = user.setAppData("paywall", data)
-	return
+	return data.AuthKey, err
 }
 
 func getPaywallBalance(user User) (sats int, err error) {
@@ -182,4 +196,74 @@ func createPaywallLink(user User, sats int, url, memo string) (link PaywallLink,
 	}
 
 	return
+}
+
+func servePaywallWebhook() {
+	http.HandleFunc("/app/paywall/webhook", func(w http.ResponseWriter, r *http.Request) {
+		// parse the incoming data
+		var event PaywallWebhookEvent
+		err := json.NewDecoder(r.Body).Decode(&event)
+		if err != nil {
+			log.Warn().Err(err).Msg("error decoding paywall webhook")
+			return
+		}
+
+		// get our user that matches the incoming authkey
+		var puser PaywallUser
+		var perr PaywallError
+		resp, err := paywallClient.Get("https://paywall.link/v1/user?access-token="+event.AuthKey,
+			nil, &puser, &perr)
+		if err != nil {
+			log.Warn().Err(err).Interface("ev", event).Msg("error getting user data after paywall webhook")
+			return
+		}
+		if resp.Status() >= 300 {
+			err = perr
+			log.Warn().Err(err).Interface("ev", event).Msg("error getting user data after paywall webhook")
+			return
+		}
+
+		parts := strings.Split(puser.Username, "__")
+		if len(parts) != 2 {
+			log.Warn().Err(err).Interface("puser", puser).Msg("invalid user data after paywall webhook")
+			return
+		}
+
+		userId, err := strconv.Atoi(parts[1])
+		if err != nil {
+			log.Warn().Err(err).Interface("puser", puser).
+				Msg("failed to parse user id from user data on paywall webhook")
+			return
+		}
+
+		user, err := loadUser(userId, 0)
+		if err != nil {
+			log.Warn().Err(err).Int("id", userId).Msg("failed to load user on paywall webhook")
+			return
+		}
+
+		// now grab data about the paywall which was paid
+		var link PaywallLink
+		resp, err = paywallClient.Get(
+			"https://paywall.link/v1/user/paywall/"+strconv.Itoa(event.PaywallId)+"?access-token="+event.AuthKey,
+			nil, &link, &perr)
+		if err != nil {
+			log.Warn().Err(err).Interface("ev", event).Msg("error getting paywall link data after paywall webhook")
+			return
+		}
+		if resp.Status() >= 300 {
+			err = perr
+			log.Warn().Err(err).Interface("ev", event).Msg("error getting paywall link data after paywall webhook")
+			return
+		}
+
+		// finally we can notify the user who got the payment
+		user.notify(t.PAYWALLPAIDEVENT, t.T{
+			"Link":        event.Link,
+			"Sats":        event.LndValue,
+			"Times":       event.Settled,
+			"Destination": link.DestinationURL,
+			"Memo":        link.Memo,
+		})
+	})
 }
