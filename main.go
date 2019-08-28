@@ -201,6 +201,23 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle = t.NewBundle("en")
 
 	// template functions
+	bundle.AddFunc("s", func(iquantity interface{}) string {
+		switch quantity := iquantity.(type) {
+		case int64:
+			if quantity != 1 {
+				return "s"
+			}
+		case int:
+			if quantity != 1 {
+				return "s"
+			}
+		case float64:
+			if quantity != 1 {
+				return "s"
+			}
+		}
+		return ""
+	})
 	bundle.AddFunc("dollar", func(isat interface{}) string {
 		switch sat := isat.(type) {
 		case int64:

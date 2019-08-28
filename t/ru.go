@@ -10,7 +10,7 @@ var RU = map[Key]string{
 	FAILURE:    "Сбой.",
 	PROCESSING: "Обрабатываю...",
 	WITHDRAW:   "Вывести?",
-	ERROR:      "Ошибка{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "{{if .App}}<b>[{{.App}}]</b> {{end}}Ошибка{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Проверка...",
 	TXCANCELED: "Транзакция отменена.",
 	UNEXPECTED: "Неожиданная ошибка: пожалуйста, обратитесь в поддержку.",
@@ -174,17 +174,6 @@ var RU = map[Key]string{
 	HIDDENSTOREFAIL:      "Не получилось сохранить скрытый контент. Пожалуйста, сообщите об ошибке: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Скрытое сообщение не найдено.",
 	HIDDENSHAREBTN:       "Распространить в другом чате",
-
-	APPHELP: `
-Вы можете использовать следующие боты, не покидая чат с этим ботом:
-
-lightning-poker.com, техасский холдем: /help_poker
-microbet.fun, простые ставки на спорт: /help_microbet
-lightning.gifts, Лайтнинг ваучеры: /help_gifts
-bitflash.club, LN->BTC с сгруппированными транзакциями: /help_bitflash
-golightning.club, BTC->LN дешевый сервис конвертации: /help_golightning
-Blockstream Satellite, сообщения из космоса: /help_satellite
-    `,
 
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Вы подтверждаете запрос транзакции Bitflash на <b>{{.BTCAmount}} BTC</b> на адрес <code>{{.Address}}</code>? Вы заплатите <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Транзакция поставлена в очередь!",

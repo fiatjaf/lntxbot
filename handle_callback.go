@@ -110,7 +110,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		claimer := u
 
-		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "giveaway", nil)
+		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "giveaway", "")
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
 			claimer.alert(cb, t.ERROR, t.T{"Err": errMsg})
@@ -375,7 +375,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				loserNames = append(loserNames, loser.AtName())
 			}
 
-			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "giveflip", nil)
+			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "giveflip", "")
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to giveflip")
 				winner.notify(t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": errMsg})

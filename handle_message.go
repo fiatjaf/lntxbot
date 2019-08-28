@@ -152,12 +152,11 @@ parsed:
 			u.notify(t.STOPNOTIFY, nil)
 		}
 		break
-	case opts["app"].(bool),
-		opts["microbet"].(bool), opts["bitflash"].(bool),
+	case opts["microbet"].(bool), opts["bitflash"].(bool),
 		opts["golightning"].(bool), opts["poker"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
-		opts["paywall"].(bool):
-		handleExternalApp(u, opts, message.MessageID)
+		opts["paywall"].(bool), opts["sats4ads"].(bool):
+		handleExternalApp(u, opts, message)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		if opts["lnurl"].(bool) {
@@ -294,7 +293,7 @@ parsed:
 			anonymous,
 			sats*1000,
 			extra,
-			nil,
+			"",
 		)
 		if err != nil {
 			log.Warn().Err(err).

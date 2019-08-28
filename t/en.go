@@ -10,7 +10,7 @@ var EN = map[Key]string{
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
-	ERROR:      "Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "{{if .App}}<b>[{{.App}}]</b> {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
 	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
@@ -57,7 +57,7 @@ var EN = map[Key]string{
 <pre>{{.Help}}</pre>
 For more information on each command type <code>/help &lt;command&gt;</code>.
     `,
-	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps {{index .Similar 2}}?{{end}}{{end}}",
+	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps /{{index .Similar 2}}?{{end}}{{end}}",
 	HELPMETHOD: `
 <pre>/{{.MainName}} {{.Argstr}}</pre>
 {{.Help}}
@@ -109,7 +109,7 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
     `,
 	COINFLIPWINNERMSG:      "You're the winner of a coinflip for a prize of {{.TotalSats}} sat. The losers were: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "You've lost {{.IndividualSats}} in a coinflip. The winner was {{.Receiver}}.",
-	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
+	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spot{{s .SpotsLeft}} left!",
 	COINFLIPJOIN:           "Join lottery!",
 	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
 	COINFLIPOVERQUOTA:      "You're over your coinflip daily quota.",
@@ -120,7 +120,7 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
 /giveflip_100_5: 5 participants needed, winner will get 500 satoshis from the command issuer.
     `,
 	GIVEFLIPMSG:       "{{.User}} is giving {{.Sats}} sat away to a lucky person out of {{.Participants}}!",
-	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
+	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spot{{s .SpotsLeft}} left!",
 	GIVEFLIPJOIN:      "Try to win!",
 	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 
@@ -175,17 +175,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
-
-	APPHELP: `
-You can use the following bots without leaving your bot chat:
-
-lightning-poker.com, multiplayer texas hold'em: /help_poker
-microbet.fun, simple sports betting: /help_microbet
-lightning.gifts, lightning vouchers: /help_gifts
-paywall.link, paywalls for your digital content: /help_paywall
-golightning.club, BTC->LN cheap service: /help_golightning
-Blockstream Satellite, messages from space: /help_satellite
-    `,
 
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Transaction queued!",
@@ -255,7 +244,7 @@ Blockstream Satellite, messages from space: /help_satellite
 	SATELLITEHELP: `
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
-<code>/app satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
+<code>/satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
 /satellite_transmissions lists your transmissions.
     `,
 
@@ -361,6 +350,26 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 /toggle_ticket stops charging new entrants a fee. 
 /toggle_spammy toggles 'spammy' mode. 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
+
+	SATS4ADSHELP: `
+Sats4ads is an ad marketplace on Telegram. Pay money to show ads to others, receive money for each ad you see.
+
+/sats4ads_on_15 puts your account in ad-listening mode. Anyone will be able to publish messages to you for 15 msatoshi-per-character. You can adjust that price.
+/sats4ads_off turns off your account so you won't get any more ads.
+/sats4ads_prices shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
+/sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
+    `,
+	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.3f" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
+	SATS4ADSNOMESSAGE: `<b>[sats4ads]</b> Use this command as a reply to some previous message. The message replied to will be considered as the content you want to broadcast.`,
+	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat {{dollar .Sats}}.{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_prices{{end}}`,
+	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users in each pricing tier.
+{{range .Prices}}
+<code>{{.Price}}</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+{{else}}
+<i>No one is registered to see ads yet.</i>
+{{end}}
+    `,
+	SATS4ADSADFOOTER: `[sats4ads: paid <i>{{printf "%.3f" .Sats}} sat</i> for this]`,
 
 	HELPHELP: "Shows full help or help about specific command.",
 

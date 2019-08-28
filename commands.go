@@ -81,9 +81,6 @@ var methods = []def{
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
-		aliases: []string{"app"},
-	},
-	def{
 		aliases: []string{"microbet", "app microbet"},
 		argstr:  "[bets | balance | withdraw | bet]",
 	},
@@ -114,6 +111,10 @@ var methods = []def{
 		inline_example: "poker",
 	},
 	def{
+		aliases: []string{"sats4ads"},
+		argstr:  "(on [<msat_per_character>]| off | prices | broadcast <spend_satoshis>)",
+	},
+	def{
 		aliases: []string{"bluewallet", "lndhub"},
 		argstr:  "[refresh]",
 	},
@@ -138,7 +139,7 @@ func setupCommands() {
 
 	for _, def := range methods {
 		for _, alias := range def.aliases {
-			commandList = append(commandList, alias)
+			commandList = append(commandList, strings.Replace(alias, " ", "_", -1))
 			commandIndex[alias] = def
 		}
 	}

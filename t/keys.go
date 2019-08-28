@@ -106,7 +106,7 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	APPHELP = "appHelp"
+	APPERROR = "AppError"
 
 	BITFLASHHELP         = "bitflashHelp"
 	BITFLASHCONFIRM      = "BitflashConfirm"
@@ -160,6 +160,13 @@ const (
 	POKERSUBSCRIBED   = "PokerSubscribed"
 	POKERSECRETURL    = "PokerSecretURL"
 	POKERBALANCE      = "PokerBalance"
+
+	SATS4ADSHELP       = "sats4adsHelp"
+	SATS4ADSTOGGLE     = "Sats4adsToggle"
+	SATS4ADSNOMESSAGE  = "Sats4adsNoMessage"
+	SATS4ADSBROADCAST  = "Sats4adsBroadcast"
+	SATS4ADSPRICETABLE = "Sats4adsPriceTable"
+	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
 
 	PAYWALLHELP      = "paywallHelp"
 	PAYWALLERROR     = "PaywallError"

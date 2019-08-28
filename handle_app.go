@@ -10,7 +10,9 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func handleExternalApp(u User, opts docopt.Opts, messageId int) {
+func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
+	messageId := message.MessageID
+
 	switch {
 	case opts["microbet"].(bool):
 		if opts["bets"].(bool) {
@@ -383,6 +385,58 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 
 				u.notify(t.PAYWALLLISTLINKS, t.T{"Links": links})
 			}
+		}
+	case opts["sats4ads"].(bool):
+		switch {
+		case opts["on"].(bool):
+			price, err := opts.Int("<msat_per_character>")
+			if err != nil {
+				price = 1
+			}
+			if price > 1000 {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "max = 1000 msatoshi"})
+				return
+			}
+
+			err = turnSats4AdsOn(u, price)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			u.notify(t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(price) / 1000})
+		case opts["off"].(bool):
+			err := turnSats4AdsOff(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+
+			u.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
+		case opts["prices"].(bool):
+			prices, err := getSats4AdsPrices(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			u.notify(t.SATS4ADSPRICETABLE, t.T{"Prices": prices})
+		case opts["broadcast"].(bool):
+			satoshis, err := opts.Int("<spend_satoshis>")
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			if message.ReplyToMessage == nil {
+				u.notify(t.SATS4ADSNOMESSAGE, nil)
+				return
+			}
+			content := message.ReplyToMessage.Text
+			nmessagesSent, totalCost, err := broadcastSats4Ads(u, satoshis, content)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+
+			u.notifyAsReply(t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
 		}
 	default:
 		handleHelp(u, "app")

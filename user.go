@@ -617,7 +617,7 @@ func (u User) sendInternally(
 	target User,
 	anonymous bool,
 	msats int,
-	desc, label interface{},
+	desc, tag string,
 ) (string, error) {
 	if target.Id == u.Id || target.Username == u.Username || target.TelegramId == u.TelegramId {
 		return "Can't pay yourself.", errors.New("user trying to pay itself")
@@ -629,15 +629,9 @@ func (u User) sendInternally(
 	}
 
 	var (
-		vdesc  = &sql.NullString{}
-		vlabel = &sql.NullString{}
+		descn = sql.NullString{String: desc, Valid: desc != ""}
+		tagn  = sql.NullString{String: tag, Valid: tag != ""}
 	)
-
-	if desc != nil {
-		vdesc.Scan(desc)
-	}
-
-	vlabel.Scan(label)
 
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -649,9 +643,9 @@ func (u User) sendInternally(
 	var balance int64
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, anonymous, amount, description, label, trigger_message)
+  (from_id, to_id, anonymous, amount, description, tag, trigger_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, target.Id, anonymous, msats, vdesc, vlabel, messageId)
+    `, u.Id, target.Id, anonymous, msats, descn, tagn, messageId)
 	if err != nil {
 		return "Database error.", err
 	}
