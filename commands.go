@@ -112,7 +112,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"sats4ads"},
-		argstr:  "(on [<msat_per_character>]| off | prices | broadcast <spend_satoshis>)",
+		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [--max-rate=<maxrate>] [--skip=<offset>])",
 	},
 	def{
 		aliases: []string{"bluewallet", "lndhub"},

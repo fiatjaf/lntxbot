@@ -249,7 +249,7 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
     `,
 
 	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
-	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
+	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Rate}} BTC</code> to <code>{{.Order.Address}}</code>.",
 	GOLIGHTNINGHELP: `
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
@@ -354,22 +354,25 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 	SATS4ADSHELP: `
 Sats4ads is an ad marketplace on Telegram. Pay money to show ads to others, receive money for each ad you see.
 
+Rates for each user are in msatoshi-per-character.
+Each ad also includes a fixed fee of 1 sat.
+Images and videos are priced as if they were 300 characters.
+
 /sats4ads_on_15 puts your account in ad-listening mode. Anyone will be able to publish messages to you for 15 msatoshi-per-character. You can adjust that price.
 /sats4ads_off turns off your account so you won't get any more ads.
-/sats4ads_prices shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
+/sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
 /sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
     `,
 	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.3f" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
 	SATS4ADSNOMESSAGE: `<b>[sats4ads]</b> Use this command as a reply to some previous message. The message replied to will be considered as the content you want to broadcast.`,
-	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat {{dollar .Sats}}.{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_prices{{end}}`,
+	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
 	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users in each pricing tier.
-{{range .Prices}}
-<code>{{.Price}}</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+{{range .Rates}}<code>{{.Rate}}</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>No one is registered to see ads yet.</i>
 {{end}}
     `,
-	SATS4ADSADFOOTER: `[sats4ads: paid <i>{{printf "%.3f" .Sats}} sat</i> for this]`,
+	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.3f" .Sats}} sat]`,
 
 	HELPHELP: "Shows full help or help about specific command.",
 

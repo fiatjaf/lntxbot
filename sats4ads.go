@@ -1,18 +1,23 @@
 package main
 
-import "git.alhur.es/fiatjaf/lntxbot/t"
+import (
+	"fmt"
+
+	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/go-telegram-bot-api/telegram-bot-api"
+)
 
 type Sats4AdsData struct {
-	On    bool `json:"on"`
-	Price int  `json:"price"` // in msatoshi per character
+	On   bool `json:"on"`
+	Rate int  `json:"rate"` // in msatoshi per character
 }
 
-type Sats4AdsPriceGroup struct {
-	Price  int `db:"price"` // in msatoshi per character
+type Sats4AdsRateGroup struct {
 	NUsers int `db:"nusers"`
+	Rate   int `db:"rate"` // in msatoshi per character
 }
 
-func turnSats4AdsOn(user User, price int) error {
+func turnSats4AdsOn(user User, rate int) error {
 	var data Sats4AdsData
 	err := user.getAppData("sats4ads", &data)
 	if err != nil {
@@ -20,7 +25,7 @@ func turnSats4AdsOn(user User, price int) error {
 	}
 
 	data.On = true
-	data.Price = price
+	data.Rate = rate
 	return user.setAppData("sats4ads", data)
 }
 
@@ -35,16 +40,26 @@ func turnSats4AdsOff(user User) error {
 	return user.setAppData("sats4ads", data)
 }
 
-func broadcastSats4Ads(user User, budgetSatoshis int, content string) (messagesSent int, costSatoshis int, err error) {
-	nchars := len(content)
+func broadcastSats4Ads(
+	user User,
+	budgetSatoshis int,
+	contentMessage *tgbotapi.Message,
+	maxrate int,
+	offset int,
+) (messagesSent int, costSatoshis int, err error) {
+	if maxrate == 0 {
+		maxrate = 1000
+	}
 
 	rows, err := pg.Queryx(`
-SELECT id, (appdata->'sats4ads'->>'price')::int AS price
+SELECT id, (appdata->'sats4ads'->>'rate')::int AS rate
 FROM telegram.account
 WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
   AND id != $1
-ORDER BY appdata->'sats4ads'->>'price' ASC, random()
-    `, user.Id)
+  AND (appdata->'sats4ads'->>'rate')::integer < $2
+ORDER BY appdata->'sats4ads'->>'rate' ASC, random()
+OFFSET $3
+    `, user.Id, maxrate, offset)
 	if err != nil {
 		return
 	}
@@ -52,8 +67,8 @@ ORDER BY appdata->'sats4ads'->>'price' ASC, random()
 	// send messages and pay receivers one by one
 	for rows.Next() {
 		var row struct {
-			Id    int `db:"id"`
-			Price int `db:"price"`
+			Id   int `db:"id"`
+			Rate int `db:"rate"`
 		}
 
 		err = rows.StructScan(&row)
@@ -61,29 +76,96 @@ ORDER BY appdata->'sats4ads'->>'price' ASC, random()
 			return
 		}
 
-		thisCostMsat := row.Price * nchars
-		thisCostSatoshis := float64(thisCostMsat) / 1000
-
-		if costSatoshis+int(thisCostSatoshis) > budgetSatoshis {
-			// budget ended
-			return
-		}
-
-		// ok, we still have money to spend.
+		// fetch the target user
 		target, err := loadUser(row.Id, 0)
-		if err != nil {
+		if err != nil || target.ChatId == 0 {
 			continue
 		}
 
-		message := sendMessage(target.ChatId, content+"\n\n"+translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-			"Sats": thisCostSatoshis,
-		}))
-		if message.MessageID == 0 {
+		// build ad message based on the message that was replied to
+		var nchars int
+		var ad tgbotapi.Chattable
+		var thisCostMsat int = 1000 // fixed 1sat fee for each message
+		var thisCostSatoshis float64
+		baseChat := tgbotapi.BaseChat{ChatID: target.ChatId}
+
+		if contentMessage.Text != "" {
+			nchars = len(contentMessage.Text)
+			thisCostMsat += row.Rate * nchars
+			thisCostSatoshis = float64(thisCostMsat) / 1000
+			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+				"Sats": thisCostSatoshis,
+			})
+
+			ad = tgbotapi.MessageConfig{
+				BaseChat: baseChat,
+				Text:     contentMessage.Text + footer,
+				DisableWebPagePreview: true,
+			}
+		} else if contentMessage.Animation != nil {
+			nchars = 300 + len(contentMessage.Caption)
+			thisCostMsat += row.Rate * nchars
+			thisCostSatoshis = float64(thisCostMsat) / 1000
+			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+				"Sats": thisCostSatoshis,
+			})
+
+			ad = tgbotapi.AnimationConfig{
+				Caption: contentMessage.Caption + footer,
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat:    baseChat,
+					FileID:      contentMessage.Animation.FileID,
+					UseExisting: true,
+				},
+			}
+		} else if contentMessage.Photo != nil {
+			nchars = 300 + len(contentMessage.Caption)
+			thisCostMsat += row.Rate * nchars
+			thisCostSatoshis = float64(thisCostMsat) / 1000
+			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+				"Sats": thisCostSatoshis,
+			})
+			photos := *contentMessage.Photo
+
+			ad = tgbotapi.PhotoConfig{
+				Caption: contentMessage.Caption + footer,
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat:    baseChat,
+					FileID:      photos[0].FileID,
+					UseExisting: true,
+				},
+			}
+		} else if contentMessage.Video != nil {
+			nchars = 300 + len(contentMessage.Caption)
+			thisCostMsat += row.Rate * nchars
+			thisCostSatoshis = float64(thisCostMsat) / 1000
+			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+				"Sats": thisCostSatoshis,
+			})
+
+			ad = tgbotapi.VideoConfig{
+				Caption: contentMessage.Caption + footer,
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat:    baseChat,
+					FileID:      contentMessage.Video.FileID,
+					UseExisting: true,
+				},
+			}
+		}
+
+		if costSatoshis+int(thisCostSatoshis) > budgetSatoshis {
+			// budget ended, don't send anything
+			return messagesSent, costSatoshis, nil
+		}
+
+		message, err := bot.Send(ad)
+		if err != nil {
 			// message wasn't sent
 			continue
 		}
 
-		_, err = user.sendInternally(message.MessageID, target, false, thisCostMsat, "", "sats4ads")
+		_, err = user.sendInternally(message.MessageID, target, true, thisCostMsat,
+			fmt.Sprintf("%d characters ad at %d msat/char", nchars, row.Rate), "sats4ads")
 		if err != nil {
 			log.Warn().Err(err).Str("user", user.Username).Str("target", target.Username).Int("amount", thisCostMsat).
 				Msg("failed to pay sats4ads")
@@ -98,17 +180,17 @@ ORDER BY appdata->'sats4ads'->>'price' ASC, random()
 	return
 }
 
-func getSats4AdsPrices(user User) (prices []Sats4AdsPriceGroup, err error) {
-	err = pg.Select(&prices, `
+func getSats4AdsRates(user User) (rates []Sats4AdsRateGroup, err error) {
+	err = pg.Select(&rates, `
 SELECT * FROM (
   SELECT
-    (appdata->'sats4ads'->>'price')::integer AS price,
+    (appdata->'sats4ads'->>'rate')::integer AS rate,
     count(*) AS nusers
   FROM telegram.account
   WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
     AND id != $1
-  GROUP BY (appdata->'sats4ads'->>'price')::integer
-)x ORDER BY nusers
+  GROUP BY (appdata->'sats4ads'->>'rate')::integer
+)x ORDER BY rate
     `, user.Id)
 	return
 }

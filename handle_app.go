@@ -389,21 +389,21 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 	case opts["sats4ads"].(bool):
 		switch {
 		case opts["on"].(bool):
-			price, err := opts.Int("<msat_per_character>")
+			rate, err := opts.Int("<msat_per_character>")
 			if err != nil {
-				price = 1
+				rate = 1
 			}
-			if price > 1000 {
+			if rate > 1000 {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "max = 1000 msatoshi"})
 				return
 			}
 
-			err = turnSats4AdsOn(u, price)
+			err = turnSats4AdsOn(u, rate)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
-			u.notify(t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(price) / 1000})
+			u.notify(t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(rate) / 1000})
 		case opts["off"].(bool):
 			err := turnSats4AdsOff(u)
 			if err != nil {
@@ -412,13 +412,13 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			u.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
-		case opts["prices"].(bool):
-			prices, err := getSats4AdsPrices(u)
+		case opts["rates"].(bool):
+			rates, err := getSats4AdsRates(u)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
-			u.notify(t.SATS4ADSPRICETABLE, t.T{"Prices": prices})
+			u.notify(t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
 		case opts["broadcast"].(bool):
 			satoshis, err := opts.Int("<spend_satoshis>")
 			if err != nil {
@@ -429,8 +429,12 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.SATS4ADSNOMESSAGE, nil)
 				return
 			}
-			content := message.ReplyToMessage.Text
-			nmessagesSent, totalCost, err := broadcastSats4Ads(u, satoshis, content)
+
+			// optional args
+			maxrate, _ := opts.Int("--max-rate")
+			offset, _ := opts.Int("--skip")
+
+			nmessagesSent, totalCost, err := broadcastSats4Ads(u, satoshis, message.ReplyToMessage, maxrate, offset)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
