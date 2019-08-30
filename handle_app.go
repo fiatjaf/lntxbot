@@ -23,6 +23,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
+			// only show the last 30
+			if len(bets) > 30 {
+				bets = bets[:30]
+			}
+
 			u.notify(t.MICROBETLIST, t.T{"Bets": bets})
 		} else if opts["balance"].(bool) {
 			balance, err := getMicrobetBalance(u)
