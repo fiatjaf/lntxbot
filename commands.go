@@ -25,7 +25,7 @@ func (d def) help(lang string) string {
 
 var methods = []def{
 	def{
-		aliases: []string{"start"},
+		aliases: []string{"start", "tutorial"},
 		argstr:  "[<tutorial>]",
 	},
 	def{

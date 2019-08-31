@@ -134,7 +134,7 @@ parsed:
 	}
 
 	switch {
-	case opts["start"].(bool):
+	case opts["start"].(bool), opts["tutorial"].(bool):
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 
