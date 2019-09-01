@@ -579,7 +579,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 		orderId, err := LNToRubExchange(u, amount, exchangeType, unit, target, messageId)
 		if err != nil {
-			u.notify(t.ERROR, t.T{"App": exchangeType, "Err": "Invalid amount."})
+			u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
 			return
 		}
 
@@ -596,13 +596,13 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				case LNIN:
 					continue
 				case OKAY:
-					u.notify(t.LNTORUBFULFILLED, t.T{"OrderId": orderId})
-					break
+					u.notify(t.LNTORUBFULFILLED, t.T{"Type": exchangeType, "OrderId": orderId})
+					return
 				case CANC:
 					break
 				case QER1, QER2:
 					u.notify(t.LNTORUBFIATERROR, t.T{"Type": exchangeType, "OrderId": orderId})
-					break
+					return
 				default:
 					continue
 				}

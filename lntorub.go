@@ -22,7 +22,7 @@ type LNToRubDataOrder struct {
 }
 
 type LNToRubReply struct {
-	Ok    string `json:"ok"`
+	Ok    bool   `json:"ok"`
 	Error string `json:"error"`
 }
 
@@ -99,6 +99,11 @@ func LNToRubExchange(user User, amount float64, typ, unit, target string, messag
 			if err != nil {
 				log.Warn().Err(err).Int("user", u.Id).Msg("lntorub get data fail")
 			} else {
+				// create map if it doesn't exist
+				if lntorubdata.Orders == nil {
+					lntorubdata.Orders = make(map[string][]LNToRubDataOrder)
+				}
+
 				var orders []LNToRubDataOrder
 				var ok bool
 				if orders, ok = lntorubdata.Orders[typ]; !ok {

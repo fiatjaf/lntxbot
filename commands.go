@@ -98,10 +98,12 @@ var methods = []def{
 		argstr:  "<satoshis>",
 	},
 	def{
+		// lntorub
 		aliases: []string{"qiwi"},
 		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
 	},
 	def{
+		// lntorub
 		aliases: []string{"yandex"},
 		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
 	},
