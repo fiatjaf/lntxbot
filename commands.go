@@ -82,7 +82,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"microbet", "app microbet"},
-		argstr:  "[bets | balance | withdraw | bet]",
+		argstr:  "[list | bets | balance | withdraw | bet]",
 	},
 	def{
 		aliases: []string{"bitflash", "app bitflash"},
@@ -95,6 +95,14 @@ var methods = []def{
 	def{
 		aliases: []string{"golightning", "app golightning"},
 		argstr:  "<satoshis>",
+	},
+	def{
+		aliases: []string{"qiwi"},
+		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+	},
+	def{
+		aliases: []string{"yandex"},
+		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
 	},
 	def{
 		aliases: []string{"gifts", "app gifts"},

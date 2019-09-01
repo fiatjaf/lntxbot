@@ -29,6 +29,7 @@ type Settings struct {
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
 	PaywallLinkKey string `envconfig:"PAYWALLLINK_KEY"`
+	LNToRubKey     string `envconfig:"LNTORUB_KEY"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`

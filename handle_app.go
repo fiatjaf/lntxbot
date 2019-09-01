@@ -15,7 +15,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 	switch {
 	case opts["microbet"].(bool):
-		if opts["bets"].(bool) {
+		if opts["bets"].(bool) || opts["list"].(bool) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
 			if err != nil {
@@ -230,6 +230,82 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		}
 
 		u.notify(t.GOLIGHTNINGFINISH, t.T{"Order": order})
+	case opts["qiwi"].(bool), opts["yandex"].(bool):
+		exchangeType := "qiwi"
+		if opts["yandex"].(bool) {
+			exchangeType = "yandex"
+		}
+
+		switch {
+		case opts["list"].(bool):
+			// list past orders
+			var data LNToRubData
+			err := u.getAppData("lntorub", &data)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+
+			orders, _ := data.Orders[exchangeType]
+			u.notify(t.LNTORUBORDERLIST, t.T{"Type": exchangeType, "Orders": orders})
+		case opts["default"].(bool):
+			// show or set current default
+			if target, err := opts.String("<target>"); err == nil {
+				// set target
+				err := setDefaultLNToRubTarget(u, exchangeType, target)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+					return
+				}
+				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
+			} else {
+				// no target given, show current
+				target := getDefaultLNToRubTarget(u, exchangeType)
+				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
+			}
+		default:
+			// ask to send transfer
+			amount, err := opts.Float64("<amount>")
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": "Invalid amount."})
+				return
+			}
+			amountStr := fmt.Sprintf("%.2f", amount)
+
+			unit := "rub"
+			if opts["sat"].(bool) {
+				unit = "sat"
+				amountStr = fmt.Sprintf("%d", int64(amount))
+			}
+
+			target, err := opts.String("<target>")
+			if err != nil {
+				// no target, let's check if there's some saved
+				target = getDefaultLNToRubTarget(u, exchangeType)
+				if target == "" {
+					u.notify(t.LNTORUBMISSINGTARGET, t.T{"Type": exchangeType})
+					return
+				}
+			}
+
+			u.notifyWithKeyboard(t.LNTORUBCONFIRMATION, t.T{
+				"Unit":   unit,
+				"Amount": amount,
+				"Target": target,
+				"Type":   exchangeType,
+			}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.CANCEL, u.Locale),
+							fmt.Sprintf("cancel=%d", u.Id)),
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.YES, u.Locale),
+							fmt.Sprintf("app=%s-%s-%s-%s", exchangeType, amountStr, unit, target)),
+					},
+				},
+			}, 0)
+		}
 	case opts["poker"].(bool):
 		subscribePoker(u, time.Minute*5, false)
 
@@ -492,6 +568,43 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			return translate(t.PROCESSING, u.Locale)
 		}
+	case "qiwi", "yandex":
+		exchangeType := parts[0]
+		amount, _ := strconv.ParseFloat(parts[1], 64)
+		unit := parts[2]
+		target := parts[3]
+
+		orderId, err := LNToRubExchange(u, amount, exchangeType, unit, target, messageId)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"App": exchangeType, "Err": "Invalid amount."})
+			return
+		}
+
+		// query the status until it returns a success or error
+		go func() {
+			for i := 0; i < 10; i++ {
+				time.Sleep(time.Second * 5 * time.Duration(i))
+				status, err := LNToRubQueryStatus(orderId)
+				if err != nil {
+					break
+				}
+
+				switch status {
+				case LNIN:
+					continue
+				case OKAY:
+					u.notify(t.LNTORUBFULFILLED, t.T{"OrderId": orderId})
+					break
+				case CANC:
+					break
+				case QER1, QER2:
+					u.notify(t.LNTORUBFIATERROR, t.T{"Type": exchangeType, "OrderId": orderId})
+					break
+				default:
+					continue
+				}
+			}
+		}()
 	case "bitflash":
 		chargeId := parts[1]
 

@@ -256,6 +256,36 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 /golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
+	QIWIHELP: `
+Transfer your satoshis to your <a href="https://qiwi.com/">Qiwi</a> account instantly. Powered by @lntorubbot.
+
+<code>/qiwi 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
+<code>/qiwi default 999999999</code> sets 999999999 as your default account.
+<code>/qiwi 10000 sat</code> sends 10000 sat as rubles to your default account.
+/qiwi_default shows your default account.
+/qiwi_list shows your past transactions.
+    `,
+	YANDEXHELP: `
+Transfer your satoshis to your <a href="https://money.yandex.ru/">Yandex.Money</a> account instantly. Powered by @lntorubbot.
+
+<code>/yandex 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
+<code>/yandex default 999999999</code> sets 999999999 as your default account.
+<code>/yandex 10000 sat</code> sends 10000 sat as rubles to your default account.
+/yandex_default shows your default account.
+/yandex_list shows your past transactions.
+    `,
+	LNTORUBCONFIRMATION:  "Sending {{.Amount}} {{.Unit}} to {{.Type}} account {{.Target}}. Is that ok?",
+	LNTORUBFULFILLED:     "Transfer {{.OrderId}} finished.",
+	LNTORUBFIATERROR:     "<b>[{{.Type}}]</b> Error sending out the rubles. Please report this issue with the order id {{.OrderId}}.",
+	LNTORUBMISSINGTARGET: "<b>[{{.Type}}]</b> You didn't specify a destination and there isn't a default destination specified!",
+	LNTORUBDEFAULTTARGET: `<b>[{{.Type}}]</b> Default target: {{.Target}}`,
+	LNTORUBORDERLIST: `<b>[{{.Type}}]</b>
+{{range .Orders}}<i>{{.Sat}} sat ({{.Rub}} rub)</i> to <code>{{.Target}}</code> at <i>{{.Time}}</i>
+{{else}}
+<i>~ no sats were ever exchanged. ~</i>
+{{end}}
+    `,
+
 	GIFTSHELP: `
 <a href="https://lightning.gifts/">Lightning Gifts</a> is the best way to send satoshis as gifts to people. A simple service, a simple URL, no vendor lock-in and <b>no fees</b>.
 

@@ -143,6 +143,15 @@ const (
 	GOLIGHTNINGFAIL   = "GoLightningFail"
 	GOLIGHTNINGFINISH = "GoLightningFinish"
 
+	QIWIHELP             = "qiwiHelp"
+	YANDEXHELP           = "yandexHelp"
+	LNTORUBCONFIRMATION  = "LNToRubConfirmation"
+	LNTORUBFULFILLED     = "LNToRubFulfilled"
+	LNTORUBMISSINGTARGET = "LNToRubMissingTarget"
+	LNTORUBFIATERROR     = "LNToRubFiatError"
+	LNTORUBORDERLIST     = "LNToRubOrderList"
+	LNTORUBDEFAULTTARGET = "LNToRubDefaultTarget"
+
 	GIFTSHELP       = "giftsHelp"
 	GIFTSERROR      = "GiftsError"
 	GIFTSCREATED    = "GiftsCreated"
