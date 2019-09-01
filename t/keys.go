@@ -63,6 +63,8 @@ const (
 
 	SENDHELP = "sendHelp"
 
+	TRANSACTIONSHELP = "transactionsHelp"
+
 	BALANCEHELP = "balanceHelp"
 
 	GIVEAWAYHELP            = "giveawayHelp"

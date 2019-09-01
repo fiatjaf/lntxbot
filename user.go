@@ -170,6 +170,8 @@ SELECT
   anonymous,
   status,
   trigger_message,
+  tag,
+  label,
   coalesce(description, '') AS description,
   fees::float/1000 AS fees,
   amount::float/1000 AS amount,
@@ -753,7 +755,11 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 
 func (u User) paymentReceived(
 	amount int,
-	desc, hash, preimage, tag, label string,
+	desc string,
+	hash string,
+	preimage string,
+	label string,
+	tag string,
 ) (err error) {
 	tagn := sql.NullString{String: tag, Valid: tag != ""}
 
@@ -788,17 +794,7 @@ SELECT
   ( 
     SELECT coalesce(sum(fees), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
-  ) AS fees,
-  (
-    SELECT (coalesce(sum(amount), 0)::float/1000)::numeric(13) FROM lightning.transaction AS t
-    WHERE b.account_id = t.from_id
-      AND t.description = 'coinflip'
-  ) AS coinfliploses,
-  (
-    SELECT (coalesce(sum(amount), 0)::float/1000)::numeric(13) FROM lightning.transaction AS t
-    WHERE b.account_id = t.to_id
-      AND t.description = 'coinflip'
-  ) AS coinflipwins
+  ) AS fees
 FROM lightning.balance AS b
 WHERE b.account_id = $1
 GROUP BY b.account_id, b.balance
@@ -806,12 +802,12 @@ GROUP BY b.account_id, b.balance
 	return
 }
 
-type InOut int
+type InOut string
 
 const (
-	In InOut = iota
-	Out
-	Both
+	In   InOut = "in"
+	Out  InOut = "out"
+	Both InOut = ""
 )
 
 func (u User) listTransactions(limit, offset, descCharLimit int, inOrOut InOut) (txns []Transaction, err error) {
@@ -838,6 +834,8 @@ SELECT * FROM (
       THEN coalesce(description, '')
       ELSE substring(coalesce(description, '') from 0 for ($4 - 1)) || '…'
     END AS description,
+    tag,
+    label,
     amount::float/1000 AS amount,
     payment_hash,
     preimage

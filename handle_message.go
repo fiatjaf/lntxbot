@@ -568,7 +568,13 @@ parsed:
 		sendMessageWithKeyboard(u.ChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
 	case opts["transactions"].(bool):
 		page, _ := opts.Int("--page")
-		handleTransactionList(u, page, nil)
+		filter := Both
+		if opts["--in"].(bool) {
+			filter = In
+		} else if opts["--out"].(bool) {
+			filter = Out
+		}
+		handleTransactionList(u, page, filter, nil)
 		break
 	case opts["balance"].(bool):
 		// show balance
@@ -579,13 +585,11 @@ parsed:
 		}
 
 		u.notify(t.BALANCEMSG, t.T{
-			"Sats":            info.Balance,
-			"Received":        info.TotalReceived,
-			"Sent":            info.TotalSent,
-			"Fees":            info.TotalFees,
-			"CoinflipWins":    info.CoinflipWins,
-			"CoinflipLoses":   info.CoinflipLoses,
-			"CoinflipBalance": info.CoinflipWins - info.CoinflipLoses,
+			"Sats":         info.Balance,
+			"Received":     info.TotalReceived,
+			"Sent":         info.TotalSent,
+			"Fees":         info.TotalFees,
+			"CoinflipWins": info.CoinflipWins,
 		})
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):

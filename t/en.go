@@ -92,6 +92,14 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
 <code>/send anonymously 1000 @someone</code> same as above, but telegram user @someone will see just: "Someone has sent you 1000 satoshis".
     `,
 
+	TRANSACTIONSHELP: `
+Lists all your transactions with pagination controls. Each transaction has a link that can be clicked for more information.
+
+/transactions lists all transactions, from the most recent.
+<code>/transactions --in</code> lists only the incoming transactions.
+<code>/transactions --out</code> lists only the outgoing transactions.
+    `,
+
 	BALANCEHELP: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
 
 	GIVEAWAYHELP: `Creates a button in a group chat. The first person to click the button gets the satoshis.
@@ -421,10 +429,9 @@ Images and videos are priced as if they were 300 characters.
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
+
+/transactions
     `,
-	// {{if ne .CoinflipBalance 0}}<b>Coinflip balance</b>: {{.CoinflipBalance}} sat ({{.CoinflipWins}} won, {{.CoinflipLoses}} lost)
-	// {{end}}
-	//     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `
 A lottery round is starting!
@@ -460,7 +467,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	RETRACTQUESTION: "Retract unclaimed tip?",
 	RECHECKPENDING:  "Recheck pending payment?",
 	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}

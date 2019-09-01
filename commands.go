@@ -47,6 +47,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"transactions"},
+		argstr:  "[--in] [--out]",
 	},
 	def{
 		aliases:        []string{"giveaway"},

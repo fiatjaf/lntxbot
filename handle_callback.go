@@ -60,8 +60,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 	case cb.Data == "noop":
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "txlist="):
-		page, _ := strconv.Atoi(cb.Data[7:])
-		handleTransactionList(u, page, cb)
+		parts := strings.Split(cb.Data[7:], "-")
+		page, _ := strconv.Atoi(parts[0])
+		filter := InOut(parts[1])
+		handleTransactionList(u, page, filter, cb)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
