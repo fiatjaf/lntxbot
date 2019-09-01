@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -515,9 +516,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			maxrate, _ := opts.Int("--max-rate")
 			offset, _ := opts.Int("--skip")
 
-			nmessagesSent, totalCost, err := broadcastSats4Ads(u, satoshis, message.ReplyToMessage, maxrate, offset)
+			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis,
+				message.ReplyToMessage, maxrate, offset)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				log.Warn().Err(err).Str("user", u.Username).Msg("sats4ads broadcast fail")
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
 				return
 			}
 

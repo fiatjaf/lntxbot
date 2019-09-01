@@ -28,6 +28,9 @@ type Settings struct {
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
+	// account in the database named '@'
+	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
+
 	PaywallLinkKey string `envconfig:"PAYWALLLINK_KEY"`
 	LNToRubKey     string `envconfig:"LNTORUB_KEY"`
 

@@ -46,7 +46,7 @@ func broadcastSats4Ads(
 	contentMessage *tgbotapi.Message,
 	maxrate int,
 	offset int,
-) (messagesSent int, costSatoshis int, err error) {
+) (messagesSent int, costSatoshis int, errMsg string, err error) {
 	if maxrate == 0 {
 		maxrate = 1000
 	}
@@ -64,7 +64,15 @@ OFFSET $3
 		return
 	}
 
-	// send messages and pay receivers one by one
+	// decide on a unique hash for the source payment (so payments can be aggregated
+	// like Payer-3->Proxy, then Proxy-1->TargetA, Proxy-2->TargetB, Proxy-3->TargetC)
+	random, err := randomPreimage()
+	if err != nil {
+		return
+	}
+	sourcehash := calculateHash(random)
+
+	// send messages and queue receivers to be paid
 	for rows.Next() {
 		var row struct {
 			Id   int `db:"id"`
@@ -77,7 +85,8 @@ OFFSET $3
 		}
 
 		// fetch the target user
-		target, err := loadUser(row.Id, 0)
+		var target User
+		target, err = loadUser(row.Id, 0)
 		if err != nil || target.ChatId == 0 {
 			continue
 		}
@@ -154,29 +163,44 @@ OFFSET $3
 		}
 
 		if costSatoshis+int(thisCostSatoshis) > budgetSatoshis {
-			// budget ended, don't send anything
-			return messagesSent, costSatoshis, nil
+			// budget ended, stop queueing messages
+			break
 		}
 
-		message, err := bot.Send(ad)
+		var message tgbotapi.Message
+		message, err = bot.Send(ad)
 		if err != nil {
 			// message wasn't sent
 			continue
 		}
 
-		_, err = user.sendInternally(message.MessageID, target, true, thisCostMsat,
-			fmt.Sprintf("%d characters ad at %d msat/char", nchars, row.Rate), "sats4ads")
+		// commit payment
+		var random string
+		random, err = randomPreimage()
 		if err != nil {
-			log.Warn().Err(err).Str("user", user.Username).Str("target", target.Username).Int("amount", thisCostMsat).
-				Msg("failed to pay sats4ads")
-			continue
+			log.Error().Err(err).Msg("error generating random string on sats4ads loop")
+			return
+		}
+
+		errMsg, err = user.sendThroughProxy(
+			sourcehash,
+			calculateHash(random),
+			contentMessage.MessageID,
+			message.MessageID,
+			target,
+			thisCostMsat,
+			fmt.Sprintf("ad dispatched to %d", messagesSent+1),
+			fmt.Sprintf("%d characters ad at %d msat/char", nchars, row.Rate),
+			"sats4ads",
+		)
+		if err != nil {
+			return
 		}
 
 		messagesSent += 1
 		costSatoshis += int(thisCostSatoshis)
 	}
 
-	err = nil
 	return
 }
 

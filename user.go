@@ -671,6 +671,86 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	return "", nil
 }
 
+func (u User) sendThroughProxy(
+	// these must be unique across payments that must be combined, otherwise different
+	sourcehash string,
+	targethash string,
+	// ~ this is very important
+	sourceMessageId int,
+	targetMessageId int,
+	target User,
+	msats int,
+	sourcedesc string,
+	targetdesc string,
+	tag string,
+) (string, error) {
+	var (
+		tagn        = sql.NullString{String: tag, Valid: tag != ""}
+		sourcedescn = sql.NullString{String: sourcedesc, Valid: sourcedesc != ""}
+		targetdescn = sql.NullString{String: targetdesc, Valid: targetdesc != ""}
+	)
+
+	// start transaction
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return "Database error.", err
+	}
+	defer txn.Rollback()
+
+	// send transaction source->proxy, then proxy->target
+	// both are updated if it exists
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t
+  (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (payment_hash) DO UPDATE SET
+  amount = t.amount + $4,
+  description = $5,
+  tag = $6,
+  trigger_message = $7
+    `, sourcehash, u.Id, s.ProxyAccount, msats, sourcedescn, tagn, sourceMessageId)
+	if err != nil {
+		return "Database error.", err
+	}
+
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t
+  (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (payment_hash) DO UPDATE SET
+  amount = t.amount + $4,
+  description = $5,
+  tag = $6,
+  trigger_message = $7
+    `, targethash, s.ProxyAccount, target.Id, msats, targetdescn, tagn, targetMessageId)
+	if err != nil {
+		return "Database error.", err
+	}
+
+	// check balance
+	var balance int64
+	err = txn.Get(&balance, `
+SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+    `, u.Id)
+	if err != nil {
+		return "Database error.", err
+	}
+
+	if balance < 0 {
+		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
+				-float64(balance)/1000),
+			errors.New("insufficient balance")
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return "Unable to pay due to internal database error.", err
+	}
+
+	return "", nil
+}
+
 func (u User) paymentReceived(
 	amount int,
 	desc, hash, preimage, tag, label string,
