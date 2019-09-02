@@ -405,10 +405,11 @@ Images and videos are priced as if they were 300 characters.
 	SATS4ADSNOMESSAGE: `<b>[sats4ads]</b> Use this command as a reply to some previous message. The message replied to will be considered as the content you want to broadcast.`,
 	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
 	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users in each pricing tier.
-{{range .Rates}}<code>{{.Rate}}</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+{{range .Rates}}<code>{{.Rate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>No one is registered to see ads yet.</i>
 {{end}}
+Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for each user.
     `,
 	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.3f" .Sats}} sat]`,
 
