@@ -149,6 +149,7 @@ const (
 	YANDEXHELP           = "yandexHelp"
 	LNTORUBCONFIRMATION  = "LNToRubConfirmation"
 	LNTORUBFULFILLED     = "LNToRubFulfilled"
+	LNTORUBCANCELED      = "LNToRubCanceled"
 	LNTORUBMISSINGTARGET = "LNToRubMissingTarget"
 	LNTORUBFIATERROR     = "LNToRubFiatError"
 	LNTORUBORDERLIST     = "LNToRubOrderList"

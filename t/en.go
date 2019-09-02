@@ -282,8 +282,9 @@ Transfer your satoshis to your <a href="https://money.yandex.ru/">Yandex.Money</
 /yandex_default shows your default account.
 /yandex_list shows your past transactions.
     `,
-	LNTORUBCONFIRMATION:  "Sending <i>{{.Amount}} {{.Unit}}</i> to <b>{{.Type}}</b> account <code>{{.Target}}</code>. Is that ok?",
+	LNTORUBCONFIRMATION:  "Sending <i>{{.Sat}} sat ({{.Rub}} rubles)</i> to <b>{{.Type}}</b> account <code>{{.Target}}</code>. Is that ok?",
 	LNTORUBFULFILLED:     "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> finished.",
+	LNTORUBCANCELED:      "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> canceled.",
 	LNTORUBFIATERROR:     "<b>[{{.Type}}]</b> Error sending out the rubles. Please report this issue with the order id <code>{{.OrderId}}</code>.",
 	LNTORUBMISSINGTARGET: "<b>[{{.Type}}]</b> You didn't specify a destination and there isn't a default destination specified!",
 	LNTORUBDEFAULTTARGET: `<b>[{{.Type}}]</b> Default target: {{.Target}}`,

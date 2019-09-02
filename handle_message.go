@@ -585,11 +585,10 @@ parsed:
 		}
 
 		u.notify(t.BALANCEMSG, t.T{
-			"Sats":         info.Balance,
-			"Received":     info.TotalReceived,
-			"Sent":         info.TotalSent,
-			"Fees":         info.TotalFees,
-			"CoinflipWins": info.CoinflipWins,
+			"Sats":     info.Balance,
+			"Received": info.TotalReceived,
+			"Sent":     info.TotalSent,
+			"Fees":     info.TotalFees,
 		})
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):

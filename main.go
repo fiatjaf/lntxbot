@@ -160,10 +160,11 @@ func main() {
 	// lnurl routes
 	serveLNURL()
 
-	// app-poker-specific routes
+	// app-specific initializations
 	servePoker()
 	servePaywallWebhook()
 	serveGiftsWebhook()
+	go cancelAllLNToRubOrders()
 
 	// random assets
 	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))

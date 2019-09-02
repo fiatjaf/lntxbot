@@ -978,6 +978,4 @@ type Info struct {
 	TotalSent     float64 `db:"totalsent"`
 	TotalReceived float64 `db:"totalrecv"`
 	TotalFees     float64 `db:"fees"`
-	CoinflipWins  int64   `db:"coinflipwins"`
-	CoinflipLoses int64   `db:"coinfliploses"`
 }

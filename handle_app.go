@@ -1,8 +1,8 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -271,12 +271,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": "Invalid amount."})
 				return
 			}
-			amountStr := fmt.Sprintf("%.2f", amount)
 
 			unit := "rub"
 			if opts["sat"].(bool) {
 				unit = "sat"
-				amountStr = fmt.Sprintf("%d", int64(amount))
 			}
 
 			target, err := opts.String("<target>")
@@ -289,11 +287,30 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				}
 			}
 
+			// init an order and get the exchange rate
+			order, err := LNToRubExchangeInit(u, amount, exchangeType, unit, target, messageId)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+
+			// serialize this intermediary structure to json an save it on redis
+			jorder, err := json.Marshal(order)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+			err = rds.Set("lntorub:"+order.Hash, jorder, time.Hour).Err()
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+
 			u.notifyWithKeyboard(t.LNTORUBCONFIRMATION, t.T{
-				"Unit":   unit,
-				"Amount": amount,
-				"Target": target,
-				"Type":   exchangeType,
+				"Sat":    order.Sat,
+				"Rub":    order.Rub,
+				"Type":   order.Type,
+				"Target": order.Target,
 			}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
@@ -302,10 +319,16 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 							fmt.Sprintf("cancel=%d", u.Id)),
 						tgbotapi.NewInlineKeyboardButtonData(
 							translate(t.YES, u.Locale),
-							fmt.Sprintf("app=%s-%s-%s-%s", exchangeType, amountStr, unit, target)),
+							fmt.Sprintf("app=lntorub-%s", order.Hash)),
 					},
 				},
 			}, 0)
+
+			// cancel this order after 2 minutes
+			go func() {
+				time.Sleep(2 * time.Minute)
+				LNToRubExchangeCancel(order.Hash)
+			}()
 		}
 	case opts["poker"].(bool):
 		subscribePoker(u, time.Minute*5, false)
@@ -571,16 +594,31 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			return translate(t.PROCESSING, u.Locale)
 		}
-	case "qiwi", "yandex":
-		exchangeType := parts[0]
-		amount, _ := strconv.ParseFloat(parts[1], 64)
-		unit := parts[2]
-		target := parts[3]
+	case "lntorub":
+		orderId := parts[1]
 
-		orderId, err := LNToRubExchange(u, amount, exchangeType, unit, target, messageId)
+		// get order data from redis
+		var order LNToRubOrder
+		j, err := rds.Get("lntorub:" + orderId).Bytes()
 		if err != nil {
-			u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
-			return
+			LNToRubExchangeCancel(orderId)
+			u.notify(t.LNTORUBCANCELED, t.T{"Type": order.Type, "OrderId": orderId})
+			removeKeyboardButtons(cb)
+			return translate(t.ERROR, u.Locale)
+		}
+		err = json.Unmarshal(j, &order)
+		if err != nil {
+			LNToRubExchangeCancel(orderId)
+			u.notify(t.ERROR, nil)
+			removeKeyboardButtons(cb)
+			return translate(t.ERROR, u.Locale)
+		}
+
+		err = LNToRubExchangeFinish(u, order)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"App": order.Type, "Err": err.Error()})
+			removeKeyboardButtons(cb)
+			return translate(t.ERROR, u.Locale)
 		}
 
 		// query the status until it returns a success or error
@@ -596,12 +634,16 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				case LNIN:
 					continue
 				case OKAY:
-					u.notify(t.LNTORUBFULFILLED, t.T{"Type": exchangeType, "OrderId": orderId})
+					u.notifyAsReply(t.LNTORUBFULFILLED,
+						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
 					return
 				case CANC:
-					break
+					u.notifyAsReply(t.LNTORUBCANCELED,
+						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
+					return
 				case QER1, QER2:
-					u.notify(t.LNTORUBFIATERROR, t.T{"Type": exchangeType, "OrderId": orderId})
+					u.notifyAsReply(t.LNTORUBFIATERROR,
+						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
 					return
 				default:
 					continue
@@ -657,6 +699,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			err := withdrawPaywall(u)
 			if err != nil {
 				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				removeKeyboardButtons(cb)
 				return translate(t.FAILURE, u.Locale)
 			}
 		}
