@@ -559,6 +559,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 	switch parts[0] {
 	case "microbet":
 		if parts[1] == "withdraw" {
+			defer removeKeyboardButtons(cb)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
 				u.notify(t.MICROBETBALANCEERROR, t.T{"Err": err.Error()})
@@ -571,7 +572,6 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return translate(t.FAILURE, u.Locale)
 			}
 
-			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		} else {
 			// bet on something
@@ -595,6 +595,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			return translate(t.PROCESSING, u.Locale)
 		}
 	case "lntorub":
+		defer removeKeyboardButtons(cb)
 		orderId := parts[1]
 
 		// get order data from redis
@@ -603,21 +604,18 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		if err != nil {
 			LNToRubExchangeCancel(orderId)
 			u.notify(t.LNTORUBCANCELED, t.T{"Type": order.Type, "OrderId": orderId})
-			removeKeyboardButtons(cb)
 			return translate(t.ERROR, u.Locale)
 		}
 		err = json.Unmarshal(j, &order)
 		if err != nil {
 			LNToRubExchangeCancel(orderId)
 			u.notify(t.ERROR, nil)
-			removeKeyboardButtons(cb)
 			return translate(t.ERROR, u.Locale)
 		}
 
 		err = LNToRubExchangeFinish(u, order)
 		if err != nil {
 			u.notify(t.ERROR, t.T{"App": order.Type, "Err": err.Error()})
-			removeKeyboardButtons(cb)
 			return translate(t.ERROR, u.Locale)
 		}
 
@@ -651,6 +649,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 		}()
 	case "bitflash":
+		defer removeKeyboardButtons(cb)
 		chargeId := parts[1]
 
 		// get data for this charge
@@ -670,9 +669,9 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		// store order id so we can show it later on /app bitflash orders
 		saveBitflashOrder(u, order.Id)
 
-		removeKeyboardButtons(cb)
 		return translate(t.PROCESSING, u.Locale)
 	case "poker":
+		defer removeKeyboardButtons(cb)
 		if parts[1] == "withdraw" {
 			balance, err := getPokerBalance(u)
 			if err != nil {
@@ -691,15 +690,14 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return translate(t.FAILURE, u.Locale)
 			}
 
-			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		}
 	case "paywall":
+		defer removeKeyboardButtons(cb)
 		if parts[1] == "withdraw" {
 			err := withdrawPaywall(u)
 			if err != nil {
 				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
-				removeKeyboardButtons(cb)
 				return translate(t.FAILURE, u.Locale)
 			}
 		}
