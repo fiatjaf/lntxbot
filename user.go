@@ -732,17 +732,23 @@ ON CONFLICT (payment_hash) DO UPDATE SET
 
 	// check balance
 	var balance int64
-	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
+	err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", u.Id)
 	if err != nil {
 		return "Database error.", err
 	}
-
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
 				-float64(balance)/1000),
 			errors.New("insufficient balance")
+	}
+
+	// check proxy balance (should be always zero)
+	var proxybalance int
+	err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
+	if err != nil || proxybalance != 0 {
+		log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		err = errors.New("proxy balance isn't 0")
+		return "Database error.", err
 	}
 
 	err = txn.Commit()

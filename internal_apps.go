@@ -98,30 +98,50 @@ func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver 
 
 	msats := sats * 1000
 
+	random, err := randomPreimage()
+	if err != nil {
+		return
+	}
+	receiverHash := calculateHash(random) // for the proxied transaction
 	for _, fromId := range fromIds {
 		if fromId == toId {
 			continue
 		}
 
+		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description)
+INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
 VALUES ($1, $2, $3, 'reveal')
-    `, fromId, toId, msats)
+    `, fromId, s.ProxyAccount, msats)
+		if err != nil {
+			return
+		}
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t (payment_hash, from_id, to_id, amount, tag)
+VALUES ($1, $2, $3, $4, 'reveal')
+ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
+    `, receiverHash, s.ProxyAccount, toId, msats)
 		if err != nil {
 			return
 		}
 
+		// check sender balance
 		var balance int
-		err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, fromId)
+		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
 		if err != nil {
 			return
 		}
-
 		if balance < 0 {
 			err = errors.New("insufficient balance")
+			return
+		}
+
+		// check proxy balance (should be always zero)
+		var proxybalance int
+		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
+		if err != nil || proxybalance != 0 {
+			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+			err = errors.New("proxy balance isn't 0")
 			return
 		}
 
@@ -281,31 +301,53 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 		return
 	}
 
+	random, err := randomPreimage()
+	if err != nil {
+		return
+	}
+	receiverHash := calculateHash(random) // for the proxied transaction
+
 	// then we create a transfer from each of the other participants
 	for _, fromId := range fromIds {
 		if fromId == toId {
 			continue
 		}
 
+		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description)
+INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
 VALUES ($1, $2, $3, 'coinflip')
-    `, fromId, toId, msats)
+    `, fromId, s.ProxyAccount, msats)
 		if err != nil {
 			return
 		}
 
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t (payment_hash, from_id, to_id, amount, tag)
+VALUES ($1, $2, $3, $4, 'coinflip')
+ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
+    `, receiverHash, s.ProxyAccount, toId, msats)
+		if err != nil {
+			return
+		}
+
+		// check sender balance
 		var balance int
-		err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, fromId)
+		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
 		if err != nil {
 			return
 		}
-
 		if balance < 0 {
 			err = errors.New("insufficient balance")
+			return
+		}
+
+		// check proxy balance (should be always zero)
+		var proxybalance int
+		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
+		if err != nil || proxybalance != 0 {
+			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+			err = errors.New("proxy balance isn't 0")
 			return
 		}
 
@@ -375,30 +417,51 @@ func settleFundraise(sats int, toId int, fromIds []int) (receiver User, err erro
 
 	msats := sats * 1000
 
+	random, err := randomPreimage()
+	if err != nil {
+		return
+	}
+	receiverHash := calculateHash(random) // for the proxied transaction
+
 	for _, fromId := range fromIds {
 		if fromId == toId {
 			continue
 		}
 
+		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description)
+INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
 VALUES ($1, $2, $3, 'fundraise')
-    `, fromId, toId, msats)
+    `, fromId, s.ProxyAccount, msats)
+		if err != nil {
+			return
+		}
+
+		_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t (payment_hash, from_id, to_id, amount, tag)
+VALUES ($1, $2, $3, $4, 'fundraise')
+ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
+    `, receiverHash, s.ProxyAccount, toId, msats)
 		if err != nil {
 			return
 		}
 
 		var balance int
-		err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, fromId)
+		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
 		if err != nil {
 			return
 		}
-
 		if balance < 0 {
 			err = errors.New("insufficient balance")
+			return
+		}
+
+		// check proxy balance (should be always zero)
+		var proxybalance int
+		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
+		if err != nil || proxybalance != 0 {
+			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+			err = errors.New("proxy balance isn't 0")
 			return
 		}
 
