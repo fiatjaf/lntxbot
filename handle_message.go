@@ -471,19 +471,29 @@ parsed:
 		hiddenid := getHiddenId(message) // deterministic
 
 		var content string
-		if icontent, ok := opts["<message>"]; ok {
-			content = strings.Join(icontent.([]string), " ")
-		} else {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
+		var preview string
+		// if there's a replyto, use that as the content
+		if message.ReplyToMessage != nil {
+			content = message.ReplyToMessage.Text
 		}
 
-		preview := ""
-
-		contentparts := strings.SplitN(content, "~", 2)
-		if len(contentparts) == 2 {
-			preview = contentparts[0]
-			content = contentparts[1]
+		if icontent, ok := opts["<message>"]; ok {
+			message := strings.Join(icontent.([]string), " ")
+			if content != "" {
+				// we are using the text from the replyto as the content, this is the preview
+				preview = message
+			} else {
+				// otherwise parse the ~ thing
+				contentparts := strings.SplitN(message, "~", 2)
+				if len(contentparts) == 2 {
+					preview = contentparts[0]
+					content = contentparts[1]
+				}
+			}
+		} else if message.ReplyToMessage == nil {
+			// no content found
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
 		}
 
 		sats, err := opts.Int("<satoshis>")
