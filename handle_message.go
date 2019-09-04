@@ -29,7 +29,7 @@ func handleMessage(message *tgbotapi.Message) {
 	// we may end up sending the message to the user instead of to the group
 	// (if, for example, the user calls /coinflip on his own chat) then
 	// we at least want the correct language used there.
-	g := GroupChat{TelegramId: message.Chat.ID, Locale: u.Locale}
+	g := GroupChat{TelegramId: message.Chat.ID, Locale: "en"}
 
 	if message.Chat.Type == "private" {
 		// after ensuring the user we should always enable him to
