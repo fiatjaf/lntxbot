@@ -51,19 +51,6 @@ func broadcastSats4Ads(
 		maxrate = 1000
 	}
 
-	rows, err := pg.Queryx(`
-SELECT id, (appdata->'sats4ads'->>'rate')::int AS rate
-FROM telegram.account
-WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
-  AND id != $1
-  AND (appdata->'sats4ads'->>'rate')::integer < $2
-ORDER BY appdata->'sats4ads'->>'rate' ASC, random()
-OFFSET $3
-    `, user.Id, maxrate, offset)
-	if err != nil {
-		return
-	}
-
 	// decide on a unique hash for the source payment (so payments can be aggregated
 	// like Payer-3->Proxy, then Proxy-1->TargetA, Proxy-2->TargetB, Proxy-3->TargetC)
 	random, err := randomPreimage()
@@ -71,6 +58,21 @@ OFFSET $3
 		return
 	}
 	sourcehash := calculateHash(random)
+
+	logger := log.With().Str("sourcehash", sourcehash).Int("budget", budgetSatoshis).Int("max", maxrate).Logger()
+
+	rows, err := pg.Queryx(`
+SELECT id, (appdata->'sats4ads'->>'rate')::int AS rate
+FROM telegram.account
+WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
+  AND id != $1
+  AND (appdata->'sats4ads'->>'rate')::integer <= $2
+ORDER BY appdata->'sats4ads'->>'rate' ASC, random()
+OFFSET $3
+    `, user.Id, maxrate, offset)
+	if err != nil {
+		return
+	}
 
 	// send messages and queue receivers to be paid
 	for rows.Next() {
@@ -160,10 +162,43 @@ OFFSET $3
 					UseExisting: true,
 				},
 			}
+		} else if contentMessage.Document != nil {
+			nchars = 200 + len(contentMessage.Caption)
+			thisCostMsat += row.Rate * nchars
+			thisCostSatoshis = float64(thisCostMsat) / 1000
+			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+				"Sats": thisCostSatoshis,
+			})
+
+			ad = tgbotapi.DocumentConfig{
+				Caption: contentMessage.Caption + footer,
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat:    baseChat,
+					FileID:      contentMessage.Document.FileID,
+					UseExisting: true,
+				},
+			}
+		} else if contentMessage.Audio != nil {
+			nchars = 150 + len(contentMessage.Caption)
+			thisCostMsat += row.Rate * nchars
+			thisCostSatoshis = float64(thisCostMsat) / 1000
+			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+				"Sats": thisCostSatoshis,
+			})
+
+			ad = tgbotapi.AudioConfig{
+				Caption: contentMessage.Caption + footer,
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat:    baseChat,
+					FileID:      contentMessage.Audio.FileID,
+					UseExisting: true,
+				},
+			}
 		}
 
 		if costSatoshis+int(thisCostSatoshis) > budgetSatoshis {
 			// budget ended, stop queueing messages
+			logger.Debug().Int("spent", costSatoshis).Float64("next", thisCostSatoshis).Msg("budget ended")
 			break
 		}
 
@@ -171,6 +206,7 @@ OFFSET $3
 		message, err = bot.Send(ad)
 		if err != nil {
 			// message wasn't sent
+			logger.Debug().Err(err).Msg("message wasn't sent. skipping.")
 			continue
 		}
 
@@ -178,10 +214,8 @@ OFFSET $3
 		var random string
 		random, err = randomPreimage()
 		if err != nil {
-			log.Error().Err(err).Msg("error generating random string on sats4ads loop")
 			return
 		}
-
 		errMsg, err = user.sendThroughProxy(
 			sourcehash,
 			calculateHash(random),
@@ -190,15 +224,19 @@ OFFSET $3
 			target,
 			thisCostMsat,
 			fmt.Sprintf("ad dispatched to %d", messagesSent+1),
-			fmt.Sprintf("%d characters ad at %d msat/char", nchars, row.Rate),
+			fmt.Sprintf("%d characters ad (%s) at %d msat/char", nchars, sourcehash, row.Rate),
 			"sats4ads",
 		)
 		if err != nil {
+			logger.Error().Err(err).Msg("error saving proxied payment. abort all.")
 			return
 		}
 
 		messagesSent += 1
 		costSatoshis += int(thisCostSatoshis)
+
+		logger.Debug().Float64("cost", thisCostSatoshis).Int("total", costSatoshis).Int("n", messagesSent).
+			Msg("ad broadcasted")
 	}
 
 	return
