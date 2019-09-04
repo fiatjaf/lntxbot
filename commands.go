@@ -131,7 +131,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"toggle"},
-		argstr:  "(ticket [<price>]|spammy)",
+		argstr:  "(ticket [<price>] | spammy | language [<lang>])",
 	},
 	def{
 		aliases: []string{"help"},

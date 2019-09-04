@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -81,6 +83,25 @@ func setTicketPrice(telegramId int64, sat int) (err error) {
 UPDATE telegram.chat SET ticket = $2
 WHERE telegram_id = $1
     `, -telegramId, sat)
+	return
+}
+
+func setLanguage(chatId int64, lang string) (err error) {
+	if _, languageAvailable := bundle.Translations[lang]; !languageAvailable {
+		return errors.New("language not available.")
+	}
+
+	table := "telegram.account"
+	field := "chat_id"
+	id := chatId
+	taint := ", manual_locale = true"
+	if chatId < 0 {
+		table = "telegram.chat"
+		field = "telegram_id"
+		id = -chatId
+	}
+
+	_, err = pg.Exec("UPDATE "+table+" SET locale = $2"+taint+" WHERE "+field+" = $1", id, lang)
 	return
 }
 

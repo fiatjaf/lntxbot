@@ -29,7 +29,7 @@ func handleMessage(message *tgbotapi.Message) {
 	// we may end up sending the message to the user instead of to the group
 	// (if, for example, the user calls /coinflip on his own chat) then
 	// we at least want the correct language used there.
-	g := GroupChat{TelegramId: message.Chat.ID, Locale: "en"}
+	g := GroupChat{TelegramId: message.Chat.ID, Locale: u.Locale}
 
 	if message.Chat.Type == "private" {
 		// after ensuring the user we should always enable him to
@@ -629,9 +629,25 @@ parsed:
 		break
 	case opts["toggle"].(bool):
 		if message.Chat.Type == "private" {
+			// on private chats we can use /toggle language <lang>, nothing else
+			switch {
+			case opts["language"].(bool):
+				if lang, err := opts.String("<lang>"); err == nil {
+					log.Info().Str("user", u.Username).Str("language", lang).Msg("toggling language")
+					err := setLanguage(u.ChatId, lang)
+					if err != nil {
+						log.Warn().Err(err).Msg("failed to toggle language")
+						u.notify(t.ERROR, t.T{"Err": err.Error()})
+						break
+					}
+					u.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+				} else {
+					u.notify(t.LANGUAGEMSG, t.T{"Language": u.Locale})
+				}
+			}
+
 			break
 		}
-
 		if !isAdmin(message) {
 			break
 		}
@@ -644,11 +660,11 @@ parsed:
 
 		switch {
 		case opts["ticket"].(bool):
-			log.Debug().Int64("group", message.Chat.ID).Msg("toggling ticket")
+			log.Info().Int64("group", message.Chat.ID).Msg("toggling ticket")
 			price, err := opts.Int("<price>")
 			if err != nil {
 				setTicketPrice(message.Chat.ID, 0)
-				sendMessage(message.Chat.ID, translate("FreeJoin", g.Locale))
+				g.notify(t.FREEJOIN, nil)
 			}
 
 			setTicketPrice(message.Chat.ID, price)
@@ -663,10 +679,25 @@ parsed:
 			spammy, err := toggleSpammy(message.Chat.ID)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to toggle spammy")
+				g.notify(t.ERROR, t.T{"Err": err.Error()})
 				break
 			}
 
 			g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
+		case opts["language"].(bool):
+			if lang, err := opts.String("<lang>"); err == nil {
+				log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
+				err := setLanguage(message.Chat.ID, lang)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to toggle language")
+					u.notify(t.ERROR, t.T{"Err": err.Error()})
+					break
+				}
+				g.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+			} else {
+				g.notify(t.LANGUAGEMSG, t.T{"Language": g.Locale})
+			}
+
 		}
 	}
 }

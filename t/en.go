@@ -49,6 +49,7 @@ var EN = map[Key]string{
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
+	LANGUAGEMSG:  "This chat language is set to <code>{{.Language}}</code>.",
 	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:     "This group is now free to join.",
 	ASKTOCONFIRM: "Pay the invoice described above?",
@@ -387,6 +388,7 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 
 /toggle_ticket_10 starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
 /toggle_ticket stops charging new entrants a fee. 
+/toggle_language_ru changes the chat language to Russian, /toggle_language displays the chat language, these also work in private chats.
 /toggle_spammy toggles 'spammy' mode. 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
 

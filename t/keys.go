@@ -49,6 +49,7 @@ const (
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
 
 	SPAMMYMSG    = "SpammyMsg"
+	LANGUAGEMSG  = "LanguageMsg"
 	TICKETMSG    = "TicketMsg"
 	FREEJOIN     = "FreeJoin"
 	ASKTOCONFIRM = "AskToConfirm"

@@ -57,10 +57,10 @@ func ensureUser(telegramId int, username string, locale string) (u User, tcase i
 
 	var userRows []User
 
-	// always update locale while selecting user
+	// always update locale while selecting user unless it was set manually or isn't available
 	err = pg.Select(&userRows, `
 UPDATE telegram.account AS u
-SET locale = CASE WHEN $3 != '' THEN $3 ELSE u.locale END
+SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
 WHERE u.telegram_id = $1 OR u.username = $2
 RETURNING `+USERFIELDS,
 		telegramId, username, locale)

@@ -9,6 +9,7 @@ CREATE TABLE telegram.account (
   chat_id int, -- telegram private chat id
   password text NOT NULL DEFAULT encode(digest(random()::text, 'sha256'), 'hex'), -- used in lndhub interface
   locale text NOT NULL DEFAULT 'en', -- default language for messages
+  manual_locale boolean NOT NULL DEFAULT false,
   appdata jsonb NOT NULL DEFAULT '{}' -- data for all apps this user have, as a map of {"appname": {anything}}
 );
 
