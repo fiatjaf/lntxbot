@@ -49,6 +49,7 @@ const (
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
 
 	SPAMMYMSG    = "SpammyMsg"
+	LANGUAGEMSG  = "LanguageMsg"
 	TICKETMSG    = "TicketMsg"
 	FREEJOIN     = "FreeJoin"
 	ASKTOCONFIRM = "AskToConfirm"
@@ -62,6 +63,8 @@ const (
 	PAYHELP = "payHelp"
 
 	SENDHELP = "sendHelp"
+
+	TRANSACTIONSHELP = "transactionsHelp"
 
 	BALANCEHELP = "balanceHelp"
 
@@ -106,7 +109,7 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	APPHELP = "appHelp"
+	APPERROR = "AppError"
 
 	BITFLASHHELP         = "bitflashHelp"
 	BITFLASHCONFIRM      = "BitflashConfirm"
@@ -143,6 +146,16 @@ const (
 	GOLIGHTNINGFAIL   = "GoLightningFail"
 	GOLIGHTNINGFINISH = "GoLightningFinish"
 
+	QIWIHELP             = "qiwiHelp"
+	YANDEXHELP           = "yandexHelp"
+	LNTORUBCONFIRMATION  = "LNToRubConfirmation"
+	LNTORUBFULFILLED     = "LNToRubFulfilled"
+	LNTORUBCANCELED      = "LNToRubCanceled"
+	LNTORUBMISSINGTARGET = "LNToRubMissingTarget"
+	LNTORUBFIATERROR     = "LNToRubFiatError"
+	LNTORUBORDERLIST     = "LNToRubOrderList"
+	LNTORUBDEFAULTTARGET = "LNToRubDefaultTarget"
+
 	GIFTSHELP       = "giftsHelp"
 	GIFTSERROR      = "GiftsError"
 	GIFTSCREATED    = "GiftsCreated"
@@ -160,6 +173,13 @@ const (
 	POKERSUBSCRIBED   = "PokerSubscribed"
 	POKERSECRETURL    = "PokerSecretURL"
 	POKERBALANCE      = "PokerBalance"
+
+	SATS4ADSHELP       = "sats4adsHelp"
+	SATS4ADSTOGGLE     = "Sats4adsToggle"
+	SATS4ADSNOMESSAGE  = "Sats4adsNoMessage"
+	SATS4ADSBROADCAST  = "Sats4adsBroadcast"
+	SATS4ADSPRICETABLE = "Sats4adsPriceTable"
+	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
 
 	PAYWALLHELP      = "paywallHelp"
 	PAYWALLERROR     = "PaywallError"

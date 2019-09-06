@@ -157,6 +157,9 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 				u.notify(t.SATELLITEFAILEDTOSTORE, t.T{"Err": err.Error()})
 			} else {
 				satdata.Orders = append(satdata.Orders, []string{orderreq.UUID, orderreq.AuthToken})
+				if len(satdata.Orders) > 20 {
+					satdata.Orders = satdata.Orders[len(satdata.Orders)-20:]
+				}
 				err = u.setAppData("satellite", satdata)
 				if err != nil {
 					log.Warn().Err(err).Str("user", u.Username).Interface("satdata", satdata).

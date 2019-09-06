@@ -57,10 +57,10 @@ func ensureUser(telegramId int, username string, locale string) (u User, tcase i
 
 	var userRows []User
 
-	// always update locale while selecting user
+	// always update locale while selecting user unless it was set manually or isn't available
 	err = pg.Select(&userRows, `
 UPDATE telegram.account AS u
-SET locale = CASE WHEN $3 != '' THEN $3 ELSE u.locale END
+SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
 WHERE u.telegram_id = $1 OR u.username = $2
 RETURNING `+USERFIELDS,
 		telegramId, username, locale)
@@ -170,6 +170,8 @@ SELECT
   anonymous,
   status,
   trigger_message,
+  tag,
+  label,
   coalesce(description, '') AS description,
   fees::float/1000 AS fees,
   amount::float/1000 AS amount,
@@ -617,7 +619,7 @@ func (u User) sendInternally(
 	target User,
 	anonymous bool,
 	msats int,
-	desc, label interface{},
+	desc, tag string,
 ) (string, error) {
 	if target.Id == u.Id || target.Username == u.Username || target.TelegramId == u.TelegramId {
 		return "Can't pay yourself.", errors.New("user trying to pay itself")
@@ -629,15 +631,9 @@ func (u User) sendInternally(
 	}
 
 	var (
-		vdesc  = &sql.NullString{}
-		vlabel = &sql.NullString{}
+		descn = sql.NullString{String: desc, Valid: desc != ""}
+		tagn  = sql.NullString{String: tag, Valid: tag != ""}
 	)
-
-	if desc != nil {
-		vdesc.Scan(desc)
-	}
-
-	vlabel.Scan(label)
 
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -649,9 +645,9 @@ func (u User) sendInternally(
 	var balance int64
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, anonymous, amount, description, label, trigger_message)
+  (from_id, to_id, anonymous, amount, description, tag, trigger_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, target.Id, anonymous, msats, vdesc, vlabel, messageId)
+    `, u.Id, target.Id, anonymous, msats, descn, tagn, messageId)
 	if err != nil {
 		return "Database error.", err
 	}
@@ -677,9 +673,99 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	return "", nil
 }
 
+func (u User) sendThroughProxy(
+	// these must be unique across payments that must be combined, otherwise different
+	sourcehash string,
+	targethash string,
+	// ~ this is very important
+	sourceMessageId int,
+	targetMessageId int,
+	target User,
+	msats int,
+	sourcedesc string,
+	targetdesc string,
+	tag string,
+) (string, error) {
+	var (
+		tagn        = sql.NullString{String: tag, Valid: tag != ""}
+		sourcedescn = sql.NullString{String: sourcedesc, Valid: sourcedesc != ""}
+		targetdescn = sql.NullString{String: targetdesc, Valid: targetdesc != ""}
+	)
+
+	// start transaction
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return "Database error.", err
+	}
+	defer txn.Rollback()
+
+	// send transaction source->proxy, then proxy->target
+	// both are updated if it exists
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t
+  (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (payment_hash) DO UPDATE SET
+  amount = t.amount + $4,
+  description = $5,
+  tag = $6,
+  trigger_message = $7
+    `, sourcehash, u.Id, s.ProxyAccount, msats, sourcedescn, tagn, sourceMessageId)
+	if err != nil {
+		return "Database error.", err
+	}
+
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction AS t
+  (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (payment_hash) DO UPDATE SET
+  amount = t.amount + $4,
+  description = $5,
+  tag = $6,
+  trigger_message = $7
+    `, targethash, s.ProxyAccount, target.Id, msats, targetdescn, tagn, targetMessageId)
+	if err != nil {
+		return "Database error.", err
+	}
+
+	// check balance
+	var balance int64
+	err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", u.Id)
+	if err != nil {
+		return "Database error.", err
+	}
+	if balance < 0 {
+		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
+				-float64(balance)/1000),
+			errors.New("insufficient balance")
+	}
+
+	// check proxy balance (should be always zero)
+	var proxybalance int
+	err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
+	if err != nil || proxybalance != 0 {
+		log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		err = errors.New("proxy balance isn't 0")
+		return "Database error.", err
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return "Unable to pay due to internal database error.", err
+	}
+
+	return "", nil
+}
+
 func (u User) paymentReceived(
 	amount int,
-	desc, hash, preimage, tag, label string,
+	desc string,
+	hash string,
+	preimage string,
+	label string,
+	tag string,
 ) (err error) {
 	tagn := sql.NullString{String: tag, Valid: tag != ""}
 
@@ -714,17 +800,7 @@ SELECT
   ( 
     SELECT coalesce(sum(fees), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
-  ) AS fees,
-  (
-    SELECT (coalesce(sum(amount), 0)::float/1000)::numeric(13) FROM lightning.transaction AS t
-    WHERE b.account_id = t.from_id
-      AND t.description = 'coinflip'
-  ) AS coinfliploses,
-  (
-    SELECT (coalesce(sum(amount), 0)::float/1000)::numeric(13) FROM lightning.transaction AS t
-    WHERE b.account_id = t.to_id
-      AND t.description = 'coinflip'
-  ) AS coinflipwins
+  ) AS fees
 FROM lightning.balance AS b
 WHERE b.account_id = $1
 GROUP BY b.account_id, b.balance
@@ -732,12 +808,12 @@ GROUP BY b.account_id, b.balance
 	return
 }
 
-type InOut int
+type InOut string
 
 const (
-	In InOut = iota
-	Out
-	Both
+	In   InOut = "in"
+	Out  InOut = "out"
+	Both InOut = ""
 )
 
 func (u User) listTransactions(limit, offset, descCharLimit int, inOrOut InOut) (txns []Transaction, err error) {
@@ -764,6 +840,8 @@ SELECT * FROM (
       THEN coalesce(description, '')
       ELSE substring(coalesce(description, '') from 0 for ($4 - 1)) || '…'
     END AS description,
+    tag,
+    label,
     amount::float/1000 AS amount,
     payment_hash,
     preimage
@@ -906,6 +984,4 @@ type Info struct {
 	TotalSent     float64 `db:"totalsent"`
 	TotalReceived float64 `db:"totalrecv"`
 	TotalFees     float64 `db:"fees"`
-	CoinflipWins  int64   `db:"coinflipwins"`
-	CoinflipLoses int64   `db:"coinfliploses"`
 }

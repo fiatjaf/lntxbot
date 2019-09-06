@@ -134,7 +134,7 @@ parsed:
 	}
 
 	switch {
-	case opts["start"].(bool):
+	case opts["start"].(bool), opts["tutorial"].(bool):
 		if message.Chat.Type == "private" {
 			u.setChat(message.Chat.ID)
 
@@ -152,12 +152,12 @@ parsed:
 			u.notify(t.STOPNOTIFY, nil)
 		}
 		break
-	case opts["app"].(bool),
-		opts["microbet"].(bool), opts["bitflash"].(bool),
+	case opts["microbet"].(bool), opts["bitflash"].(bool),
 		opts["golightning"].(bool), opts["poker"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
-		opts["paywall"].(bool):
-		handleExternalApp(u, opts, message.MessageID)
+		opts["paywall"].(bool), opts["sats4ads"].(bool),
+		opts["qiwi"].(bool), opts["yandex"].(bool):
+		handleExternalApp(u, opts, message)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		if opts["lnurl"].(bool) {
@@ -294,7 +294,7 @@ parsed:
 			anonymous,
 			sats*1000,
 			extra,
-			nil,
+			"",
 		)
 		if err != nil {
 			log.Warn().Err(err).
@@ -471,19 +471,29 @@ parsed:
 		hiddenid := getHiddenId(message) // deterministic
 
 		var content string
-		if icontent, ok := opts["<message>"]; ok {
-			content = strings.Join(icontent.([]string), " ")
-		} else {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
+		var preview string
+		// if there's a replyto, use that as the content
+		if message.ReplyToMessage != nil {
+			content = message.ReplyToMessage.Text
 		}
 
-		preview := ""
-
-		contentparts := strings.SplitN(content, "~", 2)
-		if len(contentparts) == 2 {
-			preview = contentparts[0]
-			content = contentparts[1]
+		if icontent, ok := opts["<message>"]; ok {
+			message := strings.Join(icontent.([]string), " ")
+			if content != "" {
+				// we are using the text from the replyto as the content, this is the preview
+				preview = message
+			} else {
+				// otherwise parse the ~ thing
+				contentparts := strings.SplitN(message, "~", 2)
+				if len(contentparts) == 2 {
+					preview = contentparts[0]
+					content = contentparts[1]
+				}
+			}
+		} else if message.ReplyToMessage == nil {
+			// no content found
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
 		}
 
 		sats, err := opts.Int("<satoshis>")
@@ -568,7 +578,13 @@ parsed:
 		sendMessageWithKeyboard(u.ChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
 	case opts["transactions"].(bool):
 		page, _ := opts.Int("--page")
-		handleTransactionList(u, page, nil)
+		filter := Both
+		if opts["--in"].(bool) {
+			filter = In
+		} else if opts["--out"].(bool) {
+			filter = Out
+		}
+		handleTransactionList(u, page, filter, nil)
 		break
 	case opts["balance"].(bool):
 		// show balance
@@ -579,13 +595,10 @@ parsed:
 		}
 
 		u.notify(t.BALANCEMSG, t.T{
-			"Sats":            info.Balance,
-			"Received":        info.TotalReceived,
-			"Sent":            info.TotalSent,
-			"Fees":            info.TotalFees,
-			"CoinflipWins":    info.CoinflipWins,
-			"CoinflipLoses":   info.CoinflipLoses,
-			"CoinflipBalance": info.CoinflipWins - info.CoinflipLoses,
+			"Sats":     info.Balance,
+			"Received": info.TotalReceived,
+			"Sent":     info.TotalSent,
+			"Fees":     info.TotalFees,
 		})
 		break
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
@@ -616,9 +629,25 @@ parsed:
 		break
 	case opts["toggle"].(bool):
 		if message.Chat.Type == "private" {
+			// on private chats we can use /toggle language <lang>, nothing else
+			switch {
+			case opts["language"].(bool):
+				if lang, err := opts.String("<lang>"); err == nil {
+					log.Info().Str("user", u.Username).Str("language", lang).Msg("toggling language")
+					err := setLanguage(u.ChatId, lang)
+					if err != nil {
+						log.Warn().Err(err).Msg("failed to toggle language")
+						u.notify(t.ERROR, t.T{"Err": err.Error()})
+						break
+					}
+					u.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+				} else {
+					u.notify(t.LANGUAGEMSG, t.T{"Language": u.Locale})
+				}
+			}
+
 			break
 		}
-
 		if !isAdmin(message) {
 			break
 		}
@@ -631,11 +660,11 @@ parsed:
 
 		switch {
 		case opts["ticket"].(bool):
-			log.Debug().Int64("group", message.Chat.ID).Msg("toggling ticket")
+			log.Info().Int64("group", message.Chat.ID).Msg("toggling ticket")
 			price, err := opts.Int("<price>")
 			if err != nil {
 				setTicketPrice(message.Chat.ID, 0)
-				sendMessage(message.Chat.ID, translate("FreeJoin", g.Locale))
+				g.notify(t.FREEJOIN, nil)
 			}
 
 			setTicketPrice(message.Chat.ID, price)
@@ -650,10 +679,25 @@ parsed:
 			spammy, err := toggleSpammy(message.Chat.ID)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to toggle spammy")
+				g.notify(t.ERROR, t.T{"Err": err.Error()})
 				break
 			}
 
 			g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
+		case opts["language"].(bool):
+			if lang, err := opts.String("<lang>"); err == nil {
+				log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
+				err := setLanguage(message.Chat.ID, lang)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to toggle language")
+					u.notify(t.ERROR, t.T{"Err": err.Error()})
+					break
+				}
+				g.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+			} else {
+				g.notify(t.LANGUAGEMSG, t.T{"Language": g.Locale})
+			}
+
 		}
 	}
 }

@@ -25,7 +25,7 @@ func (d def) help(lang string) string {
 
 var methods = []def{
 	def{
-		aliases: []string{"start"},
+		aliases: []string{"start", "tutorial"},
 		argstr:  "[<tutorial>]",
 	},
 	def{
@@ -47,6 +47,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"transactions"},
+		argstr:  "[--in] [--out]",
 	},
 	def{
 		aliases:        []string{"giveaway"},
@@ -72,7 +73,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"hide"},
-		argstr:  "<satoshis> <message>... [--revealers=<num_revealers>] [--crowdfund=<num_participants>] [--public] [--private]",
+		argstr:  "<satoshis> [<message>...] [--revealers=<num_revealers>] [--crowdfund=<num_participants>] [--public] [--private]",
 	},
 	def{
 		aliases:        []string{"reveal"},
@@ -81,11 +82,8 @@ var methods = []def{
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
-		aliases: []string{"app"},
-	},
-	def{
 		aliases: []string{"microbet", "app microbet"},
-		argstr:  "[bets | balance | withdraw | bet]",
+		argstr:  "[list | bets | balance | withdraw | bet]",
 	},
 	def{
 		aliases: []string{"bitflash", "app bitflash"},
@@ -98,6 +96,16 @@ var methods = []def{
 	def{
 		aliases: []string{"golightning", "app golightning"},
 		argstr:  "<satoshis>",
+	},
+	def{
+		// lntorub
+		aliases: []string{"qiwi"},
+		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+	},
+	def{
+		// lntorub
+		aliases: []string{"yandex"},
+		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
 	},
 	def{
 		aliases: []string{"gifts", "app gifts"},
@@ -114,12 +122,16 @@ var methods = []def{
 		inline_example: "poker",
 	},
 	def{
+		aliases: []string{"sats4ads"},
+		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [--max-rate=<maxrate>] [--skip=<offset>])",
+	},
+	def{
 		aliases: []string{"bluewallet", "lndhub"},
 		argstr:  "[refresh]",
 	},
 	def{
 		aliases: []string{"toggle"},
-		argstr:  "(ticket [<price>]|spammy)",
+		argstr:  "(ticket [<price>] | spammy | language [<lang>])",
 	},
 	def{
 		aliases: []string{"help"},
@@ -138,7 +150,7 @@ func setupCommands() {
 
 	for _, def := range methods {
 		for _, alias := range def.aliases {
-			commandList = append(commandList, alias)
+			commandList = append(commandList, strings.Replace(alias, " ", "_", -1))
 			commandIndex[alias] = def
 		}
 	}

@@ -10,7 +10,7 @@ var EN = map[Key]string{
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
-	ERROR:      "Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "{{if .App}}<b>[{{.App}}]</b> {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
 	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
@@ -49,6 +49,7 @@ var EN = map[Key]string{
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
+	LANGUAGEMSG:  "This chat language is set to <code>{{.Language}}</code>.",
 	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:     "This group is now free to join.",
 	ASKTOCONFIRM: "Pay the invoice described above?",
@@ -57,7 +58,7 @@ var EN = map[Key]string{
 <pre>{{.Help}}</pre>
 For more information on each command type <code>/help &lt;command&gt;</code>.
     `,
-	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps {{index .Similar 2}}?{{end}}{{end}}",
+	HELPSIMILAR: "/{{.Method}} command not found. Do you mean /{{index .Similar 0}}?{{if gt (len .Similar) 1}} Or maybe /{{index .Similar 1}}?{{if gt (len .Similar) 2}} Perhaps /{{index .Similar 2}}?{{end}}{{end}}",
 	HELPMETHOD: `
 <pre>/{{.MainName}} {{.Argstr}}</pre>
 {{.Help}}
@@ -92,6 +93,14 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
 <code>/send anonymously 1000 @someone</code> same as above, but telegram user @someone will see just: "Someone has sent you 1000 satoshis".
     `,
 
+	TRANSACTIONSHELP: `
+Lists all your transactions with pagination controls. Each transaction has a link that can be clicked for more information.
+
+/transactions lists all transactions, from the most recent.
+<code>/transactions --in</code> lists only the incoming transactions.
+<code>/transactions --out</code> lists only the outgoing transactions.
+    `,
+
 	BALANCEHELP: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
 
 	GIVEAWAYHELP: `Creates a button in a group chat. The first person to click the button gets the satoshis.
@@ -109,7 +118,7 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
     `,
 	COINFLIPWINNERMSG:      "You're the winner of a coinflip for a prize of {{.TotalSats}} sat. The losers were: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "You've lost {{.IndividualSats}} in a coinflip. The winner was {{.Receiver}}.",
-	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
+	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spot{{s .SpotsLeft}} left!",
 	COINFLIPJOIN:           "Join lottery!",
 	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
 	COINFLIPOVERQUOTA:      "You're over your coinflip daily quota.",
@@ -120,7 +129,7 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
 /giveflip_100_5: 5 participants needed, winner will get 500 satoshis from the command issuer.
     `,
 	GIVEFLIPMSG:       "{{.User}} is giving {{.Sats}} sat away to a lucky person out of {{.Participants}}!",
-	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spots left!",
+	GIVEFLIPAD:        "{{.Sats}} being given away. Join and get a chance to win! {{.SpotsLeft}} out of {{.MaxPlayers}} spot{{s .SpotsLeft}} left!",
 	GIVEFLIPJOIN:      "Try to win!",
 	GIVEFLIPWINNERMSG: "{{.Sender}} sent {{.Sats}} to {{.Receiver}}. These didn't get anything: {{.Losers}}.{{if .ReceiverHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 
@@ -176,17 +185,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
-	APPHELP: `
-You can use the following bots without leaving your bot chat:
-
-lightning-poker.com, multiplayer texas hold'em: /help_poker
-microbet.fun, simple sports betting: /help_microbet
-lightning.gifts, lightning vouchers: /help_gifts
-paywall.link, paywalls for your digital content: /help_paywall
-golightning.club, BTC->LN cheap service: /help_golightning
-Blockstream Satellite, messages from space: /help_satellite
-    `,
-
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Transaction queued!",
 	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
@@ -201,7 +199,7 @@ Blockstream Satellite, messages from space: /help_satellite
 <a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
 
 /bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
-/bitflash_orders</code> lists your previous transactions.
+/bitflash_orders lists your previous transactions.
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
@@ -255,16 +253,47 @@ Blockstream Satellite, messages from space: /help_satellite
 	SATELLITEHELP: `
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
-<code>/app satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
+<code>/satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
 /satellite_transmissions lists your transmissions.
     `,
 
 	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
-	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
+	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Rate}} BTC</code> to <code>{{.Order.Address}}</code>.",
 	GOLIGHTNINGHELP: `
 <a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
 /golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+    `,
+
+	QIWIHELP: `
+Transfer your satoshis to your <a href="https://qiwi.com/">Qiwi</a> account instantly. Powered by @lntorubbot.
+
+<code>/qiwi 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
+<code>/qiwi default 999999999</code> sets 999999999 as your default account.
+<code>/qiwi 10000 sat</code> sends 10000 sat as rubles to your default account.
+/qiwi_default shows your default account.
+/qiwi_list shows your past transactions.
+    `,
+	YANDEXHELP: `
+Transfer your satoshis to your <a href="https://money.yandex.ru/">Yandex.Money</a> account instantly. Powered by @lntorubbot.
+
+<code>/yandex 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
+<code>/yandex default 999999999</code> sets 999999999 as your default account.
+<code>/yandex 10000 sat</code> sends 10000 sat as rubles to your default account.
+/yandex_default shows your default account.
+/yandex_list shows your past transactions.
+    `,
+	LNTORUBCONFIRMATION:  "Sending <i>{{.Sat}} sat ({{.Rub}} rubles)</i> to <b>{{.Type}}</b> account <code>{{.Target}}</code>. Is that ok?",
+	LNTORUBFULFILLED:     "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> finished.",
+	LNTORUBCANCELED:      "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> canceled.",
+	LNTORUBFIATERROR:     "<b>[{{.Type}}]</b> Error sending out the rubles. Please report this issue with the order id <code>{{.OrderId}}</code>.",
+	LNTORUBMISSINGTARGET: "<b>[{{.Type}}]</b> You didn't specify a destination and there isn't a default destination specified!",
+	LNTORUBDEFAULTTARGET: `<b>[{{.Type}}]</b> Default target: {{.Target}}`,
+	LNTORUBORDERLIST: `<b>[{{.Type}}]</b>
+{{range .Orders}}<i>{{.Sat}} sat ({{.Rub}} rub)</i> to <code>{{.Target}}</code> at <i>{{.Time}}</i>
+{{else}}
+<i>~ no sats were ever exchanged. ~</i>
+{{end}}
     `,
 
 	GIFTSHELP: `
@@ -359,8 +388,33 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 
 /toggle_ticket_10 starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
 /toggle_ticket stops charging new entrants a fee. 
+/toggle_language_ru changes the chat language to Russian, /toggle_language displays the chat language, these also work in private chats.
 /toggle_spammy toggles 'spammy' mode. 'spammy' mode is off by default. When turned on, tip notifications will be sent in the group instead of only privately.
     `,
+
+	SATS4ADSHELP: `
+Sats4ads is an ad marketplace on Telegram. Pay money to show ads to others, receive money for each ad you see.
+
+Rates for each user are in msatoshi-per-character.
+Each ad also includes a fixed fee of 1 sat.
+Images and videos are priced as if they were 300 characters.
+
+/sats4ads_on_15 puts your account in ad-listening mode. Anyone will be able to publish messages to you for 15 msatoshi-per-character. You can adjust that price.
+/sats4ads_off turns off your account so you won't get any more ads.
+/sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
+/sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
+    `,
+	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.3f" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
+	SATS4ADSNOMESSAGE: `<b>[sats4ads]</b> Use this command as a reply to some previous message. The message replied to will be considered as the content you want to broadcast.`,
+	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
+	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users in each pricing tier.
+{{range .Rates}}<code>{{.Rate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+{{else}}
+<i>No one is registered to see ads yet.</i>
+{{end}}
+Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for each user.
+    `,
+	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.3f" .Sats}} sat]`,
 
 	HELPHELP: "Shows full help or help about specific command.",
 
@@ -379,10 +433,9 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
+
+/transactions
     `,
-	// {{if ne .CoinflipBalance 0}}<b>Coinflip balance</b>: {{.CoinflipBalance}} sat ({{.CoinflipWins}} won, {{.CoinflipLoses}} lost)
-	// {{end}}
-	//     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `
 A lottery round is starting!
@@ -418,7 +471,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	RETRACTQUESTION: "Retract unclaimed tip?",
 	RECHECKPENDING:  "Recheck pending payment?",
 	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}

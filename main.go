@@ -28,7 +28,11 @@ type Settings struct {
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
+	// account in the database named '@'
+	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
+
 	PaywallLinkKey string `envconfig:"PAYWALLLINK_KEY"`
+	LNToRubKey     string `envconfig:"LNTORUB_KEY"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
@@ -156,10 +160,11 @@ func main() {
 	// lnurl routes
 	serveLNURL()
 
-	// app-poker-specific routes
+	// app-specific initializations
 	servePoker()
 	servePaywallWebhook()
 	serveGiftsWebhook()
+	go cancelAllLNToRubOrders()
 
 	// random assets
 	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
@@ -201,6 +206,23 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle = t.NewBundle("en")
 
 	// template functions
+	bundle.AddFunc("s", func(iquantity interface{}) string {
+		switch quantity := iquantity.(type) {
+		case int64:
+			if quantity != 1 {
+				return "s"
+			}
+		case int:
+			if quantity != 1 {
+				return "s"
+			}
+		case float64:
+			if quantity != 1 {
+				return "s"
+			}
+		}
+		return ""
+	})
 	bundle.AddFunc("dollar", func(isat interface{}) string {
 		switch sat := isat.(type) {
 		case int64:

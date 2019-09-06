@@ -10,7 +10,7 @@ var RU = map[Key]string{
 	FAILURE:    "Сбой.",
 	PROCESSING: "Обрабатываю...",
 	WITHDRAW:   "Вывести?",
-	ERROR:      "Ошибка{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "{{if .App}}<b>[{{.App}}]</b> {{end}}Ошибка{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Проверка...",
 	TXCANCELED: "Транзакция отменена.",
 	UNEXPECTED: "Неожиданная ошибка: пожалуйста, обратитесь в поддержку.",
@@ -175,17 +175,6 @@ var RU = map[Key]string{
 	HIDDENMSGNOTFOUND:    "Скрытое сообщение не найдено.",
 	HIDDENSHAREBTN:       "Распространить в другом чате",
 
-	APPHELP: `
-Вы можете использовать следующие боты, не покидая чат с этим ботом:
-
-lightning-poker.com, техасский холдем: /help_poker
-microbet.fun, простые ставки на спорт: /help_microbet
-lightning.gifts, Лайтнинг ваучеры: /help_gifts
-bitflash.club, LN->BTC с сгруппированными транзакциями: /help_bitflash
-golightning.club, BTC->LN дешевый сервис конвертации: /help_golightning
-Blockstream Satellite, сообщения из космоса: /help_satellite
-    `,
-
 	BITFLASHCONFIRM:      `<b>[bitflash]</b> Вы подтверждаете запрос транзакции Bitflash на <b>{{.BTCAmount}} BTC</b> на адрес <code>{{.Address}}</code>? Вы заплатите <b>{{printf "%.0f" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Транзакция поставлена в очередь!",
 	BITFLASHFAILEDTOSAVE: "Ошибка сохранения ордера Bitflash. Пожалуйста, сообщите об ошибке: {{.Err}}",
@@ -200,7 +189,7 @@ Blockstream Satellite, сообщения из космоса: /help_satellite
 <a href="https://bitflash.club/">Bitflash</a> это сервис, которые осуществляет дешёвые ончейн транзакции при получении платежей Lightning. Он может их делать дёшево, поскольку объединяет несколько транзакций Lightning и затем делает ончейн транзакцию после достижения заданного объёма.
 
 /bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ осуществляет ончейн транзакцию на заданный адрес через bitflash.club общую комиссию. Будет запрошено подтверждение.
-/bitflash_orders</code> показывает ваши предыдущие транзакции.
+/bitflash_orders показывает ваши предыдущие транзакции.
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Сделайте ставки на одно из этих предсказаний:",
@@ -389,7 +378,7 @@ Blockstream Satellite, сообщения из космоса: /help_satellite
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
     `,
-    	TUTORIALWALLET: `
+	TUTORIALWALLET: `
 @{{.BotName}} это Lightning кошелёк, который работает из вашего аккаунта Telegram.
 
 Вы можете использовать его для игр и получения счетов Lightning, он сохраняет ваш баланс и историю ваших транзакций.

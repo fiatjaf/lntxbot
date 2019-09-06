@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,15 +11,22 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func handleExternalApp(u User, opts docopt.Opts, messageId int) {
+func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
+	messageId := message.MessageID
+
 	switch {
 	case opts["microbet"].(bool):
-		if opts["bets"].(bool) {
+		if opts["bets"].(bool) || opts["list"].(bool) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
 			if err != nil {
 				sendMessage(u.ChatId, err.Error())
 				return
+			}
+
+			// only show the last 30
+			if len(bets) > 30 {
+				bets = bets[:30]
 			}
 
 			u.notify(t.MICROBETLIST, t.T{"Bets": bets})
@@ -223,6 +231,105 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 		}
 
 		u.notify(t.GOLIGHTNINGFINISH, t.T{"Order": order})
+	case opts["qiwi"].(bool), opts["yandex"].(bool):
+		exchangeType := "qiwi"
+		if opts["yandex"].(bool) {
+			exchangeType = "yandex"
+		}
+
+		switch {
+		case opts["list"].(bool):
+			// list past orders
+			var data LNToRubData
+			err := u.getAppData("lntorub", &data)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+
+			orders, _ := data.Orders[exchangeType]
+			u.notify(t.LNTORUBORDERLIST, t.T{"Type": exchangeType, "Orders": orders})
+		case opts["default"].(bool):
+			// show or set current default
+			if target, err := opts.String("<target>"); err == nil {
+				// set target
+				err := setDefaultLNToRubTarget(u, exchangeType, target)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+					return
+				}
+				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
+			} else {
+				// no target given, show current
+				target := getDefaultLNToRubTarget(u, exchangeType)
+				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
+			}
+		default:
+			// ask to send transfer
+			amount, err := opts.Float64("<amount>")
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": "Invalid amount."})
+				return
+			}
+
+			unit := "rub"
+			if opts["sat"].(bool) {
+				unit = "sat"
+			}
+
+			target, err := opts.String("<target>")
+			if err != nil {
+				// no target, let's check if there's some saved
+				target = getDefaultLNToRubTarget(u, exchangeType)
+				if target == "" {
+					u.notify(t.LNTORUBMISSINGTARGET, t.T{"Type": exchangeType})
+					return
+				}
+			}
+
+			// init an order and get the exchange rate
+			order, err := LNToRubExchangeInit(u, amount, exchangeType, unit, target, messageId)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+
+			// serialize this intermediary structure to json an save it on redis
+			jorder, err := json.Marshal(order)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+			err = rds.Set("lntorub:"+order.Hash, jorder, time.Hour).Err()
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
+				return
+			}
+
+			u.notifyWithKeyboard(t.LNTORUBCONFIRMATION, t.T{
+				"Sat":    order.Sat,
+				"Rub":    order.Rub,
+				"Type":   order.Type,
+				"Target": order.Target,
+			}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.CANCEL, u.Locale),
+							fmt.Sprintf("cancel=%d", u.Id)),
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.YES, u.Locale),
+							fmt.Sprintf("app=lntorub-%s", order.Hash)),
+					},
+				},
+			}, 0)
+
+			// cancel this order after 2 minutes
+			go func() {
+				time.Sleep(2 * time.Minute)
+				LNToRubExchangeCancel(order.Hash)
+			}()
+		}
 	case opts["poker"].(bool):
 		subscribePoker(u, time.Minute*5, false)
 
@@ -384,6 +491,64 @@ func handleExternalApp(u User, opts docopt.Opts, messageId int) {
 				u.notify(t.PAYWALLLISTLINKS, t.T{"Links": links})
 			}
 		}
+	case opts["sats4ads"].(bool):
+		switch {
+		case opts["on"].(bool):
+			rate, err := opts.Int("<msat_per_character>")
+			if err != nil {
+				rate = 1
+			}
+			if rate > 1000 {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "max = 1000 msatoshi"})
+				return
+			}
+
+			err = turnSats4AdsOn(u, rate)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			u.notify(t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(rate) / 1000})
+		case opts["off"].(bool):
+			err := turnSats4AdsOff(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+
+			u.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
+		case opts["rates"].(bool):
+			rates, err := getSats4AdsRates(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			u.notify(t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
+		case opts["broadcast"].(bool):
+			satoshis, err := opts.Int("<spend_satoshis>")
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			if message.ReplyToMessage == nil {
+				u.notify(t.SATS4ADSNOMESSAGE, nil)
+				return
+			}
+
+			// optional args
+			maxrate, _ := opts.Int("--max-rate")
+			offset, _ := opts.Int("--skip")
+
+			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis,
+				message.ReplyToMessage, maxrate, offset)
+			if err != nil {
+				log.Warn().Err(err).Str("user", u.Username).Msg("sats4ads broadcast fail")
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
+				return
+			}
+
+			u.notifyAsReply(t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
+		}
 	default:
 		handleHelp(u, "app")
 	}
@@ -394,6 +559,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 	switch parts[0] {
 	case "microbet":
 		if parts[1] == "withdraw" {
+			defer removeKeyboardButtons(cb)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
 				u.notify(t.MICROBETBALANCEERROR, t.T{"Err": err.Error()})
@@ -406,7 +572,6 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return translate(t.FAILURE, u.Locale)
 			}
 
-			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		} else {
 			// bet on something
@@ -429,7 +594,62 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			return translate(t.PROCESSING, u.Locale)
 		}
+	case "lntorub":
+		defer removeKeyboardButtons(cb)
+		orderId := parts[1]
+
+		// get order data from redis
+		var order LNToRubOrder
+		j, err := rds.Get("lntorub:" + orderId).Bytes()
+		if err != nil {
+			LNToRubExchangeCancel(orderId)
+			u.notify(t.LNTORUBCANCELED, t.T{"Type": order.Type, "OrderId": orderId})
+			return translate(t.ERROR, u.Locale)
+		}
+		err = json.Unmarshal(j, &order)
+		if err != nil {
+			LNToRubExchangeCancel(orderId)
+			u.notify(t.ERROR, nil)
+			return translate(t.ERROR, u.Locale)
+		}
+
+		err = LNToRubExchangeFinish(u, order)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"App": order.Type, "Err": err.Error()})
+			return translate(t.ERROR, u.Locale)
+		}
+
+		// query the status until it returns a success or error
+		go func() {
+			for i := 0; i < 10; i++ {
+				time.Sleep(time.Second * 5 * time.Duration(i))
+				status, err := LNToRubQueryStatus(orderId)
+				if err != nil {
+					break
+				}
+
+				switch status {
+				case LNIN:
+					continue
+				case OKAY:
+					u.notifyAsReply(t.LNTORUBFULFILLED,
+						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
+					return
+				case CANC:
+					u.notifyAsReply(t.LNTORUBCANCELED,
+						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
+					return
+				case QER1, QER2:
+					u.notifyAsReply(t.LNTORUBFIATERROR,
+						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
+					return
+				default:
+					continue
+				}
+			}
+		}()
 	case "bitflash":
+		defer removeKeyboardButtons(cb)
 		chargeId := parts[1]
 
 		// get data for this charge
@@ -449,9 +669,9 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		// store order id so we can show it later on /app bitflash orders
 		saveBitflashOrder(u, order.Id)
 
-		removeKeyboardButtons(cb)
 		return translate(t.PROCESSING, u.Locale)
 	case "poker":
+		defer removeKeyboardButtons(cb)
 		if parts[1] == "withdraw" {
 			balance, err := getPokerBalance(u)
 			if err != nil {
@@ -470,10 +690,10 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return translate(t.FAILURE, u.Locale)
 			}
 
-			removeKeyboardButtons(cb)
 			return translate(t.PROCESSING, u.Locale)
 		}
 	case "paywall":
+		defer removeKeyboardButtons(cb)
 		if parts[1] == "withdraw" {
 			err := withdrawPaywall(u)
 			if err != nil {

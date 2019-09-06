@@ -26,6 +26,7 @@ type Transaction struct {
 	Preimage       sql.NullString `db:"preimage"`
 	Label          sql.NullString `db:"label"`
 	Description    string         `db:"description"`
+	Tag            sql.NullString `db:"tag"`
 	Payee          sql.NullString `db:"payee_node"`
 
 	unclaimed *bool
@@ -125,32 +126,44 @@ func (t Transaction) HashReduced() string {
 }
 
 func (t Transaction) Icon() string {
-	switch {
-	case t.TelegramPeer.Valid:
-		if t.IsUnclaimed() {
-			return "💤 "
-		}
-
-		switch t.Description {
-		case "giveaway":
-			return "🎁"
-		case "coinflip":
-			return "🎲"
-		case "fundraise":
-			return "📢"
-		case "reveal":
-			return "🔎"
-		default:
-			if t.Anonymous {
-				return "🕵"
-			}
-
-			return ""
-		}
-	case t.IsPending():
-		return "🕓"
+	switch t.Tag.String {
+	case "giveaway", "gifts", "giveflip":
+		return "🎁"
+	case "coinflip":
+		return "🎲"
+	case "fundraise":
+		return "📢"
+	case "reveal":
+		return "🔎"
+	case "sats4ads":
+		return "📢"
+	case "satellite":
+		return "📡"
+	case "microbet":
+		return "⚽"
+	case "golightning", "bitflash":
+		return "⛓️"
+	case "lntorub":
+		return "💸"
+	case "poker":
+		return "♦️"
+	case "paywall":
+		return "⛩️"
 	default:
-		return "⚡"
+		switch {
+		case strings.HasPrefix(t.Label.String, "newmember:"):
+			return "🎟️"
+		case t.TelegramPeer.Valid:
+			return ""
+		case t.IsPending():
+			return "🕓"
+		case t.IsUnclaimed():
+			return "💤 "
+		case t.Anonymous:
+			return "🕵"
+		default:
+			return "⚡"
+		}
 	}
 }
 
@@ -265,7 +278,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 	}
 }
 
-func handleTransactionList(u User, page int, cb *tgbotapi.CallbackQuery) {
+func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.CallbackQuery) {
 	// show list of transactions
 	if page == 0 {
 		page = 1
@@ -273,7 +286,7 @@ func handleTransactionList(u User, page int, cb *tgbotapi.CallbackQuery) {
 	limit := 25
 	offset := limit * (page - 1)
 
-	txns, err := u.listTransactions(limit, offset, 16, Both)
+	txns, err := u.listTransactions(limit, offset, 16, filter)
 	if err != nil {
 		log.Warn().Err(err).Str("user", u.Username).Int("page", page).
 			Msg("failed to list transactions")
@@ -297,14 +310,16 @@ func handleTransactionList(u User, page int, cb *tgbotapi.CallbackQuery) {
 	if page > 1 {
 		keyboard.InlineKeyboard[0] = append(
 			keyboard.InlineKeyboard[0],
-			tgbotapi.NewInlineKeyboardButtonData("newer", fmt.Sprintf("txlist=%d", page-1)),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"newer", fmt.Sprintf("txlist=%d-%s", page-1, filter)),
 		)
 	}
 
 	if len(txns) > 0 {
 		keyboard.InlineKeyboard[0] = append(
 			keyboard.InlineKeyboard[0],
-			tgbotapi.NewInlineKeyboardButtonData("older", fmt.Sprintf("txlist=%d", page+1)),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"older", fmt.Sprintf("txlist=%d-%s", page+1, filter)),
 		)
 	}
 

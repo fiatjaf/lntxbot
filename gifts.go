@@ -32,7 +32,7 @@ type GiftsGift struct {
 		CreatedAt struct {
 			Seconds int64 `json:"_seconds"`
 		} `json:"createdAt"`
-		Reference string `json:"reference"`
+		Reference string `json:"withdrawalInvoice"`
 	} `json:"withdrawalInfo"`
 	Amount int `json:"amount"`
 }

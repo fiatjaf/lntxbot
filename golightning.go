@@ -28,7 +28,6 @@ func prepareGoLightningTransaction(user User, messageId int, sats int) (glresp G
 		return
 	}
 	defer resp.Body.Close()
-	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := ioutil.ReadAll(resp.Body)
 		err = errors.New("GoLightning call failed (" + string(b) + ").")
