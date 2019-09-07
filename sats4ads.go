@@ -67,7 +67,7 @@ FROM telegram.account
 WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
   AND id != $1
   AND (appdata->'sats4ads'->>'rate')::integer <= $2
-ORDER BY appdata->'sats4ads'->>'rate' ASC, random()
+ORDER BY appdata->'sats4ads'->'rate' ASC, random()
 OFFSET $3
     `, user.Id, maxrate, offset)
 	if err != nil {
