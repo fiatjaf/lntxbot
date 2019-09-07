@@ -115,12 +115,9 @@ func waitToKick(label string, kickdata KickData) {
 				// didn't pay. kick.
 				log.Info().Str("label", label).Msg("invoice expired, kicking user")
 
-				banuntil := time.Now()
-				banuntil.AddDate(0, 0, 1)
-
 				bot.KickChatMember(tgbotapi.KickChatMemberConfig{
-					kickdata.ChatMemberConfig,
-					banuntil.Unix(),
+					ChatMemberConfig: kickdata.ChatMemberConfig,
+					UntilDate:        time.Now().AddDate(0, 0, 1).Unix(),
 				})
 
 				delete(pendingApproval, label)
