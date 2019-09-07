@@ -13,8 +13,8 @@ type Sats4AdsData struct {
 }
 
 type Sats4AdsRateGroup struct {
-	NUsers int `db:"nusers"`
-	Rate   int `db:"rate"` // in msatoshi per character
+	NUsers   int `db:"nusers"`
+	UpToRate int `db:"uptorate"` // in msatoshi per character
 }
 
 func turnSats4AdsOn(user User, rate int) error {
@@ -244,15 +244,17 @@ OFFSET $3
 
 func getSats4AdsRates(user User) (rates []Sats4AdsRateGroup, err error) {
 	err = pg.Select(&rates, `
-SELECT * FROM (
-  SELECT
-    (appdata->'sats4ads'->>'rate')::integer AS rate,
-    count(*) AS nusers
+WITH enabled_listeners AS (
+  SELECT (appdata->'sats4ads'->>'rate')::integer AS rate
   FROM telegram.account
   WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
     AND id != $1
-  GROUP BY (appdata->'sats4ads'->>'rate')::integer
-)x ORDER BY rate
+), rategroups AS (
+  SELECT generate_series ^ 3 AS uptorate FROM generate_series(1, 10)
+)
+
+SELECT uptorate, (SELECT count(*) FROM enabled_listeners WHERE rate <= uptorate) AS nusers
+FROM rategroups
     `, user.Id)
 	return
 }

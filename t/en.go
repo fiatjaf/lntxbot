@@ -407,8 +407,8 @@ Images and videos are priced as if they were 300 characters.
 	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.3f" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
 	SATS4ADSNOMESSAGE: `<b>[sats4ads]</b> Use this command as a reply to some previous message. The message replied to will be considered as the content you want to broadcast.`,
 	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
-	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users in each pricing tier.
-{{range .Rates}}<code>{{.Rate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users <b>up to</b> each pricing tier.
+{{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>No one is registered to see ads yet.</i>
 {{end}}
