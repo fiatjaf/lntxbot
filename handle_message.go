@@ -152,8 +152,11 @@ parsed:
 			u.notify(t.STOPNOTIFY, nil)
 		}
 		break
+	case opts["apps"].(bool):
+		handleTutorial(u, "apps")
+		break
 	case opts["microbet"].(bool), opts["bitflash"].(bool),
-		opts["golightning"].(bool), opts["poker"].(bool),
+		opts["fundbtc"].(bool), opts["poker"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["paywall"].(bool), opts["sats4ads"].(bool),
 		opts["qiwi"].(bool), opts["yandex"].(bool):
@@ -165,22 +168,11 @@ parsed:
 		} else {
 			sats, err := opts.Int("<satoshis>")
 			if err != nil {
-				// couldn't get an integer, but maybe it's because nothing was specified, so
-				// it's an invoice of undefined amount.
-
-				if v, exists := opts["<satoshis>"]; exists && v != nil && v.(string) != "any" {
-					// ok, it exists, so it's an invalid amount.
-					u.notify(t.INVALIDAMT, t.T{"Amount": v})
-					break
-				}
-
-				// will be this if "any"
-				sats = INVOICE_UNDEFINED_AMOUNT
+				handleHelp(u, "receive")
+				return
 			}
-			var desc string
-			if idesc, ok := opts["<description>"]; ok {
-				desc = strings.Join(idesc.([]string), " ")
-			}
+
+			desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
 
 			var preimage string
 			if param, ok := opts["--preimage"]; ok {
@@ -472,11 +464,13 @@ parsed:
 
 		var content string
 		var preview string
+
 		// if there's a replyto, use that as the content
 		if message.ReplyToMessage != nil {
 			content = message.ReplyToMessage.Text
 		}
 
+		// or use the inline message -- or if there's a replyo and inline, the inline part is the preview
 		if icontent, ok := opts["<message>"]; ok {
 			message := strings.Join(icontent.([]string), " ")
 			if content != "" {

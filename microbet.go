@@ -125,10 +125,10 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 				Back  bool   `json:"back"`
 			}{payreq.RHash, betId, back}, &paidreq, nil)
 			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+				u.notifyAsReply(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()}, messageId)
 			}
 			if resp.Status() >= 300 {
-				u.notifyAsReply(t.MICROBETINVALIDRESPONSE, nil, messageId)
+				u.notifyAsReply(t.ERROR, t.T{"App": "Microbet", "Err": "microbet.fun returned an invalid response, please report."}, messageId)
 				return
 			}
 			if !paidreq.Settled {
@@ -146,7 +146,7 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 			// on failure
 			paymentHasFailed(u, messageId, hash)
 
-			u.notifyAsReply(t.MICROBETFAILEDTOPAY, nil, messageId)
+			u.notifyAsReply(t.ERROR, t.T{"App": "Microbet", "Err": "Payment error."}, messageId)
 		},
 	)
 	if err != nil {

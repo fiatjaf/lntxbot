@@ -279,12 +279,7 @@ func (u User) makeInvoice(
 		label = makeLabel(u.Id, messageId, preimage, tag)
 	}
 
-	var msatoshi interface{}
-	if sats == INVOICE_UNDEFINED_AMOUNT {
-		msatoshi = "any"
-	} else {
-		msatoshi = sats * 1000
-	}
+	msatoshi := sats * 1000
 
 	var exp time.Duration
 	if expiry == nil {

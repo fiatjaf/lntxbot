@@ -46,6 +46,9 @@ var methods = []def{
 		aliases: []string{"balance"},
 	},
 	def{
+		aliases: []string{"apps"},
+	},
+	def{
 		aliases: []string{"transactions"},
 		argstr:  "[--in] [--out]",
 	},
@@ -82,19 +85,19 @@ var methods = []def{
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
-		aliases: []string{"microbet", "app microbet"},
+		aliases: []string{"microbet"},
 		argstr:  "[list | bets | balance | withdraw | bet]",
 	},
 	def{
-		aliases: []string{"bitflash", "app bitflash"},
+		aliases: []string{"bitflash"},
 		argstr:  "(orders | status | rate | <satoshis> <address>)",
 	},
 	def{
-		aliases: []string{"satellite", "app satellite"},
-		argstr:  "(transmissions | queue | bump <satoshis> <transmission_id> | delete <transmission_id> | <satoshis> <message>...)",
+		aliases: []string{"satellite"},
+		argstr:  "(transmissions | <satoshis> [<message>...])",
 	},
 	def{
-		aliases: []string{"golightning", "app golightning"},
+		aliases: []string{"fundbtc"},
 		argstr:  "<satoshis>",
 	},
 	def{
@@ -108,22 +111,22 @@ var methods = []def{
 		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
 	},
 	def{
-		aliases: []string{"gifts", "app gifts"},
+		aliases: []string{"gifts"},
 		argstr:  "(list | [<satoshis>])",
 	},
 	def{
-		aliases: []string{"paywall", "app paywall"},
+		aliases: []string{"paywall"},
 		argstr:  "[list | <url> <satoshis> <memo>... | balance | withdraw]",
 	},
 	def{
-		aliases:        []string{"poker", "app poker"},
+		aliases:        []string{"poker"},
 		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
 		inline:         true,
 		inline_example: "poker",
 	},
 	def{
 		aliases: []string{"sats4ads"},
-		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [--max-rate=<maxrate>] [--skip=<offset>])",
+		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
 	},
 	def{
 		aliases: []string{"bluewallet", "lndhub"},

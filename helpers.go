@@ -15,13 +15,12 @@ import (
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
 )
-
-const INVOICE_UNDEFINED_AMOUNT = -273
 
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
 
@@ -434,4 +433,14 @@ func stringIsIn(needle string, haystack []string) bool {
 		}
 	}
 	return false
+}
+
+func getVariadicFieldOrReplyToContent(opts docopt.Opts, message *tgbotapi.Message, optsField string) string {
+	if imessage, ok := opts[optsField]; ok {
+		return strings.Join(imessage.([]string), " ")
+	} else if message.ReplyToMessage != nil {
+		return message.ReplyToMessage.Text
+	} else {
+		return ""
+	}
 }

@@ -46,7 +46,9 @@ func broadcastSats4Ads(
 	contentMessage *tgbotapi.Message,
 	maxrate int,
 	offset int,
-) (messagesSent int, costSatoshis int, errMsg string, err error) {
+) (messagesSent int, roundedCostSatoshis int, errMsg string, err error) {
+	costSatoshis := 0.0
+
 	if maxrate == 0 {
 		maxrate = 1000
 	}
@@ -100,7 +102,8 @@ OFFSET $3
 		var thisCostSatoshis float64
 		baseChat := tgbotapi.BaseChat{ChatID: target.ChatId}
 
-		if contentMessage.Text != "" {
+		switch {
+		case contentMessage.Text != "":
 			nchars = len(contentMessage.Text)
 			thisCostMsat += row.Rate * nchars
 			thisCostSatoshis = float64(thisCostMsat) / 1000
@@ -113,7 +116,7 @@ OFFSET $3
 				Text:     contentMessage.Text + footer,
 				DisableWebPagePreview: true,
 			}
-		} else if contentMessage.Animation != nil {
+		case contentMessage.Animation != nil:
 			nchars = 300 + len(contentMessage.Caption)
 			thisCostMsat += row.Rate * nchars
 			thisCostSatoshis = float64(thisCostMsat) / 1000
@@ -129,7 +132,7 @@ OFFSET $3
 					UseExisting: true,
 				},
 			}
-		} else if contentMessage.Photo != nil {
+		case contentMessage.Photo != nil:
 			nchars = 300 + len(contentMessage.Caption)
 			thisCostMsat += row.Rate * nchars
 			thisCostSatoshis = float64(thisCostMsat) / 1000
@@ -146,7 +149,7 @@ OFFSET $3
 					UseExisting: true,
 				},
 			}
-		} else if contentMessage.Video != nil {
+		case contentMessage.Video != nil:
 			nchars = 300 + len(contentMessage.Caption)
 			thisCostMsat += row.Rate * nchars
 			thisCostSatoshis = float64(thisCostMsat) / 1000
@@ -162,7 +165,7 @@ OFFSET $3
 					UseExisting: true,
 				},
 			}
-		} else if contentMessage.Document != nil {
+		case contentMessage.Document != nil:
 			nchars = 200 + len(contentMessage.Caption)
 			thisCostMsat += row.Rate * nchars
 			thisCostSatoshis = float64(thisCostMsat) / 1000
@@ -178,7 +181,7 @@ OFFSET $3
 					UseExisting: true,
 				},
 			}
-		} else if contentMessage.Audio != nil {
+		case contentMessage.Audio != nil:
 			nchars = 150 + len(contentMessage.Caption)
 			thisCostMsat += row.Rate * nchars
 			thisCostSatoshis = float64(thisCostMsat) / 1000
@@ -194,11 +197,14 @@ OFFSET $3
 					UseExisting: true,
 				},
 			}
+		default:
+			logger.Info().Msg("invalid message used as ad content")
+			break
 		}
 
-		if costSatoshis+int(thisCostSatoshis) > budgetSatoshis {
+		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
 			// budget ended, stop queueing messages
-			logger.Debug().Int("spent", costSatoshis).Float64("next", thisCostSatoshis).Msg("budget ended")
+			logger.Info().Float64("spent", costSatoshis).Float64("next", thisCostSatoshis).Msg("budget ended")
 			break
 		}
 
@@ -206,7 +212,7 @@ OFFSET $3
 		message, err = bot.Send(ad)
 		if err != nil {
 			// message wasn't sent
-			logger.Debug().Err(err).Msg("message wasn't sent. skipping.")
+			logger.Info().Err(err).Msg("message wasn't sent. skipping.")
 			continue
 		}
 
@@ -233,12 +239,13 @@ OFFSET $3
 		}
 
 		messagesSent += 1
-		costSatoshis += int(thisCostSatoshis)
+		costSatoshis += thisCostSatoshis
 
-		logger.Debug().Float64("cost", thisCostSatoshis).Int("total", costSatoshis).Int("n", messagesSent).
+		logger.Debug().Float64("cost", thisCostSatoshis).Float64("total", costSatoshis).Int("n", messagesSent).
 			Msg("ad broadcasted")
 	}
 
+	roundedCostSatoshis = int(costSatoshis)
 	return
 }
 
