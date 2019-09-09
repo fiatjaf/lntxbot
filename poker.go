@@ -235,10 +235,12 @@ SELECT `+USERFIELDS+`
 FROM telegram.account
 WHERE id IN (
   SELECT friend FROM (
-      SELECT from_id AS friend FROM lightning.transaction WHERE to_id = $1 AND amount > 100000
+      SELECT from_id AS friend FROM lightning.transaction WHERE to_id = $1 AND to_id != from_id AND amount > 100000
     UNION
-      SELECT to_id AS friend FROM lightning.transaction WHERE from_id = $1 AND amount > 100000
-  ) AS friends INNER JOIN lightning.transaction AS tx ON tx.from_id = friend
+      SELECT to_id AS friend FROM lightning.transaction WHERE from_id = $1 AND to_id != from_id AND amount > 100000
+  ) AS friends
+  INNER JOIN lightning.transaction AS tx
+    ON tx.from_id = friend
   WHERE tx.remote_node = '03ad156742a9a9d0e82e0022f264d6857addfd534955d5e97de4a695bf8dd12af0'
     AND tx.time > (now() - make_interval(days := 7))
 ) AND username IS NOT NULL

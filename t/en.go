@@ -345,7 +345,7 @@ Satoshis in play: {{.Chips}}
 /poker_url to play in a browser window!
     `,
 	POKERNOTIFYFRIEND: `
-<b>[Poker]</b> @{{.FriendName}} has sitted in a poker table!
+<b>[Poker]</b> {{.FriendName}} has sitted in a poker table!
 
 /poker_status to double-check!
 /poker_play to play here!
