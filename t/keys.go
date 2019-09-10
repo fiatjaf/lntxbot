@@ -185,6 +185,7 @@ const (
 	FAILEDDECODE       = "FailedDecode"
 	NOINVOICE          = "NoInvoice"
 	BALANCEMSG         = "BalanceMsg"
+	TAGGEDBALANCEMSG   = "TaggedBalanceMsg"
 	FAILEDUSER         = "FailedUser"
 	LOTTERYMSG         = "LotteryMsg"
 	INVALIDPARTNUMBER  = "InvalidPartNumber"

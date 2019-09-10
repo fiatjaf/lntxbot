@@ -152,9 +152,6 @@ parsed:
 			u.notify(t.STOPNOTIFY, nil)
 		}
 		break
-	case opts["apps"].(bool):
-		handleTutorial(u, "apps")
-		break
 	case opts["microbet"].(bool), opts["bitflash"].(bool),
 		opts["fundbtc"].(bool), opts["poker"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
@@ -581,20 +578,32 @@ parsed:
 		handleTransactionList(u, page, filter, nil)
 		break
 	case opts["balance"].(bool):
-		// show balance
-		info, err := u.getInfo()
-		if err != nil {
-			log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-			break
-		}
+		if opts["apps"].(bool) {
+			// balance of apps
+			taggedbalances, err := u.getTaggedBalances()
+			if err != nil {
+				log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+				u.notify(t.ERROR, t.T{"Err": err.Error()})
+				break
+			}
 
-		u.notify(t.BALANCEMSG, t.T{
-			"Sats":     info.Balance,
-			"Received": info.TotalReceived,
-			"Sent":     info.TotalSent,
-			"Fees":     info.TotalFees,
-		})
-		break
+			u.notify(t.TAGGEDBALANCEMSG, t.T{"Balances": taggedbalances})
+		} else {
+			// normal balance
+			info, err := u.getInfo()
+			if err != nil {
+				log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+				u.notify(t.ERROR, t.T{"Err": err.Error()})
+				break
+			}
+
+			u.notify(t.BALANCEMSG, t.T{
+				"Sats":     info.Balance,
+				"Received": info.TotalReceived,
+				"Sent":     info.TotalSent,
+				"Fees":     info.TotalFees,
+			})
+		}
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
 			// generate an lnurl so a remote wallet can send an invoice through this bizarre protocol
@@ -617,6 +626,9 @@ parsed:
 		u.notify(t.BLUEWALLETCREDENTIALS, t.T{
 			"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
 		})
+	case opts["apps"].(bool):
+		handleTutorial(u, "apps")
+		break
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		handleHelp(u, command)

@@ -416,7 +416,16 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
 
+/balance_apps
 /transactions
+    `,
+	TAGGEDBALANCEMSG: `
+<b>Total of</b> <code>received - spent</code> <b>on internal and third-party</b> /apps<b>:</b>
+
+{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.0f" .Balance}} sat</i>  ({{dollar .Balance}})
+{{else}}
+<i>No tagged transactions made yet.</i>
+{{end}}
     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `

@@ -44,6 +44,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"balance"},
+		argstr:  "[apps]",
 	},
 	def{
 		aliases: []string{"apps"},

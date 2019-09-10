@@ -803,6 +803,18 @@ GROUP BY b.account_id, b.balance
 	return
 }
 
+func (u User) getTaggedBalances() (balances []TaggedBalance, err error) {
+	err = pg.Select(&balances, `
+SELECT
+  tag,
+  sum(amount)::float/1000 AS balance
+FROM lightning.account_txn
+WHERE account_id = $1 AND tag IS NOT NULL
+GROUP BY tag
+    `, u.Id)
+	return
+}
+
 type InOut string
 
 const (
@@ -979,4 +991,9 @@ type Info struct {
 	TotalSent     float64 `db:"totalsent"`
 	TotalReceived float64 `db:"totalrecv"`
 	TotalFees     float64 `db:"fees"`
+}
+
+type TaggedBalance struct {
+	Tag     string  `db:"tag"`
+	Balance float64 `db:"balance"`
 }
