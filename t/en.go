@@ -48,11 +48,12 @@ var EN = map[Key]string{
 	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
-	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
-	LANGUAGEMSG:  "This chat language is set to <code>{{.Language}}</code>.",
-	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
-	FREEJOIN:     "This group is now free to join.",
-	ASKTOCONFIRM: "Pay the invoice described above?",
+	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
+	COINFLIPSENABLEDMSG: "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
+	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
+	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
+	FREEJOIN:            "This group is now free to join.",
+	ASKTOCONFIRM:        "Pay the invoice described above?",
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>

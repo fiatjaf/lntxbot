@@ -48,11 +48,12 @@ const (
 	PAYMENTRECEIVED      = "PaymentReceived"
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
 
-	SPAMMYMSG    = "SpammyMsg"
-	LANGUAGEMSG  = "LanguageMsg"
-	TICKETMSG    = "TicketMsg"
-	FREEJOIN     = "FreeJoin"
-	ASKTOCONFIRM = "AskToConfirm"
+	SPAMMYMSG           = "SpammyMsg"
+	COINFLIPSENABLEDMSG = "CoinflipsEnabledMsg"
+	LANGUAGEMSG         = "LanguageMsg"
+	TICKETMSG           = "TicketMsg"
+	FREEJOIN            = "FreeJoin"
+	ASKTOCONFIRM        = "AskToConfirm"
 
 	HELPINTRO   = "HelpIntro"
 	HELPSIMILAR = "HelpSimilar"

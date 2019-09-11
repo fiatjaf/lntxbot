@@ -375,6 +375,14 @@ parsed:
 		)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
+		enabled := areCoinflipsEnabled(message.Chat.ID)
+		if !enabled {
+			forwardMessage(message, u.ChatId)
+			deleteMessage(message)
+			u.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": false})
+			break
+		}
+
 		// open a lottery between a number of users in a group
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
@@ -690,6 +698,16 @@ parsed:
 			}
 
 			g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
+		case opts["coinflips"].(bool):
+			log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
+			enabled, err := toggleCoinflips(message.Chat.ID)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to toggle coinflips")
+				g.notify(t.ERROR, t.T{"Err": err.Error()})
+				break
+			}
+
+			g.notify(t.COINFLIPSENABLEDMSG, t.T{"Coinflips": enabled})
 		case opts["language"].(bool):
 			if lang, err := opts.String("<lang>"); err == nil {
 				log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
