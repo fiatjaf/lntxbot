@@ -31,8 +31,9 @@ type Settings struct {
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 
-	PaywallLinkKey string `envconfig:"PAYWALLLINK_KEY"`
-	LNToRubKey     string `envconfig:"LNTORUB_KEY"`
+	PaywallLinkKey     string `envconfig:"PAYWALLLINK_KEY"`
+	LNToRubKey         string `envconfig:"LNTORUB_KEY"`
+	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
@@ -164,7 +165,9 @@ func main() {
 	servePoker()
 	servePaywallWebhook()
 	serveGiftsWebhook()
+	serveBitrefillWebhook()
 	go cancelAllLNToRubOrders()
+	go initializeBitrefill()
 
 	// random assets
 	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))

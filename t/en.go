@@ -224,6 +224,22 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 /microbet_withdraw withdraws all your balance.
     `,
 
+	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Choose your provider:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your {{.Item}} card:`,
+	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
+	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
+	BITREFILLPURCHASEDONE: `<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was purchased successfully.
+{{if .Info.LinkInfo}}
+Link: <a href="{{.Info.LinkInfo.Link}}">{{.Info.LinkInfo.Link}}</a>
+Instructions: <i>{{.Info.LinkInfo.Other}}</i>
+{{else if .Info.PinInfo}}
+PIN: <code>{{.Info.PinInfo.Pin}}</code>
+Instructions: <i>{{.Info.PinInfo.Instructions}}</i>
+<i>{{.Info.PinInfo.Other}}</i>
+{{end}}
+    `,
+	BITREFILLPURCHASEFAILED: "<b>[Bitrefill]</b> Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
+
 	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
 	SATELLITEFAILEDTOGET:       "<b>[satellite]</b> Failed to get stored satellite data: {{.Err}}",
 	SATELLITEPAID:              "<b>[satellite]</b> Transmission <code>{{.UUID}}</code> queued!",

@@ -36,6 +36,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	log.Debug().Str("d", cb.Data).Str("user", u.Username).Msg("got callback")
+
 	var messageId int
 	var locale string
 	if cb.Message != nil {

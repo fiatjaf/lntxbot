@@ -98,6 +98,7 @@ var methods = []def{
 		argstr:  "(transmissions | <satoshis> [<message>...])",
 	},
 	def{
+		// golightning
 		aliases: []string{"fundbtc"},
 		argstr:  "<satoshis>",
 	},
@@ -110,6 +111,10 @@ var methods = []def{
 		// lntorub
 		aliases: []string{"yandex"},
 		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+	},
+	def{
+		aliases: []string{"bitrefill"},
+		argstr:  "<query>",
 	},
 	def{
 		aliases: []string{"gifts"},

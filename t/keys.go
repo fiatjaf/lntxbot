@@ -124,6 +124,13 @@ const (
 	MICROBETLIST                = "MicrobetList"
 	MICROBETBALANCE             = "MicrobetBalance"
 
+	BITREFILLINVENTORYHEADER = "BitrefillInventoryHeader"
+	BITREFILLPACKAGESHEADER  = "BitrefillPackagelHeader"
+	BITREFILLCONFIRMATION    = "BitrefillConfirmation"
+	BITREFILLFAILEDSAVE      = "BitrefillFailedToSave"
+	BITREFILLPURCHASEDONE    = "BitrefillPurchaseDone"
+	BITREFILLPURCHASEFAILED  = "BitrefillPurchaseFailed"
+
 	SATELLITEHELP              = "satelliteHelp"
 	SATELLITEFAILEDTOSTORE     = "SatelliteFailedToStore"
 	SATELLITEFAILEDTOGET       = "SatelliteFailedToGet"
