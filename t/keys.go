@@ -126,6 +126,7 @@ const (
 
 	BITREFILLINVENTORYHEADER = "BitrefillInventoryHeader"
 	BITREFILLPACKAGESHEADER  = "BitrefillPackagelHeader"
+	BITREFILLNOPROVIDERS     = "BitrefillNoProviders"
 	BITREFILLCONFIRMATION    = "BitrefillConfirmation"
 	BITREFILLFAILEDSAVE      = "BitrefillFailedToSave"
 	BITREFILLPURCHASEDONE    = "BitrefillPurchaseDone"

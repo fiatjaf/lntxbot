@@ -41,7 +41,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			u.notifyWithKeyboard(t.MICROBETBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=microbet-withdraw"),
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=microbet-withdraw"),
 					},
 				},
 			}, 0)
@@ -83,11 +83,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				inlinekeyboard[i*2+1] = []tgbotapi.InlineKeyboardButton{
 					tgbotapi.NewInlineKeyboardButtonData(
 						fmt.Sprintf("%s (%d)", backbet, bet.Backers),
-						fmt.Sprintf("app=microbet-%s-true", bet.Id),
+						fmt.Sprintf("x=microbet-%s-true", bet.Id),
 					),
 					tgbotapi.NewInlineKeyboardButtonData(
 						fmt.Sprintf("NOT (%d)", bet.TotalUsers-bet.Backers),
-						fmt.Sprintf("app=microbet-%s-false", bet.Id),
+						fmt.Sprintf("x=microbet-%s-false", bet.Id),
 					),
 				}
 			}
@@ -152,7 +152,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 						),
 						tgbotapi.NewInlineKeyboardButtonData(
 							translate(t.CONFIRM, u.Locale),
-							fmt.Sprintf("app=bitflash-%s", ordercreated.ChargeId),
+							fmt.Sprintf("x=bitflash-%s", ordercreated.ChargeId),
 						),
 					},
 				},
@@ -299,7 +299,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 							fmt.Sprintf("cancel=%d", u.Id)),
 						tgbotapi.NewInlineKeyboardButtonData(
 							translate(t.YES, u.Locale),
-							fmt.Sprintf("app=lntorub-%s", order.Hash)),
+							fmt.Sprintf("x=lntorub-%s", order.Hash)),
 					},
 				},
 			}, 0)
@@ -316,11 +316,25 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			return
 		}
 
-		items := queryBitrefillInventory(query, nil)
+		phone, _ := opts.String("<phone_number>")
+
+		items := queryBitrefillInventory(query, phone, "")
 		nitems := len(items)
 
 		if nitems == 1 {
-			handleBitrefillItem(u, items[0])
+			handleBitrefillItem(u, items[0], phone)
+			return
+		}
+
+		// we can't go to the next step if there's a phone number,
+		// for phone numbers we require exact matches for now
+		if phone != "" {
+			u.notify(t.BITREFILLNOPROVIDERS, nil)
+			return
+		}
+
+		if nitems == 0 {
+			u.notify(t.BITREFILLNOPROVIDERS, nil)
 			return
 		}
 
@@ -332,7 +346,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			inlinekeyboard[i/2] = append(inlinekeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
 				item.Name,
-				fmt.Sprintf("app=bitrefill-item-%s", strings.Replace(item.Slug, "-", "~", -1)),
+				fmt.Sprintf("x=bitrefill-it-%s", strings.Replace(item.Slug, "-", "~", -1)),
 			))
 		}
 
@@ -363,7 +377,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			u.notifyWithKeyboard(t.POKERBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=poker-withdraw"),
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=poker-withdraw"),
 					},
 				},
 			}, 0)
@@ -454,7 +468,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			u.notifyWithKeyboard(t.PAYWALLBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "app=paywall-withdraw"),
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=paywall-withdraw"),
 					},
 				},
 			}, 0)
@@ -575,7 +589,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 }
 
 func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery) (answer string) {
-	parts := strings.Split(cb.Data[4:], "-")
+	parts := strings.Split(cb.Data[2:], "-")
 	switch parts[0] {
 	case "microbet":
 		if parts[1] == "withdraw" {
@@ -616,7 +630,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		}
 	case "bitrefill":
 		switch parts[1] {
-		case "item":
+		case "it":
 			removeKeyboardButtons(cb)
 
 			item, ok := bitrefillInventory[strings.Replace(parts[2], "~", "-", -1)]
@@ -626,8 +640,8 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 
 			appendTextToMessage(cb, item.Name)
-			handleBitrefillItem(u, item)
-		case "place":
+			handleBitrefillItem(u, item, "")
+		case "pl":
 			removeKeyboardButtons(cb)
 
 			// get item and package info
@@ -646,8 +660,10 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			pack = item.Packages[idx]
 			appendTextToMessage(cb, fmt.Sprintf("%v %s", pack.Value, item.Currency))
 
+			phone := parts[4]
+
 			// create order
-			orderId, invoice, err := placeBitrefillOrder(u, item, pack, nil)
+			orderId, invoice, err := placeBitrefillOrder(u, item, pack, &phone)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
 				return
@@ -672,11 +688,11 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 							fmt.Sprintf("cancel=%d", u.Id)),
 						tgbotapi.NewInlineKeyboardButtonData(
 							translate(t.YES, u.Locale),
-							fmt.Sprintf("app=bitrefill-purch-%s", orderId)),
+							fmt.Sprintf("x=bitrefill-pch-%s", orderId)),
 					},
 				},
 			}, 0)
-		case "purch":
+		case "pch":
 			defer removeKeyboardButtons(cb)
 			orderId := parts[2]
 			purchaseBitrefillOrder(u, orderId)

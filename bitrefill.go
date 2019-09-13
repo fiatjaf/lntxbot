@@ -110,21 +110,48 @@ func serveBitrefillWebhook() {
 	})
 }
 
-func queryBitrefillInventory(query string, countryCode *string) []BitrefillInventoryItem {
+func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInventoryItem {
 	haystack := bitrefillInventoryKeys
-	if countryCode != nil {
-		haystack = bitrefillCountryInventoryKeys[*countryCode]
+	if countryCode != "" {
+		haystack = bitrefillCountryInventoryKeys[countryCode]
 	}
 
 	keys := fuzzy.FindFold(query, haystack)
 
 	results := make([]BitrefillInventoryItem, 0, len(keys))
 	for i, key := range keys {
-		score := fuzzy.LevenshteinDistance(key, query)
+		item := bitrefillInventory[key]
 
-		if score > 10 {
-			log.Debug().Str("query", query).Str("key", key).Int("score", score).
-				Msg("bitrefill item bad score, breaking")
+		if phone == "" {
+			// eliminate refill items
+			if item.Type == "refill" {
+				continue
+			}
+		} else {
+			// eliminate non-refill items
+			if item.Type != "refill" {
+				continue
+			}
+		}
+
+		// get the best score (considering that the item name may be "Nextel
+		// Brazil" or "Nextel Argentina", we want it to match perfectly for "nextel")
+		bestscore := 1000
+		for _, word := range strings.Split(item.Name, " ") {
+			score := fuzzy.LevenshteinDistance(word, query)
+			if score < bestscore {
+				bestscore = score
+			}
+		}
+
+		if bestscore < 2 {
+			// perfect score, return only this
+			return []BitrefillInventoryItem{item}
+		}
+
+		if bestscore > 10 {
+			log.Debug().Str("query", query).Str("key", key).Int("score", bestscore).
+				Msg("bitrefill item bad score, only return up to this")
 			break
 		}
 
@@ -132,13 +159,13 @@ func queryBitrefillInventory(query string, countryCode *string) []BitrefillInven
 			break
 		}
 
-		results = append(results, bitrefillInventory[key])
+		results = append(results, item)
 	}
 
 	return results
 }
 
-func handleBitrefillItem(user User, item BitrefillInventoryItem) {
+func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
 	npacks := len(item.Packages)
 	inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, npacks/2+npacks%2)
 	for i, pack := range item.Packages {
@@ -148,7 +175,7 @@ func handleBitrefillItem(user User, item BitrefillInventoryItem) {
 
 		inlinekeyboard[i/2] = append(inlinekeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
 			fmt.Sprintf("%v %s (%d sat)", pack.Value, item.Currency, pack.SatoshiPrice),
-			fmt.Sprintf("app=bitrefill-place-%s-%d", strings.Replace(item.Slug, "-", "~", -1), i),
+			fmt.Sprintf("x=bitrefill-pl-%s-%d-%s", strings.Replace(item.Slug, "-", "~", -1), i, phone),
 		))
 	}
 
