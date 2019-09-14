@@ -326,13 +326,6 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			return
 		}
 
-		// we can't go to the next step if there's a phone number,
-		// for phone numbers we require exact matches for now
-		if phone != "" {
-			u.notify(t.BITREFILLNOPROVIDERS, nil)
-			return
-		}
-
 		if nitems == 0 {
 			u.notify(t.BITREFILLNOPROVIDERS, nil)
 			return
@@ -346,7 +339,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			inlinekeyboard[i/2] = append(inlinekeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
 				item.Name,
-				fmt.Sprintf("x=bitrefill-it-%s", strings.Replace(item.Slug, "-", "~", -1)),
+				fmt.Sprintf("x=bitrefill-it-%s-%s", strings.Replace(item.Slug, "-", "~", -1), phone),
 			))
 		}
 
@@ -639,8 +632,10 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return
 			}
 
+			phone := parts[3]
+
 			appendTextToMessage(cb, item.Name)
-			handleBitrefillItem(u, item, "")
+			handleBitrefillItem(u, item, phone)
 		case "pl":
 			removeKeyboardButtons(cb)
 
@@ -653,11 +648,12 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			var pack BitrefillPackage
 			idx, _ := strconv.Atoi(parts[3])
-			if len(item.Packages) < idx {
+			packages := getBitRefillPackagesForItem(item)
+			if len(packages) <= idx {
 				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
 				return
 			}
-			pack = item.Packages[idx]
+			pack = packages[idx]
 			appendTextToMessage(cb, fmt.Sprintf("%v %s", pack.Value, item.Currency))
 
 			phone := parts[4]

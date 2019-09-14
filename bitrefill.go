@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"gopkg.in/jmcvetta/napping.v3"
 )
+
+var log9 = math.Log10(9)
 
 type BitrefillData struct {
 	Country    string   `json:"country"`
@@ -49,13 +52,16 @@ type BitrefillInventoryItem struct {
 	IsRanged      bool               `json:"isRanged"`
 	Currency      string             `json:"currency"`
 	Packages      []BitrefillPackage `json:"packages"`
-	Range         interface{}        `json:"range"`
-	LogoImage     string             `json:"logoImage"`
-	ExtraInfo     string             `json:"extraInfo"`
-	Promotions    struct {
-		Current  interface{} `json:"current"`
-		Upcoming interface{} `json:"upcoming"`
-	} `json:"promotions"`
+	Range         struct {
+		Min                      int         `json:"min"`
+		Max                      int         `json:"max"`
+		Step                     int         `json:"step"`
+		CustomerPriceRate        float64     `json:"customerPriceRate"`
+		CustomerSatoshiPriceRate float64     `json:"customerSatoshiPriceRate"`
+		CustomerEurPriceRate     float64     `json:"customerEurPriceRate"`
+		UserPriceRate            float64     `json:"userPriceRate"`
+		PurchaseFee              interface{} `json:"purchaseFee"`
+	} `json:"range"`
 }
 
 type BitrefillPackage struct {
@@ -106,7 +112,7 @@ func initializeBitrefill() {
 func serveBitrefillWebhook() {
 	http.HandleFunc("/app/bitrefill/webhook", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := ioutil.ReadAll(r.Body)
-		log.Print(string(b))
+		log.Print("BITREFILL WEBHOOK ", string(b))
 	})
 }
 
@@ -119,7 +125,7 @@ func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInvent
 	keys := fuzzy.FindFold(query, haystack)
 
 	results := make([]BitrefillInventoryItem, 0, len(keys))
-	for i, key := range keys {
+	for _, key := range keys {
 		item := bitrefillInventory[key]
 
 		if phone == "" {
@@ -137,26 +143,21 @@ func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInvent
 		// get the best score (considering that the item name may be "Nextel
 		// Brazil" or "Nextel Argentina", we want it to match perfectly for "nextel")
 		bestscore := 1000
-		for _, word := range strings.Split(item.Name, " ") {
-			score := fuzzy.LevenshteinDistance(word, query)
+		words := strings.Split(item.Name, " ")
+		for _, word := range words {
+			score := fuzzy.LevenshteinDistance(strings.ToLower(word), strings.ToLower(query))
 			if score < bestscore {
 				bestscore = score
 			}
 		}
 
-		if bestscore < 2 {
+		if bestscore == 0 {
 			// perfect score, return only this
 			return []BitrefillInventoryItem{item}
 		}
 
-		if bestscore > 10 {
-			log.Debug().Str("query", query).Str("key", key).Int("score", bestscore).
-				Msg("bitrefill item bad score, only return up to this")
-			break
-		}
-
-		if i > 16 {
-			break
+		if bestscore > 5 {
+			continue
 		}
 
 		results = append(results, item)
@@ -166,9 +167,12 @@ func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInvent
 }
 
 func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
-	npacks := len(item.Packages)
+	packages := getBitRefillPackagesForItem(item)
+
+	// make buttons
+	npacks := len(packages)
 	inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, npacks/2+npacks%2)
-	for i, pack := range item.Packages {
+	for i, pack := range packages {
 		if i%2 == 0 {
 			inlinekeyboard[i/2] = make([]tgbotapi.InlineKeyboardButton, 0, 2)
 		}
@@ -360,4 +364,30 @@ func pollBitrefillOrder(user User, orderId string, countdown int) {
 	if countdown > 0 {
 		pollBitrefillOrder(user, orderId, countdown-1)
 	}
+}
+
+func getBitRefillPackagesForItem(item BitrefillInventoryItem) (packages []BitrefillPackage) {
+	if item.IsRanged && item.Range.PurchaseFee == nil && item.Range.Step == 1 {
+		// use custom values (only when there's no odd purchase fee and step is a sane "1")
+		packages = make([]BitrefillPackage, 10)
+
+		min := float64(item.Range.Min)
+		diff := float64(item.Range.Max - item.Range.Min)
+
+		for i := 0; i < 10; i++ {
+			value := math.Floor(diff*math.Pow(float64(i), log9)/100 + min)
+
+			packages[i] = BitrefillPackage{
+				Value: value,
+				SatoshiPrice: int(math.Ceil(
+					item.Range.CustomerSatoshiPriceRate * value,
+				)),
+			}
+		}
+	} else {
+		// use predefined package list
+		packages = item.Packages
+	}
+
+	return
 }

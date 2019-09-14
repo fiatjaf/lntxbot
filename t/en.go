@@ -225,7 +225,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
     `,
 
 	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Choose your provider:`,
-	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your {{.Item}} card:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your <i>{{.Item}}</i> card:`,
 	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> No providers found.`,
 	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
 	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
