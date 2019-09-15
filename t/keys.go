@@ -124,6 +124,7 @@ const (
 	MICROBETLIST                = "MicrobetList"
 	MICROBETBALANCE             = "MicrobetBalance"
 
+	BITREFILLHELP            = "bitrefillHelp"
 	BITREFILLINVENTORYHEADER = "BitrefillInventoryHeader"
 	BITREFILLPACKAGESHEADER  = "BitrefillPackagelHeader"
 	BITREFILLNOPROVIDERS     = "BitrefillNoProviders"
@@ -131,6 +132,8 @@ const (
 	BITREFILLFAILEDSAVE      = "BitrefillFailedToSave"
 	BITREFILLPURCHASEDONE    = "BitrefillPurchaseDone"
 	BITREFILLPURCHASEFAILED  = "BitrefillPurchaseFailed"
+	BITREFILLCOUNTRYSET      = "BitrefillCountrySet"
+	BITREFILLINVALIDCOUNTRY  = "BitrefillInvalidCountry"
 
 	SATELLITEHELP              = "satelliteHelp"
 	SATELLITEFAILEDTOSTORE     = "SatelliteFailedToStore"

@@ -311,39 +311,57 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}()
 		}
 	case opts["bitrefill"].(bool):
-		query, err := opts.String("<query>")
-		if err != nil {
-			return
-		}
+		switch {
+		case opts["country"].(bool):
+			countryCode, _ := opts.String("<country_code>")
+			countryCode = strings.ToUpper(countryCode)
 
-		phone, _ := opts.String("<phone_number>")
-
-		items := queryBitrefillInventory(query, phone, "")
-		nitems := len(items)
-
-		if nitems == 1 {
-			handleBitrefillItem(u, items[0], phone)
-			return
-		}
-
-		if nitems == 0 {
-			u.notify(t.BITREFILLNOPROVIDERS, nil)
-			return
-		}
-
-		inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, nitems/2+nitems%2)
-		for i, item := range items {
-			if i%2 == 0 {
-				inlinekeyboard[i/2] = make([]tgbotapi.InlineKeyboardButton, 0, 2)
+			if isValidBitrefillCountry(countryCode) {
+				err := setBitrefillCountry(u, countryCode)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
+				}
+				u.notify(t.BITREFILLCOUNTRYSET, t.T{"CountryCode": countryCode})
+			} else {
+				u.notify(t.BITREFILLINVALIDCOUNTRY, t.T{"CountryCode": countryCode, "Available": BITREFILLCOUNTRIES})
+			}
+		default:
+			query, err := opts.String("<query>")
+			if err != nil {
+				handleHelp(u, "bitrefill")
+				return
 			}
 
-			inlinekeyboard[i/2] = append(inlinekeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
-				item.Name,
-				fmt.Sprintf("x=bitrefill-it-%s-%s", strings.Replace(item.Slug, "-", "~", -1), phone),
-			))
-		}
+			phone, _ := opts.String("<phone_number>")
+			countryCode, _ := getBitrefillCountry(u)
 
-		u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+			items := queryBitrefillInventory(query, phone, countryCode)
+			nitems := len(items)
+
+			if nitems == 1 {
+				handleBitrefillItem(u, items[0], phone)
+				return
+			}
+
+			if nitems == 0 {
+				u.notify(t.BITREFILLNOPROVIDERS, nil)
+				return
+			}
+
+			inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, nitems/2+nitems%2)
+			for i, item := range items {
+				if i%2 == 0 {
+					inlinekeyboard[i/2] = make([]tgbotapi.InlineKeyboardButton, 0, 2)
+				}
+
+				inlinekeyboard[i/2] = append(inlinekeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
+					item.Name,
+					fmt.Sprintf("x=bitrefill-it-%s-%s", strings.Replace(item.Slug, "-", "~", -1), phone),
+				))
+			}
+
+			u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+		}
 	case opts["poker"].(bool):
 		subscribePoker(u, time.Minute*5, false)
 

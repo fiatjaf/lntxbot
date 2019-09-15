@@ -114,7 +114,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"bitrefill"},
-		argstr:  "<query> [<phone_number>] | country <country_code>",
+		argstr:  "(country <country_code> | <query> [<phone_number>])",
 	},
 	def{
 		aliases: []string{"gifts"},

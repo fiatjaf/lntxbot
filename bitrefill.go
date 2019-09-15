@@ -16,8 +16,6 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
-var log9 = math.Log10(9)
-
 type BitrefillData struct {
 	Country    string   `json:"country"`
 	PaidOrders []string `json:"orders"`
@@ -117,12 +115,21 @@ func serveBitrefillWebhook() {
 }
 
 func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInventoryItem {
+	query = strings.ToLower(query)
 	haystack := bitrefillInventoryKeys
 	if countryCode != "" {
 		haystack = bitrefillCountryInventoryKeys[countryCode]
 	}
 
-	keys := fuzzy.FindFold(query, haystack)
+	var keys []string
+
+	for _, key := range haystack {
+		if strings.Index(key, query) != -1 {
+			keys = append(keys, key)
+		}
+	}
+
+	log.Debug().Str("query", query).Interface("keys", keys).Msg("found keys on bitrefill query")
 
 	results := make([]BitrefillInventoryItem, 0, len(keys))
 	for _, key := range keys {
@@ -145,14 +152,14 @@ func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInvent
 		bestscore := 1000
 		words := strings.Split(item.Name, " ")
 		for _, word := range words {
-			score := fuzzy.LevenshteinDistance(strings.ToLower(word), strings.ToLower(query))
+			score := fuzzy.LevenshteinDistance(strings.ToLower(word), query)
 			if score < bestscore {
 				bestscore = score
 			}
 		}
 
-		if bestscore == 0 {
-			// perfect score, return only this
+		if countryCode != "" && bestscore == 0 {
+			// perfect score, return only this -- only if there's a country code
 			return []BitrefillInventoryItem{item}
 		}
 
@@ -366,23 +373,60 @@ func pollBitrefillOrder(user User, orderId string, countdown int) {
 	}
 }
 
+func isValidBitrefillCountry(countryCode string) bool {
+	if countryCode == "" {
+		return true
+	}
+
+	for _, code := range BITREFILLCOUNTRIES {
+		if code == countryCode {
+			return true
+		}
+	}
+
+	return false
+}
+
+func setBitrefillCountry(user User, countryCode string) error {
+	var data BitrefillData
+	err := user.getAppData("bitrefill", &data)
+	if err != nil {
+		return err
+	}
+	data.Country = countryCode
+	err = user.setAppData("bitrefill", data)
+	return err
+}
+
+func getBitrefillCountry(user User) (string, error) {
+	var data BitrefillData
+	err := user.getAppData("bitrefill", &data)
+	if err != nil {
+		return "", err
+	}
+	return data.Country, nil
+}
+
+var distparam = math.Pow(100, 1/2.8)
+
 func getBitRefillPackagesForItem(item BitrefillInventoryItem) (packages []BitrefillPackage) {
 	if item.IsRanged && item.Range.PurchaseFee == nil && item.Range.Step == 1 {
 		// use custom values (only when there's no odd purchase fee and step is a sane "1")
-		packages = make([]BitrefillPackage, 10)
+		packages = make([]BitrefillPackage, 0, 10)
 
 		min := float64(item.Range.Min)
 		diff := float64(item.Range.Max - item.Range.Min)
 
-		for i := 0; i < 10; i++ {
-			value := math.Floor(diff*math.Pow(float64(i), log9)/100 + min)
+		var value float64
+		for j := 0.0; int(value) < item.Range.Max; j += 0.6 {
+			value = math.Floor(diff*math.Pow(float64(j), distparam)/100 + min)
 
-			packages[i] = BitrefillPackage{
+			packages = append(packages, BitrefillPackage{
 				Value: value,
 				SatoshiPrice: int(math.Ceil(
 					item.Range.CustomerSatoshiPriceRate * value,
 				)),
-			}
+			})
 		}
 	} else {
 		// use predefined package list

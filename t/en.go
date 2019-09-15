@@ -240,6 +240,20 @@ Instructions: <i>{{.Info.PinInfo.Instructions}}</i>
 {{end}}
     `,
 	BITREFILLPURCHASEFAILED: "<b>[Bitrefill]</b> Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
+	BITREFILLCOUNTRYSET:     "<b>[Bitrefill]</b> Country set to {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
+	BITREFILLINVALIDCOUNTRY: "<b>[Bitrefill]</b> Invalid country <code>{{.CountryCode}}</code>. The countries available are{{range .Available}} <code>{{.}}</code>{{end}}.",
+	BITREFILLHELP: `
+<a href="https://www.bitrefill.com/">Bitrefill</a> is the biggest Lightning-enabled gift-card and phone refill store in the world. If you want to buy real-world stuff with Lightning, this should be your first stop.
+
+To buy a gift card, use the /bitrefill command followed by the name of the place you're looking for. To refill a phone, do the same but also append your phone (prefixed with the phone country code) at the end. Optionally you can also set your country with <code>/bitrefill country</code> so you'll only get suggestions available in your country and skip having to click through a bunch of different Amazons, for example.
+
+<code>/bitrefill country AR</code> will set your default country to Argentina.
+<code>/bitrefill country ''</code> will unset your default country.
+<code>/bitrefill nextel +5411971732181</code> will display options to refill the given phone number of the operator Nextel.
+<code>/bitrefill amazon</code> will display options of gift cards of various sizes you can buy on Amazon.
+
+You may not found all the gift cards available on the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot. Also often the website often has more flexibility in selecting the gift card values. The prices are the same here and there, however.
+    `,
 
 	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
 	SATELLITEFAILEDTOGET:       "<b>[satellite]</b> Failed to get stored satellite data: {{.Err}}",
@@ -526,6 +540,7 @@ These are the services we currently support:
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
 🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
 📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise
+📲 /bitrefill -- buy gift cards and refill phones. /help_bitrefill
 💸 /yandex and /qiwi -- send satoshis to an yandex.money or qiwi.com account as rubles with the best exchange rate.  /help_yandex /help_qiwi 
 ⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
 
