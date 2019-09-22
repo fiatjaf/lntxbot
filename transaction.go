@@ -146,9 +146,9 @@ func (t Transaction) Icon() string {
 	case "lntorub":
 		return "💸"
 	case "poker":
-		return "♦️"
+		return "♠️"
 	case "paywall":
-		return "⛩️"
+		return "🧱"
 	default:
 		switch {
 		case strings.HasPrefix(t.Label.String, "newmember:"):

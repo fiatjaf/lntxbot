@@ -12,8 +12,6 @@ func handleTutorial(u User, section string) {
 	switch section {
 	case "wallet":
 		tutorialWallet(u)
-	case "friends":
-		tutorialFriends(u)
 	case "bluewallet":
 		tutorialBlueWallet(u)
 	case "apps":
@@ -23,12 +21,10 @@ func handleTutorial(u User, section string) {
 		go func() {
 			time.Sleep(15 * time.Second)
 			tutorialWallet(u)
-			time.Sleep(30 * time.Second)
+			time.Sleep(40 * time.Second)
 			tutorialBlueWallet(u)
-			time.Sleep(30 * time.Second)
+			time.Sleep(60 * time.Second)
 			tutorialApps(u)
-			time.Sleep(30 * time.Second)
-			// tutorialFriends(u)
 		}()
 	}
 }
@@ -43,10 +39,6 @@ func tutorialBlueWallet(u User) {
 		translateTemplate(t.TUTORIALBLUE, u.Locale, t.T{"BotName": s.ServiceId}))
 }
 
-func tutorialFriends(u User) {
-
-}
-
 func tutorialApps(u User) {
-
+	sendMessage(u.ChatId, translateTemplate(t.TUTORIALAPPS, u.Locale, t.T{"BotName": s.ServiceId}))
 }

@@ -13,12 +13,12 @@ import (
 )
 
 type GiftsOrder struct {
-	OrderId          string `json:"order_id"`
-	ChargeId         string `json:"charge_id"`
+	OrderId          string `json:"orderId"`
+	ChargeId         string `json:"chargeId"`
 	Status           string `json:"status"`
 	LightningInvoice struct {
 		PayReq string `json:"payreq"`
-	} `json:"lightning_invoice"`
+	} `json:"lightningInvoice"`
 }
 
 type GiftsError struct {
@@ -32,7 +32,10 @@ type GiftsGift struct {
 		CreatedAt struct {
 			Seconds int64 `json:"_seconds"`
 		} `json:"createdAt"`
-		Reference string `json:"withdrawalInvoice"`
+
+		// these two fields are the same, the API was broken and old stuff is different from new stuff
+		Reference         string `json:"reference"`
+		WithdrawalInvoice string `json:"withdrawalInvoice"`
 	} `json:"withdrawalInfo"`
 	Amount int `json:"amount"`
 }
@@ -52,7 +55,11 @@ func (g GiftsGift) WithdrawDate() string {
 }
 
 func (g GiftsGift) RedeemerURL() string {
-	inv, _ := ln.Call("decodepay", g.WithdrawalInfo.Reference)
+	invoice := g.WithdrawalInfo.WithdrawalInvoice
+	if invoice == "" {
+		invoice = g.WithdrawalInfo.Reference
+	}
+	inv, _ := ln.Call("decodepay", invoice)
 	return nodeLink(inv.Get("payee").String())
 }
 

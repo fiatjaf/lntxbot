@@ -109,8 +109,6 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	APPERROR = "AppError"
-
 	BITFLASHHELP         = "bitflashHelp"
 	BITFLASHCONFIRM      = "BitflashConfirm"
 	BITFLASHTXQUEUED     = "BitflashTxQueued"
@@ -119,13 +117,10 @@ const (
 
 	MICROBETHELP                = "microbetHelp"
 	MICROBETBETHEADER           = "MicrobetBetHeader"
-	MICROBETINVALIDRESPONSE     = "MicrobetInvalidResponse"
 	MICROBETPAIDBUTNOTCONFIRMED = "MicrobetPaidButNotConfirmed"
 	MICROBETPLACING             = "MicrobetPlacing"
 	MICROBETPLACED              = "MicrobetPlaced"
-	MICROBETFAILEDTOPAY         = "MicrobetFailedToPay"
 	MICROBETLIST                = "MicrobetList"
-	MICROBETBALANCEERROR        = "MicrobetBalanceError"
 	MICROBETBALANCE             = "MicrobetBalance"
 
 	SATELLITEHELP              = "satelliteHelp"
@@ -133,18 +128,12 @@ const (
 	SATELLITEFAILEDTOGET       = "SatelliteFailedToGet"
 	SATELLITEPAID              = "SatellitePaid"
 	SATELLITEFAILEDTOPAY       = "SatelliteFailedToPay"
-	SATELLITEBUMPERROR         = "SatelliteBumpError"
-	SATELLITEFAILEDTODELETE    = "SatelliteFailedToDelete"
-	SATELLITEDELETEERROR       = "SatelliteDeleteError"
-	SATELLITEDELETED           = "SatelliteDeleted"
 	SATELLITETRANSMISSIONERROR = "SatelliteTransmissionError"
-	SATELLITEQUEUEERROR        = "SatelliteQueueError"
-	SATELLITEQUEUE             = "SatelliteQueue"
 	SATELLITELIST              = "SatelliteList"
 
-	GOLIGHTNINGHELP   = "golightningHelp"
-	GOLIGHTNINGFAIL   = "GoLightningFail"
-	GOLIGHTNINGFINISH = "GoLightningFinish"
+	FUNDBTCHELP   = "fundbtcHelp"
+	FUNDBTCFAIL   = "fundbtcFail"
+	FUNDBTCFINISH = "fundbtcFinish"
 
 	QIWIHELP             = "qiwiHelp"
 	YANDEXHELP           = "yandexHelp"
@@ -157,7 +146,6 @@ const (
 	LNTORUBDEFAULTTARGET = "LNToRubDefaultTarget"
 
 	GIFTSHELP       = "giftsHelp"
-	GIFTSERROR      = "GiftsError"
 	GIFTSCREATED    = "GiftsCreated"
 	GIFTSFAILEDSAVE = "GiftsFailedSave"
 	GIFTSLIST       = "GiftsList"
@@ -166,7 +154,6 @@ const (
 	POKERHELP         = "pokerHelp"
 	POKERDEPOSITFAIL  = "PokerDepositFail"
 	POKERWITHDRAWFAIL = "PokerWithdrawFail"
-	POKERBALANCEERROR = "PokerBalanceError"
 	POKERSTATUS       = "PokerStatus"
 	POKERNOTIFY       = "PokerNotify"
 	POKERNOTIFYFRIEND = "PokerNotifyFriend"
@@ -176,13 +163,11 @@ const (
 
 	SATS4ADSHELP       = "sats4adsHelp"
 	SATS4ADSTOGGLE     = "Sats4adsToggle"
-	SATS4ADSNOMESSAGE  = "Sats4adsNoMessage"
 	SATS4ADSBROADCAST  = "Sats4adsBroadcast"
 	SATS4ADSPRICETABLE = "Sats4adsPriceTable"
 	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
 
 	PAYWALLHELP      = "paywallHelp"
-	PAYWALLERROR     = "PaywallError"
 	PAYWALLBALANCE   = "PaywallBalance"
 	PAYWALLCREATED   = "PaywallCreated"
 	PAYWALLLISTLINKS = "PaywallListLinks"
@@ -200,6 +185,7 @@ const (
 	FAILEDDECODE       = "FailedDecode"
 	NOINVOICE          = "NoInvoice"
 	BALANCEMSG         = "BalanceMsg"
+	TAGGEDBALANCEMSG   = "TaggedBalanceMsg"
 	FAILEDUSER         = "FailedUser"
 	LOTTERYMSG         = "LotteryMsg"
 	INVALIDPARTNUMBER  = "InvalidPartNumber"
@@ -228,4 +214,5 @@ const (
 
 	TUTORIALWALLET = "TutorialWallet"
 	TUTORIALBLUE   = "TutorialBlue"
+	TUTORIALAPPS   = "TutorialApps"
 )

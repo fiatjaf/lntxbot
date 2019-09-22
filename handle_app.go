@@ -33,7 +33,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["balance"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.MICROBETBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
@@ -47,7 +47,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["withdraw"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.MICROBETBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
@@ -158,7 +158,27 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}, 0)
 		}
 	case opts["satellite"].(bool):
-		if opts["transmissions"].(bool) {
+		if _, exists := opts["<satoshis>"]; exists {
+			// create an order
+			satoshis, err := opts.Int("<satoshis>")
+			if err != nil {
+				handleHelp(u, "satellite")
+				return
+			}
+
+			message := getVariadicFieldOrReplyToContent(opts, message, "<message>")
+			if message == "" {
+				handleHelp(u, "satellite")
+				return
+			}
+
+			err = createSatelliteOrder(u, messageId, satoshis, message)
+			if err != nil {
+				u.notifyAsReply(t.ERROR, t.T{"App": "satellite", "Err": err.Error()}, messageId)
+				return
+			}
+		} else {
+			// show past transmissions
 			var satdata SatelliteData
 			err := u.getAppData("satellite", &satdata)
 			if err != nil {
@@ -175,49 +195,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			u.notify(t.SATELLITELIST, t.T{"Orders": orders})
-		} else if opts["queue"].(bool) {
-			queue, err := getSatelliteQueue()
-			if err != nil {
-				u.notifyAsReply(t.SATELLITEQUEUEERROR, t.T{"Err": err.Error()}, messageId)
-				return
-			}
-
-			u.notify(t.SATELLITEQUEUE, t.T{"Orders": queue})
-		} else if opts["bump"].(bool) {
-			err := bumpSatelliteOrder(u, messageId, opts["<transaction_id>"].(string), opts["<satoshis>"].(int))
-			if err != nil {
-				u.notifyAsReply(t.SATELLITEBUMPERROR, t.T{"Err": err.Error()}, messageId)
-				return
-			}
-		} else if opts["delete"].(bool) {
-			err := deleteSatelliteOrder(u, opts["<transaction_id>"].(string))
-			if err != nil {
-				u.notifyAsReply(t.SATELLITEDELETEERROR, t.T{"Err": err.Error()}, messageId)
-				return
-			}
-			u.notifyAsReply(t.SATELLITEDELETED, nil, messageId)
-			return
-		} else {
-			// either show help or create an order
-			satoshis, err := opts.Int("<satoshis>")
-			if err != nil {
-				handleHelp(u, "satellite")
-				return
-			}
-
-			// create an order
-			var message string
-			if imessage, ok := opts["<message>"]; ok {
-				message = strings.Join(imessage.([]string), " ")
-			}
-
-			err = createSatelliteOrder(u, messageId, satoshis, message)
-			if err != nil {
-				u.notifyAsReply(t.SATELLITETRANSMISSIONERROR, t.T{"Err": err.Error()}, messageId)
-				return
-			}
 		}
-	case opts["golightning"].(bool):
+	case opts["fundbtc"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
 			handleHelp(u, "golightning")
@@ -226,11 +205,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 		order, err := prepareGoLightningTransaction(u, messageId, sats)
 		if err != nil {
-			u.notify(t.GOLIGHTNINGFAIL, t.T{"Err": err.Error()})
+			u.notify(t.ERROR, t.T{"App": "fundbtc", "Err": err.Error()})
 			return
 		}
 
-		u.notify(t.GOLIGHTNINGFINISH, t.T{"Order": order})
+		u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
 	case opts["qiwi"].(bool), opts["yandex"].(bool):
 		exchangeType := "qiwi"
 		if opts["yandex"].(bool) {
@@ -349,7 +328,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["balance"].(bool) {
 			balance, err := getPokerBalance(u)
 			if err != nil {
-				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
 				break
 			}
 
@@ -363,7 +342,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["withdraw"].(bool) {
 			balance, err := getPokerBalance(u)
 			if err != nil {
-				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
 				break
 			}
 
@@ -415,7 +394,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			// create
 			err = createGift(u, sats, messageId)
 			if err != nil {
-				u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
 			}
 			return
 		} else {
@@ -423,7 +402,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			var data GiftsData
 			err = u.getAppData("gifts", &data)
 			if err != nil {
-				u.notify(t.GIFTSERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
 				return
 			}
 
@@ -440,7 +419,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		case opts["balance"].(bool):
 			balance, err := getPaywallBalance(u)
 			if err != nil {
-				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
 				return
 			}
 
@@ -454,7 +433,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		case opts["withdraw"].(bool):
 			err := withdrawPaywall(u)
 			if err != nil {
-				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
 				return
 			}
 		default:
@@ -467,14 +446,15 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 
-				var memo string
-				if imemo, ok := opts["<memo>"]; ok {
-					memo = strings.Join(imemo.([]string), " ")
+				memo := getVariadicFieldOrReplyToContent(opts, nil, "<memo>")
+				if memo == "" {
+					handleHelp(u, "paywall")
+					return
 				}
 
 				link, err := createPaywallLink(u, sats, url, memo)
 				if err != nil {
-					u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+					u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
 					return
 				}
 
@@ -484,7 +464,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				// list
 				links, err := listPaywallLinks(u)
 				if err != nil {
-					u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+					u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
 					return
 				}
 
@@ -530,8 +510,21 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
-			if message.ReplyToMessage == nil {
-				u.notify(t.SATS4ADSNOMESSAGE, nil)
+
+			// we'll use either a message passed as an argument or the contents of the message being replied to
+			contentMessage := message.ReplyToMessage
+			if imessage, ok := opts["<message>"]; ok {
+				text := strings.Join(imessage.([]string), " ")
+				if text != "" {
+					contentMessage = &tgbotapi.Message{
+						MessageID: message.MessageID,
+						Text:      text,
+					}
+				}
+			}
+
+			if contentMessage == nil {
+				handleHelp(u, "sats4ads")
 				return
 			}
 
@@ -539,8 +532,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			maxrate, _ := opts.Int("--max-rate")
 			offset, _ := opts.Int("--skip")
 
-			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis,
-				message.ReplyToMessage, maxrate, offset)
+			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
 			if err != nil {
 				log.Warn().Err(err).Str("user", u.Username).Msg("sats4ads broadcast fail")
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
@@ -562,7 +554,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			defer removeKeyboardButtons(cb)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.MICROBETBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
 
@@ -675,12 +667,12 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		if parts[1] == "withdraw" {
 			balance, err := getPokerBalance(u)
 			if err != nil {
-				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
 
 			if err != nil {
-				u.notify(t.POKERBALANCEERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
 
@@ -697,7 +689,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		if parts[1] == "withdraw" {
 			err := withdrawPaywall(u)
 			if err != nil {
-				u.notify(t.PAYWALLERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
 		}

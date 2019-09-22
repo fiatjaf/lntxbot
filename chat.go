@@ -99,6 +99,7 @@ func setLanguage(chatId int64, lang string) (err error) {
 		table = "telegram.chat"
 		field = "telegram_id"
 		id = -chatId
+		taint = ""
 	}
 
 	_, err = pg.Exec("UPDATE "+table+" SET locale = $2"+taint+" WHERE "+field+" = $1", id, lang)

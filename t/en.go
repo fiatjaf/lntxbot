@@ -203,11 +203,9 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
-	MICROBETINVALIDRESPONSE:     "microbet.fun returned an invalid response.",
-	MICROBETPAIDBUTNOTCONFIRMED: "Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "Placing bet on <b>{{.Bet.Description}} ({{if .Back}}🔳{{else}}🔳{{end}})</b>.",
-	MICROBETPLACED:              "Bet placed!",
-	MICROBETFAILEDTOPAY:         "Failed to pay bet invoice.",
+	MICROBETPAIDBUTNOTCONFIRMED: "<b>[Microbet]</b> Paid, but bet not confirmed. Huge Microbet bug?",
+	MICROBETPLACING:             "<b>[Microbet]</b> Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
+	MICROBETPLACED:              "<b>[Microbet]</b> Bet placed!",
 	MICROBETLIST: `
 <b>[Microbet]</b> Your bets
 {{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}canceled{{else if .Closed}}{{if .WonAmount}}won {{.AmountWon}}{{else}}lost {{.AmountLost}}{{end}}{{else}}open{{end}}</i>
@@ -215,8 +213,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 <i>~ no bets were ever made. ~</i>
 {{end}}
     `,
-	MICROBETBALANCEERROR: "Error fetching Microbet balance: {{.Err}}",
-	MICROBETBALANCE:      "<b>[Microbet]</b> balance: <i>{{.Balance}} sat</i>",
+	MICROBETBALANCE: "<b>[Microbet]</b> balance: <i>{{.Balance}} sat</i>",
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
@@ -226,23 +223,11 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 /microbet_withdraw withdraws all your balance.
     `,
 
-	SATELLITEFAILEDTOSTORE:     "Failed to store satellite order data. Please report: {{.Err}}",
-	SATELLITEFAILEDTOGET:       "Failed to get stored satellite data: {{.Err}}",
-	SATELLITEPAID:              "Transmission <code>{{.UUID}}</code> paid!",
-	SATELLITEFAILEDTOPAY:       "Failed to pay for transmission.",
-	SATELLITEBUMPERROR:         "Error bumping transmission: {{.Err}}",
-	SATELLITEFAILEDTODELETE:    "Failed to delete satellite order data. Please report: {{.Err}}",
-	SATELLITEDELETEERROR:       "Error deleting transmission: {{.Err}}",
-	SATELLITEDELETED:           "Transmission deleted.",
-	SATELLITETRANSMISSIONERROR: "Error making transmission: {{.Err}}",
-	SATELLITEQUEUEERROR:        "Error fetching the queue: {{.Err}}",
-	SATELLITEQUEUE: `
-<b>[Satellite]</b> Queued transmissions
-{{range .Orders}}{{.}}
-{{else}}
-<i>Queue is empty, everything was already transmitted.</i>
-{{end}}
-    `,
+	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
+	SATELLITEFAILEDTOGET:       "<b>[satellite]</b> Failed to get stored satellite data: {{.Err}}",
+	SATELLITEPAID:              "<b>[satellite]</b> Transmission <code>{{.UUID}}</code> queued!",
+	SATELLITEFAILEDTOPAY:       "<b>[satellite]</b> Failed to pay for transmission.",
+	SATELLITETRANSMISSIONERROR: "<b>[satellite]</b> Error making transmission: {{.Err}}",
 	SATELLITELIST: `
 <b>[Satellite]</b> Your transmissions
 {{range .Orders}}{{.}}
@@ -257,12 +242,11 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 /satellite_transmissions lists your transmissions.
     `,
 
-	GOLIGHTNINGFAIL:   "<b>[GoLightning]</b> Failed to create order: {{.Err}}",
-	GOLIGHTNINGFINISH: "<b>[GoLightning]</b> Finish your order by sending <code>{{.Order.Rate}} BTC</code> to <code>{{.Order.Address}}</code>.",
-	GOLIGHTNINGHELP: `
-<a href="https://golightning.club/">GoLightning.club</a> is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
+	FUNDBTCFINISH: "Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
+	FUNDBTCHELP: `
+Provided by <a href="https://golightning.club/">golightning.club</a>, this is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
-/golightning_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+/fundbtc_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
 	QIWIHELP: `
@@ -304,7 +288,6 @@ By generating your gifts on @{{ .BotName }} you can keep track of the ones that 
 /gifts lists the gifts you've created.
 /gifts_1000 creates a gift voucher of 1000 satoshis.
     `,
-	GIFTSERROR:      "<b>[gifts]</b> Error: {{.Err}}",
 	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
 	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
 	GIFTSLIST: `<b>[gifts]</b>
@@ -329,7 +312,6 @@ By generating your paywalls on @{{ .BotName }} you can keep track of them all wi
 /paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
 /paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
     `,
-	PAYWALLERROR:   "<b>[paywall]</b> Error: {{.Err}}",
 	PAYWALLBALANCE: "<b>[paywall]</b> Balance: <i>{{.Balance}} sat</i>",
 	PAYWALLCREATED: `<b>[paywall]</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
 	PAYWALLLISTLINKS: `<b>[paywall]</b>
@@ -344,7 +326,6 @@ Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a
 
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
 	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
-	POKERBALANCEERROR: "<b>[Poker]</b> Error fetching balance: {{.Err}}",
 	POKERSECRETURL:    `<a href="{{.URL}}">Your personal secret Poker URL is here, never share it with anyone.</a>`,
 	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
 	POKERSTATUS: `
@@ -364,7 +345,7 @@ Satoshis in play: {{.Chips}}
 /poker_url to play in a browser window!
     `,
 	POKERNOTIFYFRIEND: `
-<b>[Poker]</b> @{{.FriendName}} has sitted in a poker table!
+<b>[Poker]</b> {{.FriendName}} has sitted in a poker table!
 
 /poker_status to double-check!
 /poker_play to play here!
@@ -399,16 +380,17 @@ Rates for each user are in msatoshi-per-character.
 Each ad also includes a fixed fee of 1 sat.
 Images and videos are priced as if they were 300 characters.
 
+To broadcast an ad you must send a message to the bot that will be your ad contents, then reply to it using <code>/sats4ads broadcast ...</code> as described.
+
 /sats4ads_on_15 puts your account in ad-listening mode. Anyone will be able to publish messages to you for 15 msatoshi-per-character. You can adjust that price.
 /sats4ads_off turns off your account so you won't get any more ads.
 /sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
 /sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
     `,
 	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.3f" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
-	SATS4ADSNOMESSAGE: `<b>[sats4ads]</b> Use this command as a reply to some previous message. The message replied to will be considered as the content you want to broadcast.`,
 	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
-	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users in each pricing tier.
-{{range .Rates}}<code>{{.Rate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users <b>up to</b> each pricing tier.
+{{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>No one is registered to see ads yet.</i>
 {{end}}
@@ -434,7 +416,16 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
 
+/balance_apps
 /transactions
+    `,
+	TAGGEDBALANCEMSG: `
+<b>Total of</b> <code>received - spent</code> <b>on internal and third-party</b> /apps<b>:</b>
+
+{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.0f" .Balance}} sat</i>  ({{dollar .Balance}})
+{{else}}
+<i>No tagged transactions made yet.</i>
+{{end}}
     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `
@@ -501,6 +492,25 @@ Although it works, for real-world usage opening a Telegram chat and pasting invo
 
 For usage on the streets you can import your @{{ .BotName }} funds on <a href="https://bluewallet.io/">BlueWallet</a>. You don't need to keep your on-chain Bitcoin there, nor create a default Lightning wallet, you just have to type /bluewallet here to get an import URL and paste it there on their import screen.
 
-Everything you do on BlueWallet afterwards will be reflected in the bot screen and vice-versa (you'll get notifications for payments made and received from BlueWallet on your Telegram, but not the opposite).
+Everything you do on <a href="https://bluewallet.io/">BlueWallet</a> afterwards will be reflected in the bot screen and vice-versa (you'll get notifications for payments made and received from <a href="https://bluewallet.io/">BlueWallet</a> on your Telegram, but not the opposite).
+    `,
+	TUTORIALAPPS: `
+Thanks to some background magic we have in place you can seamlessly interact with internal and third-party apps from the comfort of your @{{ .BotName }} chat, using your balance automatically -- so no more selecting options, manually typing amounts (or, worse, invoices) on websites before actually making transactions.
+
+These are the services we currently support:
+
+⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
+📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
+🧱 /paywall -- create paywalls on paywall.link, get notified whenever someone pays, withdraw easily. /help_paywall
+🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
+📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite
+♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
+🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
+🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
+📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise
+💸 /yandex and /qiwi -- send satoshis to an yandex.money or qiwi.com account as rubles with the best exchange rate.  /help_yandex /help_qiwi 
+⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
+
+Read more in the /help page for each app.
     `,
 }
