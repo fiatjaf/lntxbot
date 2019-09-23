@@ -36,6 +36,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	log.Debug().Str("d", cb.Data).Str("user", u.Username).Msg("got callback")
+
 	var messageId int
 	var locale string
 	if cb.Message != nil {
@@ -715,7 +717,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			)
 		}(u, txn.TriggerMessage, txn.Hash)
 		appendTextToMessage(cb, translate(t.CHECKING, locale))
-	case strings.HasPrefix(cb.Data, "app="):
+	case strings.HasPrefix(cb.Data, "x="):
+		// callback from external app
 		answer := handleExternalAppCallback(u, messageId, cb)
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))
 	}

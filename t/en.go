@@ -48,11 +48,12 @@ var EN = map[Key]string{
 	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
-	SPAMMYMSG:    "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
-	LANGUAGEMSG:  "This chat language is set to <code>{{.Language}}</code>.",
-	TICKETMSG:    "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
-	FREEJOIN:     "This group is now free to join.",
-	ASKTOCONFIRM: "Pay the invoice described above?",
+	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
+	COINFLIPSENABLEDMSG: "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
+	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
+	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
+	FREEJOIN:            "This group is now free to join.",
+	ASKTOCONFIRM:        "Pay the invoice described above?",
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -221,6 +222,37 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 /microbet_bets shows your bet history.
 /microbet_balance displays your balance.
 /microbet_withdraw withdraws all your balance.
+    `,
+
+	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Choose your provider:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your <i>{{.Item}}</i> card:`,
+	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> No providers found.`,
+	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
+	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
+	BITREFILLPURCHASEDONE: `<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was purchased successfully.
+{{if .Info.LinkInfo}}
+Link: <a href="{{.Info.LinkInfo.Link}}">{{.Info.LinkInfo.Link}}</a>
+Instructions: <i>{{.Info.LinkInfo.Other}}</i>
+{{else if .Info.PinInfo}}
+PIN: <code>{{.Info.PinInfo.Pin}}</code>
+Instructions: <i>{{.Info.PinInfo.Instructions}}</i>
+<i>{{.Info.PinInfo.Other}}</i>
+{{end}}
+    `,
+	BITREFILLPURCHASEFAILED: "<b>[Bitrefill]</b> Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
+	BITREFILLCOUNTRYSET:     "<b>[Bitrefill]</b> Country set to {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
+	BITREFILLINVALIDCOUNTRY: "<b>[Bitrefill]</b> Invalid country <code>{{.CountryCode}}</code>. The countries available are{{range .Available}} <code>{{.}}</code>{{end}}.",
+	BITREFILLHELP: `
+<a href="https://www.bitrefill.com/">Bitrefill</a> is the biggest Lightning-enabled gift-card and phone refill store in the world. If you want to buy real-world stuff with Lightning, this should be your first stop.
+
+To buy a gift card, use the /bitrefill command followed by the name of the place you're looking for. To refill a phone, do the same but also append your phone (prefixed with the phone country code) at the end. Optionally you can also set your country with <code>/bitrefill country</code> so you'll only get suggestions available in your country and skip having to click through a bunch of different Amazons, for example.
+
+<code>/bitrefill country AR</code> will set your default country to Argentina.
+<code>/bitrefill country ''</code> will unset your default country.
+<code>/bitrefill nextel +5411971732181</code> will display options to refill the given phone number of the operator Nextel.
+<code>/bitrefill amazon</code> will display options of gift cards of various sizes you can buy on Amazon.
+
+You may not found all the gift cards available on the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot. Also often the website often has more flexibility in selecting the gift card values. The prices are the same here and there, however.
     `,
 
 	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
@@ -508,6 +540,7 @@ These are the services we currently support:
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
 🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
 📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise
+📲 /bitrefill -- buy gift cards and refill phones. /help_bitrefill
 💸 /yandex and /qiwi -- send satoshis to an yandex.money or qiwi.com account as rubles with the best exchange rate.  /help_yandex /help_qiwi 
 ⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
 

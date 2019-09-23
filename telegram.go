@@ -140,6 +140,10 @@ func deleteMessage(message *tgbotapi.Message) {
 	bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID))
 }
 
+func forwardMessage(message *tgbotapi.Message, targetChat int64) {
+	bot.Send(tgbotapi.NewForward(targetChat, message.Chat.ID, message.MessageID))
+}
+
 func getChatOwner(chatId int64) (User, error) {
 	admins, err := bot.GetChatAdministrators(tgbotapi.ChatConfig{
 		ChatID: chatId,

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
-
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
