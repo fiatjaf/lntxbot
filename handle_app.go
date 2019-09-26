@@ -711,7 +711,11 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		case "pch":
 			defer removeKeyboardButtons(cb)
 			orderId := parts[2]
-			purchaseBitrefillOrder(u, orderId)
+			err := purchaseBitrefillOrder(u, orderId)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "bitrefill", "Err": err.Error()})
+				return
+			}
 		}
 
 	case "lntorub":
