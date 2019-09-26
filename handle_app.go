@@ -159,7 +159,25 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}, 0)
 		}
 	case opts["satellite"].(bool):
-		if _, exists := opts["<satoshis>"]; exists {
+		if opts["transmissions"].(bool) {
+			// show past transmissions
+			var satdata SatelliteData
+			err := u.getAppData("satellite", &satdata)
+			if err != nil {
+				u.notify(t.SATELLITEFAILEDTOGET, t.T{"Err": err.Error()})
+				return
+			}
+
+			orders := make([]SatelliteOrder, len(satdata.Orders))
+			for i, tuple := range satdata.Orders {
+				order, err := fetchSatelliteOrder(tuple[0], tuple[1])
+				if err == nil {
+					orders[i] = order
+				}
+			}
+
+			u.notify(t.SATELLITELIST, t.T{"Orders": orders})
+		} else {
 			// create an order
 			satoshis, err := opts.Int("<satoshis>")
 			if err != nil {
@@ -178,24 +196,6 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notifyAsReply(t.ERROR, t.T{"App": "satellite", "Err": err.Error()}, messageId)
 				return
 			}
-		} else {
-			// show past transmissions
-			var satdata SatelliteData
-			err := u.getAppData("satellite", &satdata)
-			if err != nil {
-				u.notify(t.SATELLITEFAILEDTOGET, t.T{"Err": err.Error()})
-				return
-			}
-
-			orders := make([]SatelliteOrder, len(satdata.Orders))
-			for i, tuple := range satdata.Orders {
-				order, err := fetchSatelliteOrder(tuple[0], tuple[1])
-				if err == nil {
-					orders[i] = order
-				}
-			}
-
-			u.notify(t.SATELLITELIST, t.T{"Orders": orders})
 		}
 	case opts["fundbtc"].(bool):
 		sats, err := opts.Int("<satoshis>")

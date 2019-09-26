@@ -262,7 +262,7 @@ You may not found all the gift cards available on the <a href="https://www.bitre
 	SATELLITETRANSMISSIONERROR: "<b>[satellite]</b> Error making transmission: {{.Err}}",
 	SATELLITELIST: `
 <b>[Satellite]</b> Your transmissions
-{{range .Orders}}{{.}}
+{{range .Orders}}📡 <code>{{.UUID}}</code> <i>{{.Status}}</i> <code>{{.MessageSize}}b</code> <code>{{printf "%.62" .BidPerByte}} msat/b</code> <i>{{.Time}}</i>
 {{else}}
 <i>No transmissions made yet.</i>
 {{end}}

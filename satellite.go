@@ -37,12 +37,9 @@ type SatelliteOrder struct {
 	UnpaidBid             int64   `json:"unpaid_bid"`
 }
 
-func (order SatelliteOrder) String() string {
+func (order SatelliteOrder) Time() string {
 	parsedtime, _ := time.Parse("2006-01-02T15:04:05Z", order.CreatedAt)
-	return "📡" +
-		fmt.Sprintf(" <code>%s</code> <i>%s</i> <code>%db</code> <code>%.23fsat/b</code> <i>%s</i>",
-			order.UUID, order.Status, order.MessageSize, order.BidPerByte/1000,
-			parsedtime.Format("2 Jan 15:04"))
+	return parsedtime.Format("2 Jan 15:04")
 }
 
 type SatelliteError struct {
