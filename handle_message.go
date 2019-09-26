@@ -708,7 +708,7 @@ parsed:
 				break
 			}
 
-			g.notify(t.COINFLIPSENABLEDMSG, t.T{"Coinflips": enabled})
+			g.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
 		case opts["language"].(bool):
 			if lang, err := opts.String("<lang>"); err == nil {
 				log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
