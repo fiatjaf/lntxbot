@@ -585,14 +585,16 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			maxrate, _ := opts.Int("--max-rate")
 			offset, _ := opts.Int("--skip")
 
-			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Msg("sats4ads broadcast fail")
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
-				return
-			}
+			go func() {
+				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
+				if err != nil {
+					log.Warn().Err(err).Str("user", u.Username).Msg("sats4ads broadcast fail")
+					u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
+					return
+				}
 
-			u.notifyAsReply(t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
+				u.notifyAsReply(t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
+			}()
 		}
 	default:
 		handleHelp(u, "app")
