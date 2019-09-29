@@ -20,7 +20,8 @@ CREATE TABLE telegram.chat (
   telegram_id bigint PRIMARY KEY,
   locale text NOT NULL DEFAULT 'en',
   spammy boolean NOT NULL DEFAULT false,
-  ticket int NOT NULL DEFAULT 0
+  ticket int NOT NULL DEFAULT 0,
+  coinflips bool NOT NULL DEFAULT true
 );
 
 CREATE TABLE lightning.transaction (

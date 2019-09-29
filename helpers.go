@@ -16,6 +16,7 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/renstrom/fuzzysearch/fuzzy"
@@ -92,7 +93,7 @@ func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
 	return gjson.Result{}, false
 }
 
-func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurl string, ok bool) {
+func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurltext string, ok bool) {
 	text := message.Text
 	if text == "" {
 		text = message.Caption
@@ -102,7 +103,7 @@ func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurl string, o
 		return
 	}
 
-	if lnurl, ok = getLNURL(text); ok {
+	if lnurltext, ok = lnurl.FindLNURLInText(text); ok {
 		return
 	}
 
@@ -134,7 +135,7 @@ func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurl string, o
 			return
 		}
 
-		if lnurl, ok = getLNURL(text); ok {
+		if lnurltext, ok = lnurl.FindLNURLInText(text); ok {
 			return
 		}
 	}

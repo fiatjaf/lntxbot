@@ -5,41 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
-	"git.alhur.es/fiatjaf/lntxbot/bech32"
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	lnurl "github.com/fiatjaf/go-lnurl"
 	"github.com/skip2/go-qrcode"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
-type LNURLWithdrawResponse struct {
-	Callback           string `json:"callback"`
-	K1                 string `json:"k1"`
-	MaxWithdrawable    int64  `json:"maxWithdrawable"`
-	MinWithdrawable    int64  `json:"minWithdrawable"`
-	DefaultDescription string `json:"defaultDescription"`
-	Tag                string `json:"tag"`
-	LNURLResponse
-}
-
-type LNURLResponse struct {
-	Status string `json:"status"`
-	Reason string `json:"reason,omitempty"`
-}
-
-func handleLNURLReceive(u User, lnurl string, messageId int) {
-	actualurl, err := bech32.LNURLDecode(lnurl)
+func handleLNURLReceive(u User, lnurltext string, messageId int) {
+	actualurl, err := lnurl.LNURLDecode(lnurltext)
 	if err != nil {
 		u.notify(t.LNURLINVALID, t.T{"Err": err.Error()})
 		return
 	}
 	log.Debug().Str("url", actualurl).Msg("withdrawing from lnurl")
 
-	var withdrawres LNURLWithdrawResponse
+	var withdrawres lnurl.LNURLWithdrawResponse
 	_, err = napping.Get(actualurl, nil, &withdrawres, nil)
 	if err != nil {
 		u.notify(t.LNURLFAIL, t.T{"Err": err.Error()})
@@ -60,7 +44,7 @@ func handleLNURLReceive(u User, lnurl string, messageId int) {
 	}
 
 	log.Debug().Str("bolt11", bolt11).Str("k1", withdrawres.K1).Msg("sending invoice to lnurl callback")
-	var sentinvres LNURLResponse
+	var sentinvres lnurl.LNURLResponse
 	_, err = napping.Get(withdrawres.Callback, &url.Values{
 		"k1": {withdrawres.K1},
 		"pr": {bolt11},
@@ -92,7 +76,7 @@ func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
 		rds.Set("lnurlwithdrawnoconf:"+challenge, fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
 	}
 
-	lnurl, err := bech32.LNURLEncode(nexturl)
+	lnurl, err := lnurl.LNURLEncode(nexturl)
 	if err != nil {
 		log.Error().Err(err).Msg("error encoding lnurl on withdraw")
 		return
@@ -118,13 +102,13 @@ func serveLNURL() {
 		messageIdstr := qs.Get("message")
 		userId, err := strconv.Atoi(qs.Get("user"))
 		if err != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid user id."})
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid user id."))
 			return
 		}
 
 		u, err := loadUser(userId, 0)
 		if err != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Couldn't load user."})
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Couldn't load user."))
 			return
 		}
 
@@ -144,7 +128,7 @@ func serveLNURL() {
 			// without conf and we don't want people with invalid challenges draining our money
 			challenge = qs.Get("challenge")
 			if challenge == "" {
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Expired secret."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Expired secret."))
 				return
 			}
 
@@ -153,28 +137,28 @@ func serveLNURL() {
 			if rds.Exists("lnurlwithdrawnoconf:" + challenge).Val() {
 				val, err := rds.GetSet("lnurlwithdrawnoconf:"+challenge, "used").Result()
 				if err != nil {
-					json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Bizarre Redis error. Please report."})
+					json.NewEncoder(w).Encode(lnurl.ErrorResponse("Bizarre Redis error. Please report."))
 					return
 				} else if val == "used" {
-					json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "lnurl already used. Please request a new one."})
+					json.NewEncoder(w).Encode(lnurl.ErrorResponse("lnurl already used. Please request a new one."))
 					return
 				}
 
 				parts := strings.Split(val, "-")
 				if len(parts) != 2 {
-					json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Internal mismatch."})
+					json.NewEncoder(w).Encode(lnurl.ErrorResponse("Internal mismatch."))
 					return
 				}
 				chUserId, err1 := strconv.Atoi(parts[0])
 				chMax, err2 := strconv.Atoi(parts[1])
 				if err1 != nil || err2 != nil || chUserId != u.Id || chMax != max32 {
-					json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Internal mismatch."})
+					json.NewEncoder(w).Encode(lnurl.ErrorResponse("Internal mismatch."))
 					return
 				}
 
 				// everything is fine if we got here
 			} else {
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "lnurl already used."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("lnurl already used."))
 				return
 			}
 		} else {
@@ -182,14 +166,14 @@ func serveLNURL() {
 			maxmsats = u.getAbsoluteWithdrawable()
 		}
 
-		json.NewEncoder(w).Encode(LNURLWithdrawResponse{
+		json.NewEncoder(w).Encode(lnurl.LNURLWithdrawResponse{
 			Callback:           fmt.Sprintf("%s/lnurl/withdraw/invoice/%d/%d/%s", s.ServiceURL, u.Id, max32, messageIdstr),
 			K1:                 challenge,
 			MaxWithdrawable:    maxmsats,
 			MinWithdrawable:    minmsats,
 			DefaultDescription: fmt.Sprintf("%s lnurl withdraw @%s", u.AtName(), s.ServiceId),
 			Tag:                "withdrawRequest",
-			LNURLResponse:      LNURLResponse{Status: "OK"},
+			LNURLResponse:      lnurl.OkResponse(),
 		})
 	})
 
@@ -198,7 +182,7 @@ func serveLNURL() {
 
 		path := strings.Split(r.URL.Path, "/")
 		if len(path) < 7 {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid URL."})
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid URL."))
 			return
 		}
 		urlUserId, err1 := strconv.Atoi(path[4])
@@ -207,7 +191,7 @@ func serveLNURL() {
 		messageIdstr := path[6]
 		messageId, _ := strconv.Atoi(messageIdstr)
 		if err1 != nil || err2 != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid user or maximum amount."})
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid user or maximum amount."))
 			return
 		}
 
@@ -225,20 +209,20 @@ func serveLNURL() {
 			if rds.Get("lnurlwithdrawnoconf:"+challenge).Val() != "used" {
 				log.Error().Err(err).Str("challenge", challenge).
 					Msg("challenge is not 'used' on second callback on lnurl withdraw")
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Bizarre error, please report."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Bizarre error, please report."))
 				return
 			}
 
 			if challenge != calculateHash(s.BotToken+":"+messageIdstr+":"+maxsats) {
 				// double-check the challenge (it's a hash of the parameters + our secret)
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid amount for this lnurl."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid amount for this lnurl."))
 				return
 			}
 
 			// stop here to prevent extra withdrawals
 			if err := rds.Del("lnurlwithdrawnoconf:" + challenge).Err(); err != nil {
 				log.Error().Err(err).Str("challenge", challenge).Msg("error deleting used challenge on lnurl withdraw")
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Redis error. Please report."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Redis error. Please report."))
 				return
 			}
 
@@ -250,24 +234,24 @@ func serveLNURL() {
 
 		u, err := loadUser(urlUserId, 0)
 		if err != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Failed to load user."})
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to load user."))
 			return
 		}
 
 		inv, err := ln.Call("decodepay", bolt11)
 		if err != nil {
-			json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Invalid payment request."})
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid payment request."))
 			return
 		}
 
 		if urlMax > 0 {
 			if inv.Get("msatoshi").Int() > int64(urlMax)*1000 {
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Amount too big."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Amount too big."))
 				return
 			}
 		} else {
 			if inv.Get("msatoshi").Int() > u.getAbsoluteWithdrawable() {
-				json.NewEncoder(w).Encode(LNURLResponse{Status: "ERROR", Reason: "Amount too big."})
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Amount too big."))
 				return
 			}
 		}
@@ -278,19 +262,6 @@ func serveLNURL() {
 		// do the pay flow with these odd opts and fake message.
 		handlePay(u, opts, nextMessageId, nil)
 
-		json.NewEncoder(w).Encode(LNURLResponse{Status: "OK"})
+		json.NewEncoder(w).Encode(lnurl.OkResponse())
 	})
-}
-
-var lnurlregex = regexp.MustCompile(`,*?((lnurl)([0-9]{1,}[a-z0-9]+){1})`)
-
-func getLNURL(text string) (url string, ok bool) {
-	text = strings.ToLower(text)
-	results := lnurlregex.FindStringSubmatch(text)
-
-	if len(results) == 0 {
-		return
-	}
-
-	return results[1], true
 }

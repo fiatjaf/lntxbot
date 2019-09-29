@@ -69,6 +69,23 @@ func isSpammy(telegramId int64) (spammy bool) {
 	return
 }
 
+func toggleCoinflips(telegramId int64) (enabled bool, err error) {
+	err = pg.Get(&enabled, `
+UPDATE telegram.chat AS g SET coinflips = NOT g.coinflips
+WHERE telegram_id = $1
+RETURNING coinflips
+    `, -telegramId)
+	return
+}
+
+func areCoinflipsEnabled(telegramId int64) (enabled bool) {
+	err := pg.Get(&enabled, "SELECT coinflips FROM telegram.chat WHERE telegram_id = $1", -telegramId)
+	if err != nil {
+		return true
+	}
+	return
+}
+
 type KickData struct {
 	InvoiceMessage   tgbotapi.Message          `json:"invoice_message"`
 	NotifyMessage    tgbotapi.Message          `json:"notify_message"`

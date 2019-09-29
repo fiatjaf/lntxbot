@@ -72,13 +72,13 @@ func handleMessage(message *tgbotapi.Message) {
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(messageText, "/") {
-		if bolt11, lnurl, ok := searchForInvoice(u, *message); ok {
+		if bolt11, lnurltext, ok := searchForInvoice(u, *message); ok {
 			if bolt11 != "" {
 				opts, _, _ = parse("/pay " + bolt11)
 				goto parsed
 			}
-			if lnurl != "" {
-				opts, _, _ = parse("/receive lnurl " + lnurl)
+			if lnurltext != "" {
+				opts, _, _ = parse("/receive lnurl " + lnurltext)
 				goto parsed
 			}
 		}
@@ -156,7 +156,8 @@ parsed:
 		opts["fundbtc"].(bool), opts["poker"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["paywall"].(bool), opts["sats4ads"].(bool),
-		opts["qiwi"].(bool), opts["yandex"].(bool):
+		opts["qiwi"].(bool), opts["yandex"].(bool),
+		opts["bitrefill"].(bool):
 		handleExternalApp(u, opts, message)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
@@ -375,6 +376,14 @@ parsed:
 		)
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
+		enabled := areCoinflipsEnabled(message.Chat.ID)
+		if !enabled {
+			forwardMessage(message, u.ChatId)
+			deleteMessage(message)
+			u.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": false})
+			break
+		}
+
 		// open a lottery between a number of users in a group
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
@@ -690,6 +699,16 @@ parsed:
 			}
 
 			g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
+		case opts["coinflips"].(bool):
+			log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
+			enabled, err := toggleCoinflips(message.Chat.ID)
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to toggle coinflips")
+				g.notify(t.ERROR, t.T{"Err": err.Error()})
+				break
+			}
+
+			g.notify(t.COINFLIPSENABLEDMSG, t.T{"Coinflips": enabled})
 		case opts["language"].(bool):
 			if lang, err := opts.String("<lang>"); err == nil {
 				log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
