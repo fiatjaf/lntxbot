@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -100,8 +99,7 @@ RETURNING `+USERFIELDS,
 	case 2:
 		// user has 2 accounts, one with the username, other with the telegram_id
 		var txn *sqlx.Tx
-		txn, err = pg.BeginTxx(context.TODO(),
-			&sql.TxOptions{Isolation: sql.LevelSerializable})
+		txn, err = pg.Beginx()
 		if err != nil {
 			return
 		}
@@ -457,8 +455,7 @@ func (u User) actuallySendExternalPayment(
 	hash := inv.Get("payment_hash").String()
 
 	// insert payment as pending
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
 		return errors.New("Database error.")
@@ -568,8 +565,7 @@ func (u User) addInternalPendingInvoice(
 	desc, label interface{},
 ) (err error) {
 	// insert payment as pending
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
 		return errors.New("Database error.")
@@ -630,8 +626,7 @@ func (u User) sendInternally(
 		tagn  = sql.NullString{String: tag, Valid: tag != ""}
 	)
 
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		return "Database error.", err
 	}
@@ -688,8 +683,7 @@ func (u User) sendThroughProxy(
 	)
 
 	// start transaction
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		return "Database error.", err
 	}
