@@ -200,11 +200,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 	case opts["fundbtc"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
-			handleHelp(u, "golightning")
+			handleHelp(u, "fundbtc")
 			return
 		}
 
-		order, err := prepareGoLightningTransaction(u, messageId, sats)
+		order, err := prepareGoLightningTransaction(u, messageId, sats-99)
 		if err != nil {
 			u.notify(t.ERROR, t.T{"App": "fundbtc", "Err": err.Error()})
 			return

@@ -241,7 +241,8 @@ OFFSET $3
 		messagesSent += 1
 		costSatoshis += thisCostSatoshis
 
-		logger.Debug().Float64("cost", thisCostSatoshis).Float64("total", costSatoshis).Int("n", messagesSent).
+		logger.Debug().Float64("cost", thisCostSatoshis).Int("rate", row.Rate).
+			Float64("total", costSatoshis).Int("n", messagesSent).
 			Msg("ad broadcasted")
 	}
 
