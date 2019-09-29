@@ -252,7 +252,7 @@ To buy a gift card, use the /bitrefill command followed by the name of the place
 <code>/bitrefill nextel +5411971732181</code> will display options to refill the given phone number of the operator Nextel.
 <code>/bitrefill amazon</code> will display options of gift cards of various sizes you can buy on Amazon.
 
-You may not found all the gift cards available on the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot. Also often the website often has more flexibility in selecting the gift card values. The prices are the same here and there, however.
+You may not found all the gift cards available on the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot. Also often the website has more flexibility in selecting the gift card values. The prices are the same here and there, however.
     `,
 
 	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",

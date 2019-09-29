@@ -222,7 +222,36 @@ var RU = map[Key]string{
 /microbet_balance показывает ваш баланс.
 /microbet_withdraw выводит весь ваш баланс.
     `,
+	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Выберите провайдера услуг:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Выберите вашу <i>{{.Item}}</i> карту:`,
+	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> Провайдер не найден.`,
+	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Действительно купить <i>{{.Package.Value}} {{.Item.Currency}}</i> карту <b>{{.Item.Name}}</b> за <i>{{.Sats}} сат</i> ({{dollar .Sats}})?`,
+	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Ваш заказ <code>{{.OrderId}}</code> был оплачен, но не сохранён. Сообщите об ошибке: {{.Err}}",
+	BITREFILLPURCHASEDONE: `<b>[Bitrefill]</b> Ваш заказ <code>{{.OrderId}}</code> был оформлен успешно.
+{{if .Info.LinkInfo}}
+Ссылка: <a href="{{.Info.LinkInfo.Link}}">{{.Info.LinkInfo.Link}}</a>
+Инструкции: <i>{{.Info.LinkInfo.Other}}</i>
+{{else if .Info.PinInfo}}
+PIN: <code>{{.Info.PinInfo.Pin}}</code>
+Инструкции: <i>{{.Info.PinInfo.Instructions}}</i>
+<i>{{.Info.PinInfo.Other}}</i>
+{{end}}
+    `,
+	BITREFILLPURCHASEFAILED: "<b>[Bitrefill]</b> Ваш заказ был оплачен, но Bitrefill вернул ошибку, когда его выполнил: <i>{{.ErrorMessage}}</i>. Пожалуйста, сообщите об этой ошибке, чтобы мы могли обратиться в Bitrefill.",
+	BITREFILLCOUNTRYSET:     "<b>[Bitrefill]</b> Страна выбрана, {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
+	BITREFILLINVALIDCOUNTRY: "<b>[Bitrefill]</b> Неверный код страны <code>{{.CountryCode}}</code>. Вы можете выбрать из кодов {{range .Available}} <code>{{.}}</code>{{end}}.",
+	BITREFILLHELP: `
+<a href="https://www.bitrefill.com/">Bitrefill</a> это крупнейший магазин подарочных сертификатов и сервис пополнения мобильных телефонов, который работает на Bitcoin Lightning Network. Если вы желаете купить реальные товары или услуги с помощью сатоши Lightning, он может быть вашим первым кандидатом.
 
+Для покупки подарочной карты используйте команду /bitrefill после которой укажите название сервиса, который вам интересен. Для пополнения счёта мобильного телефона, сделайте то же самое, но также добавьте номер телефона с кодом страны. Опционально, вы можете также установить свою страну с помощью <code>/bitrefill country</code>, в таком случае вы будете получать только те предложения, которые актуальны для вашей страны и вам не потребуется пропускать стопку разных сервисов Амазона, например.
+
+<code>/bitrefill country RU</code> установит вашу страну по умолчанию как Россия.
+<code>/bitrefill country ''</code> сбросит вашу страну по умолчанию.
+<code>/bitrefill mts +7411971732181</code> покажет опции пополнения для заданного номера оператора МТС.
+<code>/bitrefill amazon</code> покажет опции сертификатов различных номиналов, которые вы можете приобрести для покупок на Амазоне.
+
+Вы также можете найти доступные опции подарочных карт на сайте <a href="https://www.bitrefill.com/">Bitrefill</a>, пройдя по ссылке. Зачастую вебсайт имеет больше предложений и более гибок в выборе карт. При этом, цены будут одинаковы в боте и на сайте.
+    `,
 	SATELLITEFAILEDTOSTORE:     "Ошибка сохранения заказа на передачу данных. Пожалуйста, сообщите: {{.Err}}",
 	SATELLITEFAILEDTOGET:       "Ошибка запроса сохранённых спутниковых данных: {{.Err}}",
 	SATELLITEPAID:              "Передача <code>{{.UUID}}</code> оплачена!",
