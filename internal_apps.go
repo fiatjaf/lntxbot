@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,8 +84,7 @@ func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid i
 }
 
 func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver User, err error) {
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		return
 	}
@@ -276,8 +273,7 @@ WHERE account_id = $1
 }
 
 func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error) {
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		return
 	}
@@ -405,8 +401,7 @@ func fundraiseKeyboard(
 }
 
 func settleFundraise(sats int, toId int, fromIds []int) (receiver User, err error) {
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.Beginx()
 	if err != nil {
 		return
 	}
