@@ -53,7 +53,6 @@ const (
 	LANGUAGEMSG         = "LanguageMsg"
 	TICKETMSG           = "TicketMsg"
 	FREEJOIN            = "FreeJoin"
-	ASKTOCONFIRM        = "AskToConfirm"
 
 	HELPINTRO   = "HelpIntro"
 	HELPSIMILAR = "HelpSimilar"
