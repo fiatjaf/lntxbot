@@ -53,7 +53,6 @@ var EN = map[Key]string{
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
 	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:            "This group is now free to join.",
-	ASKTOCONFIRM:        "Pay the invoice described above?",
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -439,6 +438,8 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 <i>{{.Desc}}</i>
 <b>Hash</b>: {{.Hash}}
 <b>Node</b>: {{.Node}} ({{.Alias}})
+
+Pay the invoice described above?
     `,
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
