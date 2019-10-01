@@ -558,6 +558,18 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 			u.notify(t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
 		case opts["broadcast"].(bool):
+			// check user banned
+			var data Sats4AdsData
+			err := u.getAppData("sats4ads", &data)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				return
+			}
+			if data.Banned {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "user banned"})
+				return
+			}
+
 			satoshis, err := opts.Int("<spend_satoshis>")
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
@@ -8,8 +9,9 @@ import (
 )
 
 type Sats4AdsData struct {
-	On   bool `json:"on"`
-	Rate int  `json:"rate"` // in msatoshi per character
+	On     bool `json:"on"`
+	Rate   int  `json:"rate"` // in msatoshi per character
+	Banned bool `json:"banned,omitempty"`
 }
 
 type Sats4AdsRateGroup struct {
@@ -22,6 +24,10 @@ func turnSats4AdsOn(user User, rate int) error {
 	err := user.getAppData("sats4ads", &data)
 	if err != nil {
 		return err
+	}
+
+	if data.Banned {
+		return errors.New("user banned")
 	}
 
 	data.On = true
