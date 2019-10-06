@@ -407,11 +407,11 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 	SATS4ADSHELP: `
 Sats4ads is an ad marketplace on Telegram. Pay money to show ads to others, receive money for each ad you see.
 
-Rates for each user are in msatoshi-per-character.
+Rates for each user are in msatoshi-per-character. The maximum rate is 1000 msat.
 Each ad also includes a fixed fee of 1 sat.
 Images and videos are priced as if they were 300 characters.
 
-To broadcast an ad you must send a message to the bot that will be your ad contents, then reply to it using <code>/sats4ads broadcast ...</code> as described.
+To broadcast an ad you must send a message to the bot that will be your ad contents, then reply to it using <code>/sats4ads broadcast ...</code> as described. You can use <code>--max-rate=500</code> and <code>--skip=0</code> to have better control over how your message is going to be broadcasted. These are the defaults.
 
 /sats4ads_on_15 puts your account in ad-listening mode. Anyone will be able to publish messages to you for 15 msatoshi-per-character. You can adjust that price.
 /sats4ads_off turns off your account so you won't get any more ads.

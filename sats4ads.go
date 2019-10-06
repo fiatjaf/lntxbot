@@ -56,7 +56,7 @@ func broadcastSats4Ads(
 	costSatoshis := 0.0
 
 	if maxrate == 0 {
-		maxrate = 1000
+		maxrate = 500
 	}
 
 	// decide on a unique hash for the source payment (so payments can be aggregated
