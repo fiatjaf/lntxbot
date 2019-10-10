@@ -180,7 +180,6 @@ var RU = map[Key]string{
 	HIDDENWITHID:         "Сообщение скрыто с id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Будет раскрыто публично один раз {{.Message.Crowdfund}} люди заплатят {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Будет раскрыто приватно {{.Message.Times}} пользователям {{else if .Message.Public}}Будет раскрыто публично как только один человек заплатит {{.Message.Satoshis}}{{else}}Будет раскрыто приватно любому заплатившему {{end}}.",
 	HIDDENSOURCEMSG:      "Скрытое сообщение <code>{{.Id}}</code> было открыто {{.Revealers}}. Вы получили {{.Sats}} сат.",
 	HIDDENREVEALMSG:      "{{.Sats}} сат заплачено для открытия сообщения <code>{{.Id}}</code>.",
-	HIDDENSTOREFAIL:      "Не получилось сохранить скрытый контент. Пожалуйста, сообщите об ошибке: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Скрытое сообщение не найдено.",
 	HIDDENSHAREBTN:       "Поделиться в другом чате",
 

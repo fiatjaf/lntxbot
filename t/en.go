@@ -181,7 +181,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.",
 	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You've got {{.Sats}} sat.",
 	HIDDENREVEALMSG:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
-	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
@@ -217,7 +216,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
-/microbet_bet displays all open bet markets so you can yours.
+/microbet displays all open bet markets so you can yours.
 /microbet_bets shows your bet history.
 /microbet_balance displays your balance.
 /microbet_withdraw withdraws all your balance.

@@ -105,7 +105,6 @@ const (
 	HIDDENWITHID         = "HiddenWithId"
 	HIDDENSOURCEMSG      = "HiddenSourceMsg"
 	HIDDENREVEALMSG      = "HiddenRevealMsg"
-	HIDDENSTOREFAIL      = "HiddenStoreFail"
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 

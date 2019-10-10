@@ -36,6 +36,7 @@ func handleMessage(message *tgbotapi.Message) {
 		// receive payment notifications and so on, as not all people will
 		// remember to call /start
 		u.setChat(message.Chat.ID)
+		g.TelegramId = -g.TelegramId // because we invert when sending a message
 	} else {
 		// when we're in a group, load the group
 		loadedGroup, err := loadGroup(message.Chat.ID)
@@ -538,7 +539,7 @@ parsed:
 
 		err = rds.Set(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid), string(hiddenmessagejson), s.HiddenMessageTimeout).Err()
 		if err != nil {
-			u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
