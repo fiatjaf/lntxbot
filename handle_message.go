@@ -213,23 +213,12 @@ parsed:
 		sats, err := opts.Int("<satoshis>")
 
 		if err != nil || sats <= 0 {
-			// maybe the order of arguments is inverted
-			if val, ok := opts["<satoshis>"].(string); ok && val[0] == '@' {
-				// it seems to be
-				usernameval = val
-				if asats, ok := opts["<receiver>"].([]string); ok && len(asats) == 1 {
-					sats, _ = strconv.Atoi(asats[0])
-					goto gotusername
-				}
-				err = nil
-			}
 			defaultNotify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		} else {
 			usernameval = opts["<receiver>"]
 		}
 
-	gotusername:
 		anonymous := false
 		if opts["anonymously"].(bool) || opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
 			anonymous = true
