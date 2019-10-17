@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,54 +11,84 @@ import (
 	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/docopt/docopt-go"
-	lnurl "github.com/fiatjaf/go-lnurl"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/skip2/go-qrcode"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
-func handleLNURLReceive(u User, lnurltext string, messageId int) {
-	actualurl, err := lnurl.LNURLDecode(lnurltext)
+func handleLNURL(u User, lnurltext string, messageId int) {
+	iparams, err := lnurl.HandleLNURL(lnurltext)
 	if err != nil {
-		u.notify(t.LNURLINVALID, t.T{"Err": err.Error()})
-		return
-	}
-	log.Debug().Str("url", actualurl).Msg("withdrawing from lnurl")
-
-	var withdrawres lnurl.LNURLWithdrawResponse
-	_, err = napping.Get(actualurl, nil, &withdrawres, nil)
-	if err != nil {
-		u.notify(t.LNURLFAIL, t.T{"Err": err.Error()})
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
 		return
 	}
 
-	if withdrawres.Status == "ERROR" {
-		u.notify(t.LNURLFAIL, t.T{"Err": withdrawres.Reason})
-		return
-	}
+	log.Debug().Interface("params", iparams).Msg("got lnurl params")
 
-	log.Debug().Interface("data", withdrawres).Msg("making invoice for lnurl server")
-	bolt11, _, _, err := u.makeInvoice(int(withdrawres.MaxWithdrawable/1000), withdrawres.DefaultDescription,
-		"", nil, messageId, "", "", true)
-	if err != nil {
-		u.notify(t.LNURLFAIL, t.T{"Err": err.Error()})
-		return
-	}
+	switch params := iparams.(type) {
+	case lnurl.LNURLAuthParams:
+		// lnurl-auth: create a key based on the user id and sign with it
+		seedhash := sha256.Sum256([]byte(fmt.Sprintf("lnurlkeyseed:%s:%d:%s", params.Host, u.Id, s.BotToken)))
+		sk, pk := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
+		k1, err := hex.DecodeString(params.K1)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+		sig, err := sk.Sign(k1)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
 
-	log.Debug().Str("bolt11", bolt11).Str("k1", withdrawres.K1).Msg("sending invoice to lnurl callback")
-	var sentinvres lnurl.LNURLResponse
-	_, err = napping.Get(withdrawres.Callback, &url.Values{
-		"k1": {withdrawres.K1},
-		"pr": {bolt11},
-	}, &sentinvres, nil)
-	if err != nil {
-		u.notify(t.LNURLFAIL, t.T{"Err": err.Error()})
-		return
-	}
+		signature := hex.EncodeToString(sig.Serialize())
+		pubkey := hex.EncodeToString(pk.SerializeCompressed())
 
-	if sentinvres.Status == "ERROR" {
-		u.notify(t.LNURLFAIL, t.T{"Err": sentinvres.Reason})
-		return
+		var sentsigres lnurl.LNURLResponse
+		_, err = napping.Get(params.Callback, &url.Values{
+			"sig": {signature},
+			"key": {pubkey},
+		}, &sentsigres, nil)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+		if sentsigres.Status == "ERROR" {
+			u.notify(t.ERROR, t.T{"Err": sentsigres.Reason})
+			return
+		}
+		u.notify(t.LNURLAUTHSUCCESS, t.T{
+			"Host":      params.Host,
+			"K1":        params.K1,
+			"PublicKey": pubkey,
+			"Signature": signature,
+		})
+	case lnurl.LNURLWithdrawResponse:
+		// lnurl-withdraw: make an invoice with the highest possible value and send
+		bolt11, _, _, err := u.makeInvoice(int(params.MaxWithdrawable/1000), params.DefaultDescription,
+			"", nil, messageId, "", "", true)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+		log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Msg("sending invoice to lnurl callback")
+		var sentinvres lnurl.LNURLResponse
+		_, err = napping.Get(params.Callback, &url.Values{
+			"k1": {params.K1},
+			"pr": {bolt11},
+		}, &sentinvres, nil)
+		if err != nil {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+		if sentinvres.Status == "ERROR" {
+			u.notify(t.ERROR, t.T{"Err": sentinvres.Reason})
+			return
+		}
+	default:
+		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, messageId)
 	}
 
 	return

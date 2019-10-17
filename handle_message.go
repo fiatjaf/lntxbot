@@ -79,7 +79,7 @@ func handleMessage(message *tgbotapi.Message) {
 				goto parsed
 			}
 			if lnurltext != "" {
-				opts, _, _ = parse("/receive lnurl " + lnurltext)
+				opts, _, _ = parse("/lnurl " + lnurltext)
 				goto parsed
 			}
 		}
@@ -161,33 +161,31 @@ parsed:
 		opts["bitrefill"].(bool):
 		handleExternalApp(u, opts, message)
 		break
+	case opts["lnurl"].(bool):
+		handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		if opts["lnurl"].(bool) {
-			handleLNURLReceive(u, opts["<lnurl>"].(string), message.MessageID)
-		} else {
-			sats, err := opts.Int("<satoshis>")
-			if err != nil {
-				handleHelp(u, "receive")
-				return
-			}
-
-			desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
-
-			var preimage string
-			if param, ok := opts["--preimage"]; ok {
-				preimage, _ = param.(string)
-			}
-
-			bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, "", false)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to generate invoice")
-				u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
-				return
-			}
-
-			// send invoice with qr code
-			sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
+		sats, err := opts.Int("<satoshis>")
+		if err != nil {
+			handleHelp(u, "receive")
+			return
 		}
+
+		desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
+
+		var preimage string
+		if param, ok := opts["--preimage"]; ok {
+			preimage, _ = param.(string)
+		}
+
+		bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, "", false)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to generate invoice")
+			u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+			return
+		}
+
+		// send invoice with qr code
+		sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things

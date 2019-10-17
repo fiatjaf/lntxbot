@@ -28,8 +28,15 @@ var EN = map[Key]string{
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
 
-	LNURLINVALID: "Invalid lnurl: {{.Err}}",
-	LNURLFAIL:    "Failed to fulfill lnurl withdraw: {{.Err}}",
+	LNURLUNSUPPORTED: "That kind of lnurl is not supported here.",
+	LNURLAUTHSUCCESS: `
+lnurl-auth success!
+
+<b>domain</b>: <i>{{.Host}}</i>
+<b>k1</b>: <i>{{.K1}}</i>
+<b>key</b>: <i>{{.PublicKey}}</i>
+<b>signature</b>: <i>{{.Signature}}</i>
+`,
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",

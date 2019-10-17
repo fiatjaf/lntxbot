@@ -28,9 +28,6 @@ var RU = map[Key]string{
 	INLINECOINFLIPRESULT: "Лотерея с входным платежом {{.Sats}} сат для {{.MaxPlayers}} участников",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}собрать:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}прив:{{.Message.Times}}{{else if .Message.Public}}пуб{{else}}прив{{end}}): {{.Message.Content}}",
 
-	LNURLINVALID: "Неверный lnurl: {{.Err}}",
-	LNURLFAIL:    "Ошибка при выводе через lnurl: {{.Err}}",
-
 	USERALLOWED:       "Счёт оплачен. {{.User}} допущен.",
 	SPAMFILTERMESSAGE: "Привет, {{.User}}. У вас 15 минут, чтобы оплатить счёт на {{.Sats}} сат если вы хотите остаться в этой группе:",
 
