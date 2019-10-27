@@ -10,6 +10,7 @@ import (
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/skip2/go-qrcode"
 )
 
 func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
@@ -210,7 +211,15 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			return
 		}
 
-		u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
+		qrpath := qrImagePath(order.Address)
+		err = qrcode.WriteFile(strings.ToUpper(order.Address), qrcode.Medium, 256, qrpath)
+		if err == nil {
+			sendMessageWithPicture(message.Chat.ID, qrpath,
+				translateTemplate(t.FUNDBTCFINISH, u.Locale, t.T{"Order": order}))
+		} else {
+			u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
+		}
+
 	case opts["qiwi"].(bool), opts["yandex"].(bool):
 		exchangeType := "qiwi"
 		if opts["yandex"].(bool) {
