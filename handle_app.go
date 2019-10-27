@@ -212,7 +212,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		}
 
 		qrpath := qrImagePath(order.Address)
-		err = qrcode.WriteFile(strings.ToUpper(order.Address), qrcode.Medium, 256, qrpath)
+		err = qrcode.WriteFile(order.Address+"?amount="+order.Price, qrcode.Medium, 256, qrpath)
 		if err == nil {
 			sendMessageWithPicture(message.Chat.ID, qrpath,
 				translateTemplate(t.FUNDBTCFINISH, u.Locale, t.T{"Order": order}))
