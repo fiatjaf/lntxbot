@@ -161,8 +161,6 @@ parsed:
 		opts["bitrefill"].(bool):
 		handleExternalApp(u, opts, message)
 		break
-	case opts["lnurl"].(bool):
-		handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
@@ -610,6 +608,8 @@ parsed:
 			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
 		}
 		break
+	case opts["lnurl"].(bool):
+		handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
 	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
 		password := u.Password
 		if opts["refresh"].(bool) {
