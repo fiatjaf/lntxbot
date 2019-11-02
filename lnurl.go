@@ -94,7 +94,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 	return
 }
 
-func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
+func handleLNURLPay(u User, opts docopt.Opts, messageId int) (lnurlEncoded string) {
 	maxsats, _ := opts.String("<satoshis>")
 	challenge := calculateHash(s.BotToken + ":" + strconv.Itoa(messageId) + ":" + maxsats)
 
@@ -108,21 +108,22 @@ func handleLNURLPay(u User, opts docopt.Opts, messageId int) {
 		rds.Set("lnurlwithdrawnoconf:"+challenge, fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
 	}
 
-	lnurl, err := lnurl.LNURLEncode(nexturl)
+	lnurlEncoded, err := lnurl.LNURLEncode(nexturl)
 	if err != nil {
 		log.Error().Err(err).Msg("error encoding lnurl on withdraw")
 		return
 	}
 
 	qrpath := qrImagePath(challenge)
-	err = qrcode.WriteFile(strings.ToUpper(lnurl), qrcode.Medium, 256, qrpath)
+	err = qrcode.WriteFile(strings.ToUpper(lnurlEncoded), qrcode.Medium, 256, qrpath)
 	if err != nil {
-		log.Error().Err(err).Str("user", u.Username).Str("lnurl", lnurl).
+		log.Error().Err(err).Str("user", u.Username).Str("lnurl", lnurlEncoded).
 			Msg("failed to generate lnurl qr. failing.")
 		return
 	}
 
-	sendMessageWithPicture(u.ChatId, qrpath, `<a href="lightning:`+lnurl+`">`+lnurl+"</a>")
+	sendMessageWithPicture(u.ChatId, qrpath, `<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
+	return
 }
 
 func serveLNURL() {

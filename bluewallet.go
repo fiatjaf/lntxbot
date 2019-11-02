@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	docopt "github.com/docopt/docopt-go"
 )
 
 func serveBlueWallet() {
@@ -269,6 +271,30 @@ func serveBlueWallet() {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(decoded)
+	})
+
+	// this is not a bluewallet thing, but goes here because I don't have other file to put it
+	http.HandleFunc("/generatelnurlwithdraw", func(w http.ResponseWriter, r *http.Request) {
+		user, err := loadUserFromBlueWalletCall(r)
+		if err != nil {
+			errorBadAuth(w)
+			return
+		}
+
+		var params struct {
+			Satoshis string `json:"satoshis"`
+		}
+		err = json.NewDecoder(r.Body).Decode(&params)
+		if err != nil {
+			errorInvalidParams(w)
+			return
+		}
+
+		lnurlEncoded := handleLNURLPay(user, docopt.Opts{"<satoshis>": params.Satoshis}, 0)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(struct {
+			LNURL string `json:"lnurl"`
+		}{lnurlEncoded})
 	})
 }
 
