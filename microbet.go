@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -138,16 +140,7 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 
 			u.notifyAsReply(t.MICROBETPLACED, nil, messageId)
 		},
-		func(
-			u User,
-			messageId int,
-			hash string,
-		) {
-			// on failure
-			paymentHasFailed(u, messageId, hash)
-
-			u.notifyAsReply(t.ERROR, t.T{"App": "Microbet", "Err": "Payment error."}, messageId)
-		},
+		paymentHasFailed,
 	)
 	if err != nil {
 		return
@@ -272,4 +265,40 @@ func (j *microbetCookiejar) Cookies(u *url.URL) []*http.Cookie {
 
 type MicrobetData struct {
 	Cookies []*http.Cookie `json:"cookies"`
+}
+
+func microbetKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err error) {
+	bets, err := getMicrobetBets()
+	if err != nil {
+		return
+	}
+
+	inlinekeyboard = make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
+	for i, bet := range bets {
+		parts := strings.Split(bet.Description, "→")
+		gamename := parts[0]
+		backbet := parts[1]
+		if bet.Exact {
+			backbet += " (exact)"
+		}
+
+		inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonURL(
+				fmt.Sprintf("(%d) %s", bet.Amount, gamename),
+				"https://www.google.com/search?q="+gamename,
+			),
+		}
+		inlinekeyboard[i*2+1] = []tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%s (%d)", backbet, bet.Backers),
+				fmt.Sprintf("x=microbet-%s-true", bet.Id),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("NOT (%d)", bet.TotalUsers-bet.Backers),
+				fmt.Sprintf("x=microbet-%s-false", bet.Id),
+			),
+		}
+	}
+
+	return
 }

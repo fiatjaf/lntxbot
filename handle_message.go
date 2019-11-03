@@ -158,7 +158,7 @@ parsed:
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["paywall"].(bool), opts["sats4ads"].(bool),
 		opts["qiwi"].(bool), opts["yandex"].(bool),
-		opts["bitrefill"].(bool):
+		opts["bitrefill"].(bool), opts["bitclouds"].(bool):
 		handleExternalApp(u, opts, message)
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):

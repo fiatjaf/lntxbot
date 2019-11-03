@@ -286,6 +286,38 @@ Provided by <a href="https://golightning.club/">golightning.club</a>, this is th
 /fundbtc_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
+	BITCLOUDSHELP:         "",
+	BITCLOUDSCREATEHEADER: "<b>[bitclouds]</b> Choose your image:",
+	BITCLOUDSCREATED: `<b>[bitclouds]</b> Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
+{{with .Status}}
+  {{if .SSHPwd}}<b>ssh access:</b>
+  <pre>ssh-copy-id -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}
+  # type password: {{.SSHPwd}}
+  ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
+  {{with .Sparko}}<b>Call c-lightning RPC from the external world:</b>
+  <pre>curl -kX POST {{.}} -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</pre>{{end}}
+  {{if .RPCPwd}}<b>Call Bitcoin Core RPC:</b>
+  <pre>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</pre>{{end}}
+
+  Hours left in balance: <b>{{.HoursLeft}}</b>
+{{end}}
+    `,
+	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Timed out while waiting for your bitclouds.sh host to be ready, call /bitclouds_status_{{.Host}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
+	BITCLOUDSNOHOSTS:        "<b>[bitclouds]</b> No hosts found in your account. Maybe you want to /bitclouds_create one?",
+	BITCLOUDSHOSTSHEADER:    "<b>[bitclouds]</b> Choose your host:",
+	BITCLOUDSSTATUS: `<b>[bitclouds]</b> Host <code>{{.Host}}</code>:
+{{with .Status}}
+  Status: <i>Subscribed</i>
+  Balance: <i>{{.HoursLeft}} hours left</i>
+  IP: <code>{{.IP}}</code>{{if .AppPort}}App port: <code>{{.AppPort}}</code>
+  {{end}}{{if .SSHPort}}SSH: <code>ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</code>
+  {{end}}{{with .Sparko}}Sparko: <code>curl -X POST {{.}} -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
+  {{end}}{{if .RPCPwd}}Bitcoin Core: <code>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</code>
+  {{end}}
+{{end}}
+    `,
+	BITCLOUDSREMINDER: "<b>[bitclouds]</b> ",
+
 	QIWIHELP: `
 Transfer your satoshis to your <a href="https://qiwi.com/">Qiwi</a> account instantly. Powered by @lntorubbot.
 
@@ -538,12 +570,13 @@ Thanks to some background magic we have in place you can seamlessly interact wit
 
 These are the services we currently support:
 
-⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
+☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
+⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
+♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
 🧱 /paywall -- create paywalls on paywall.link, get notified whenever someone pays, withdraw easily. /help_paywall
 🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
 📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite
-♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
 🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
 📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise

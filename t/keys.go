@@ -145,6 +145,15 @@ const (
 	FUNDBTCFAIL   = "fundbtcFail"
 	FUNDBTCFINISH = "fundbtcFinish"
 
+	BITCLOUDSHELP           = "bitcloudsHelp"
+	BITCLOUDSCREATEHEADER   = "BitcloudsCreateHeader"
+	BITCLOUDSCREATED        = "BitcloudsCreated"
+	BITCLOUDSSTOPPEDWAITING = "BitcloudsStoppedWaiting"
+	BITCLOUDSNOHOSTS        = "BitcloudsNoHosts"
+	BITCLOUDSHOSTSHEADER    = "BitcloudsHostsHeader"
+	BITCLOUDSSTATUS         = "BitcloudsStatus"
+	BITCLOUDSREMINDER       = "BitcloudsReminder"
+
 	QIWIHELP             = "qiwiHelp"
 	YANDEXHELP           = "yandexHelp"
 	LNTORUBCONFIRMATION  = "LNToRubConfirmation"

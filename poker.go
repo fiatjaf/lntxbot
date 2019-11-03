@@ -234,13 +234,9 @@ func loadUserFromPokerCall(r *http.Request) (user User, pokerFriends []User, err
 SELECT `+USERFIELDS+`
 FROM telegram.account
 WHERE id IN (
-  SELECT friend FROM (
-      SELECT from_id AS friend FROM lightning.transaction
-      WHERE to_id = $1 AND to_id != from_id AND amount > 100000 AND time > now() - '30d'::interval
-    UNION
-      SELECT to_id AS friend FROM lightning.transaction
-      WHERE from_id = $1 AND to_id != from_id AND amount > 100000 AND time > now() - '30d'::interval
-  ) AS friends
+  SELECT to_id AS friend
+  FROM lightning.transaction
+  WHERE from_id = $1 AND to_id != from_id AND amount > 100000 AND time > now() - '30d'::interval
   INNER JOIN lightning.transaction AS tx
     ON tx.from_id = friend
   WHERE tx.remote_node = '03ad156742a9a9d0e82e0022f264d6857addfd534955d5e97de4a695bf8dd12af0'

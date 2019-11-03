@@ -107,6 +107,10 @@ var methods = []def{
 		argstr:  "<satoshis>",
 	},
 	def{
+		aliases: []string{"bitclouds"},
+		argstr:  "[create | status [<host>] | topup <satoshis> [<host>]]",
+	},
+	def{
 		// lntorub
 		aliases: []string{"qiwi"},
 		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",

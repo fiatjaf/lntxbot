@@ -22,7 +22,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
 			if err != nil {
-				sendMessage(u.ChatId, err.Error())
+				u.notify(t.ERROR, t.T{"Err": err.Error()})
 				return
 			}
 
@@ -35,7 +35,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["balance"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
 				return
 			}
 
@@ -49,7 +49,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["withdraw"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
 				return
 			}
 
@@ -60,40 +60,13 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 		} else {
 			// list available bets as actionable buttons
-			bets, err := getMicrobetBets()
+			inlineKeyboard, err := microbetKeyboard()
 			if err != nil {
-				sendMessage(u.ChatId, err.Error())
+				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
 				return
 			}
-
-			inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
-			for i, bet := range bets {
-				parts := strings.Split(bet.Description, "→")
-				gamename := parts[0]
-				backbet := parts[1]
-				if bet.Exact {
-					backbet += " (exact)"
-				}
-
-				inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
-					tgbotapi.NewInlineKeyboardButtonURL(
-						fmt.Sprintf("(%d) %s", bet.Amount, gamename),
-						"https://www.google.com/search?q="+gamename,
-					),
-				}
-				inlinekeyboard[i*2+1] = []tgbotapi.InlineKeyboardButton{
-					tgbotapi.NewInlineKeyboardButtonData(
-						fmt.Sprintf("%s (%d)", backbet, bet.Backers),
-						fmt.Sprintf("x=microbet-%s-true", bet.Id),
-					),
-					tgbotapi.NewInlineKeyboardButtonData(
-						fmt.Sprintf("NOT (%d)", bet.TotalUsers-bet.Backers),
-						fmt.Sprintf("x=microbet-%s-false", bet.Id),
-					),
-				}
-			}
-
-			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil,
+				&tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 		}
 	case opts["bitflash"].(bool):
 		if opts["orders"].(bool) {
@@ -219,7 +192,70 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else {
 			u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
 		}
+	case opts["bitclouds"].(bool):
+		switch {
+		case opts["create"].(bool):
+			inlinekeyboard, err := bitcloudsImagesKeyboard()
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				return
+			}
+			u.notifyWithKeyboard(t.BITCLOUDSCREATEHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+		case opts["topup"].(bool):
+			satoshis, err := opts.Int("<satoshis>")
+			if err != nil {
+				u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+				return
+			}
 
+			host, err := opts.String("<host>")
+			if err == nil {
+				// host provided
+				topupBitcloud(u, host, satoshis)
+			} else {
+				// host not provided, display options
+				noHosts, singleHost,
+					inlineKeyboard, err := bitcloudsHostsKeyboard(u, strconv.Itoa(satoshis))
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+					return
+				}
+				if noHosts {
+					u.notify(t.BITCLOUDSNOHOSTS, nil)
+					return
+				}
+				if singleHost != "" {
+					topupBitcloud(u, singleHost, satoshis)
+					return
+				}
+
+				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+			}
+		default: // "status"
+			host, err := opts.String("<host>")
+			if err == nil {
+				// host provided
+				showBitcloudStatus(u, host)
+			} else {
+				// host not provided, display options
+				noHosts, singleHost,
+					inlineKeyboard, err := bitcloudsHostsKeyboard(u, "status")
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+					return
+				}
+				if noHosts {
+					u.notify(t.BITCLOUDSNOHOSTS, nil)
+					return
+				}
+				if singleHost != "" {
+					showBitcloudStatus(u, singleHost)
+					return
+				}
+
+				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+			}
+		}
 	case opts["qiwi"].(bool), opts["yandex"].(bool):
 		exchangeType := "qiwi"
 		if opts["yandex"].(bool) {
@@ -357,19 +393,19 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
-			inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, nitems/2+nitems%2)
+			inlineKeyboard := make([][]tgbotapi.InlineKeyboardButton, nitems/2+nitems%2)
 			for i, item := range items {
 				if i%2 == 0 {
-					inlinekeyboard[i/2] = make([]tgbotapi.InlineKeyboardButton, 0, 2)
+					inlineKeyboard[i/2] = make([]tgbotapi.InlineKeyboardButton, 0, 2)
 				}
 
-				inlinekeyboard[i/2] = append(inlinekeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
+				inlineKeyboard[i/2] = append(inlineKeyboard[i/2], tgbotapi.NewInlineKeyboardButtonData(
 					item.Name,
 					fmt.Sprintf("x=bitrefill-it-%s-%s", strings.Replace(item.Slug, "-", "~", -1), phone),
 				))
 			}
 
-			u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+			u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 		}
 	case opts["poker"].(bool):
 		subscribePoker(u, time.Minute*5, false)
@@ -630,7 +666,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			defer removeKeyboardButtons(cb)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
 
@@ -738,7 +774,31 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return
 			}
 		}
-
+	case "bitclouds":
+		defer removeKeyboardButtons(cb)
+		switch parts[1] {
+		case "create":
+			image := parts[2]
+			err := createBitcloudImage(u, image)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				return
+			}
+			appendTextToMessage(cb, image)
+		case "status":
+			host := parts[2]
+			appendTextToMessage(cb, host)
+			showBitcloudStatus(u, host)
+		default: // sats to topup
+			host := parts[2]
+			sats, err := strconv.Atoi(parts[1])
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				return
+			}
+			appendTextToMessage(cb, host)
+			topupBitcloud(u, host, sats)
+		}
 	case "lntorub":
 		defer removeKeyboardButtons(cb)
 		orderId := parts[1]
