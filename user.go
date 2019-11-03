@@ -24,6 +24,8 @@ type User struct {
 	ChatId     int64  `db:"chat_id"`
 	Password   string `db:"password"`
 	Locale     string `db:"locale"`
+
+	Extra string `db:"extra"`
 }
 
 const USERFIELDS = `

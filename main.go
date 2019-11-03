@@ -168,6 +168,7 @@ func main() {
 	serveBitrefillWebhook()
 	go cancelAllLNToRubOrders()
 	go initializeBitrefill()
+	go bitcloudsCheckingRoutine()
 
 	// random assets
 	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))

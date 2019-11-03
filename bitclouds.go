@@ -11,6 +11,8 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
+const BITCLOUDSHOURPRICESATS = 66
+
 type BitcloudsData map[string]BitcloudInstanceData // {<host>: {policy: ""}, <host>: ...}
 
 type BitcloudInstanceData struct {
@@ -131,6 +133,11 @@ func getBitcloudStatus(host string) (status BitcloudStatus, err error) {
 }
 
 func topupBitcloud(user User, host string, sats int) error {
+	// the amount to actually pay will be dependent on the
+	// fixed sat/hour price (because if we overpay we don't get
+	// fractions of hours in the balance)
+	sats = sats - (sats % BITCLOUDSHOURPRICESATS)
+
 	var topup struct {
 		Invoice string `json:"invoice"`
 	}
@@ -242,4 +249,63 @@ func listBitclouds(user User) (hosts []string, err error) {
 	}
 
 	return
+}
+
+func bitcloudsCheckingRoutine() {
+	for {
+		time.Sleep(1 * time.Hour)
+
+		var users []User
+		err := pg.Select(&users, `
+SELECT `+USERFIELDS+`, jsonb_object_keys(appdata->'bitclouds') AS extra
+FROM telegram.account
+    `)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to query hosts on bitclouds checking routine")
+			return
+		}
+
+		for _, user := range users {
+			host := user.Extra
+			status, err := getBitcloudStatus(host)
+			if err != nil {
+				log.Error().Err(err).Msg("getting status on bitclouds checking routine")
+				continue
+			}
+
+			switch {
+			case status.HoursLeft < 24*14 && status.HoursLeft > 24*14-6 && !rds.Exists("bitclouds:2w:"+host).Val():
+				user.notify(t.BITCLOUDSREMINDER, t.T{
+					"Alarm":        false,
+					"Host":         host,
+					"TimeToExpire": "2 weeks",
+					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
+				})
+				rds.Set("bitclouds:2w:"+host, "1", time.Hour*48)
+			case status.HoursLeft < 24*7 && status.HoursLeft > 24*7-6 && !rds.Exists("bitclouds:1w:"+host).Val():
+				user.notify(t.BITCLOUDSREMINDER, t.T{
+					"Alarm":        false,
+					"Host":         host,
+					"TimeToExpire": "1 week",
+					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
+				})
+				rds.Set("bitclouds:1w:"+host, "1", time.Hour*48)
+			case status.HoursLeft < 24*3 && status.HoursLeft > 24*3-6 && !rds.Exists("bitclouds:3d:"+host).Val():
+				user.notify(t.BITCLOUDSREMINDER, t.T{
+					"Alarm":        false,
+					"Host":         host,
+					"TimeToExpire": "3 days",
+					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
+				})
+				rds.Set("bitclouds:3d:"+host, "1", time.Hour*24)
+			case status.HoursLeft < 25:
+				user.notify(t.BITCLOUDSREMINDER, t.T{
+					"Alarm":        true,
+					"Host":         host,
+					"TimeToExpire": fmt.Sprintf("%dh", status.HoursLeft),
+					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
+				})
+			}
+		}
+	}
 }

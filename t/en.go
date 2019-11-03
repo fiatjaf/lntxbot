@@ -286,7 +286,15 @@ Provided by <a href="https://golightning.club/">golightning.club</a>, this is th
 /fundbtc_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
     `,
 
-	BITCLOUDSHELP:         "",
+	BITCLOUDSHELP: `
+<a href="https://bitclouds.sh">bitclouds.sh</a> is a programmable VPS platform specialized in Bitcoin stuff. You can get normal VPSes, dedicated Bitcoin Core or batteries-included c-lightning instances all for 66 sat/h. There's no cheaper price than this and no excuses for not having your own Lightning node or not running your Bitcoin or Lightning app!
+
+/bitclouds will let you see status for your active hosts.
+/bitclouds_create will prompt your with the available images to create a host.
+<code>/bitclouds topup &lt;sats&gt;</code> will topup your host or prompt you if you have more than one.
+
+Also @{{.BotName}} will remind you to topup your hosts when they're running low on hour balance.
+    `,
 	BITCLOUDSCREATEHEADER: "<b>[bitclouds]</b> Choose your image:",
 	BITCLOUDSCREATED: `<b>[bitclouds]</b> Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
 {{with .Status}}
@@ -297,7 +305,7 @@ Provided by <a href="https://golightning.club/">golightning.club</a>, this is th
   {{with .Sparko}}<b>Call c-lightning RPC from the external world:</b>
   <pre>curl -kX POST {{.}} -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</pre>{{end}}
   {{if .RPCPwd}}<b>Call Bitcoin Core RPC:</b>
-  <pre>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</pre>{{end}}
+  <pre>bitcoin-cli -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</pre>{{end}}
 
   Hours left in balance: <b>{{.HoursLeft}}</b>
 {{end}}
@@ -316,7 +324,12 @@ Provided by <a href="https://golightning.club/">golightning.club</a>, this is th
   {{end}}
 {{end}}
     `,
-	BITCLOUDSREMINDER: "<b>[bitclouds]</b> ",
+	BITCLOUDSREMINDER: `<b>[bitclouds]</b> {{if .Alarm}}⚠{{else}}⏰{{end}} Bitclouds host <code>{{.Host}}</code> is going to expire in {{if .Alarm}}<b>{{.TimeToExpire}}</b> and <i>everything is going to be deleted</i>!{{else}}{{.TimeToExpire}}.{{end}}
+
+{{if .Alarm}}⚠⚠⚠⚠⚠
+
+{{end}}Use /bitclouds_topup_{{.Sats}}_{{.Host}} to give it one week more!
+    `,
 
 	QIWIHELP: `
 Transfer your satoshis to your <a href="https://qiwi.com/">Qiwi</a> account instantly. Powered by @lntorubbot.
