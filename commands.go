@@ -40,7 +40,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
-		argstr:  "(lnurl [<satoshis>] | [now] [<invoice>])",
+		argstr:  "(lnurl <satoshis> | [now] [<invoice>])",
 	},
 	def{
 		aliases: []string{"send", "tip", "sendanonymously"},

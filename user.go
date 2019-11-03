@@ -865,18 +865,6 @@ SELECT * FROM (
 	return
 }
 
-func (u User) getAbsoluteWithdrawable() (msats int64) {
-	var balance int64
-	pg.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if balance > 5000000 {
-		return balance * 99 / 100
-	} else {
-		return balance
-	}
-}
-
 func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQuery) bool {
 	notify := func(key t.Key, templateData t.T) {
 		if cb == nil {

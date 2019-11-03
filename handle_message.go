@@ -602,7 +602,12 @@ parsed:
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
 			// generate an lnurl so a remote wallet can send an invoice through this bizarre protocol
-			handleLNURLPay(u, opts, message.MessageID)
+			sats, err := opts.Int("<satoshis>")
+			if err != nil {
+				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+				break
+			}
+			handleLNURLPay(u, sats, message.MessageID)
 		} else {
 			// normal payment flow
 			handlePay(u, opts, message.MessageID, message.ReplyToMessage)

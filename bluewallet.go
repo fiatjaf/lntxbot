@@ -5,12 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	docopt "github.com/docopt/docopt-go"
 )
 
 func serveBlueWallet() {
@@ -289,8 +288,13 @@ func serveBlueWallet() {
 			errorInvalidParams(w)
 			return
 		}
+		sats, err := strconv.Atoi(params.Satoshis)
+		if err != nil {
+			errorInvalidParams(w)
+			return
+		}
 
-		lnurlEncoded := handleLNURLPay(user, docopt.Opts{"<satoshis>": params.Satoshis}, 0)
+		lnurlEncoded := handleLNURLPay(user, sats, -rand.Int())
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
 			LNURL string `json:"lnurl"`
