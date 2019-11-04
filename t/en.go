@@ -317,7 +317,8 @@ Also @{{.BotName}} will remind you to topup your hosts when they're running low 
 {{with .Status}}
   Status: <i>Subscribed</i>
   Balance: <i>{{.HoursLeft}} hours left</i>
-  IP: <code>{{.IP}}</code>{{if .AppPort}}App port: <code>{{.AppPort}}</code>
+  IP: <code>{{.IP}}</code>
+  {{if .UserPort }}App port: <code>{{.UserPort}}</code>
   {{end}}{{if .SSHPort}}SSH: <code>ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</code>
   {{end}}{{with .Sparko}}Sparko: <code>curl -X POST {{.}} -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
   {{end}}{{if .RPCPwd}}Bitcoin Core: <code>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</code>

@@ -26,9 +26,8 @@ type BitcloudStatus struct {
 	SSHPort   interface{} `json:"ssh_port"`
 	SSHUser   string      `json:"ssh_usr"`
 	SSHPwd    string      `json:"ssh_pwd"`
-	AppPort   interface{} `json:"app_port"`
-	Sparko    string      `json:"sparko"`
 	UserPort  interface{} `json:"user_port"`
+	Sparko    string      `json:"sparko"`
 	RPCPort   interface{} `json:"rpc_port"`
 	RPCUser   string      `json:"rpc_usr"`
 	RPCPwd    string      `json:"rpc_pwd"`
@@ -274,6 +273,21 @@ FROM telegram.account
 			}
 
 			switch {
+			case status.HoursLeft <= 0 || status.IP == "":
+				// it's gone
+				_, err := pg.Exec(`
+UPDATE telegram.account
+SET appdata =
+  jsonb_set(appdata, '{bitclouds}',
+    jsonb_strip_nulls(
+      jsonb_set(appdata->'bitclouds', ARRAY[$2], 'null')
+    )
+  )
+WHERE id = $1
+            `, user.Id, host)
+				if err != nil {
+					log.Error().Err(err).Msg("deleting expired bitclouds host")
+				}
 			case status.HoursLeft < 24*14 && status.HoursLeft > 24*14-6 && !rds.Exists("bitclouds:2w:"+host).Val():
 				user.notify(t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
