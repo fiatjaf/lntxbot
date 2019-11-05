@@ -170,12 +170,14 @@ parsed:
 			if err != nil {
 				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
 				u.notify(t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+				return
 			}
+			u.notify(t.COMPLETED, nil)
+		} else {
+			u.notify(t.BLUEWALLETCREDENTIALS, t.T{
+				"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
+			})
 		}
-
-		u.notify(t.BLUEWALLETCREDENTIALS, t.T{
-			"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
-		})
 	case opts["api"].(bool):
 		passwordFull := u.Password
 		passwordInvoice := calculateHash(passwordFull)
