@@ -876,7 +876,7 @@ func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQue
 		}
 	}
 
-	if sats < 40 {
+	if sats < 30 {
 		notify(t.TOOSMALLPAYMENT, t.T{"Purpose": purpose})
 		return false
 	}

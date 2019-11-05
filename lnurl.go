@@ -94,8 +94,13 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 	return
 }
 
-func handleLNURLPay(u User, satoshis int, messageId int) (lnurlEncoded string) {
-	maxsats := strconv.Itoa(satoshis)
+func handleLNURLPay(u User, sats int, messageId int) (lnurlEncoded string) {
+	maxsats := strconv.Itoa(sats)
+	ok := u.checkBalanceFor(sats, "lnurl-withdraw", nil)
+	if !ok {
+		return
+	}
+
 	challenge := calculateHash(s.BotToken + ":" + strconv.Itoa(messageId) + ":" + maxsats)
 
 	nexturl := fmt.Sprintf("%s/lnurl/withdraw?message=%d&challenge=%s", s.ServiceURL, messageId, challenge)

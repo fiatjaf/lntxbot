@@ -50,6 +50,11 @@ func registerAPIMethods() {
 		}
 
 		lnurlEncoded := handleLNURLPay(user, sats, -rand.Int())
+		if lnurlEncoded == "" {
+			errorInvalidParams(w)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
 			LNURL string `json:"lnurl"`
