@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 func handleMessage(message *tgbotapi.Message) {
@@ -161,6 +163,56 @@ parsed:
 		opts["bitrefill"].(bool), opts["bitclouds"].(bool):
 		handleExternalApp(u, opts, message)
 		break
+	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
+		password := u.Password
+		if opts["refresh"].(bool) {
+			password, err = u.updatePassword()
+			if err != nil {
+				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
+				u.notify(t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+			}
+		}
+
+		u.notify(t.BLUEWALLETCREDENTIALS, t.T{
+			"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
+		})
+	case opts["api"].(bool):
+		passwordFull := u.Password
+		passwordInvoice := calculateHash(passwordFull)
+		passwordReadOnly := calculateHash(passwordInvoice)
+
+		tokenFull := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordFull)))
+		tokenInvoice := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordInvoice)))
+		tokenReadOnly := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordReadOnly)))
+
+		switch {
+		case opts["full"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "full"))
+			qrcode.WriteFile(tokenFull, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, tokenFull)
+		case opts["invoice"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "invoice"))
+			qrcode.WriteFile(tokenInvoice, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, tokenInvoice)
+		case opts["readonly"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "readonly"))
+			qrcode.WriteFile(tokenReadOnly, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, tokenReadOnly)
+		case opts["url"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "url"))
+			qrcode.WriteFile(s.ServiceURL+"/", qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, s.ServiceURL+"/")
+		case opts["refresh"].(bool):
+			opts["bluewallet"] = true
+			goto parsed
+		default:
+			u.notify(t.APICREDENTIALS, t.T{
+				"Full":       tokenFull,
+				"Invoice":    tokenInvoice,
+				"ReadOnly":   tokenReadOnly,
+				"ServiceURL": s.ServiceURL,
+			})
+		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
@@ -615,19 +667,6 @@ parsed:
 		break
 	case opts["lnurl"].(bool):
 		handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
-	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
-		password := u.Password
-		if opts["refresh"].(bool) {
-			password, err = u.updatePassword()
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
-				u.notify(t.BLUEWALLETPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
-			}
-		}
-
-		u.notify(t.BLUEWALLETCREDENTIALS, t.T{
-			"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
-		})
 	case opts["apps"].(bool):
 		handleTutorial(u, "apps")
 		break

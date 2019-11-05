@@ -4,15 +4,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
-func serveBlueWallet() {
+func registerBluewalletMethods() {
 	http.HandleFunc("/getinfo", func(w http.ResponseWriter, r *http.Request) {
 		errorBadAuth(w)
 	})
@@ -47,9 +44,13 @@ func serveBlueWallet() {
 	})
 
 	http.HandleFunc("/addinvoice", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < InvoicePermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -86,9 +87,13 @@ func serveBlueWallet() {
 	})
 
 	http.HandleFunc("/payinvoice", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < FullPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -122,9 +127,13 @@ func serveBlueWallet() {
 	})
 
 	http.HandleFunc("/balance", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -143,9 +152,13 @@ func serveBlueWallet() {
 	})
 
 	http.HandleFunc("/gettxs", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -192,9 +205,13 @@ func serveBlueWallet() {
 	})
 
 	http.HandleFunc("/getuserinvoices", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -271,64 +288,6 @@ func serveBlueWallet() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(decoded)
 	})
-
-	// this is not a bluewallet thing, but goes here because I don't have other file to put it
-	http.HandleFunc("/generatelnurlwithdraw", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
-		if err != nil {
-			errorBadAuth(w)
-			return
-		}
-
-		var params struct {
-			Satoshis string `json:"satoshis"`
-		}
-		err = json.NewDecoder(r.Body).Decode(&params)
-		if err != nil {
-			errorInvalidParams(w)
-			return
-		}
-		sats, err := strconv.Atoi(params.Satoshis)
-		if err != nil {
-			errorInvalidParams(w)
-			return
-		}
-
-		lnurlEncoded := handleLNURLPay(user, sats, -rand.Int())
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct {
-			LNURL string `json:"lnurl"`
-		}{lnurlEncoded})
-	})
-}
-
-func loadUserFromBlueWalletCall(r *http.Request) (user User, err error) {
-	// decode user id and password from auth token
-	token := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")[1]
-	res, err := base64.StdEncoding.DecodeString(token)
-	if err != nil {
-		return
-	}
-	parts := strings.Split(string(res), ":")
-	userId, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return
-	}
-	password := parts[1]
-
-	// load user
-	user, err = loadUser(userId, 0)
-	if err != nil {
-		return
-	}
-
-	// check password
-	if password != user.Password {
-		err = errors.New("invalid password")
-		return
-	}
-
-	return
 }
 
 type Buffer string
@@ -390,40 +349,4 @@ func getLimitAndOffset(r *http.Request) (limit int, offset int) {
 	offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
 
 	return
-}
-
-func errorInvalidParams(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 8,
-      "message": "invalid params"
-    }`))
-}
-
-func errorBadAuth(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 1,
-      "message": "bad auth"
-    }`))
-}
-
-func errorPaymentFailed(w http.ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 10,
-      "message": "` + err.Error() + `"
-    }`))
-}
-
-func errorInternal(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 7,
-      "message": "Internal failure"
-    }`))
 }

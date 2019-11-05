@@ -160,8 +160,21 @@ Have contributed: {{.Registered}}
 /bluewallet prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
 /bluewallet_refresh erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
     `,
-	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
-	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
+	BLUEWALLETCREDENTIALS:  "<code>{{.Credentials}}</code>",
+	APIPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
+	APICREDENTIALS: `
+These are tokens for <i>Basic Auth</i>. The API is compatible with lndhub.io with some extra methods.
+
+Full access: <code>{{.Full}}</code>
+Invoice access: <code>{{.Invoice}}></code>
+Read-only access: <code>{{.ReadOnly}}</code>
+API Base URL: <code>{{.ServiceURL}}/</code>
+
+/api_full, /api_invoice and /api_readonly will show these specific tokens along with QR codes.
+/api_url will show a QR code for the API Base URL.
+
+Keep these tokens secret. If they leak for some reason call /api_refresh to replace all.
+    `,
 
 	HIDEHELP: `Hides a message so it can be unlocked later with a payment. The special character "~" is used to split the message into a preview and the actual message ("click here to see a secret! ~ this is the secret.")
 

@@ -143,6 +143,10 @@ var methods = []def{
 		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
 	},
 	def{
+		aliases: []string{"api"},
+		argstr:  "[full | invoice | readonly | url | refresh]",
+	},
+	def{
 		aliases: []string{"bluewallet", "lndhub"},
 		argstr:  "[refresh]",
 	},

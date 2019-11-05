@@ -156,7 +156,7 @@ func main() {
 	})
 
 	// lndhub-compatible routes
-	serveBlueWallet()
+	registerAPIMethods()
 
 	// lnurl routes
 	serveLNURL()

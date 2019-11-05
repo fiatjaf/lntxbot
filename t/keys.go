@@ -94,9 +94,10 @@ const (
 	FUNDRAISERECEIVERMSG = "FundraiseReceiverMsg"
 	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
 
-	BLUEWALLETHELP                = "bluewalletHelp"
-	BLUEWALLETPASSWORDUPDATEERROR = "BluewalletPasswordUpdateError"
-	BLUEWALLETCREDENTIALS         = "BluewalletCredentials"
+	BLUEWALLETHELP         = "bluewalletHelp"
+	BLUEWALLETCREDENTIALS  = "BluewalletCredentials"
+	APIPASSWORDUPDATEERROR = "APIPasswordUpdateError"
+	APICREDENTIALS         = "APICredentials"
 
 	HIDEHELP             = "hideHelp"
 	REVEALHELP           = "revealHelp"
