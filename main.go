@@ -16,6 +16,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
+	"github.com/tidwall/gjson"
 	"gopkg.in/redis.v5"
 )
 
@@ -57,6 +58,7 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var waitingInvoices = make(map[string][]chan gjson.Result)
 var bundle t.Bundle
 
 func main() {

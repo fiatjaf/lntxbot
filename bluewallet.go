@@ -83,7 +83,8 @@ func registerBluewalletMethods() {
 			PaymentRequest string `json:"payment_request"`
 			AddIndex       string `json:"add_index"`
 			RHash          Buffer `json:"r_hash"`
-		}{bolt11, bolt11, "1000", Buffer(hash)})
+			Hash           string `json:"payment_hash"`
+		}{bolt11, bolt11, "1000", Buffer(hash), hash})
 	})
 
 	http.HandleFunc("/payinvoice", func(w http.ResponseWriter, r *http.Request) {

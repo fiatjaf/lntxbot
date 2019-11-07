@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/tidwall/gjson"
 )
 
 type Permission int
@@ -60,6 +63,58 @@ func registerAPIMethods() {
 			LNURL string `json:"lnurl"`
 		}{lnurlEncoded})
 	})
+
+	http.HandleFunc("/invoicestatus/", func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
+		if err != nil {
+			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
+			return
+		}
+
+		hash := strings.Split(r.URL.Path, "/")[2]
+		if len(hash) != 64 {
+			errorInvalidParams(w)
+			return
+		}
+
+		txn, err := user.getTransaction(hash)
+		if err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"hash":     txn.Hash,
+				"preimage": txn.Preimage.String,
+				"amount":   txn.Amount,
+			})
+			return
+		}
+
+		// transaction not found, so let's wait a while for it
+		wait := make(chan gjson.Result)
+		if chans, ok := waitingInvoices[hash]; ok {
+			chans = append(chans, wait)
+			waitingInvoices[hash] = chans
+		} else {
+			waitingInvoices[hash] = []chan gjson.Result{wait}
+		}
+
+		select {
+		case inv := <-wait:
+			_, _, preimage, _, _ := parseLabel(inv.Get("label").String())
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"hash":     inv.Get("payment_hash").String(),
+				"preimage": preimage,
+				"amount":   inv.Get("msatoshi").Int(),
+			})
+			return
+		case <-time.After(60 * time.Second):
+			errorTimeout(w)
+			return
+		}
+	})
 }
 
 func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err error) {
@@ -100,6 +155,15 @@ func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err
 
 	err = errors.New("invalid password")
 	return
+}
+
+func errorTimeout(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{
+      "error": true,
+      "code": 5,
+      "message": "timeout"
+    }`))
 }
 
 func errorInvalidParams(w http.ResponseWriter) {

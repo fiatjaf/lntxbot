@@ -34,13 +34,23 @@ func handle(upd tgbotapi.Update) {
 }
 
 func invoicePaidListener(invpaid gjson.Result) {
-	handleInvoicePaid(
+	go handleInvoicePaid(
 		invpaid.Get("pay_index").Int(),
 		invpaid.Get("msatoshi_received").Int(),
 		invpaid.Get("description").String(),
 		invpaid.Get("payment_hash").String(),
 		invpaid.Get("label").String(),
 	)
+	go func() {
+		if chans, ok := waitingInvoices[invpaid.Get("payment_hash").String()]; ok {
+			for _, ch := range chans {
+				select {
+				case ch <- invpaid:
+				default:
+				}
+			}
+		}
+	}()
 }
 
 func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
