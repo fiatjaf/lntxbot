@@ -166,7 +166,7 @@ Have contributed: {{.Registered}}
 These are tokens for <i>Basic Auth</i>. The API is compatible with lndhub.io with some extra methods.
 
 Full access: <code>{{.Full}}</code>
-Invoice access: <code>{{.Invoice}}></code>
+Invoice access: <code>{{.Invoice}}</code>
 Read-only access: <code>{{.ReadOnly}}</code>
 API Base URL: <code>{{.ServiceURL}}/</code>
 
@@ -313,13 +313,13 @@ Also @{{.BotName}} will remind you to topup your hosts when they're running low 
 {{with .Status}}
   {{if .SSHPwd}}<b>ssh access:</b>
   <pre>ssh-copy-id -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}
-  # type password: {{.SSHPwd}}
-  ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
-  {{with .Sparko}}<b>Call c-lightning RPC from the external world:</b>
-  <pre>curl -kX POST {{.}} -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</pre>{{end}}
+# type password: {{.SSHPwd}}
+ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
+  {{with .Sparko}}<b>Visit your <a href="{{.}}">Spark wallet</a> or call c-lightning RPC from the external world:</b>
+<b>Call c-lightning RPC from the external world:</b>
+  <pre>curl -kX POST {{.}}/rpc -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</pre>{{end}}
   {{if .RPCPwd}}<b>Call Bitcoin Core RPC:</b>
   <pre>bitcoin-cli -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</pre>{{end}}
-
   Hours left in balance: <b>{{.HoursLeft}}</b>
 {{end}}
     `,
@@ -333,7 +333,7 @@ Also @{{.BotName}} will remind you to topup your hosts when they're running low 
   IP: <code>{{.IP}}</code>
   {{if .UserPort }}App port: <code>{{.UserPort}}</code>
   {{end}}{{if .SSHPort}}SSH: <code>ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</code>
-  {{end}}{{with .Sparko}}Sparko: <code>curl -X POST {{.}} -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
+  {{end}}{{with .Sparko}}<a href="{{.}}">Sparko</a>: <code>curl -X POST {{.}}/rpc -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
   {{end}}{{if .RPCPwd}}Bitcoin Core: <code>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</code>
   {{end}}
 {{end}}

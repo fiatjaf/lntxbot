@@ -124,8 +124,16 @@ func getBitcloudStatus(host string) (status BitcloudStatus, err error) {
 		status.SSHUser = "root"
 	}
 
+	if status.Sparko != "" {
+		status.Sparko = status.Sparko[:len(status.Sparko)-4]
+	}
+
 	if status.Pwd != "" && status.SSHPwd == "" {
 		status.SSHPwd = status.Pwd
+	}
+
+	if status.SSHPort == nil {
+		status.SSHPort = "22"
 	}
 
 	return
