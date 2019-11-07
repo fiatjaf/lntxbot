@@ -231,6 +231,32 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 			}
+		case opts["adopt"].(bool), opts["abandon"].(bool):
+			host := opts["<host>"].(string)
+			var data BitcloudsData
+			err := u.getAppData("bitclouds", &data)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				return
+			}
+			if opts["adopt"].(bool) {
+				data[host] = BitcloudInstanceData{Policy: "remind"}
+			} else {
+				delete(data, host)
+			}
+			err = u.setAppData("bitclouds", data)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				return
+			}
+			if opts["adopt"].(bool) {
+				// on success, simulate status command
+				opts["adopt"] = false
+				opts["status"] = true
+				handleExternalApp(u, opts, message)
+			} else {
+				u.notify(t.COMPLETED, nil)
+			}
 		default: // "status"
 			host, err := opts.String("<host>")
 			if err == nil {

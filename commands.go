@@ -108,7 +108,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"bitclouds"},
-		argstr:  "[create | status [<host>] | topup <satoshis> [<host>]]",
+		argstr:  "[create | status [<host>] | topup <satoshis> [<host>] | adopt <host> | abandon <host>]",
 	},
 	def{
 		// lntorub
