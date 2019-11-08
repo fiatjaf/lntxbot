@@ -43,7 +43,6 @@ const (
 	PAIDMESSAGE         = "PaidMessage"
 	DBERROR             = "DBError"
 	INSUFFICIENTBALANCE = "InsufficientBalance"
-	TOOSMALLPAYMENT     = "TooSmallPayment"
 
 	PAYMENTRECEIVED      = "PaymentReceived"
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"

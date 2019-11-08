@@ -40,7 +40,6 @@ var RU = map[Key]string{
 /tx{{.ShortHash}}`,
 	DBERROR:             "Ошибка базы данных: не могу отметить транзакцию как не обрабатывающуюся.",
 	INSUFFICIENTBALANCE: "Недостаточный баланс для {{.Purpose}}. Необходимо на {{.Sats}}.0f сат больше.",
-	TOOSMALLPAYMENT:     "Это слишком мало, пожалуйста, начните {{.Purpose}} от 40 сат.",
 
 	PAYMENTRECEIVED:      "Платёж получен: {{.Sats}}. /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Платёж получен, но не сохранён в базе данных. Пожалуйста, сообщите о проблеме: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",

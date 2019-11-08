@@ -876,11 +876,6 @@ func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQue
 		}
 	}
 
-	if sats < 30 {
-		notify(t.TOOSMALLPAYMENT, t.T{"Purpose": purpose})
-		return false
-	}
-
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
 		notify(t.INSUFFICIENTBALANCE, t.T{
 			"Purpose": purpose,
