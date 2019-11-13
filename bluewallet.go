@@ -10,11 +10,11 @@ import (
 )
 
 func registerBluewalletMethods() {
-	http.HandleFunc("/getinfo", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/getinfo").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		errorBadAuth(w)
 	})
 
-	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/auth").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var params struct {
 			Login        string `json:"login"`
 			Password     string `json:"password"`
@@ -43,7 +43,7 @@ func registerBluewalletMethods() {
 		}{token, token})
 	})
 
-	http.HandleFunc("/addinvoice", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/addinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -87,7 +87,7 @@ func registerBluewalletMethods() {
 		}{bolt11, bolt11, "1000", Buffer(hash), hash})
 	})
 
-	http.HandleFunc("/payinvoice", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/payinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -127,7 +127,7 @@ func registerBluewalletMethods() {
 		}{"", "", make(map[string]interface{}), "", decoded})
 	})
 
-	http.HandleFunc("/balance", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -152,7 +152,7 @@ func registerBluewalletMethods() {
 		})
 	})
 
-	http.HandleFunc("/gettxs", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/gettxs").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -200,12 +200,12 @@ func registerBluewalletMethods() {
 		json.NewEncoder(w).Encode(payments)
 	})
 
-	http.HandleFunc("/getpending", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/getpending").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode([]interface{}{})
 	})
 
-	http.HandleFunc("/getuserinvoices", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/getuserinvoices").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -277,7 +277,7 @@ func registerBluewalletMethods() {
 		json.NewEncoder(w).Encode(invs)
 	})
 
-	http.HandleFunc("/decodeinvoice", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/decodeinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bolt11 := r.URL.Query().Get("invoice")
 
 		decoded, err := decodeInvoiceAsLndHub(bolt11)

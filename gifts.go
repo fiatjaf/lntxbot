@@ -151,7 +151,7 @@ func getGift(orderId string) (gift GiftsGift, err error) {
 }
 
 func serveGiftsWebhook() {
-	http.HandleFunc("/app/gifts/webhook", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/gifts/webhook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// parse the incoming data
 		var event GiftSpentEvent
 		err := json.NewDecoder(r.Body).Decode(&event)

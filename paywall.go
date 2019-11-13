@@ -198,7 +198,7 @@ func createPaywallLink(user User, sats int, url, memo string) (link PaywallLink,
 }
 
 func servePaywallWebhook() {
-	http.HandleFunc("/app/paywall/webhook", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/paywall/webhook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// parse the incoming data
 		var event PaywallWebhookEvent
 		err := json.NewDecoder(r.Body).Decode(&event)

@@ -14,6 +14,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
+	"github.com/gorilla/mux"
 	"github.com/skip2/go-qrcode"
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -125,7 +126,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 }
 
 func serveLNURL() {
-	http.HandleFunc("/lnurl/withdraw", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/lnurl/withdraw").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl first request")
 
 		qs := r.URL.Query()
@@ -177,11 +178,10 @@ func serveLNURL() {
 		})
 	})
 
-	http.HandleFunc("/lnurl/withdraw/invoice/", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/lnurl/withdraw/invoice/{messageId}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl second request")
 
-		path := strings.Split(r.URL.Path, "/")
-		messageIdstr := path[len(path)-1]
+		messageIdstr := mux.Vars(r)["messageId"]
 		messageId, _ := strconv.Atoi(messageIdstr)
 
 		qs := r.URL.Query()

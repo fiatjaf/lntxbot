@@ -12,6 +12,7 @@ import (
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
@@ -58,6 +59,7 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var router = mux.NewRouter()
 var waitingInvoices = make(map[string][]chan gjson.Result)
 var bundle t.Bundle
 
@@ -134,7 +136,7 @@ func main() {
 	ln.ListenForInvoices()
 
 	// handle QR code requests from telegram
-	http.HandleFunc("/qr/", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[3:]
 		if strings.HasPrefix(path, "/tmp/") && strings.HasSuffix(path, ".png") {
 			http.ServeFile(w, r, path)
@@ -159,10 +161,17 @@ func main() {
 	go bitcloudsCheckingRoutine()
 
 	// random assets
-	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
+	router.PathPrefix("/static/").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
 
 	// start http server
-	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
+	srv := &http.Server{
+		Handler: router,
+		Addr:    "0.0.0.0:" + s.Port,
+		// Good practice: enforce timeouts for servers you create!
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+	go srv.ListenAndServe()
 
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()

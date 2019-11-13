@@ -250,7 +250,7 @@ WHERE id IN (
 func servePoker() {
 	// this is called by the poker app to deposit funds as soon as the user tries to sit on a table
 	// but doesn't have enough money for the buy-in.
-	http.HandleFunc("/app/poker/deposit", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/poker/deposit").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sats, err := strconv.Atoi(r.FormValue("satoshis"))
 		if err != nil {
 			http.Error(w, "invalid amount", 400)
@@ -272,7 +272,7 @@ func servePoker() {
 		fmt.Fprintf(w, "ok")
 	})
 
-	http.HandleFunc("/app/poker/playing", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/poker/playing").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pokerfriends, err := loadUserFromPokerCall(r)
 		if err != nil {
 			http.Error(w, err.Error(), 401)
@@ -294,7 +294,7 @@ func servePoker() {
 		notifyPokerWatchers()
 	})
 
-	http.HandleFunc("/app/poker/online", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/poker/online").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(rds.HGetAll("poker-players").Val())
 	})

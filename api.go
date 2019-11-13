@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/tidwall/gjson"
 )
 
@@ -27,7 +28,7 @@ const (
 func registerAPIMethods() {
 	registerBluewalletMethods()
 
-	http.HandleFunc("/generatelnurlwithdraw", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/generatelnurlwithdraw").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -64,7 +65,7 @@ func registerAPIMethods() {
 		}{lnurlEncoded})
 	})
 
-	http.HandleFunc("/invoicestatus/", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/invoicestatus/{hash}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
@@ -75,7 +76,7 @@ func registerAPIMethods() {
 			return
 		}
 
-		hash := strings.Split(r.URL.Path, "/")[2]
+		hash := mux.Vars(r)["hash"]
 		if len(hash) != 64 {
 			errorInvalidParams(w)
 			return

@@ -108,7 +108,7 @@ func initializeBitrefill() {
 }
 
 func serveBitrefillWebhook() {
-	http.HandleFunc("/app/bitrefill/webhook", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/bitrefill/webhook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := ioutil.ReadAll(r.Body)
 		log.Print("BITREFILL WEBHOOK ", string(b))
 	})
