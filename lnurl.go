@@ -94,7 +94,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 	return
 }
 
-func handleLNURLPay(u User, sats int, messageId int) (lnurlEncoded string) {
+func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded string) {
 	maxsats := strconv.Itoa(sats)
 	ok := u.checkBalanceFor(sats, "lnurl-withdraw", nil)
 	if !ok {

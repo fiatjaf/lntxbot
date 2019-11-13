@@ -52,7 +52,7 @@ func registerAPIMethods() {
 			return
 		}
 
-		lnurlEncoded := handleLNURLPay(user, sats, -rand.Int())
+		lnurlEncoded := handleLNCreateLNURLWithdraw(user, sats, -rand.Int())
 		if lnurlEncoded == "" {
 			errorInvalidParams(w)
 			return

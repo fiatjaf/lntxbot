@@ -661,7 +661,7 @@ parsed:
 				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 				break
 			}
-			handleLNURLPay(u, sats, message.MessageID)
+			handleLNCreateLNURLWithdraw(u, sats, message.MessageID)
 		} else {
 			// normal payment flow
 			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
