@@ -133,20 +133,6 @@ func main() {
 	}
 	ln.ListenForInvoices()
 
-	// bot stuff
-	_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
-	if err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
-	info, err := bot.GetWebhookInfo()
-	if err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
-	if info.LastErrorDate != 0 {
-		log.Debug().Str("err", info.LastErrorMessage).Msg("telegram callback failed")
-	}
-	updates := bot.ListenForWebhook("/" + bot.Token)
-
 	// handle QR code requests from telegram
 	http.HandleFunc("/qr/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[3:]
@@ -184,7 +170,23 @@ func main() {
 	// dispatch kick job for pending users
 	startKicking()
 
+	// bot stuff
+	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
+	if err != nil || lastTelegramUpdate < 10 {
+		log.Fatal().Err(err).Int64("got", lastTelegramUpdate).Msg("failed to get lasttelegramupdate from redis")
+		return
+	}
+
+	u := tgbotapi.NewUpdate(int(lastTelegramUpdate + 1))
+	u.Timeout = 60
+	updates, err := bot.GetUpdatesChan(u)
+	if err != nil {
+		log.Error().Err(err).Msg("telegram getupdates fail")
+	}
 	for update := range updates {
+		lastTelegramUpdate = int64(update.UpdateID)
+		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
+		log.Print("update ", lastTelegramUpdate)
 		handle(update)
 	}
 }
