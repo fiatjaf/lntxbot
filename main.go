@@ -48,6 +48,8 @@ type Settings struct {
 	TutorialWalletVideoId string `envconfig:"TUTORIAL_WALLET_VIDEO_ID"`
 	TutorialBlueVideoId   string `envconfig:"TUTORIAL_BLUE_VIDEO_ID"`
 
+	Banned map[int]bool `envconfig:"BANNED"`
+
 	NodeId string
 	Usage  string
 }
@@ -195,7 +197,6 @@ func main() {
 	for update := range updates {
 		lastTelegramUpdate = int64(update.UpdateID)
 		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		log.Print("update ", lastTelegramUpdate)
 		handle(update)
 	}
 }

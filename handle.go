@@ -10,6 +10,12 @@ import (
 
 func handle(upd tgbotapi.Update) {
 	if upd.Message != nil {
+		// is temporarily s.Banned?
+		if _, ok := s.Banned[upd.Message.From.ID]; ok {
+			log.Debug().Int("tgid", upd.Message.From.ID).Msg("got request from banned user")
+			return
+		}
+
 		// people joining
 		if upd.Message.NewChatMembers != nil {
 			for _, newmember := range *upd.Message.NewChatMembers {
@@ -25,6 +31,12 @@ func handle(upd tgbotapi.Update) {
 			deleteMessage(upd.Message)
 		}
 	} else if upd.CallbackQuery != nil {
+		// is temporarily s.Banned?
+		if _, ok := s.Banned[upd.CallbackQuery.From.ID]; ok {
+			log.Debug().Int("tgid", upd.CallbackQuery.From.ID).Msg("got request from banned user")
+			return
+		}
+
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {
 		handleInlineQuery(upd.InlineQuery)
