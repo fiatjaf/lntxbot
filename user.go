@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/ln-decodepay/gjson"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
@@ -326,9 +327,9 @@ func (u User) makeInvoice(
 }
 
 func (u User) payInvoice(messageId int, bolt11 string) (err error) {
-	inv, err := ln.Call("decodepay", bolt11)
+	inv, err := decodepay_gjson.Decodepay(bolt11)
 	if err != nil {
-		return errors.New("Failed to decode invoice.")
+		return errors.New("Failed to decode invoice: " + err.Error())
 	}
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
@@ -336,7 +337,6 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 	desc := inv.Get("description").String()
 	hash := inv.Get("payment_hash").String()
 
-	params := map[string]interface{}{}
 	if amount == 0 {
 		// if nothing was provided, end here
 		return errors.New("unsupported zero-amount invoice")
@@ -421,7 +421,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 		// actually send the lightning payment
 
 		err := u.actuallySendExternalPayment(
-			messageId, bolt11, inv, amount, fakeLabel, params,
+			messageId, bolt11, inv, amount, fakeLabel,
 			paymentHasSucceeded, paymentHasFailed,
 		)
 		if err != nil {
@@ -438,7 +438,6 @@ func (u User) actuallySendExternalPayment(
 	inv gjson.Result,
 	msatoshi int64,
 	label string,
-	params map[string]interface{},
 	onSuccess func(
 		u User,
 		messageId int,
@@ -505,10 +504,12 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	}
 
 	// set common params
-	params["riskfactor"] = 3
-	params["maxfeepercent"] = 1
-	params["exemptfee"] = 3
-	params["label"] = fmt.Sprintf("user=%d", u.Id)
+	params := map[string]interface{}{
+		"riskfactor":    3,
+		"maxfeepercent": 1,
+		"exemptfee":     3,
+		"label":         fmt.Sprintf("user=%d", u.Id),
+	}
 
 	// perform payment
 	go func() {
@@ -946,7 +947,7 @@ WHERE payment_hash = $3
 	}
 
 	u.notifyAsReply(t.PAIDMESSAGE, t.T{
-		"Sats":      int(msatoshi / 1000),
+		"Sats":      float64(msatoshi) / 1000,
 		"Fee":       fees / 1000,
 		"Hash":      hash,
 		"Preimage":  preimage,

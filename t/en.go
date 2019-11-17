@@ -33,16 +33,20 @@ var EN = map[Key]string{
 lnurl-auth success!
 
 <b>domain</b>: <i>{{.Host}}</i>
-<b>k1</b>: <i>{{.K1}}</i>
 <b>key</b>: <i>{{.PublicKey}}</i>
-<b>signature</b>: <i>{{.Signature}}</i>
 `,
+	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.3f"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.3f"}}</i> and <i>{{.Max | printf "%.3f"}} sat</i>{{end}} for the following:
+
+{{if .Text}}<code>{{.Text}}</code>{{else if .HTML}}{{.HTML}}{{end}}
+
+{{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
+    `,
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
 	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{.Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
+	PAIDMESSAGE: `Paid with <b>{{printf "%.3f" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}

@@ -88,7 +88,7 @@ func createGift(user User, sats int, messageId int) error {
 
 	return user.actuallySendExternalPayment(
 		messageId, order.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, order.OrderId, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, order.OrderId, user.Id),
 		func(
 			u User,
 			messageId int,

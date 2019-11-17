@@ -70,7 +70,7 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 	}
 	err = user.actuallySendExternalPayment(
 		messageId, bolt11, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.poker.%s.%d", s.ServiceId, cuid.Slug(), user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.poker.%s.%d", s.ServiceId, cuid.Slug(), user.Id),
 		func(
 			u User,
 			messageId int,

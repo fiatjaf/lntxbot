@@ -98,7 +98,7 @@ func payBitflashInvoice(user User, order BitflashOrder, messageId int) (err erro
 	}
 	err = user.actuallySendExternalPayment(
 		messageId, order.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitflash.%s.%d", s.ServiceId, order.Id, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.bitflash.%s.%d", s.ServiceId, order.Id, user.Id),
 		func(
 			u User,
 			messageId int,

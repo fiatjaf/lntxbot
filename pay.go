@@ -5,6 +5,7 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/ln-decodepay/gjson"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -33,7 +34,7 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 
 	if askConfirmation {
 		// decode invoice and show a button for confirmation
-		inv, err := ln.Call("decodepay", bolt11)
+		inv, err := decodepay_gjson.Decodepay(bolt11)
 		if err != nil {
 			u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
 			return

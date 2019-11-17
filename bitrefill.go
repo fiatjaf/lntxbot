@@ -21,7 +21,7 @@ type BitrefillData struct {
 	PaidOrders []string `json:"orders"`
 }
 
-var BITREFILLCOUNTRIES = []string{"AE", "AF", "AG", "AI", "AL", "AM", "AN", "AO", "AR", "AS", "AT", "AU", "AW", "AZ", "BB", "BD", "BE", "BF", "BH", "BI", "BJ", "BM", "BO", "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG", "CH", "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CW", "CY", "CZ", "DE", "DK", "DM", "DO", "DZ", "EC", "EG", "ES", "ET", "EU", "FI", "FJ", "FR", "GB", "GD", "GE", "GF", "GH", "GM", "GN", "GP", "GR", "GT", "GW", "GY", "HN", "HT", "ID", "IE", "IN", "IQ", "IT", "JM", "JO", "JP", "KE", "KG", "KH", "KM", "KN", "KR", "KW", "KY", "KZ", "LA", "LB", "LC", "LK", "LR", "LT", "LU", "MA", "MC", "MD", "MG", "ML", "MM", "MN", "MQ", "MR", "MS", "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO", "NP", "NR", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PR", "PS", "PT", "PY", "QA", "RO", "RU", "RW", "SA", "SD", "SE", "SG", "SL", "SN", "SO", "SR", "SV", "SY", "SZ", "TC", "TG", "TH", "TJ", "TN", "TO", "TR", "TT", "TZ", "UA", "UG", "US", "UY", "UZ", "VC", "VE", "VG", "VN", "VU", "WS", "XI", "XK", "YE", "ZA", "ZM", "ZW"}
+var BITREFILLCOUNTRIES = []string{"AE", "AF", "AG", "AI", "AL", "AM", "AN", "AO", "AR", "AS", "AT", "AU", "AW", "AZ", "BB", "BD", "BE", "BF", "BH", "BI", "BJ", "BM", "BO", "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG", "CH", "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CW", "CY", "CZ", "DE", "DK", "DM", "DO", "DZ", "EC", "EG", "ES", "ET", "EU", "FI", "FJ", "FR", "GB", "GD", "GE", "GF", "GH", "GM", "GN", "GP", "GR", "GT", "GW", "GY", "HN", "HT", "ID", "IE", "IN", "IQ", "IT", "JM", "JO", "JP", "KE", "KG", "KH", "KM", "KN", "KR", "KW", "KY", "KZ", "LA", "LB", "LC", "LK", "LR", "LT", "LU", "MA", "MC", "MD", "MG", "ML", "MM", "MN", "MQ", "MR", "MS", "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO", "NP", "NR", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PR", "PS", "PT", "PY", "QA", "RO", "RU", "RW", "SA", "SD", "SE", "SG", "SL", "SN", "SO", "SR", "SV", "SZ", "TC", "TG", "TH", "TJ", "TN", "TO", "TR", "TT", "TZ", "UA", "UG", "US", "UY", "UZ", "VC", "VE", "VG", "VN", "VU", "WS", "XI", "XK", "YE", "ZA", "ZM", "ZW"}
 
 var bitrefillInventory = make(map[string]BitrefillInventoryItem)
 var bitrefillInventoryKeys []string
@@ -76,6 +76,8 @@ type BitrefillErrorResponse struct {
 }
 
 func initializeBitrefill() {
+	time.Sleep(15 * time.Minute) // wait a while before doing this because we may be debugging
+
 	bitrefill = napping.Session{
 		Header: &http.Header{
 			"Authorization": {"Basic " + s.BitrefillBasicAuth},
@@ -261,7 +263,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 	}
 	err = user.actuallySendExternalPayment(
 		0, bolt11, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitrefill.%s.%d", s.ServiceId, orderId, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.bitrefill.%s.%d", s.ServiceId, orderId, user.Id),
 		func(
 			u User,
 			messageId int,

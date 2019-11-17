@@ -104,7 +104,7 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 	}
 	err = user.actuallySendExternalPayment(
 		messageId, payreq.PaymentRequest, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.microbet.%s.%d", s.ServiceId, betId, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.microbet.%s.%d", s.ServiceId, betId, user.Id),
 		func(
 			u User,
 			messageId int,

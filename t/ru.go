@@ -32,7 +32,7 @@ var RU = map[Key]string{
 	SPAMFILTERMESSAGE: "Привет, {{.User}}. У вас 15 минут, чтобы оплатить счёт на {{.Sats}} сат если вы хотите остаться в этой группе:",
 
 	PAYMENTFAILED: "Платёж не состоялся. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Оплачено <b>{{.Sats}} сат</b> (+ {{.Fee}} комиссия). 
+	PAIDMESSAGE: `Оплачено <b>{{printf "%.3f" .Sats}} сат</b> (+ {{.Fee}} комиссия). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}

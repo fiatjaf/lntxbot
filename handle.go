@@ -28,7 +28,7 @@ func handle(upd tgbotapi.Update) {
 		if proceed {
 			handleMessage(upd.Message)
 		} else {
-			deleteMessage(upd.Message)
+			go deleteMessage(upd.Message)
 		}
 	} else if upd.CallbackQuery != nil {
 		// is temporarily s.Banned?
@@ -39,7 +39,7 @@ func handle(upd tgbotapi.Update) {
 
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {
-		handleInlineQuery(upd.InlineQuery)
+		go handleInlineQuery(upd.InlineQuery)
 	} else if upd.EditedMessage != nil {
 		handleEditedMessage(upd.EditedMessage)
 	}

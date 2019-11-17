@@ -52,7 +52,7 @@ func createBitcloudImage(user User, image string) (err error) {
 	}
 	err = user.actuallySendExternalPayment(
 		0, create.PayToStart, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitclouds.%s.%d", s.ServiceId, create.Host, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.bitclouds.%s.%d", s.ServiceId, create.Host, user.Id),
 		func(
 			u User,
 			messageId int,
@@ -160,7 +160,7 @@ func topupBitcloud(user User, host string, sats int) error {
 	}
 	return user.actuallySendExternalPayment(
 		0, topup.Invoice, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitclouds.%s.%d.%d", s.ServiceId, host, time.Now().Unix(), user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.bitclouds.%s.%d.%d", s.ServiceId, host, time.Now().Unix(), user.Id),
 		func(
 			u User,
 			messageId int,

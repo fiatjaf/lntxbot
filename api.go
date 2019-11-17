@@ -120,7 +120,8 @@ func registerAPIMethods() {
 
 func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err error) {
 	// decode user id and password from auth token
-	token := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")[1]
+	splt := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")
+	token := splt[len(splt)-1]
 	res, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
 		return
