@@ -83,12 +83,12 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		defer removeKeyboardButtons(cb)
 		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
 		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
-		if val, err := rds.Get(key).Result(); err != nil {
+		if val, err := rds.Get(key).Result(); err == nil {
 			data := gjson.Parse(val)
 			handleLNURLPayConfirmation(u,
 				msats,
-				data.Get("u").String(),
-				data.Get("m").String(),
+				data.Get("url").String(),
+				data.Get("h").String(),
 				cb.Message.MessageID,
 			)
 		}

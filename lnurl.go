@@ -155,10 +155,10 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 
 		key := fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID)
 		data, _ := json.Marshal(struct {
-			Type string `json:"type"`
-			M    string `json:"m"`
-			U    string `json:"u"`
-		}{"lnurlpay", params.EncodedMetadata, params.Callback})
+			Type            string `json:"type"`
+			DescriptionHash string `json:"h"`
+			URL             string `json:"url"`
+		}{"lnurlpay", calculateHash(params.EncodedMetadata), params.Callback})
 		rds.Set(key, data, time.Hour*1)
 	default:
 		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, messageId)
@@ -167,7 +167,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 	return
 }
 
-func handleLNURLPayConfirmation(u User, msats int64, callback string, encodedMetadata string, messageId int) {
+func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptionHash string, messageId int) {
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
 	_, err = napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
@@ -187,7 +187,7 @@ func handleLNURLPayConfirmation(u User, msats int64, callback string, encodedMet
 		return
 	}
 
-	if decoded.Get("description_hash").String() != calculateHash(encodedMetadata) {
+	if decoded.Get("description_hash").String() != descriptionHash {
 		u.notify(t.ERROR, t.T{"Err": "Got invoice with wrong description_hash"})
 		return
 	}

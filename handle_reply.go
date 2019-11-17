@@ -25,8 +25,8 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 
 			handleLNURLPayConfirmation(u,
 				int64(sats*1000),
-				data.Get("u").String(),
-				data.Get("m").String(),
+				data.Get("url").String(),
+				data.Get("h").String(),
 				message.MessageID,
 			)
 		default:
