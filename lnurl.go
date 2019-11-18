@@ -429,6 +429,7 @@ func serveLNURL() {
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
 			LNURLResponse: lnurl.OkResponse(),
 			PR:            bolt11,
+			Routes:        make([][]lnurl.RouteInfo, 0),
 		})
 	})
 }
