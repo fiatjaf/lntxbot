@@ -1,0 +1,51 @@
+<!-- @format -->
+
+{{define "donation"}}
+
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>Send satoshis to @{{.Username}}</title>
+<script src="https://unpkg.com/kjua@0.6.0/dist/kjua.min.js"></script>
+<style>
+  body {
+    margin: 36px auto;
+    text-align: center;
+    font-family: monospace;
+    width: 600px;
+  }
+  #photo {
+    width: 160px;
+  }
+  a {
+    color: #87dbfe;
+  }
+  #qr {
+    display: block;
+    margin-top: 100px;
+    margin-bottom: 50px;
+  }
+  #invoice {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+    font-size: 23px;
+  }
+</style>
+
+<a href="https://t.me/fiatjaf"><img id="photo" src="{{.Image}}"/></a>
+<h1><a href="https://t.me/fiatjaf">@{{.Username}}</a> on Telegram</h1>
+
+<div><a href="lightning:{{.LNURLPay}}" id="qr"></a></div>
+<div id="invoice">{{.LNURLPay}}</div>
+
+<script>
+  qr.appendChild(
+    kjua({
+      text: invoice.innerHTML,
+      rounded: 75,
+      size: 475
+    })
+  )
+</script>
+
+{{end}}

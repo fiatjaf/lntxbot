@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/arschles/go-bindata-html-template"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -61,6 +62,7 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
 var waitingInvoices = make(map[string][]chan gjson.Result)
 var bundle t.Bundle
@@ -152,6 +154,9 @@ func main() {
 
 	// lnurl routes
 	serveLNURL()
+
+	// donation webpage
+	registerPages()
 
 	// app-specific initializations
 	servePoker()

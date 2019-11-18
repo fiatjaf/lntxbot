@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -238,7 +239,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 
 func serveLNURL() {
 	router.Path("/lnurl/withdraw").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Str("url", r.URL.String()).Msg("lnurl first request")
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl-withdraw first request")
 
 		qs := r.URL.Query()
 		challenge := qs.Get("challenge")
@@ -360,4 +361,99 @@ func serveLNURL() {
 
 		json.NewEncoder(w).Encode(lnurl.OkResponse())
 	})
+
+	router.Path("/lnurl/pay").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
+
+		qs := r.URL.Query()
+		userid := qs.Get("userid")
+		username := qs.Get("username")
+
+		_, jmeta, err := lnurlPayDuplicatedStuff(userid, username)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
+			return
+		}
+
+		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+			LNURLResponse: lnurl.OkResponse(),
+			Tag:           "payRequest",
+			Callback: fmt.Sprintf("%s/lnurl/pay/callback?%s",
+				s.ServiceURL, qs.Encode()),
+			MaxSendable:     1000000000,
+			MinSendable:     1000,
+			EncodedMetadata: string(jmeta),
+		})
+	})
+
+	router.Path("/lnurl/pay/callback").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		qs := r.URL.Query()
+		userid := qs.Get("userid")
+		username := qs.Get("username")
+		apptag := qs.Get("apptag")
+		amount := qs.Get("amount")
+
+		receiver, jmeta, err := lnurlPayDuplicatedStuff(userid, username)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
+			return
+		}
+
+		var tag string
+		if apptag == "golightning" {
+			tag = apptag
+		}
+
+		preimage := make([]byte, 32)
+		rand.Read(preimage)
+
+		msatoshi, err := strconv.ParseInt(amount, 10, 64)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
+			return
+		}
+
+		bolt11, err := ln.InvoiceWithDescriptionHash(
+			makeLabel(receiver.Id, 0, hex.EncodeToString(preimage), tag),
+			msatoshi,
+			string(jmeta),
+			nil,
+			nil,
+		)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
+			return
+		}
+
+		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
+			LNURLResponse: lnurl.OkResponse(),
+			PR:            bolt11,
+		})
+	})
+}
+
+func lnurlPayDuplicatedStuff(userid string, username string) (receiver User, jmeta []byte, err error) {
+	if userid != "" {
+		var id int
+		id, err = strconv.Atoi(userid)
+		if err == nil {
+			receiver, err = loadUser(id, 0)
+		}
+	} else if username != "" {
+		receiver, err = ensureUsername(username)
+	}
+	if err != nil {
+		return
+	}
+
+	jmeta, err = json.Marshal([][]string{
+		[]string{
+			"text/plain",
+			fmt.Sprintf("Donation to %s on t.me/%s.",
+				receiver.AtName(), s.ServiceId),
+		},
+	})
+
+	return
 }
