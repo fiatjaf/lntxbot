@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -152,20 +151,6 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	}
 
 	return results[1], true
-}
-
-func decodeInvoice(invoice string) (inv gjson.Result, nodeAlias string, err error) {
-	inv, err = ln.Call("decodepay", invoice)
-	if err != nil {
-		return
-	}
-	if inv.Get("code").Int() != 0 {
-		err = errors.New(inv.Get("message").String())
-		return
-	}
-
-	nodeAlias = getNodeAlias(inv.Get("payee").String())
-	return
 }
 
 func getNodeAlias(id string) string {

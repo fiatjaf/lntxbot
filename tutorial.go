@@ -21,9 +21,9 @@ func handleTutorial(u User, section string) {
 		go func() {
 			time.Sleep(15 * time.Second)
 			tutorialWallet(u)
-			time.Sleep(40 * time.Second)
+			time.Sleep(120 * time.Second)
 			tutorialBlueWallet(u)
-			time.Sleep(60 * time.Second)
+			time.Sleep(120 * time.Second)
 			tutorialApps(u)
 		}()
 	}

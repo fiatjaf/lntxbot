@@ -4,19 +4,17 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
-func serveBlueWallet() {
-	http.HandleFunc("/getinfo", func(w http.ResponseWriter, r *http.Request) {
+func registerBluewalletMethods() {
+	router.Path("/getinfo").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		errorBadAuth(w)
 	})
 
-	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/auth").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var params struct {
 			Login        string `json:"login"`
 			Password     string `json:"password"`
@@ -45,10 +43,14 @@ func serveBlueWallet() {
 		}{token, token})
 	})
 
-	http.HandleFunc("/addinvoice", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+	router.Path("/addinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < InvoicePermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -81,13 +83,18 @@ func serveBlueWallet() {
 			PaymentRequest string `json:"payment_request"`
 			AddIndex       string `json:"add_index"`
 			RHash          Buffer `json:"r_hash"`
-		}{bolt11, bolt11, "1000", Buffer(hash)})
+			Hash           string `json:"payment_hash"`
+		}{bolt11, bolt11, "1000", Buffer(hash), hash})
 	})
 
-	http.HandleFunc("/payinvoice", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+	router.Path("/payinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < FullPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -120,10 +127,14 @@ func serveBlueWallet() {
 		}{"", "", make(map[string]interface{}), "", decoded})
 	})
 
-	http.HandleFunc("/balance", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -141,10 +152,14 @@ func serveBlueWallet() {
 		})
 	})
 
-	http.HandleFunc("/gettxs", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+	router.Path("/gettxs").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -185,15 +200,19 @@ func serveBlueWallet() {
 		json.NewEncoder(w).Encode(payments)
 	})
 
-	http.HandleFunc("/getpending", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/getpending").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode([]interface{}{})
 	})
 
-	http.HandleFunc("/getuserinvoices", func(w http.ResponseWriter, r *http.Request) {
-		user, err := loadUserFromBlueWalletCall(r)
+	router.Path("/getuserinvoices").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
 			return
 		}
 
@@ -258,7 +277,7 @@ func serveBlueWallet() {
 		json.NewEncoder(w).Encode(invs)
 	})
 
-	http.HandleFunc("/decodeinvoice", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/decodeinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bolt11 := r.URL.Query().Get("invoice")
 
 		decoded, err := decodeInvoiceAsLndHub(bolt11)
@@ -270,35 +289,6 @@ func serveBlueWallet() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(decoded)
 	})
-}
-
-func loadUserFromBlueWalletCall(r *http.Request) (user User, err error) {
-	// decode user id and password from auth token
-	token := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")[1]
-	res, err := base64.StdEncoding.DecodeString(token)
-	if err != nil {
-		return
-	}
-	parts := strings.Split(string(res), ":")
-	userId, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return
-	}
-	password := parts[1]
-
-	// load user
-	user, err = loadUser(userId, 0)
-	if err != nil {
-		return
-	}
-
-	// check password
-	if password != user.Password {
-		err = errors.New("invalid password")
-		return
-	}
-
-	return
 }
 
 type Buffer string
@@ -360,40 +350,4 @@ func getLimitAndOffset(r *http.Request) (limit int, offset int) {
 	offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
 
 	return
-}
-
-func errorInvalidParams(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 8,
-      "message": "invalid params"
-    }`))
-}
-
-func errorBadAuth(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 1,
-      "message": "bad auth"
-    }`))
-}
-
-func errorPaymentFailed(w http.ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 10,
-      "message": "` + err.Error() + `"
-    }`))
-}
-
-func errorInternal(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{
-      "error": true,
-      "code": 7,
-      "message": "Internal failure"
-    }`))
 }

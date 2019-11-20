@@ -70,7 +70,7 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 	}
 	err = user.actuallySendExternalPayment(
 		messageId, bolt11, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.poker.%s.%d", s.ServiceId, cuid.Slug(), user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.poker.%s.%d", s.ServiceId, cuid.Slug(), user.Id),
 		func(
 			u User,
 			messageId int,
@@ -234,11 +234,9 @@ func loadUserFromPokerCall(r *http.Request) (user User, pokerFriends []User, err
 SELECT `+USERFIELDS+`
 FROM telegram.account
 WHERE id IN (
-  SELECT friend FROM (
-      SELECT from_id AS friend FROM lightning.transaction WHERE to_id = $1 AND to_id != from_id AND amount > 100000
-    UNION
-      SELECT to_id AS friend FROM lightning.transaction WHERE from_id = $1 AND to_id != from_id AND amount > 100000
-  ) AS friends
+  SELECT to_id AS friend
+  FROM lightning.transaction
+  WHERE from_id = $1 AND to_id != from_id AND amount > 100000 AND time > now() - '30d'::interval
   INNER JOIN lightning.transaction AS tx
     ON tx.from_id = friend
   WHERE tx.remote_node = '03ad156742a9a9d0e82e0022f264d6857addfd534955d5e97de4a695bf8dd12af0'
@@ -252,7 +250,7 @@ WHERE id IN (
 func servePoker() {
 	// this is called by the poker app to deposit funds as soon as the user tries to sit on a table
 	// but doesn't have enough money for the buy-in.
-	http.HandleFunc("/app/poker/deposit", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/poker/deposit").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sats, err := strconv.Atoi(r.FormValue("satoshis"))
 		if err != nil {
 			http.Error(w, "invalid amount", 400)
@@ -274,7 +272,7 @@ func servePoker() {
 		fmt.Fprintf(w, "ok")
 	})
 
-	http.HandleFunc("/app/poker/playing", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/poker/playing").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pokerfriends, err := loadUserFromPokerCall(r)
 		if err != nil {
 			http.Error(w, err.Error(), 401)
@@ -296,7 +294,7 @@ func servePoker() {
 		notifyPokerWatchers()
 	})
 
-	http.HandleFunc("/app/poker/online", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/poker/online").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(rds.HGetAll("poker-players").Val())
 	})

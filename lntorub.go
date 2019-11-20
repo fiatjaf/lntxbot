@@ -101,7 +101,7 @@ func LNToRubExchangeFinish(user User, order LNToRubOrder) error {
 	}
 	err = user.actuallySendExternalPayment(
 		order.MessageId, order.Invoice, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.lntorub.%s.%d", s.ServiceId, order.Hash, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.lntorub.%s.%d", s.ServiceId, order.Hash, user.Id),
 		func(
 			u User,
 			messageId int,

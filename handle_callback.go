@@ -12,6 +12,7 @@ import (
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kr/pretty"
+	"github.com/tidwall/gjson"
 )
 
 func handleCallback(cb *tgbotapi.CallbackQuery) {
@@ -65,7 +66,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		parts := strings.Split(cb.Data[7:], "-")
 		page, _ := strconv.Atoi(parts[0])
 		filter := InOut(parts[1])
-		handleTransactionList(u, page, filter, cb)
+		go handleTransactionList(u, page, filter, cb)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
@@ -77,6 +78,20 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		handlePayCallback(u, messageId, locale, cb)
+		return
+	case strings.HasPrefix(cb.Data, "lnurlpay="):
+		defer removeKeyboardButtons(cb)
+		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
+		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
+		if val, err := rds.Get(key).Result(); err == nil {
+			data := gjson.Parse(val)
+			handleLNURLPayConfirmation(u,
+				msats,
+				data.Get("url").String(),
+				data.Get("h").String(),
+				cb.Message.MessageID,
+			)
+		}
 		return
 	case strings.HasPrefix(cb.Data, "give="):
 		params := strings.Split(cb.Data[5:], "-")
@@ -114,7 +129,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		claimer := u
 
-		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "giveaway", "")
+		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "", "giveaway")
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
 			claimer.alert(cb, t.ERROR, t.T{"Err": errMsg})
@@ -379,7 +394,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				loserNames = append(loserNames, loser.AtName())
 			}
 
-			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "giveflip", "")
+			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "", "giveflip")
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to giveflip")
 				winner.notify(t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": errMsg})

@@ -69,7 +69,7 @@ func payAndDispatchCall(
 
 	err = user.actuallySendExternalPayment(
 		messageId, bolt11, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.etleneum.%s.%d", s.ServiceId, callId, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.etleneum.%s.%d", s.ServiceId, callId, user.Id),
 		func(
 			u User,
 			messageId int,

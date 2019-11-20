@@ -10,6 +10,12 @@ import (
 
 func handle(upd tgbotapi.Update) {
 	if upd.Message != nil {
+		// is temporarily s.Banned?
+		if _, ok := s.Banned[upd.Message.From.ID]; ok {
+			log.Debug().Int("tgid", upd.Message.From.ID).Msg("got request from banned user")
+			return
+		}
+
 		// people joining
 		if upd.Message.NewChatMembers != nil {
 			for _, newmember := range *upd.Message.NewChatMembers {
@@ -22,25 +28,41 @@ func handle(upd tgbotapi.Update) {
 		if proceed {
 			handleMessage(upd.Message)
 		} else {
-			deleteMessage(upd.Message)
+			go deleteMessage(upd.Message)
 		}
 	} else if upd.CallbackQuery != nil {
+		// is temporarily s.Banned?
+		if _, ok := s.Banned[upd.CallbackQuery.From.ID]; ok {
+			log.Debug().Int("tgid", upd.CallbackQuery.From.ID).Msg("got request from banned user")
+			return
+		}
+
 		handleCallback(upd.CallbackQuery)
 	} else if upd.InlineQuery != nil {
-		handleInlineQuery(upd.InlineQuery)
+		go handleInlineQuery(upd.InlineQuery)
 	} else if upd.EditedMessage != nil {
 		handleEditedMessage(upd.EditedMessage)
 	}
 }
 
 func invoicePaidListener(invpaid gjson.Result) {
-	handleInvoicePaid(
+	go handleInvoicePaid(
 		invpaid.Get("pay_index").Int(),
 		invpaid.Get("msatoshi_received").Int(),
 		invpaid.Get("description").String(),
 		invpaid.Get("payment_hash").String(),
 		invpaid.Get("label").String(),
 	)
+	go func() {
+		if chans, ok := waitingInvoices[invpaid.Get("payment_hash").String()]; ok {
+			for _, ch := range chans {
+				select {
+				case ch <- invpaid:
+				default:
+				}
+			}
+		}
+	}()
 }
 
 func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {

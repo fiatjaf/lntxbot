@@ -88,7 +88,7 @@ func createGift(user User, sats int, messageId int) error {
 
 	return user.actuallySendExternalPayment(
 		messageId, order.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, order.OrderId, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, order.OrderId, user.Id),
 		func(
 			u User,
 			messageId int,
@@ -151,7 +151,7 @@ func getGift(orderId string) (gift GiftsGift, err error) {
 }
 
 func serveGiftsWebhook() {
-	http.HandleFunc("/app/gifts/webhook", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/app/gifts/webhook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// parse the incoming data
 		var event GiftSpentEvent
 		err := json.NewDecoder(r.Body).Decode(&event)

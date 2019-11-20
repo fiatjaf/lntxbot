@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
+	"github.com/skip2/go-qrcode"
 )
 
 func handleMessage(message *tgbotapi.Message) {
@@ -36,6 +38,7 @@ func handleMessage(message *tgbotapi.Message) {
 		// receive payment notifications and so on, as not all people will
 		// remember to call /start
 		u.setChat(message.Chat.ID)
+		g.TelegramId = -g.TelegramId // because we invert when sending a message
 	} else {
 		// when we're in a group, load the group
 		loadedGroup, err := loadGroup(message.Chat.ID)
@@ -60,14 +63,14 @@ func handleMessage(message *tgbotapi.Message) {
 
 	var (
 		opts        = make(docopt.Opts)
-		proceed     = false
+		isCommand   = false
 		messageText = strings.ReplaceAll(
 			regexp.MustCompile("/([\\w_]+)@"+s.ServiceId).ReplaceAllString(message.Text, "/$1"),
 			"—", "--",
 		)
 	)
 
-	log.Debug().Str("t", messageText).Str("user", u.Username).Msg("got message")
+	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got message")
 
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
@@ -78,7 +81,7 @@ func handleMessage(message *tgbotapi.Message) {
 				goto parsed
 			}
 			if lnurltext != "" {
-				opts, _, _ = parse("/receive lnurl " + lnurltext)
+				opts, _, _ = parse("/lnurl " + lnurltext)
 				goto parsed
 			}
 		}
@@ -87,20 +90,27 @@ func handleMessage(message *tgbotapi.Message) {
 	// individual transaction query
 	if strings.HasPrefix(messageText, "/tx") {
 		hashfirstchars := messageText[3:]
-		handleSingleTransaction(u, hashfirstchars, message.MessageID)
+		go handleSingleTransaction(u, hashfirstchars, message.MessageID)
 		return
 	}
 
 	// query failed transactions (only available in the first 24h after the failure)
 	if strings.HasPrefix(messageText, "/log") {
-		hashfirstchars := messageText[4:]
-		sendMessage(u.ChatId, renderLogInfo(hashfirstchars))
+		go func() {
+			hashfirstchars := messageText[4:]
+			sendMessage(u.ChatId, renderLogInfo(hashfirstchars))
+		}()
 		return
 	}
 
 	// otherwise parse the slash command
-	opts, proceed, err = parse(messageText)
-	if !proceed {
+	opts, isCommand, err = parse(messageText)
+	if !isCommand {
+		if message.ReplyToMessage != nil && message.ReplyToMessage.From.ID == bot.Self.ID {
+			// may be a written reply to a specific bot prompt
+			handleReply(u, message, message.ReplyToMessage.MessageID)
+		}
+
 		return
 	}
 	if err != nil {
@@ -157,13 +167,63 @@ parsed:
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["paywall"].(bool), opts["sats4ads"].(bool),
 		opts["qiwi"].(bool), opts["yandex"].(bool),
-		opts["bitrefill"].(bool):
+		opts["bitrefill"].(bool), opts["bitclouds"].(bool):
 		handleExternalApp(u, opts, message)
 		break
-	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		if opts["lnurl"].(bool) {
-			handleLNURLReceive(u, opts["<lnurl>"].(string), message.MessageID)
+	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
+		password := u.Password
+		if opts["refresh"].(bool) {
+			password, err = u.updatePassword()
+			if err != nil {
+				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
+				u.notify(t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+				return
+			}
+			u.notify(t.COMPLETED, nil)
 		} else {
+			u.notify(t.BLUEWALLETCREDENTIALS, t.T{
+				"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
+			})
+		}
+	case opts["api"].(bool):
+		passwordFull := u.Password
+		passwordInvoice := calculateHash(passwordFull)
+		passwordReadOnly := calculateHash(passwordInvoice)
+
+		tokenFull := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordFull)))
+		tokenInvoice := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordInvoice)))
+		tokenReadOnly := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordReadOnly)))
+
+		switch {
+		case opts["full"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "full"))
+			qrcode.WriteFile(tokenFull, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, tokenFull)
+		case opts["invoice"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "invoice"))
+			qrcode.WriteFile(tokenInvoice, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, tokenInvoice)
+		case opts["readonly"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "readonly"))
+			qrcode.WriteFile(tokenReadOnly, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, tokenReadOnly)
+		case opts["url"].(bool):
+			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "url"))
+			qrcode.WriteFile(s.ServiceURL+"/", qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, s.ServiceURL+"/")
+		case opts["refresh"].(bool):
+			opts["bluewallet"] = true
+			goto parsed
+		default:
+			u.notify(t.APICREDENTIALS, t.T{
+				"Full":       tokenFull,
+				"Invoice":    tokenInvoice,
+				"ReadOnly":   tokenReadOnly,
+				"ServiceURL": s.ServiceURL,
+			})
+		}
+	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
+		go func() {
 			sats, err := opts.Int("<satoshis>")
 			if err != nil {
 				handleHelp(u, "receive")
@@ -186,7 +246,7 @@ parsed:
 
 			// send invoice with qr code
 			sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
-		}
+		}()
 		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
@@ -212,23 +272,12 @@ parsed:
 		sats, err := opts.Int("<satoshis>")
 
 		if err != nil || sats <= 0 {
-			// maybe the order of arguments is inverted
-			if val, ok := opts["<satoshis>"].(string); ok && val[0] == '@' {
-				// it seems to be
-				usernameval = val
-				if asats, ok := opts["<receiver>"].([]string); ok && len(asats) == 1 {
-					sats, _ = strconv.Atoi(asats[0])
-					goto gotusername
-				}
-				err = nil
-			}
 			defaultNotify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		} else {
 			usernameval = opts["<receiver>"]
 		}
 
-	gotusername:
 		anonymous := false
 		if opts["anonymously"].(bool) || opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
 			anonymous = true
@@ -538,7 +587,7 @@ parsed:
 
 		err = rds.Set(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid), string(hiddenmessagejson), s.HiddenMessageTimeout).Err()
 		if err != nil {
-			u.notify(t.HIDDENSTOREFAIL, t.T{"Err": err.Error()})
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
@@ -561,80 +610,79 @@ parsed:
 		)
 		break
 	case opts["reveal"].(bool):
-		hiddenid := opts["<hidden_message_id>"].(string)
+		go func() {
+			hiddenid := opts["<hidden_message_id>"].(string)
 
-		redisKey, ok := findHiddenKey(hiddenid)
-		if !ok {
-			u.notifyAsReply(t.HIDDENMSGNOTFOUND, nil, message.MessageID)
-			break
-		}
+			redisKey, ok := findHiddenKey(hiddenid)
+			if !ok {
+				u.notifyAsReply(t.HIDDENMSGNOTFOUND, nil, message.MessageID)
+				return
+			}
 
-		_, _, hidden, err := getHiddenMessage(redisKey, g.Locale)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			break
-		}
+			_, _, hidden, err := getHiddenMessage(redisKey, g.Locale)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"Err": err.Error()})
+				return
+			}
 
-		sendMessageWithKeyboard(u.ChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
+			sendMessageWithKeyboard(u.ChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
+		}()
 	case opts["transactions"].(bool):
-		page, _ := opts.Int("--page")
-		filter := Both
-		if opts["--in"].(bool) {
-			filter = In
-		} else if opts["--out"].(bool) {
-			filter = Out
-		}
-		handleTransactionList(u, page, filter, nil)
-		break
+		go func() {
+			page, _ := opts.Int("--page")
+			filter := Both
+			if opts["--in"].(bool) {
+				filter = In
+			} else if opts["--out"].(bool) {
+				filter = Out
+			}
+			handleTransactionList(u, page, filter, nil)
+		}()
 	case opts["balance"].(bool):
-		if opts["apps"].(bool) {
-			// balance of apps
-			taggedbalances, err := u.getTaggedBalances()
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
-				break
-			}
+		go func() {
+			if opts["apps"].(bool) {
+				// balance of apps
+				taggedbalances, err := u.getTaggedBalances()
+				if err != nil {
+					log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+					u.notify(t.ERROR, t.T{"Err": err.Error()})
+					return
+				}
 
-			u.notify(t.TAGGEDBALANCEMSG, t.T{"Balances": taggedbalances})
-		} else {
-			// normal balance
-			info, err := u.getInfo()
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
-				break
-			}
+				u.notify(t.TAGGEDBALANCEMSG, t.T{"Balances": taggedbalances})
+			} else {
+				// normal balance
+				info, err := u.getInfo()
+				if err != nil {
+					log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+					u.notify(t.ERROR, t.T{"Err": err.Error()})
+					return
+				}
 
-			u.notify(t.BALANCEMSG, t.T{
-				"Sats":     info.Balance,
-				"Received": info.TotalReceived,
-				"Sent":     info.TotalSent,
-				"Fees":     info.TotalFees,
-			})
-		}
+				u.notify(t.BALANCEMSG, t.T{
+					"Sats":     info.Balance,
+					"Received": info.TotalReceived,
+					"Sent":     info.TotalSent,
+					"Fees":     info.TotalFees,
+				})
+			}
+		}()
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
 			// generate an lnurl so a remote wallet can send an invoice through this bizarre protocol
-			handleLNURLPay(u, opts, message.MessageID)
+			sats, err := opts.Int("<satoshis>")
+			if err != nil {
+				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+				break
+			}
+			handleLNCreateLNURLWithdraw(u, sats, message.MessageID)
 		} else {
 			// normal payment flow
 			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
 		}
 		break
-	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
-		password := u.Password
-		if opts["refresh"].(bool) {
-			password, err = u.updatePassword()
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
-				u.notify(t.BLUEWALLETPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
-			}
-		}
-
-		u.notify(t.BLUEWALLETCREDENTIALS, t.T{
-			"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
-		})
+	case opts["lnurl"].(bool):
+		go handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
 	case opts["apps"].(bool):
 		handleTutorial(u, "apps")
 		break
@@ -643,87 +691,89 @@ parsed:
 		handleHelp(u, command)
 		break
 	case opts["toggle"].(bool):
-		if message.Chat.Type == "private" {
-			// on private chats we can use /toggle language <lang>, nothing else
+		go func() {
+			if message.Chat.Type == "private" {
+				// on private chats we can use /toggle language <lang>, nothing else
+				switch {
+				case opts["language"].(bool):
+					if lang, err := opts.String("<lang>"); err == nil {
+						log.Info().Str("user", u.Username).Str("language", lang).Msg("toggling language")
+						err := setLanguage(u.ChatId, lang)
+						if err != nil {
+							log.Warn().Err(err).Msg("failed to toggle language")
+							u.notify(t.ERROR, t.T{"Err": err.Error()})
+							break
+						}
+						u.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+					} else {
+						u.notify(t.LANGUAGEMSG, t.T{"Language": u.Locale})
+					}
+				}
+
+				return
+			}
+			if !isAdmin(message) {
+				return
+			}
+
+			g, err := ensureGroup(message.Chat.ID, message.From.LanguageCode)
+			if err != nil {
+				log.Warn().Err(err).Str("user", u.Username).Int64("group", message.Chat.ID).Msg("failed to ensure group")
+				return
+			}
+
 			switch {
+			case opts["ticket"].(bool):
+				log.Info().Int64("group", message.Chat.ID).Msg("toggling ticket")
+				price, err := opts.Int("<price>")
+				if err != nil {
+					setTicketPrice(message.Chat.ID, 0)
+					g.notify(t.FREEJOIN, nil)
+				}
+
+				setTicketPrice(message.Chat.ID, price)
+				if price > 0 {
+					g.notify(t.TICKETMSG, t.T{
+						"Sat":     price,
+						"BotName": s.ServiceId,
+					})
+				}
+			case opts["spammy"].(bool):
+				log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
+				spammy, err := toggleSpammy(message.Chat.ID)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to toggle spammy")
+					g.notify(t.ERROR, t.T{"Err": err.Error()})
+					break
+				}
+
+				g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
+			case opts["coinflips"].(bool):
+				log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
+				enabled, err := toggleCoinflips(message.Chat.ID)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to toggle coinflips")
+					g.notify(t.ERROR, t.T{"Err": err.Error()})
+					break
+				}
+
+				g.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
 			case opts["language"].(bool):
 				if lang, err := opts.String("<lang>"); err == nil {
-					log.Info().Str("user", u.Username).Str("language", lang).Msg("toggling language")
-					err := setLanguage(u.ChatId, lang)
+					log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
+					err := setLanguage(message.Chat.ID, lang)
 					if err != nil {
 						log.Warn().Err(err).Msg("failed to toggle language")
 						u.notify(t.ERROR, t.T{"Err": err.Error()})
 						break
 					}
-					u.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+					g.notify(t.LANGUAGEMSG, t.T{"Language": lang})
 				} else {
-					u.notify(t.LANGUAGEMSG, t.T{"Language": u.Locale})
+					g.notify(t.LANGUAGEMSG, t.T{"Language": g.Locale})
 				}
+
 			}
-
-			break
-		}
-		if !isAdmin(message) {
-			break
-		}
-
-		g, err := ensureGroup(message.Chat.ID, message.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Str("user", u.Username).Int64("group", message.Chat.ID).Msg("failed to ensure group")
-			break
-		}
-
-		switch {
-		case opts["ticket"].(bool):
-			log.Info().Int64("group", message.Chat.ID).Msg("toggling ticket")
-			price, err := opts.Int("<price>")
-			if err != nil {
-				setTicketPrice(message.Chat.ID, 0)
-				g.notify(t.FREEJOIN, nil)
-			}
-
-			setTicketPrice(message.Chat.ID, price)
-			if price > 0 {
-				g.notify(t.TICKETMSG, t.T{
-					"Sat":     price,
-					"BotName": s.ServiceId,
-				})
-			}
-		case opts["spammy"].(bool):
-			log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
-			spammy, err := toggleSpammy(message.Chat.ID)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to toggle spammy")
-				g.notify(t.ERROR, t.T{"Err": err.Error()})
-				break
-			}
-
-			g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
-		case opts["coinflips"].(bool):
-			log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
-			enabled, err := toggleCoinflips(message.Chat.ID)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to toggle coinflips")
-				g.notify(t.ERROR, t.T{"Err": err.Error()})
-				break
-			}
-
-			g.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
-		case opts["language"].(bool):
-			if lang, err := opts.String("<lang>"); err == nil {
-				log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
-				err := setLanguage(message.Chat.ID, lang)
-				if err != nil {
-					log.Warn().Err(err).Msg("failed to toggle language")
-					u.notify(t.ERROR, t.T{"Err": err.Error()})
-					break
-				}
-				g.notify(t.LANGUAGEMSG, t.T{"Language": lang})
-			} else {
-				g.notify(t.LANGUAGEMSG, t.T{"Language": g.Locale})
-			}
-
-		}
+		}()
 	}
 }
 

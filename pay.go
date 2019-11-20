@@ -5,6 +5,7 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/ln-decodepay/gjson"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -33,11 +34,17 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 
 	if askConfirmation {
 		// decode invoice and show a button for confirmation
-		inv, nodeAlias, err := decodeInvoice(bolt11)
+		inv, err := decodepay_gjson.Decodepay(bolt11)
 		if err != nil {
 			u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
 			return
 		}
+		if inv.Get("code").Int() != 0 {
+			u.notify(t.FAILEDDECODE, t.T{"Err": inv.Get("message").String()})
+			return
+		}
+
+		nodeAlias := getNodeAlias(inv.Get("payee").String())
 
 		amount := int(inv.Get("msatoshi").Int())
 		if amount == 0 {
@@ -46,32 +53,26 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 		}
 
 		hash := inv.Get("payment_hash").String()
-		text := translateTemplate(t.CONFIRMINVOICE, u.Locale, t.T{
+		hashfirstchars := hash[:5]
+		rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, u.Locale),
+					fmt.Sprintf("cancel=%d", u.Id)),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.YES, u.Locale),
+					fmt.Sprintf("pay=%s", hashfirstchars)),
+			),
+		)
+
+		u.notifyWithKeyboard(t.CONFIRMINVOICE, t.T{
 			"Sats":  amount / 1000,
 			"Desc":  escapeHTML(inv.Get("description").String()),
 			"Hash":  hash,
 			"Node":  nodeLink(inv.Get("payee").String()),
 			"Alias": nodeAlias,
-		})
-
-		msgId := sendMessage(u.ChatId, text).MessageID
-
-		hashfirstchars := hash[:5]
-		rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)
-
-		editWithKeyboard(u.ChatId, msgId,
-			text+"\n\n"+translate(t.ASKTOCONFIRM, u.Locale),
-			tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(
-						translate(t.CANCEL, u.Locale),
-						fmt.Sprintf("cancel=%d", u.Id)),
-					tgbotapi.NewInlineKeyboardButtonData(
-						translate(t.YES, u.Locale),
-						fmt.Sprintf("pay=%s", hashfirstchars)),
-				),
-			),
-		)
+		}, &keyboard, 0)
 	} else {
 		err := u.payInvoice(messageId, bolt11)
 		if err != nil {

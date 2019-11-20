@@ -94,7 +94,7 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 	}
 	return user.actuallySendExternalPayment(
 		messageId, orderreq.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.satellite.%s.%d", s.ServiceId, orderreq.UUID, user.Id), map[string]interface{}{},
+		fmt.Sprintf("%s.satellite.%s.%d", s.ServiceId, orderreq.UUID, user.Id),
 		func(
 			u User,
 			messageId int,

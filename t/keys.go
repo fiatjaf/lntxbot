@@ -33,8 +33,9 @@ const (
 	INLINECOINFLIPRESULT = "InlineCoinflipResult"
 	INLINEHIDDENRESULT   = "InlineHiddenResult"
 
-	LNURLINVALID = "LNURLInvalid"
-	LNURLFAIL    = "LNURLFAIL"
+	LNURLUNSUPPORTED = "LnurlUnsupported"
+	LNURLAUTHSUCCESS = "LnurlAuthSuccess"
+	LNURLPAYPROMPT   = "LnurlPayPrompt"
 
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"
@@ -43,7 +44,6 @@ const (
 	PAIDMESSAGE         = "PaidMessage"
 	DBERROR             = "DBError"
 	INSUFFICIENTBALANCE = "InsufficientBalance"
-	TOOSMALLPAYMENT     = "TooSmallPayment"
 
 	PAYMENTRECEIVED      = "PaymentReceived"
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
@@ -53,7 +53,6 @@ const (
 	LANGUAGEMSG         = "LanguageMsg"
 	TICKETMSG           = "TicketMsg"
 	FREEJOIN            = "FreeJoin"
-	ASKTOCONFIRM        = "AskToConfirm"
 
 	HELPINTRO   = "HelpIntro"
 	HELPSIMILAR = "HelpSimilar"
@@ -95,9 +94,10 @@ const (
 	FUNDRAISERECEIVERMSG = "FundraiseReceiverMsg"
 	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
 
-	BLUEWALLETHELP                = "bluewalletHelp"
-	BLUEWALLETPASSWORDUPDATEERROR = "BluewalletPasswordUpdateError"
-	BLUEWALLETCREDENTIALS         = "BluewalletCredentials"
+	BLUEWALLETHELP         = "bluewalletHelp"
+	BLUEWALLETCREDENTIALS  = "BluewalletCredentials"
+	APIPASSWORDUPDATEERROR = "APIPasswordUpdateError"
+	APICREDENTIALS         = "APICredentials"
 
 	HIDEHELP             = "hideHelp"
 	REVEALHELP           = "revealHelp"
@@ -106,7 +106,6 @@ const (
 	HIDDENWITHID         = "HiddenWithId"
 	HIDDENSOURCEMSG      = "HiddenSourceMsg"
 	HIDDENREVEALMSG      = "HiddenRevealMsg"
-	HIDDENSTOREFAIL      = "HiddenStoreFail"
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
@@ -146,6 +145,15 @@ const (
 	FUNDBTCHELP   = "fundbtcHelp"
 	FUNDBTCFAIL   = "fundbtcFail"
 	FUNDBTCFINISH = "fundbtcFinish"
+
+	BITCLOUDSHELP           = "bitcloudsHelp"
+	BITCLOUDSCREATEHEADER   = "BitcloudsCreateHeader"
+	BITCLOUDSCREATED        = "BitcloudsCreated"
+	BITCLOUDSSTOPPEDWAITING = "BitcloudsStoppedWaiting"
+	BITCLOUDSNOHOSTS        = "BitcloudsNoHosts"
+	BITCLOUDSHOSTSHEADER    = "BitcloudsHostsHeader"
+	BITCLOUDSSTATUS         = "BitcloudsStatus"
+	BITCLOUDSREMINDER       = "BitcloudsReminder"
 
 	QIWIHELP             = "qiwiHelp"
 	YANDEXHELP           = "yandexHelp"

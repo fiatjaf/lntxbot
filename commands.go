@@ -29,6 +29,10 @@ var methods = []def{
 		argstr:  "[<tutorial>]",
 	},
 	def{
+		aliases: []string{"lnurl"},
+		argstr:  "<lnurl>",
+	},
+	def{
 		aliases:        []string{"receive", "invoice", "fund"},
 		argstr:         "(lnurl <lnurl> | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
 		inline:         true,
@@ -36,7 +40,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
-		argstr:  "(lnurl [<satoshis>] | [now] [<invoice>])",
+		argstr:  "(lnurl <satoshis> | [now] [<invoice>])",
 	},
 	def{
 		aliases: []string{"send", "tip", "sendanonymously"},
@@ -103,6 +107,10 @@ var methods = []def{
 		argstr:  "<satoshis>",
 	},
 	def{
+		aliases: []string{"bitclouds"},
+		argstr:  "[create | status [<host>] | topup <satoshis> [<host>] | adopt <host> | abandon <host>]",
+	},
+	def{
 		// lntorub
 		aliases: []string{"qiwi"},
 		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
@@ -133,6 +141,10 @@ var methods = []def{
 	def{
 		aliases: []string{"sats4ads"},
 		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
+	},
+	def{
+		aliases: []string{"api"},
+		argstr:  "[full | invoice | readonly | url | refresh]",
 	},
 	def{
 		aliases: []string{"bluewallet", "lndhub"},

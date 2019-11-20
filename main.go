@@ -12,10 +12,12 @@ import (
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
+	"github.com/tidwall/gjson"
 	"gopkg.in/redis.v5"
 )
 
@@ -46,6 +48,8 @@ type Settings struct {
 	TutorialWalletVideoId string `envconfig:"TUTORIAL_WALLET_VIDEO_ID"`
 	TutorialBlueVideoId   string `envconfig:"TUTORIAL_BLUE_VIDEO_ID"`
 
+	Banned map[int]bool `envconfig:"BANNED"`
+
 	NodeId string
 	Usage  string
 }
@@ -57,6 +61,8 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var router = mux.NewRouter()
+var waitingInvoices = make(map[string][]chan gjson.Result)
 var bundle t.Bundle
 
 func main() {
@@ -131,22 +137,8 @@ func main() {
 	}
 	ln.ListenForInvoices()
 
-	// bot stuff
-	_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
-	if err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
-	info, err := bot.GetWebhookInfo()
-	if err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
-	if info.LastErrorDate != 0 {
-		log.Debug().Str("err", info.LastErrorMessage).Msg("telegram callback failed")
-	}
-	updates := bot.ListenForWebhook("/" + bot.Token)
-
 	// handle QR code requests from telegram
-	http.HandleFunc("/qr/", func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[3:]
 		if strings.HasPrefix(path, "/tmp/") && strings.HasSuffix(path, ".png") {
 			http.ServeFile(w, r, path)
@@ -156,7 +148,7 @@ func main() {
 	})
 
 	// lndhub-compatible routes
-	serveBlueWallet()
+	registerAPIMethods()
 
 	// lnurl routes
 	serveLNURL()
@@ -168,12 +160,20 @@ func main() {
 	serveBitrefillWebhook()
 	go cancelAllLNToRubOrders()
 	go initializeBitrefill()
+	go bitcloudsCheckingRoutine()
 
 	// random assets
-	http.Handle("/static/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
+	router.PathPrefix("/static/").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
 
 	// start http server
-	go http.ListenAndServe("0.0.0.0:"+s.Port, nil)
+	srv := &http.Server{
+		Handler: router,
+		Addr:    "0.0.0.0:" + s.Port,
+		// Good practice: enforce timeouts for servers you create!
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+	go srv.ListenAndServe()
 
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()
@@ -181,7 +181,22 @@ func main() {
 	// dispatch kick job for pending users
 	startKicking()
 
+	// bot stuff
+	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
+	if err != nil || lastTelegramUpdate < 10 {
+		log.Fatal().Err(err).Int64("got", lastTelegramUpdate).Msg("failed to get lasttelegramupdate from redis")
+		return
+	}
+
+	u := tgbotapi.NewUpdate(int(lastTelegramUpdate + 1))
+	u.Timeout = 60
+	updates, err := bot.GetUpdatesChan(u)
+	if err != nil {
+		log.Error().Err(err).Msg("telegram getupdates fail")
+	}
 	for update := range updates {
+		lastTelegramUpdate = int64(update.UpdateID)
+		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
 		handle(update)
 	}
 }

@@ -28,14 +28,25 @@ var EN = map[Key]string{
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
 
-	LNURLINVALID: "Invalid lnurl: {{.Err}}",
-	LNURLFAIL:    "Failed to fulfill lnurl withdraw: {{.Err}}",
+	LNURLUNSUPPORTED: "That kind of lnurl is not supported here.",
+	LNURLAUTHSUCCESS: `
+lnurl-auth success!
+
+<b>domain</b>: <i>{{.Host}}</i>
+<b>key</b>: <i>{{.PublicKey}}</i>
+`,
+	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.3f"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.3f"}}</i> and <i>{{.Max | printf "%.3f"}} sat</i>{{end}} for the following:
+
+{{if .Text}}<code>{{.Text}}</code>{{else if .HTML}}{{.HTML}}{{end}}
+
+{{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
+    `,
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
 	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{.Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
+	PAIDMESSAGE: `Paid with <b>{{printf "%.3f" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}
@@ -43,7 +54,6 @@ var EN = map[Key]string{
 /tx{{.ShortHash}}`,
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
-	TOOSMALLPAYMENT:     "That's too small, please start your {{.Purpose}} with at least 40 sat.",
 
 	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
@@ -53,7 +63,6 @@ var EN = map[Key]string{
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
 	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:            "This group is now free to join.",
-	ASKTOCONFIRM:        "Pay the invoice described above?",
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -154,8 +163,21 @@ Have contributed: {{.Registered}}
 /bluewallet prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
 /bluewallet_refresh erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
     `,
-	BLUEWALLETPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
-	BLUEWALLETCREDENTIALS:         "<code>{{.Credentials}}</code>",
+	BLUEWALLETCREDENTIALS:  "<code>{{.Credentials}}</code>",
+	APIPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
+	APICREDENTIALS: `
+These are tokens for <i>Basic Auth</i>. The API is compatible with lndhub.io with some extra methods.
+
+Full access: <code>{{.Full}}</code>
+Invoice access: <code>{{.Invoice}}</code>
+Read-only access: <code>{{.ReadOnly}}</code>
+API Base URL: <code>{{.ServiceURL}}/</code>
+
+/api_full, /api_invoice and /api_readonly will show these specific tokens along with QR codes.
+/api_url will show a QR code for the API Base URL.
+
+Keep these tokens secret. If they leak for some reason call /api_refresh to replace all.
+    `,
 
 	HIDEHELP: `Hides a message so it can be unlocked later with a payment. The special character "~" is used to split the message into a preview and the actual message ("click here to see a secret! ~ this is the secret.")
 
@@ -182,7 +204,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.",
 	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You've got {{.Sats}} sat.",
 	HIDDENREVEALMSG:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
-	HIDDENSTOREFAIL:      "Failed to store hidden content. Please report: {{.Err}}",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
@@ -218,7 +239,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
-/microbet_bet displays all open bet markets so you can yours.
+/microbet displays all open bet markets so you can yours.
 /microbet_bets shows your bet history.
 /microbet_balance displays your balance.
 /microbet_withdraw withdraws all your balance.
@@ -279,6 +300,52 @@ The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a 
 Provided by <a href="https://golightning.club/">golightning.club</a>, this is the cheapest way to get your on-chain funds to Lightning, at just 99 satoshi per order. First you specify how much you want to receive, then you send money plus fees to the provided BTC address. Done.
 
 /fundbtc_1000000 creates an order to transfer 0.01000000 BTC from an on-chain address to your bot balance.
+    `,
+
+	BITCLOUDSHELP: `
+<a href="https://bitclouds.sh">bitclouds.sh</a> is a programmable VPS platform specialized in Bitcoin stuff. You can get normal VPSes, dedicated Bitcoin Core or batteries-included c-lightning instances all for 66 sat/h. There's no cheaper price than this and no excuses for not having your own Lightning node or not running your Bitcoin or Lightning app!
+
+/bitclouds will let you see status for your active hosts.
+/bitclouds_create will prompt your with the available images to create a host.
+<code>/bitclouds topup &lt;sats&gt;</code> will topup your host or prompt you if you have more than one.
+
+Also @{{.BotName}} will remind you to topup your hosts when they're running low on hour balance.
+    `,
+	BITCLOUDSCREATEHEADER: "<b>[bitclouds]</b> Choose your image:",
+	BITCLOUDSCREATED: `<b>[bitclouds]</b> Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
+{{with .Status}}
+  {{if .SSHPwd}}<b>ssh access:</b>
+  <pre>ssh-copy-id -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}
+# type password: {{.SSHPwd}}
+ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
+  {{with .Sparko}}<b>Visit your <a href="{{.}}">Spark wallet</a> or call c-lightning RPC from the external world:</b>
+<b>Call c-lightning RPC from the external world:</b>
+  <pre>curl -kX POST {{.}}/rpc -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</pre>{{end}}
+  {{if .RPCPwd}}<b>Call Bitcoin Core RPC:</b>
+  <pre>bitcoin-cli -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</pre>{{end}}
+  Hours left in balance: <b>{{.HoursLeft}}</b>
+{{end}}
+    `,
+	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Timed out while waiting for your bitclouds.sh host to be ready, call /bitclouds_status_{{.Host}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
+	BITCLOUDSNOHOSTS:        "<b>[bitclouds]</b> No hosts found in your account. Maybe you want to /bitclouds_create one?",
+	BITCLOUDSHOSTSHEADER:    "<b>[bitclouds]</b> Choose your host:",
+	BITCLOUDSSTATUS: `<b>[bitclouds]</b> Host <code>{{.Host}}</code>:
+{{with .Status}}
+  Status: <i>Subscribed</i>
+  Balance: <i>{{.HoursLeft}} hours left</i>
+  IP: <code>{{.IP}}</code>
+  {{if .UserPort }}App port: <code>{{.UserPort}}</code>
+  {{end}}{{if .SSHPort}}SSH: <code>ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</code>
+  {{end}}{{with .Sparko}}<a href="{{.}}">Sparko</a>: <code>curl -X POST {{.}}/rpc -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
+  {{end}}{{if .RPCPwd}}Bitcoin Core: <code>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</code>
+  {{end}}
+{{end}}
+    `,
+	BITCLOUDSREMINDER: `<b>[bitclouds]</b> {{if .Alarm}}⚠{{else}}⏰{{end}} Bitclouds host <code>{{.Host}}</code> is going to expire in {{if .Alarm}}<b>{{.TimeToExpire}}</b> and <i>everything is going to be deleted</i>!{{else}}{{.TimeToExpire}}.{{end}}
+
+{{if .Alarm}}⚠⚠⚠⚠⚠
+
+{{end}}Use /bitclouds_topup_{{.Sats}}_{{.Host}} to give it one week more!
     `,
 
 	QIWIHELP: `
@@ -408,11 +475,11 @@ By playing from an account tied to your @{{ .BotName }} balance you can just sit
 	SATS4ADSHELP: `
 Sats4ads is an ad marketplace on Telegram. Pay money to show ads to others, receive money for each ad you see.
 
-Rates for each user are in msatoshi-per-character.
+Rates for each user are in msatoshi-per-character. The maximum rate is 1000 msat.
 Each ad also includes a fixed fee of 1 sat.
 Images and videos are priced as if they were 300 characters.
 
-To broadcast an ad you must send a message to the bot that will be your ad contents, then reply to it using <code>/sats4ads broadcast ...</code> as described.
+To broadcast an ad you must send a message to the bot that will be your ad contents, then reply to it using <code>/sats4ads broadcast ...</code> as described. You can use <code>--max-rate=500</code> and <code>--skip=0</code> to have better control over how your message is going to be broadcasted. These are the defaults.
 
 /sats4ads_on_15 puts your account in ad-listening mode. Anyone will be able to publish messages to you for 15 msatoshi-per-character. You can adjust that price.
 /sats4ads_off turns off your account so you won't get any more ads.
@@ -439,6 +506,8 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 <i>{{.Desc}}</i>
 <b>Hash</b>: {{.Hash}}
 <b>Node</b>: {{.Node}} ({{.Alias}})
+
+Pay the invoice described above?
     `,
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
@@ -531,12 +600,13 @@ Thanks to some background magic we have in place you can seamlessly interact wit
 
 These are the services we currently support:
 
-⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
+☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
+⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
+♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
 🧱 /paywall -- create paywalls on paywall.link, get notified whenever someone pays, withdraw easily. /help_paywall
 🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
 📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite
-♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
 🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
 📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise
