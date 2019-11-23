@@ -99,14 +99,15 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		buttonData := rds.Get("giveaway:" + params[2]).Val()
+		giveId := params[2]
+		buttonData := rds.Get("giveaway:" + giveId).Val()
 		if buttonData != cb.Data {
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translateTemplate(t.CALLBACKEXPIRED, locale, t.T{"BotOp": "Giveaway"}))
 			goto answerEmpty
 		}
-		if err = rds.Del("giveaway:" + params[2]).Err(); err != nil {
-			log.Warn().Err(err).Str("id", params[2]).
+		if err = rds.Del("giveaway:" + giveId).Err(); err != nil {
+			log.Warn().Err(err).Str("id", giveId).
 				Msg("error deleting giveaway check from redis")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Giveaway"}))
@@ -129,7 +130,15 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		claimer := u
 
-		errMsg, err := giver.sendInternally(messageId, claimer, false, sats*1000, "", "giveaway")
+		errMsg, err := giver.sendInternally(
+			messageId,
+			claimer,
+			false,
+			sats*1000,
+			"",
+			calculateHash(giveId),
+			"giveaway",
+		)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
 			claimer.alert(cb, t.ERROR, t.T{"Err": errMsg})
@@ -394,14 +403,22 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				loserNames = append(loserNames, loser.AtName())
 			}
 
-			errMsg, err := giver.sendInternally(messageId, winner, false, sats*1000, "", "giveflip")
+			removeKeyboardButtons(cb)
+			errMsg, err := giver.sendInternally(
+				messageId,
+				winner,
+				false,
+				sats*1000,
+				"",
+				calculateHash(giveflipid),
+				"giveflip",
+			)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to giveflip")
 				winner.notify(t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": errMsg})
 				goto answerEmpty
 			}
 
-			removeKeyboardButtons(cb)
 			winner.notify(t.USERSENTYOUSATS, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip"})
 
 			bot.Send(tgbotapi.EditMessageTextConfig{

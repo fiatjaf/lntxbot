@@ -614,6 +614,7 @@ func (u User) sendInternally(
 	anonymous bool,
 	msats int,
 	desc string,
+	hash string,
 	tag string,
 ) (string, error) {
 	if target.Id == u.Id || target.Username == u.Username || target.TelegramId == u.TelegramId {
@@ -628,6 +629,7 @@ func (u User) sendInternally(
 	var (
 		descn = sql.NullString{String: desc, Valid: desc != ""}
 		tagn  = sql.NullString{String: tag, Valid: tag != ""}
+		hashn = sql.NullString{String: hash, Valid: hash != ""}
 	)
 
 	txn, err := pg.Beginx()
@@ -639,9 +641,21 @@ func (u User) sendInternally(
 	var balance int64
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, anonymous, amount, description, tag, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, target.Id, anonymous, msats, descn, tagn, messageId)
+  (from_id, to_id, anonymous, amount, description, tag, payment_hash, trigger_message)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6,
+  CASE WHEN $7::text IS NOT NULL
+    THEN $7::text
+    ELSE md5(random()::text) || md5(random()::text)
+  END,
+  $8
+)
+    `, u.Id, target.Id, anonymous, msats, descn, tagn, hashn, messageId)
 	if err != nil {
 		return "Database error.", err
 	}
