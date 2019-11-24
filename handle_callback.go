@@ -85,12 +85,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
 		if val, err := rds.Get(key).Result(); err == nil {
 			data := gjson.Parse(val)
-			handleLNURLPayConfirmation(u,
-				msats,
-				data.Get("url").String(),
-				data.Get("h").String(),
-				cb.Message.MessageID,
-			)
+			handleLNURLPayConfirmation(u, msats, data, cb.Message.MessageID)
 		}
 		return
 	case strings.HasPrefix(cb.Data, "give="):

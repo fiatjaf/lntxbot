@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
@@ -9,7 +10,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi.Message) {
+func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi.Message) (paid bool, err error) {
 	// pay invoice flow
 	askConfirmation := true
 	if opts["now"].(bool) {
@@ -23,11 +24,11 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 			bolt11, _, ok = searchForInvoice(u, *replyToMessage)
 			if !ok || bolt11 == "" {
 				u.notify(t.NOINVOICE, nil)
-				return
+				return false, errors.New("invalid invoice")
 			}
 		}
 		u.notify(t.NOINVOICE, nil)
-		return
+		return false, errors.New("invalid invoice")
 	} else {
 		bolt11 = ibolt11.(string)
 	}
@@ -37,11 +38,11 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 		inv, err := decodepay_gjson.Decodepay(bolt11)
 		if err != nil {
 			u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
-			return
+			return false, err
 		}
 		if inv.Get("code").Int() != 0 {
 			u.notify(t.FAILEDDECODE, t.T{"Err": inv.Get("message").String()})
-			return
+			return false, err
 		}
 
 		nodeAlias := getNodeAlias(inv.Get("payee").String())
@@ -49,7 +50,7 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 		amount := int(inv.Get("msatoshi").Int())
 		if amount == 0 {
 			u.notify(t.ZEROAMOUNTINVOICE, nil)
-			return
+			return false, err
 		}
 
 		hash := inv.Get("payment_hash").String()
@@ -73,11 +74,14 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 			"Node":  nodeLink(inv.Get("payee").String()),
 			"Alias": nodeAlias,
 		}, &keyboard, 0)
+		return false, nil
 	} else {
 		err := u.payInvoice(messageId, bolt11)
 		if err != nil {
 			u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+			return false, err
 		}
+		return true, nil
 	}
 }
 

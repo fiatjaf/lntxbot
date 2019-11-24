@@ -20,6 +20,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
 	"github.com/skip2/go-qrcode"
+	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -136,15 +137,6 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 					Text: translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata),
 				}
 				chattable = message
-			case "text/html":
-				tmpldata["HTML"] = pair[1]
-				message := tgbotapi.MessageConfig{
-					BaseChat:              baseChat,
-					ParseMode:             "HTML",
-					DisableWebPagePreview: true,
-					Text: translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata),
-				}
-				chattable = message
 			}
 		}
 
@@ -154,13 +146,13 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			return
 		}
 
-		key := fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID)
 		data, _ := json.Marshal(struct {
-			Type            string `json:"type"`
-			DescriptionHash string `json:"h"`
-			URL             string `json:"url"`
-		}{"lnurlpay", calculateHash(params.EncodedMetadata), params.Callback})
-		rds.Set(key, data, time.Hour*1)
+			Type     string `json:"type"`
+			Metadata string `json:"metadata"`
+			URL      string `json:"url"`
+			LNURL    string `json:"lnurl"`
+		}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
+		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 	default:
 		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, messageId)
 	}
@@ -168,7 +160,12 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 	return
 }
 
-func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptionHash string, messageId int) {
+func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageId int) {
+	// get data from redis object
+	callback := data.Get("url").String()
+	metadata := data.Get("metadata").String()
+	encodedLnurl := data.Get("lnurl").String()
+
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
 	_, err = napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
@@ -188,7 +185,7 @@ func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptio
 		return
 	}
 
-	if decoded.Get("description_hash").String() != descriptionHash {
+	if decoded.Get("description_hash").String() != calculateHash(metadata) {
 		u.notify(t.ERROR, t.T{"Err": "Got invoice with wrong description_hash"})
 		return
 	}
@@ -199,12 +196,30 @@ func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptio
 	}
 
 	// pay it
-	opts := docopt.Opts{
-		"pay":       true,
-		"<invoice>": res.PR,
-		"now":       true,
+	err = u.payInvoice(messageId, res.PR)
+	if err == nil {
+		// paid lnurl-pay successfully.
+
+		// notify user with success action with applicable
+		CallbackURL, _ := url.Parse(callback)
+		if res.SuccessAction.Tag == "message" || res.SuccessAction.Tag == "url" {
+			u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
+				"Domain":        CallbackURL.Host,
+				"SuccessAction": res.SuccessAction,
+			}, messageId)
+		}
+
+		// and with raw metadata always, for later checking with the description_hash
+		file := tgbotapi.NewDocumentUpload(u.ChatId, []byte(metadata))
+		file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
+			"Domain":         CallbackURL.Host,
+			"LNURL":          encodedLnurl,
+			"Hash":           decoded.Get("payment_hash").String(),
+			"HashFirstChars": decoded.Get("payment_hash").String()[:5],
+		})
+		file.ParseMode = "HTML"
+		bot.Send(file)
 	}
-	handlePay(u, opts, messageId, nil)
 }
 
 func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded string) {

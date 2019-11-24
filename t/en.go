@@ -37,9 +37,19 @@ lnurl-auth success!
 `,
 	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.3f"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.3f"}}</i> and <i>{{.Max | printf "%.3f"}} sat</i>{{end}} for the following:
 
-{{if .Text}}<code>{{.Text}}</code>{{else if .HTML}}{{.HTML}}{{end}}
+{{if .Text}}<code>{{.Text | html}}</code>{{end}}
 
 {{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
+    `,
+	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
+
+{{.SuccessAction.Description | html}}
+{{if eq .SuccessAction.Tag "url"}}<a href="{{.SuccessAction.Data}}">{{.SuccessAction.Data}}</a>{{end}}
+    `,
+	LNURLPAYMETADATA: `lnurl-pay metadata:
+<b>domain</b>: <i>{{.Domain}}</i>
+<b>lnurl</b>: <i>{{.LNURL}}</i> /lnurl_{{.LNURL}}
+<b>transaction</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
     `,
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",

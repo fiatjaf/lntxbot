@@ -36,6 +36,8 @@ const (
 	LNURLUNSUPPORTED = "LnurlUnsupported"
 	LNURLAUTHSUCCESS = "LnurlAuthSuccess"
 	LNURLPAYPROMPT   = "LnurlPayPrompt"
+	LNURLPAYSUCCESS  = "LnurlPaySuccess"
+	LNURLPAYMETADATA = "LnurlPayMetadata"
 
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"

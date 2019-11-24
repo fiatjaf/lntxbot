@@ -334,7 +334,12 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
 	amount := inv.Get("msatoshi").Int()
-	desc := inv.Get("description").String()
+	var desc string
+	if inv.Get("description_hash").Exists() {
+		desc = "h: " + inv.Get("description_hash").String()
+	} else {
+		desc = inv.Get("description").String()
+	}
 	hash := inv.Get("payment_hash").String()
 
 	if amount == 0 {
