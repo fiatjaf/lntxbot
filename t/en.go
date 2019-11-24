@@ -48,7 +48,7 @@ lnurl-auth success!
     `,
 	LNURLPAYMETADATA: `lnurl-pay metadata:
 <b>domain</b>: <i>{{.Domain}}</i>
-<b>lnurl</b>: <i>{{.LNURL}}</i> /lnurl_{{.LNURL}}
+<b>lnurl</b>: <i>{{.LNURL}}</i>
 <b>transaction</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
     `,
 

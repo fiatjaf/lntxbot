@@ -224,7 +224,7 @@ func canJoinGiveflip(joinerId int) bool {
 SELECT count(*)
 FROM lightning.account_txn
 WHERE account_id = $1
-  AND description = 'giveflip'
+  AND tag = 'giveflip'
   AND time > 'now'::timestamp - make_interval(days := $2)
     `, joinerId, s.GiveflipAvgDays)
 
@@ -291,7 +291,7 @@ func canJoinCoinflip(joinerId int) bool {
 SELECT count(*)
 FROM lightning.account_txn
 WHERE account_id = $1
-  AND description = 'coinflip'
+  AND tag = 'coinflip'
   AND time > 'now'::timestamp - make_interval(days := $2)
     `, joinerId, s.CoinflipAvgDays)
 

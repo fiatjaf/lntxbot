@@ -210,7 +210,17 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 		}
 
 		// and with raw metadata always, for later checking with the description_hash
-		file := tgbotapi.NewDocumentUpload(u.ChatId, []byte(metadata))
+		file := tgbotapi.DocumentConfig{
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
+				File: tgbotapi.FileBytes{
+					Name:  encodedLnurl + ".json",
+					Bytes: []byte(metadata),
+				},
+				MimeType:    "text/json",
+				UseExisting: false,
+			},
+		}
 		file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
 			"Domain":         CallbackURL.Host,
 			"LNURL":          encodedLnurl,
