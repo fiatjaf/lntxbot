@@ -194,10 +194,9 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		joiner := u
 
 		if !canJoinCoinflip(joiner.Id) {
-			u.alert(cb, t.COINFLIPOVERQUOTA, nil)
+			u.alert(cb, t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-
 		if !joiner.checkBalanceFor(sats, "coinflip", cb) {
 			goto answerEmpty
 		}
@@ -315,6 +314,10 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		joiner := u
 
+		if !canJoinGiveflip(joiner.Id) {
+			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
+			return
+		}
 		if joiner.Id == giverId {
 			// giver can't join
 			u.alert(cb, t.GIVERCANTJOIN, nil)

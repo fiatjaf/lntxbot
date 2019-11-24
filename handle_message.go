@@ -12,7 +12,7 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
-	lnurl "github.com/fiatjaf/go-lnurl"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 	"github.com/skip2/go-qrcode"
@@ -372,6 +372,14 @@ parsed:
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
+		if !canCreateGiveflip(u.Id) {
+			u.notify(t.RATELIMIT, nil)
+			return
+		}
+		if !canJoinGiveflip(u.Id) {
+			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
+			return
+		}
 		if !u.checkBalanceFor(sats, "giveflip", nil) {
 			break
 		}
@@ -417,15 +425,13 @@ parsed:
 		}
 
 		if !canCreateCoinflip(u.Id) {
-			u.notify(t.COINFLIPRATELIMIT, nil)
+			u.notify(t.RATELIMIT, nil)
 			return
 		}
-
 		if !canJoinCoinflip(u.Id) {
-			u.notify(t.COINFLIPOVERQUOTA, nil)
+			u.notify(t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-
 		if !u.checkBalanceFor(sats, "coinflip", nil) {
 			break
 		}

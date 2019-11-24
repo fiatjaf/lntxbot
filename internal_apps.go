@@ -205,6 +205,43 @@ func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, local
 	}
 }
 
+func canCreateGiveflip(initiatorId int) bool {
+	didagivefliprecently, err := rds.Exists(fmt.Sprintf("recentgiveflip:%d", initiatorId)).Result()
+	if err != nil {
+		log.Warn().Err(err).Int("initiator", initiatorId).Msg("failed to check recentgiveflip:")
+		return false
+	}
+	if didagivefliprecently {
+		return false
+	}
+
+	return true
+}
+
+func canJoinGiveflip(joinerId int) bool {
+	var ngiveflipsjoined int
+	err := pg.Get(&ngiveflipsjoined, `
+SELECT count(*)
+FROM lightning.account_txn
+WHERE account_id = $1
+  AND description = 'giveflip'
+  AND time > 'now'::timestamp - make_interval(days := $2)
+    `, joinerId, s.GiveflipAvgDays)
+
+	if err != nil {
+		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ngiveflips in last 24h")
+		return false
+	}
+
+	// since we are not taking into account all giveflips that may be opened right now
+	// we'll consider a big time period so the user participation is averaged over time
+	// for example, if he joins 15 giveflips today but the quota is 5 it will be ok
+	// but then he will be unable to join any for the next 3 day.
+	periodQuota := s.GiveflipDailyQuota * s.GiveflipAvgDays
+
+	return ngiveflipsjoined < periodQuota
+}
+
 // coinflip
 func coinflipKeyboard(
 	coinflipid string,

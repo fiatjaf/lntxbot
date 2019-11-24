@@ -46,6 +46,8 @@ const (
 	PAIDMESSAGE         = "PaidMessage"
 	DBERROR             = "DBError"
 	INSUFFICIENTBALANCE = "InsufficientBalance"
+	RATELIMIT           = "RateLimit"
+	OVERQUOTA           = "OverQuota"
 
 	PAYMENTRECEIVED      = "PaymentReceived"
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
@@ -80,8 +82,6 @@ const (
 	COINFLIPGIVERMSG  = "CoinflipGiverMsg"
 	COINFLIPAD        = "CoinflipAd"
 	COINFLIPJOIN      = "CoinflipJoin"
-	COINFLIPOVERQUOTA = "CoinflipOverQuota"
-	COINFLIPRATELIMIT = "CoinflipRateLimit"
 
 	GIVEFLIPHELP      = "giveflipHelp"
 	GIVEFLIPMSG       = "GiveFlipMsg"

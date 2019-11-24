@@ -62,6 +62,8 @@ lnurl-auth success!
 <b>Proof:</b> {{.Preimage}}{{end}}
 
 /tx{{.ShortHash}}`,
+	OVERQUOTA:           "You're over your {{.App}} daily quota.",
+	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 
@@ -141,8 +143,6 @@ Lists all your transactions with pagination controls. Each transaction has a lin
 	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spot{{s .SpotsLeft}} left!",
 	COINFLIPJOIN:           "Join lottery!",
 	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
-	COINFLIPOVERQUOTA:      "You're over your coinflip daily quota.",
-	COINFLIPRATELIMIT:      "Please wait 30 minutes before creating a new coinflip.",
 
 	GIVEFLIPHELP: `Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.
 
