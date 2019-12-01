@@ -1,5 +1,5 @@
 bot: $(shell find . -name "*.go") bindata.go
-	go build -o ./bot
+	gox -osarch="freebsd/amd64" -output ./bot
 
 bindata.go: poker $(shell find templates)
 	go-bindata -ignore=node_modules static/... templates/...

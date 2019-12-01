@@ -12,9 +12,11 @@ import (
 	"github.com/arschles/go-bindata-html-template"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
@@ -70,6 +72,27 @@ var waitingInvoices = make(map[string][]chan gjson.Result)
 var bundle t.Bundle
 
 func main() {
+	p := plugin.Plugin{
+		Name:    "lnurl",
+		Version: "v1.0",
+		Options: []plugin.Option{},
+		Subscriptions: []plugin.Subscription{
+			{
+				"invoice_payment",
+				func(p *plugin.Plugin, params plugin.Params) {
+					label := params["invoice_payment"].(map[string]interface{})["label"].(string)
+					log.Print("got payment ", label)
+				},
+			},
+		},
+		OnInit: server,
+	}
+
+	p.Run()
+}
+
+func server(p *plugin.Plugin) {
+	godotenv.Load("/home/lightning/lntxbot/prod.env")
 	err = envconfig.Process("", &s)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
