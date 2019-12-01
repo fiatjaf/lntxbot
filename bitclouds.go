@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
@@ -89,9 +91,10 @@ func createBitcloudImage(user User, image string) (err error) {
 						}
 
 						u.notifyAsReply(t.BITCLOUDSCREATED, t.T{
-							"Image":  image,
-							"Host":   create.Host,
-							"Status": status,
+							"Image":       image,
+							"Host":        create.Host,
+							"EscapedHost": escapeBitcloudsHost(create.Host),
+							"Status":      status,
 						}, messageId)
 						return
 					} else {
@@ -101,7 +104,8 @@ func createBitcloudImage(user User, image string) (err error) {
 				}
 
 				u.notify(t.BITCLOUDSSTOPPEDWAITING, t.T{
-					"Host": create.Host,
+					"Host":        create.Host,
+					"EscapedHost": escapeBitcloudsHost(create.Host),
 				})
 			}()
 		},
@@ -184,8 +188,9 @@ func showBitcloudStatus(user User, host string) {
 	}
 
 	user.notify(t.BITCLOUDSSTATUS, t.T{
-		"Host":   host,
-		"Status": status,
+		"Host":        host,
+		"EscapedHost": escapeBitcloudsHost(host),
+		"Status":      status,
 	})
 }
 
@@ -235,7 +240,7 @@ func bitcloudsHostsKeyboard(user User, data string) (noHosts bool, singleHost st
 		inlinekeyboard[i/2] = append(inlinekeyboard[i/2],
 			tgbotapi.NewInlineKeyboardButtonData(
 				host,
-				fmt.Sprintf("x=bitclouds-%s-%s", data, host),
+				fmt.Sprintf("x=bitclouds-%s-%s", data, escapeBitcloudsHost(host)),
 			),
 		)
 	}
@@ -300,6 +305,7 @@ WHERE id = $1
 				user.notify(t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
 					"Host":         host,
+					"EscapedHost":  escapeBitcloudsHost(host),
 					"TimeToExpire": "2 weeks",
 					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
 				})
@@ -308,6 +314,7 @@ WHERE id = $1
 				user.notify(t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
 					"Host":         host,
+					"EscapedHost":  escapeBitcloudsHost(host),
 					"TimeToExpire": "1 week",
 					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
 				})
@@ -316,6 +323,7 @@ WHERE id = $1
 				user.notify(t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
 					"Host":         host,
+					"EscapedHost":  escapeBitcloudsHost(host),
 					"TimeToExpire": "3 days",
 					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
 				})
@@ -324,10 +332,21 @@ WHERE id = $1
 				user.notify(t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        true,
 					"Host":         host,
+					"EscapedHost":  escapeBitcloudsHost(host),
 					"TimeToExpire": fmt.Sprintf("%dh", status.HoursLeft),
 					"Sats":         BITCLOUDSHOURPRICESATS * 24 * 7,
 				})
 			}
 		}
 	}
+}
+
+func escapeBitcloudsHost(host string) string {
+	return strings.Replace(host, "-", "", -1)
+}
+
+var bitcloudsUnescaper = regexp.MustCompile(`^([a-zA-Z]+)(\d+)$`)
+
+func unescapeBitcloudsHost(ehost string) string {
+	return bitcloudsUnescaper.ReplaceAllString(ehost, "$1-$2")
 }

@@ -211,6 +211,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			host, err := opts.String("<host>")
 			if err == nil {
 				// host provided
+				host = unescapeBitcloudsHost(host)
 				topupBitcloud(u, host, satoshis)
 			} else {
 				// host not provided, display options
@@ -232,7 +233,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 			}
 		case opts["adopt"].(bool), opts["abandon"].(bool):
-			host := opts["<host>"].(string)
+			host := unescapeBitcloudsHost(opts["<host>"].(string))
 			var data BitcloudsData
 			err := u.getAppData("bitclouds", &data)
 			if err != nil {
@@ -261,6 +262,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			host, err := opts.String("<host>")
 			if err == nil {
 				// host provided
+				host = unescapeBitcloudsHost(host)
 				showBitcloudStatus(u, host)
 			} else {
 				// host not provided, display options
@@ -812,12 +814,12 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 			appendTextToMessage(cb, image)
 		case "status":
-			host := strings.Join(parts[2:], "-")
+			host := unescapeBitcloudsHost(parts[2])
 			appendTextToMessage(cb, host)
 			showBitcloudStatus(u, host)
 		default: // sats to topup
 			sats, err := strconv.Atoi(parts[1])
-			host := strings.Join(parts[2:], "-")
+			host := unescapeBitcloudsHost(parts[2])
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return

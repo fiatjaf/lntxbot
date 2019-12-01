@@ -336,7 +336,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   Hours left in balance: <b>{{.HoursLeft}}</b>
 {{end}}
     `,
-	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Timed out while waiting for your bitclouds.sh host to be ready, call /bitclouds_status_{{.Host}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
+	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Timed out while waiting for your bitclouds.sh host <code>{{.Host}}</code> to be ready, call /bitclouds_status_{{.EscapedHost}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
 	BITCLOUDSNOHOSTS:        "<b>[bitclouds]</b> No hosts found in your account. Maybe you want to /bitclouds_create one?",
 	BITCLOUDSHOSTSHEADER:    "<b>[bitclouds]</b> Choose your host:",
 	BITCLOUDSSTATUS: `<b>[bitclouds]</b> Host <code>{{.Host}}</code>:
@@ -355,7 +355,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 
 {{if .Alarm}}⚠⚠⚠⚠⚠
 
-{{end}}Use /bitclouds_topup_{{.Sats}}_{{.Host}} to give it one week more!
+{{end}}Use /bitclouds_topup_{{.Sats}}_{{.EscapedHost}} to give it one week more!
     `,
 
 	QIWIHELP: `
