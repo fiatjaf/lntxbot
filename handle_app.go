@@ -812,12 +812,12 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 			appendTextToMessage(cb, image)
 		case "status":
-			host := parts[2]
+			host := strings.Join(parts[2:], "-")
 			appendTextToMessage(cb, host)
 			showBitcloudStatus(u, host)
 		default: // sats to topup
-			host := parts[2]
 			sats, err := strconv.Atoi(parts[1])
+			host := strings.Join(parts[2:], "-")
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return

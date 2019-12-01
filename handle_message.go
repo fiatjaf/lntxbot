@@ -12,6 +12,7 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 	"github.com/skip2/go-qrcode"
@@ -222,32 +223,6 @@ parsed:
 				"ServiceURL": s.ServiceURL,
 			})
 		}
-	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		go func() {
-			sats, err := opts.Int("<satoshis>")
-			if err != nil {
-				handleHelp(u, "receive")
-				return
-			}
-
-			desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
-
-			var preimage string
-			if param, ok := opts["--preimage"]; ok {
-				preimage, _ = param.(string)
-			}
-
-			bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, "", false)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to generate invoice")
-				u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
-				return
-			}
-
-			// send invoice with qr code
-			sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
-		}()
-		break
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
 		var defaultNotify func(t.Key, t.T)
@@ -334,6 +309,7 @@ parsed:
 			sats*1000,
 			extra,
 			"",
+			"",
 		)
 		if err != nil {
 			log.Warn().Err(err).
@@ -396,6 +372,14 @@ parsed:
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
+		if !canCreateGiveflip(u.Id) {
+			u.notify(t.RATELIMIT, nil)
+			return
+		}
+		if !canJoinGiveflip(u.Id) {
+			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
+			return
+		}
 		if !u.checkBalanceFor(sats, "giveflip", nil) {
 			break
 		}
@@ -441,15 +425,13 @@ parsed:
 		}
 
 		if !canCreateCoinflip(u.Id) {
-			u.notify(t.COINFLIPRATELIMIT, nil)
+			u.notify(t.RATELIMIT, nil)
 			return
 		}
-
 		if !canJoinCoinflip(u.Id) {
-			u.notify(t.COINFLIPOVERQUOTA, nil)
+			u.notify(t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-
 		if !u.checkBalanceFor(sats, "coinflip", nil) {
 			break
 		}
@@ -669,7 +651,7 @@ parsed:
 		}()
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
-			// generate an lnurl so a remote wallet can send an invoice through this bizarre protocol
+			// generate an lnurl-withdraw so a remote wallet can send an invoice
 			sats, err := opts.Int("<satoshis>")
 			if err != nil {
 				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
@@ -681,6 +663,39 @@ parsed:
 			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
 		}
 		break
+	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
+		go func() {
+			if opts["lnurl"].(bool) {
+				// print static lnurl-pay for this user
+				lnurl, _ := lnurl.LNURLEncode(fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
+				qrpath := qrImagePath(fmt.Sprintf("lnurlpay-%d", u.Id))
+				qrcode.WriteFile(lnurl, qrcode.Medium, 256, qrpath)
+				sendMessageWithPicture(message.Chat.ID, qrpath, lnurl)
+			} else {
+				sats, err := opts.Int("<satoshis>")
+				if err != nil {
+					handleHelp(u, "receive")
+					return
+				}
+
+				desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
+
+				var preimage string
+				if param, ok := opts["--preimage"]; ok {
+					preimage, _ = param.(string)
+				}
+
+				bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, "", false)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to generate invoice")
+					u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+					return
+				}
+
+				// send invoice with qr code
+				sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
+			}
+		}()
 	case opts["lnurl"].(bool):
 		go handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
 	case opts["apps"].(bool):

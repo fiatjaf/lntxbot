@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
 	"github.com/skip2/go-qrcode"
+	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -135,15 +137,6 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 					Text: translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata),
 				}
 				chattable = message
-			case "text/html":
-				tmpldata["HTML"] = pair[1]
-				message := tgbotapi.MessageConfig{
-					BaseChat:              baseChat,
-					ParseMode:             "HTML",
-					DisableWebPagePreview: true,
-					Text: translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata),
-				}
-				chattable = message
 			}
 		}
 
@@ -153,13 +146,13 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			return
 		}
 
-		key := fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID)
 		data, _ := json.Marshal(struct {
-			Type            string `json:"type"`
-			DescriptionHash string `json:"h"`
-			URL             string `json:"url"`
-		}{"lnurlpay", calculateHash(params.EncodedMetadata), params.Callback})
-		rds.Set(key, data, time.Hour*1)
+			Type     string `json:"type"`
+			Metadata string `json:"metadata"`
+			URL      string `json:"url"`
+			LNURL    string `json:"lnurl"`
+		}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
+		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 	default:
 		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, messageId)
 	}
@@ -167,7 +160,12 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 	return
 }
 
-func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptionHash string, messageId int) {
+func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageId int) {
+	// get data from redis object
+	callback := data.Get("url").String()
+	metadata := data.Get("metadata").String()
+	encodedLnurl := data.Get("lnurl").String()
+
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
 	_, err = napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
@@ -187,7 +185,7 @@ func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptio
 		return
 	}
 
-	if decoded.Get("description_hash").String() != descriptionHash {
+	if decoded.Get("description_hash").String() != calculateHash(metadata) {
 		u.notify(t.ERROR, t.T{"Err": "Got invoice with wrong description_hash"})
 		return
 	}
@@ -198,12 +196,40 @@ func handleLNURLPayConfirmation(u User, msats int64, callback string, descriptio
 	}
 
 	// pay it
-	opts := docopt.Opts{
-		"pay":       true,
-		"<invoice>": res.PR,
-		"now":       true,
+	err = u.payInvoice(messageId, res.PR)
+	if err == nil {
+		// paid lnurl-pay successfully.
+
+		// notify user with success action with applicable
+		CallbackURL, _ := url.Parse(callback)
+		if res.SuccessAction.Tag == "message" || res.SuccessAction.Tag == "url" {
+			u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
+				"Domain":        CallbackURL.Host,
+				"SuccessAction": res.SuccessAction,
+			}, messageId)
+		}
+
+		// and with raw metadata always, for later checking with the description_hash
+		file := tgbotapi.DocumentConfig{
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
+				File: tgbotapi.FileBytes{
+					Name:  encodedLnurl + ".json",
+					Bytes: []byte(metadata),
+				},
+				MimeType:    "text/json",
+				UseExisting: false,
+			},
+		}
+		file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
+			"Domain":         CallbackURL.Host,
+			"LNURL":          encodedLnurl,
+			"Hash":           decoded.Get("payment_hash").String(),
+			"HashFirstChars": decoded.Get("payment_hash").String()[:5],
+		})
+		file.ParseMode = "HTML"
+		bot.Send(file)
 	}
-	handlePay(u, opts, messageId, nil)
 }
 
 func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded string) {
@@ -238,7 +264,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 
 func serveLNURL() {
 	router.Path("/lnurl/withdraw").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Str("url", r.URL.String()).Msg("lnurl first request")
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl-withdraw first request")
 
 		qs := r.URL.Query()
 		challenge := qs.Get("challenge")
@@ -360,4 +386,100 @@ func serveLNURL() {
 
 		json.NewEncoder(w).Encode(lnurl.OkResponse())
 	})
+
+	router.Path("/lnurl/pay").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
+
+		qs := r.URL.Query()
+		userid := qs.Get("userid")
+		username := qs.Get("username")
+
+		_, jmeta, err := lnurlPayDuplicatedStuff(userid, username)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
+			return
+		}
+
+		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+			LNURLResponse: lnurl.OkResponse(),
+			Tag:           "payRequest",
+			Callback: fmt.Sprintf("%s/lnurl/pay/callback?%s",
+				s.ServiceURL, qs.Encode()),
+			MaxSendable:     1000000000,
+			MinSendable:     1000,
+			EncodedMetadata: string(jmeta),
+		})
+	})
+
+	router.Path("/lnurl/pay/callback").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		qs := r.URL.Query()
+		userid := qs.Get("userid")
+		username := qs.Get("username")
+		apptag := qs.Get("apptag")
+		amount := qs.Get("amount")
+
+		receiver, jmeta, err := lnurlPayDuplicatedStuff(userid, username)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
+			return
+		}
+
+		var tag string
+		if apptag == "golightning" {
+			tag = apptag
+		}
+
+		preimage := make([]byte, 32)
+		rand.Read(preimage)
+
+		msatoshi, err := strconv.ParseInt(amount, 10, 64)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
+			return
+		}
+
+		bolt11, err := ln.InvoiceWithDescriptionHash(
+			makeLabel(receiver.Id, 0, hex.EncodeToString(preimage), tag),
+			msatoshi,
+			string(jmeta),
+			nil,
+			nil,
+		)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
+			return
+		}
+
+		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
+			LNURLResponse: lnurl.OkResponse(),
+			PR:            bolt11,
+			Routes:        make([][]lnurl.RouteInfo, 0),
+		})
+	})
+}
+
+func lnurlPayDuplicatedStuff(userid string, username string) (receiver User, jmeta []byte, err error) {
+	if userid != "" {
+		var id int
+		id, err = strconv.Atoi(userid)
+		if err == nil {
+			receiver, err = loadUser(id, 0)
+		}
+	} else if username != "" {
+		receiver, err = ensureUsername(username)
+	}
+	if err != nil {
+		return
+	}
+
+	jmeta, err = json.Marshal([][]string{
+		[]string{
+			"text/plain",
+			fmt.Sprintf("Donation to %s on t.me/%s.",
+				receiver.AtName(), s.ServiceId),
+		},
+	})
+
+	return
 }

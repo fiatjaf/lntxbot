@@ -22,13 +22,7 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 			if err != nil {
 				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-
-			handleLNURLPayConfirmation(u,
-				int64(sats*1000),
-				data.Get("url").String(),
-				data.Get("h").String(),
-				message.MessageID,
-			)
+			handleLNURLPayConfirmation(u, int64(sats*1000), data, message.MessageID)
 		default:
 			log.Debug().Int("userId", u.Id).Int("message", inreplyto).Str("type", data.Get("type").String()).
 				Msg("reply to bot message unhandled procedure")

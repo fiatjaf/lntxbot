@@ -118,15 +118,13 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		}
 
 		if !canCreateCoinflip(u.Id) {
-			u.notify(t.COINFLIPRATELIMIT, nil)
+			u.notify(t.RATELIMIT, nil)
 			return
 		}
-
 		if !canJoinCoinflip(u.Id) {
-			u.notify(t.COINFLIPOVERQUOTA, nil)
+			u.notify(t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-
 		if !u.checkBalanceFor(sats, "coinflip", nil) {
 			break
 		}
@@ -173,6 +171,15 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		var sats int
 		if sats, err = strconv.Atoi(argv[1]); err != nil {
 			break
+		}
+
+		if !canCreateGiveflip(u.Id) {
+			u.notify(t.RATELIMIT, nil)
+			return
+		}
+		if !canJoinGiveflip(u.Id) {
+			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
+			return
 		}
 		if !u.checkBalanceFor(sats, "giveflip", nil) {
 			break

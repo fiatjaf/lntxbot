@@ -36,6 +36,8 @@ const (
 	LNURLUNSUPPORTED = "LnurlUnsupported"
 	LNURLAUTHSUCCESS = "LnurlAuthSuccess"
 	LNURLPAYPROMPT   = "LnurlPayPrompt"
+	LNURLPAYSUCCESS  = "LnurlPaySuccess"
+	LNURLPAYMETADATA = "LnurlPayMetadata"
 
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"
@@ -44,6 +46,8 @@ const (
 	PAIDMESSAGE         = "PaidMessage"
 	DBERROR             = "DBError"
 	INSUFFICIENTBALANCE = "InsufficientBalance"
+	RATELIMIT           = "RateLimit"
+	OVERQUOTA           = "OverQuota"
 
 	PAYMENTRECEIVED      = "PaymentReceived"
 	FAILEDTOSAVERECEIVED = "FailedToSaveReceived"
@@ -78,8 +82,6 @@ const (
 	COINFLIPGIVERMSG  = "CoinflipGiverMsg"
 	COINFLIPAD        = "CoinflipAd"
 	COINFLIPJOIN      = "CoinflipJoin"
-	COINFLIPOVERQUOTA = "CoinflipOverQuota"
-	COINFLIPRATELIMIT = "CoinflipRateLimit"
 
 	GIVEFLIPHELP      = "giveflipHelp"
 	GIVEFLIPMSG       = "GiveFlipMsg"

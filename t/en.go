@@ -37,9 +37,19 @@ lnurl-auth success!
 `,
 	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.3f"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.3f"}}</i> and <i>{{.Max | printf "%.3f"}} sat</i>{{end}} for the following:
 
-{{if .Text}}<code>{{.Text}}</code>{{else if .HTML}}{{.HTML}}{{end}}
+{{if .Text}}<code>{{.Text | html}}</code>{{end}}
 
 {{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
+    `,
+	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
+
+{{.SuccessAction.Description | html}}
+{{if eq .SuccessAction.Tag "url"}}<a href="{{.SuccessAction.Data}}">{{.SuccessAction.Data}}</a>{{end}}
+    `,
+	LNURLPAYMETADATA: `lnurl-pay metadata:
+<b>domain</b>: <i>{{.Domain}}</i>
+<b>lnurl</b>: <i>{{.LNURL}}</i>
+<b>transaction</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
     `,
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
@@ -52,6 +62,8 @@ lnurl-auth success!
 <b>Proof:</b> {{.Preimage}}{{end}}
 
 /tx{{.ShortHash}}`,
+	OVERQUOTA:           "You're over your {{.App}} daily quota.",
+	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 
@@ -131,8 +143,6 @@ Lists all your transactions with pagination controls. Each transaction has a lin
 	COINFLIPAD:             "Pay {{.Sats}} and get a chance to win {{.Prize}}! {{.SpotsLeft}} out of {{.MaxPlayers}} spot{{s .SpotsLeft}} left!",
 	COINFLIPJOIN:           "Join lottery!",
 	CALLBACKCOINFLIPWINNER: "Coinflip winner: {{.Winner}}",
-	COINFLIPOVERQUOTA:      "You're over your coinflip daily quota.",
-	COINFLIPRATELIMIT:      "Please wait 30 minutes before creating a new coinflip.",
 
 	GIVEFLIPHELP: `Starts a giveaway, but instead of giving to the first person who clicks, the amount is raffled between first x clickers.
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/arschles/go-bindata-html-template"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
@@ -44,6 +45,8 @@ type Settings struct {
 
 	CoinflipDailyQuota int `envconfig:"COINFLIP_DAILY_QUOTA" default:"5"` // times each user can join a coinflip
 	CoinflipAvgDays    int `envconfig:"COINFLIP_AVG_DAYS" default:"7"`    // days we'll consider for the average
+	GiveflipDailyQuota int `envconfig:"GIVEFLIP_DAILY_QUOTA" default:"5"`
+	GiveflipAvgDays    int `envconfig:"GIVEFLIP_AVG_DAYS" default:"7"`
 
 	TutorialWalletVideoId string `envconfig:"TUTORIAL_WALLET_VIDEO_ID"`
 	TutorialBlueVideoId   string `envconfig:"TUTORIAL_BLUE_VIDEO_ID"`
@@ -61,6 +64,7 @@ var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
 var waitingInvoices = make(map[string][]chan gjson.Result)
 var bundle t.Bundle
@@ -152,6 +156,9 @@ func main() {
 
 	// lnurl routes
 	serveLNURL()
+
+	// donation webpage
+	registerPages()
 
 	// app-specific initializations
 	servePoker()
