@@ -202,11 +202,14 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 
 		// notify user with success action with applicable
 		CallbackURL, _ := url.Parse(callback)
-		if res.SuccessAction.Tag == "message" || res.SuccessAction.Tag == "url" {
-			u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
-				"Domain":        CallbackURL.Host,
-				"SuccessAction": res.SuccessAction,
-			}, messageId)
+
+		if res.SuccessAction != nil {
+			if res.SuccessAction.Tag == "message" || res.SuccessAction.Tag == "url" {
+				u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
+					"Domain":        CallbackURL.Host,
+					"SuccessAction": res.SuccessAction,
+				}, messageId)
+			}
 		}
 
 		// and with raw metadata always, for later checking with the description_hash
