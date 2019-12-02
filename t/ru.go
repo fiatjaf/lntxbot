@@ -41,6 +41,16 @@ lnurl-auth успех!
 
 {{if not .FixedAmount}}<b>Ответьте с неким количеством для подтверждения.</b>{{end}}
     `,
+	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> ответил:
+
+{{.SuccessAction.Description | html}}
+{{if eq .SuccessAction.Tag "url"}}<a href="{{.SuccessAction.Data}}">{{.SuccessAction.Data}}</a>{{end}}
+    `,
+	LNURLPAYMETADATA: `lnurl-pay метаданные:
+<b>домен</b>: <i>{{.Domain}}</i>
+<b>lnurl</b>: <i>{{.LNURL}}</i>
+<b>транзакция</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
+    `,
 
 	USERALLOWED:       "Счёт оплачен. {{.User}} допущен.",
 	SPAMFILTERMESSAGE: "Привет, {{.User}}. У вас 15 минут, чтобы оплатить счёт на {{.Sats}} сат если вы хотите остаться в этой группе:",
@@ -437,10 +447,17 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 
 /poker_status для двойной проверки!
 /poker_play играть здесь!
-/poker_url играть в окне браузера!
+/poker_url играть в браузере!
     `,
-	POKERSUBSCRIBED: "Вы можете играть в покер в течение следующих {{.Minutes}} минут.",
-	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> первый и простейший безлимитный техасский Холдем Покер, разыгрываемый прямо с использованием сатоши. Просто присоединитесь к столу и начните копить сатоши.
+    POKERNOTIFYFRIEND: `
+<b>[Poker]</b> {{.FriendName}} сел за стол!
+
+/poker_status проверить снова!
+/poker_play играть здесь!
+/poker_url играть в браузере!
+    `,
+    POKERSUBSCRIBED: "Вы можете играть в покер в течение следующих {{.Minutes}} минут.",
+    POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> первый и простейший безлимитный техасский Холдем Покер, разыгрываемый прямо с использованием сатоши. Просто присоединитесь к столу и начните копить сатоши.
 
 Играя с аккаунта, привязанного к балансу бота, вы можете просто сесть за стол и ваш покерный аккаунт будет пополнен с баланса бота, с минимальными заботами.
 
