@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -31,7 +32,6 @@ type Settings struct {
 	BotToken    string `envconfig:"BOT_TOKEN" required:"true"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
-	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
@@ -73,15 +73,40 @@ var bundle t.Bundle
 
 func main() {
 	p := plugin.Plugin{
-		Name:    "lnurl",
+		Name:    "lntxbot",
 		Version: "v1.0",
-		Options: []plugin.Option{},
+		Options: []plugin.Option{
+			{"lntxbot-envfile", "string", "", "Path to the file containing everything"},
+		},
 		Subscriptions: []plugin.Subscription{
 			{
 				"invoice_payment",
 				func(p *plugin.Plugin, params plugin.Params) {
 					label := params["invoice_payment"].(map[string]interface{})["label"].(string)
-					log.Print("got payment ", label)
+					invspaid, err := ln.Call("listinvoices", label)
+					if err != nil {
+						log.Error().Err(err).Str("label", label).Msg("failed to query paid invoice")
+						return
+					}
+
+					invpaid := invspaid.Get("invoices.0")
+					go handleInvoicePaid(
+						invpaid.Get("pay_index").Int(),
+						invpaid.Get("msatoshi_received").Int(),
+						invpaid.Get("description").String(),
+						invpaid.Get("payment_hash").String(),
+						invpaid.Get("label").String(),
+					)
+					go func() {
+						if chans, ok := waitingInvoices[invpaid.Get("payment_hash").String()]; ok {
+							for _, ch := range chans {
+								select {
+								case ch <- invpaid:
+								default:
+								}
+							}
+						}
+					}()
 				},
 			},
 		},
@@ -92,7 +117,20 @@ func main() {
 }
 
 func server(p *plugin.Plugin) {
-	godotenv.Load("/home/lightning/lntxbot/prod.env")
+	// globalize the lightning rpc client
+	ln = p.Client
+
+	// load values from envfile (hack)
+	if envpath, err := p.Args.String("lntxbot-envfile"); err == nil {
+		if !filepath.IsAbs(envpath) {
+			// expand tlspath from lightning dir
+			godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
+		} else {
+			godotenv.Load(envpath)
+		}
+	} else {
+		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envpath")
+	}
 	err = envconfig.Process("", &s)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
@@ -105,6 +143,7 @@ func server(p *plugin.Plugin) {
 
 	setupCommands()
 
+	// setup logger
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
 
@@ -157,13 +196,6 @@ func server(p *plugin.Plugin) {
 		}
 	}
 
-	ln = &lightning.Client{
-		Path:             s.SocketPath,
-		LastInvoiceIndex: int(lastinvoiceindex),
-		PaymentHandler:   invoicePaidListener,
-	}
-	ln.ListenForInvoices()
-
 	// handle QR code requests from telegram
 	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[3:]
@@ -203,7 +235,12 @@ func server(p *plugin.Plugin) {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	go srv.ListenAndServe()
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Error().Err(err).Msg("error serving http")
+		}
+	}()
 
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()

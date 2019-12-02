@@ -5,7 +5,6 @@ import (
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/tidwall/gjson"
 )
 
 func handle(upd tgbotapi.Update) {
@@ -43,26 +42,6 @@ func handle(upd tgbotapi.Update) {
 	} else if upd.EditedMessage != nil {
 		handleEditedMessage(upd.EditedMessage)
 	}
-}
-
-func invoicePaidListener(invpaid gjson.Result) {
-	go handleInvoicePaid(
-		invpaid.Get("pay_index").Int(),
-		invpaid.Get("msatoshi_received").Int(),
-		invpaid.Get("description").String(),
-		invpaid.Get("payment_hash").String(),
-		invpaid.Get("label").String(),
-	)
-	go func() {
-		if chans, ok := waitingInvoices[invpaid.Get("payment_hash").String()]; ok {
-			for _, ch := range chans {
-				select {
-				case ch <- invpaid:
-				default:
-				}
-			}
-		}
-	}()
 }
 
 func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
