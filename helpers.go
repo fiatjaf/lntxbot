@@ -178,12 +178,12 @@ begin:
 }
 
 func nodeLink(nodeId string) string {
-	return fmt.Sprintf(`<a href="https://ln.alhur.es/node/%s">%s…%s</a>`,
+	return fmt.Sprintf(`<a href="https://ln.bigsun.xyz/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }
 
 func channelLink(scid string) string {
-	return fmt.Sprintf(`<a href="https://ln.alhur.es/channel/%s">%s</a>`, scid, scid)
+	return fmt.Sprintf(`<a href="https://ln.bigsun.xyz/channel/%s">%s</a>`, scid, scid)
 }
 
 func getDollarPrice(msats int64) string {
