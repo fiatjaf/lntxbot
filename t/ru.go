@@ -253,7 +253,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 /microbet_withdraw выводит весь ваш баланс.
     `,
 	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Выберите провайдера услуг:`,
-	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Выберите вашу <i>{{.Item}}</i> карту:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Выберите вашу <i>{{.Item}}</i> карту{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
 	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> Провайдер не найден.`,
 	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Действительно купить <i>{{.Package.Value}} {{.Item.Currency}}</i> карту <b>{{.Item.Name}}</b> за <i>{{.Sats}} сат</i> ({{dollar .Sats}})?`,
 	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Ваш заказ <code>{{.OrderId}}</code> был оплачен, но не сохранён. Сообщите об ошибке: {{.Err}}",

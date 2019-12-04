@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -264,7 +266,15 @@ func server(p *plugin.Plugin) {
 	for update := range updates {
 		lastTelegramUpdate = int64(update.UpdateID)
 		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		handle(update)
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					fmt.Fprint(os.Stderr, string(debug.Stack()))
+					sendMessage(418342569, string(debug.Stack()))
+				}
+			}()
+			handle(update)
+		}()
 	}
 }
 

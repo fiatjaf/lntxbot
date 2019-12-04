@@ -753,7 +753,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			var pack BitrefillPackage
 			idx, _ := strconv.Atoi(parts[3])
-			packages := getBitRefillPackagesForItem(item)
+			packages := item.Packages
 			if len(packages) <= idx {
 				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
 				return
@@ -762,37 +762,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			appendTextToMessage(cb, fmt.Sprintf("%v %s", pack.Value, item.Currency))
 
 			phone := parts[4]
-
-			// create order
-			orderId, invoice, err := placeBitrefillOrder(u, item, pack, &phone)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
-				return
-			}
-
-			// parse invoice
-			inv, err := ln.Call("decodepay", invoice)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
-				return
-			}
-
-			u.notifyWithKeyboard(t.BITREFILLCONFIRMATION, t.T{
-				"Item":    item,
-				"Package": pack,
-				"Sats":    inv.Get("msatoshi").Float() / 1000,
-			}, &tgbotapi.InlineKeyboardMarkup{
-				[][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.CANCEL, u.Locale),
-							fmt.Sprintf("cancel=%d", u.Id)),
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.YES, u.Locale),
-							fmt.Sprintf("x=bitrefill-pch-%s", orderId)),
-					},
-				},
-			}, 0)
+			handleProcessBitrefillOrder(u, item, pack, &phone)
 		case "pch":
 			defer removeKeyboardButtons(cb)
 			orderId := parts[2]
