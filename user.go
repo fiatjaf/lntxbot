@@ -355,7 +355,9 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 
 		// handle ticket invoices
 		if strings.HasPrefix(desc, "ticket for") {
-			for label, kickdata := range pendingApproval {
+			for tuple := range pendingApproval.IterBuffered() {
+				label := tuple.Key
+				kickdata := tuple.Val.(KickData)
 				if kickdata.Hash == hash {
 					var target User
 					target, err = chatOwnerFromTicketLabel(label)

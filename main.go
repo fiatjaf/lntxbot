@@ -22,8 +22,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
+	"github.com/orcaman/concurrent-map"
 	"github.com/rs/zerolog"
-	"github.com/tidwall/gjson"
 	"gopkg.in/redis.v5"
 )
 
@@ -70,8 +70,8 @@ var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
-var waitingInvoices = make(map[string][]chan gjson.Result)
-var waitingPaymentSuccesses = make(map[string][]chan string)
+var waitingInvoices = cmap.New()         // make(map[string][]chan gjson.Result)
+var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
 var bundle t.Bundle
 
 func main() {

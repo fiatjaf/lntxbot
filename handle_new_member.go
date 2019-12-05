@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
-
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/orcaman/concurrent-map"
 )
 
-var pendingApproval = make(map[string]KickData)
+var pendingApproval = cmap.New()
 
 func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	g, err := loadGroup(joinMessage.Chat.ID)
@@ -34,7 +34,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	// label for the invoice that will be shown
 	label := fmt.Sprintf("newmember:%d:%d", newmember.ID, joinMessage.Chat.ID)
 
-	if _, isPending := pendingApproval[label]; isPending {
+	if _, isPending := pendingApproval.Get(label); isPending {
 		// user joined, left and joined again.
 		// do nothing as the old timer is still counting.
 		return
@@ -88,7 +88,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	if err != nil {
 		log.Warn().Err(err).Str("kickdata", string(kickdatajson)).Msg("error saving kickdata")
 	}
-	pendingApproval[label] = kickdata
+	pendingApproval.Set(label, kickdata)
 	go waitToKick(label, kickdata)
 }
 
@@ -107,7 +107,7 @@ func waitToKick(label string, kickdata KickData) {
 				ticketPaid(label, kickdata)
 				return
 			} else if cmderr.Code == -2 {
-				if _, isPending := pendingApproval[label]; !isPending {
+				if _, isPending := pendingApproval.Get(label); !isPending {
 					// not pending anymore, means the invoice was paid internally. don't kick.
 					return
 				}
@@ -120,7 +120,7 @@ func waitToKick(label string, kickdata KickData) {
 					UntilDate:        time.Now().AddDate(0, 0, 1).Unix(),
 				})
 
-				delete(pendingApproval, label)
+				pendingApproval.Remove(label)
 				rds.HDel("ticket-pending", label)
 
 				// delete messages
@@ -147,7 +147,7 @@ func ticketPaid(label string, kickdata KickData) {
 	}
 
 	log.Debug().Str("label", label).Msg("ticket paid")
-	delete(pendingApproval, label)
+	pendingApproval.Remove(label)
 	rds.HDel("ticket-pending", label)
 
 	// delete the invoice message
@@ -182,14 +182,14 @@ func startKicking() {
 		}
 
 		log.Debug().Msg("restarted kick invoice wait")
-		pendingApproval[label] = kickdata
+		pendingApproval.Set(label, kickdata)
 		go waitToKick(label, kickdata)
 	}
 }
 
 func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 	label := fmt.Sprintf("newmember:%d:%d", message.From.ID, message.Chat.ID)
-	if _, isPending := pendingApproval[label]; isPending {
+	if _, isPending := pendingApproval.Get(label); isPending {
 		log.Debug().Str("user", message.From.String()).Msg("user pending, can't speak")
 		return false
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/orcaman/concurrent-map"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
 )
@@ -28,7 +29,7 @@ var dollarPrice = struct {
 	lastUpdate time.Time
 	rate       float64
 }{time.Now(), 0}
-var nodeAliases = make(map[string]string)
+var nodeAliases = cmap.New()
 
 func makeLabel(userId int, messageId interface{}, preimage, tag string) string {
 	return fmt.Sprintf("%s.%d.%v.%s.%s", s.ServiceId, userId, messageId, preimage, tag)
@@ -155,8 +156,8 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 
 func getNodeAlias(id string) string {
 begin:
-	if alias, ok := nodeAliases[id]; ok {
-		return alias
+	if alias, ok := nodeAliases.Get(id); ok {
+		return alias.(string)
 	}
 
 	if id == "" {
@@ -173,7 +174,7 @@ begin:
 		alias = "~"
 	}
 
-	nodeAliases[id] = alias
+	nodeAliases.Set(id, alias)
 	goto begin
 }
 
@@ -433,44 +434,52 @@ func getVariadicFieldOrReplyToContent(opts docopt.Opts, message *tgbotapi.Messag
 
 func waitInvoice(hash string) (inv <-chan gjson.Result) {
 	wait := make(chan gjson.Result)
-	if chans, ok := waitingInvoices[hash]; ok {
-		chans = append(chans, wait)
-		waitingInvoices[hash] = chans
-	} else {
-		waitingInvoices[hash] = []chan gjson.Result{wait}
-	}
+	waitingPaymentSuccesses.Upsert(hash, wait,
+		func(exists bool, arr interface{}, v interface{}) interface{} {
+			if exists {
+				return append(arr.([]interface{}), v)
+			} else {
+				return []interface{}{v}
+			}
+		},
+	)
 	return wait
 }
 
 func resolveWaitingInvoice(hash string, inv gjson.Result) {
-	if chans, ok := waitingInvoices[hash]; ok {
-		for _, ch := range chans {
+	if chans, ok := waitingInvoices.Get(hash); ok {
+		for _, ch := range chans.([]chan gjson.Result) {
 			select {
 			case ch <- inv:
 			default:
 			}
 		}
+		waitingInvoices.Remove(hash)
 	}
 }
 
 func waitPaymentSuccess(hash string) (preimage <-chan string) {
 	wait := make(chan string)
-	if chans, ok := waitingPaymentSuccesses[hash]; ok {
-		chans = append(chans, wait)
-		waitingPaymentSuccesses[hash] = chans
-	} else {
-		waitingPaymentSuccesses[hash] = []chan string{wait}
-	}
+	waitingPaymentSuccesses.Upsert(hash, wait,
+		func(exists bool, arr interface{}, v interface{}) interface{} {
+			if exists {
+				return append(arr.([]interface{}), v)
+			} else {
+				return []interface{}{v}
+			}
+		},
+	)
 	return wait
 }
 
 func resolveWaitingPaymentSuccess(hash string, preimage string) {
-	if chans, ok := waitingPaymentSuccesses[hash]; ok {
-		for _, ch := range chans {
+	if chans, ok := waitingPaymentSuccesses.Get(hash); ok {
+		for _, ch := range chans.([]chan string) {
 			select {
 			case ch <- preimage:
 			default:
 			}
 		}
+		waitingPaymentSuccesses.Remove(hash)
 	}
 }
