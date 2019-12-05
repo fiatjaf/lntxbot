@@ -71,6 +71,7 @@ var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
 var waitingInvoices = make(map[string][]chan gjson.Result)
+var waitingPaymentSuccesses = make(map[string][]chan string)
 var bundle t.Bundle
 
 func main() {
@@ -84,31 +85,31 @@ func main() {
 			{
 				"invoice_payment",
 				func(p *plugin.Plugin, params plugin.Params) {
-					label := params["invoice_payment"].(map[string]interface{})["label"].(string)
+					label := params.Get("invoice_payment.label").String()
 					invspaid, err := ln.Call("listinvoices", label)
 					if err != nil {
 						log.Error().Err(err).Str("label", label).Msg("failed to query paid invoice")
 						return
 					}
 
-					invpaid := invspaid.Get("invoices.0")
+					inv := invspaid.Get("invoices.0")
 					go handleInvoicePaid(
-						invpaid.Get("pay_index").Int(),
-						invpaid.Get("msatoshi_received").Int(),
-						invpaid.Get("description").String(),
-						invpaid.Get("payment_hash").String(),
-						invpaid.Get("label").String(),
+						inv.Get("pay_index").Int(),
+						inv.Get("msatoshi_received").Int(),
+						inv.Get("description").String(),
+						inv.Get("payment_hash").String(),
+						inv.Get("label").String(),
 					)
-					go func() {
-						if chans, ok := waitingInvoices[invpaid.Get("payment_hash").String()]; ok {
-							for _, ch := range chans {
-								select {
-								case ch <- invpaid:
-								default:
-								}
-							}
-						}
-					}()
+					go resolveWaitingInvoice(inv.Get("payment_hash").String(), inv)
+				},
+			},
+			{
+				"sendpay_success",
+				func(p *plugin.Plugin, params plugin.Params) {
+					hash := params.Get("sendpay_success.payment_hash").String()
+					preimage := params.Get("sendpay_success.payment_preimage").String()
+					log.Print("SENDPAY_SUCCESS ", hash, " ", preimage)
+					go resolveWaitingPaymentSuccess(hash, preimage)
 				},
 			},
 		},

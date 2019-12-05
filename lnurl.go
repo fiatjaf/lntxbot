@@ -196,42 +196,58 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 	}
 
 	// pay it
-	err = u.payInvoice(messageId, res.PR)
+	hash, err := u.payInvoice(messageId, res.PR)
 	if err == nil {
-		// paid lnurl-pay successfully.
+		// wait until lnurl-pay is paid successfully.
 
-		// notify user with success action with applicable
-		CallbackURL, _ := url.Parse(callback)
+		go func() {
+			preimage := <-waitPaymentSuccess(hash)
+			bpreimage, _ := hex.DecodeString(preimage)
+			callbackURL, _ := url.Parse(callback)
 
-		if res.SuccessAction != nil {
-			if res.SuccessAction.Tag == "message" || res.SuccessAction.Tag == "url" {
+			// notify user with success action with applicable
+			if res.SuccessAction != nil {
+				var text string
+				var decerr error
+
+				switch res.SuccessAction.Tag {
+				case "message":
+					text = res.SuccessAction.Message
+				case "url":
+					text = res.SuccessAction.Description
+				case "aes":
+					text, decerr = res.SuccessAction.Decipher(bpreimage)
+				}
+
 				u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
-					"Domain":        CallbackURL.Host,
-					"SuccessAction": res.SuccessAction,
+					"Domain":        callbackURL.Host,
+					"Text":          text,
+					"URL":           res.SuccessAction.URL,
+					"DecipherError": decerr,
 				}, messageId)
 			}
-		}
 
-		// and with raw metadata always, for later checking with the description_hash
-		file := tgbotapi.DocumentConfig{
-			BaseFile: tgbotapi.BaseFile{
-				BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
-				File: tgbotapi.FileBytes{
-					Name:  encodedLnurl + ".json",
-					Bytes: []byte(metadata),
+			// and with raw metadata always, for later checking with the description_hash
+			file := tgbotapi.DocumentConfig{
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
+					File: tgbotapi.FileBytes{
+						Name:  encodedLnurl + ".json",
+						Bytes: []byte(metadata),
+					},
+					MimeType:    "text/json",
+					UseExisting: false,
 				},
-				MimeType:    "text/json",
-				UseExisting: false,
-			},
-		}
-		file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
-			"Domain":         CallbackURL.Host,
-			"LNURL":          encodedLnurl,
-			"Hash":           decoded.Get("payment_hash").String(),
-			"HashFirstChars": decoded.Get("payment_hash").String()[:5],
-		})
-		file.ParseMode = "HTML"
-		bot.Send(file)
+			}
+			file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
+				"Domain":         callbackURL.Host,
+				"LNURL":          encodedLnurl,
+				"Hash":           decoded.Get("payment_hash").String(),
+				"HashFirstChars": decoded.Get("payment_hash").String()[:5],
+			})
+			file.ParseMode = "HTML"
+			bot.Send(file)
+		}()
 	}
 }
 
@@ -397,7 +413,7 @@ func serveLNURL() {
 		userid := qs.Get("userid")
 		username := qs.Get("username")
 
-		_, jmeta, err := lnurlPayDuplicatedStuff(userid, username)
+		_, jmeta, err := lnurlPayStuff(userid, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -421,7 +437,7 @@ func serveLNURL() {
 		apptag := qs.Get("apptag")
 		amount := qs.Get("amount")
 
-		receiver, jmeta, err := lnurlPayDuplicatedStuff(userid, username)
+		receiver, jmeta, err := lnurlPayStuff(userid, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -462,7 +478,7 @@ func serveLNURL() {
 	})
 }
 
-func lnurlPayDuplicatedStuff(userid string, username string) (receiver User, jmeta []byte, err error) {
+func lnurlPayStuff(userid string, username string) (receiver User, jmeta []byte, err error) {
 	if userid != "" {
 		var id int
 		id, err = strconv.Atoi(userid)

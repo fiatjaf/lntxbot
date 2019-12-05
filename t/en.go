@@ -43,8 +43,9 @@ lnurl-auth success!
     `,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
 
-{{.SuccessAction.Description | html}}
-{{if eq .SuccessAction.Tag "url"}}<a href="{{.SuccessAction.Data}}">{{.SuccessAction.Data}}</a>{{end}}
+{{if .DecipherError}}Failed to decipher ({{.DecipherError}}):
+{{end}}<pre>{{.Text}}</pre>
+{{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
 	LNURLPAYMETADATA: `lnurl-pay metadata:
 <b>domain</b>: <i>{{.Domain}}</i>

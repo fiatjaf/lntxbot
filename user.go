@@ -326,10 +326,10 @@ func (u User) makeInvoice(
 	return bolt11, hash, qrpath, nil
 }
 
-func (u User) payInvoice(messageId int, bolt11 string) (err error) {
+func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) {
 	inv, err := decodepay_gjson.Decodepay(bolt11)
 	if err != nil {
-		return errors.New("Failed to decode invoice: " + err.Error())
+		return "", errors.New("Failed to decode invoice: " + err.Error())
 	}
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
@@ -340,11 +340,12 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 	} else {
 		desc = inv.Get("description").String()
 	}
-	hash := inv.Get("payment_hash").String()
+	hash = inv.Get("payment_hash").String()
 
 	if amount == 0 {
 		// if nothing was provided, end here
-		return errors.New("unsupported zero-amount invoice")
+		err = errors.New("unsupported zero-amount invoice")
+		return
 	}
 
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
@@ -391,7 +392,8 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 		// search the invoices list
 		invoice, ok := findInvoiceOnNode(hash, "")
 		if !ok {
-			return errors.New("Couldn't find internal invoice.")
+			err = errors.New("Couldn't find internal invoice.")
+			return
 		}
 
 		label := invoice.Get("label").String()
@@ -430,11 +432,11 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 			paymentHasSucceeded, paymentHasFailed,
 		)
 		if err != nil {
-			return err
+			return hash, err
 		}
 	}
 
-	return nil
+	return hash, nil
 }
 
 func (u User) actuallySendExternalPayment(

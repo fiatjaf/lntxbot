@@ -76,7 +76,7 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 		}, &keyboard, 0)
 		return false, nil
 	} else {
-		err := u.payInvoice(messageId, bolt11)
+		_, err := u.payInvoice(messageId, bolt11)
 		if err != nil {
 			u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
 			return false, err
@@ -100,7 +100,7 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 
 	bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.CALLBACKSENDING, locale)))
 
-	err = u.payInvoice(messageId, bolt11)
+	_, err = u.payInvoice(messageId, bolt11)
 	if err == nil {
 		appendTextToMessage(cb, translate(t.CALLBACKATTEMPT, locale))
 	} else {
