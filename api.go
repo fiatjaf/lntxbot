@@ -102,7 +102,7 @@ func registerAPIMethods() {
 				"amount":   inv.Get("msatoshi").Int(),
 			})
 			return
-		case <-time.After(60 * time.Second):
+		case <-time.After(180 * time.Second):
 			errorTimeout(w)
 			return
 		}

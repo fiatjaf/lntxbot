@@ -434,7 +434,7 @@ func getVariadicFieldOrReplyToContent(opts docopt.Opts, message *tgbotapi.Messag
 
 func waitInvoice(hash string) (inv <-chan gjson.Result) {
 	wait := make(chan gjson.Result)
-	waitingPaymentSuccesses.Upsert(hash, wait,
+	waitingInvoices.Upsert(hash, wait,
 		func(exists bool, arr interface{}, v interface{}) interface{} {
 			if exists {
 				return append(arr.([]interface{}), v)
@@ -448,9 +448,9 @@ func waitInvoice(hash string) (inv <-chan gjson.Result) {
 
 func resolveWaitingInvoice(hash string, inv gjson.Result) {
 	if chans, ok := waitingInvoices.Get(hash); ok {
-		for _, ch := range chans.([]chan gjson.Result) {
+		for _, ch := range chans.([]interface{}) {
 			select {
-			case ch <- inv:
+			case ch.(chan gjson.Result) <- inv:
 			default:
 			}
 		}
@@ -474,9 +474,9 @@ func waitPaymentSuccess(hash string) (preimage <-chan string) {
 
 func resolveWaitingPaymentSuccess(hash string, preimage string) {
 	if chans, ok := waitingPaymentSuccesses.Get(hash); ok {
-		for _, ch := range chans.([]chan string) {
+		for _, ch := range chans.([]interface{}) {
 			select {
-			case ch <- preimage:
+			case ch.(chan string) <- preimage:
 			default:
 			}
 		}

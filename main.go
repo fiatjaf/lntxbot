@@ -108,7 +108,6 @@ func main() {
 				func(p *plugin.Plugin, params plugin.Params) {
 					hash := params.Get("sendpay_success.payment_hash").String()
 					preimage := params.Get("sendpay_success.payment_preimage").String()
-					log.Print("SENDPAY_SUCCESS ", hash, " ", preimage)
 					go resolveWaitingPaymentSuccess(hash, preimage)
 				},
 			},
@@ -232,11 +231,10 @@ func server(p *plugin.Plugin) {
 
 	// start http server
 	srv := &http.Server{
-		Handler: router,
-		Addr:    "0.0.0.0:" + s.Port,
-		// Good practice: enforce timeouts for servers you create!
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		Handler:      router,
+		Addr:         "0.0.0.0:" + s.Port,
+		WriteTimeout: 300 * time.Second,
+		ReadTimeout:  300 * time.Second,
 	}
 	go func() {
 		err := srv.ListenAndServe()
