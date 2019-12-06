@@ -341,7 +341,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   IP: <code>{{.IP}}</code>
   {{if .UserPort }}App порт: <code>{{.UserPort}}</code>
   {{end}}{{if .SSHPort}}SSH: <code>ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</code>
-  {{end}}{{with .Sparko}}<a href="{{.}}">Sparko</a>: <code>curl -k -u user:password -X POST {{.}}/rpc -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
+  {{end}}{{with .Sparko}}<a href="{{.}}">Sparko</a>: <code>curl -k -X POST {{.}}/rpc -d '{"method": "getinfo"}' -H 'X-Access: grabyourkeyinside'</code>
   {{end}}{{if .RPCPwd}}Bitcoin Core: <code>bitcoin-cli -rpcconnect={{.IP}} -rpcport={{.RPCPort}} -rpcuser={{.RPCUser}} -rpcpassword={{.RPCPwd}} getblockchaininfo</code>
   {{end}}
 {{end}}
