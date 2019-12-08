@@ -44,6 +44,10 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		command = command[1:]
 	}
 
+	if len(argv) < 2 {
+		goto answerEmpty
+	}
+
 	switch command {
 	case "invoice", "receive", "fund":
 		sats, err := strconv.Atoi(argv[1])
