@@ -538,7 +538,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			log.Warn().Err(err).
 				Interface("params", params).
 				Interface("tries", tries).
-				Msg("Unexpected error paying invoice.")
+				Msg("unexpected error paying invoice")
 			return
 		}
 

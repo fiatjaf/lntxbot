@@ -218,7 +218,7 @@ OFFSET $3
 		message, err = bot.Send(ad)
 		if err != nil {
 			// message wasn't sent
-			logger.Info().Err(err).Msg("message wasn't sent. skipping.")
+			// logger.Info().Err(err).Msg("message wasn't sent. skipping.")
 			continue
 		}
 
@@ -247,9 +247,9 @@ OFFSET $3
 		messagesSent += 1
 		costSatoshis += thisCostSatoshis
 
-		logger.Debug().Float64("cost", thisCostSatoshis).Int("rate", row.Rate).
-			Float64("total", costSatoshis).Int("n", messagesSent).
-			Msg("ad broadcasted")
+		//	logger.Debug().Float64("cost", thisCostSatoshis).Int("rate", row.Rate).
+		//		Float64("total", costSatoshis).Int("n", messagesSent).
+		//		Msg("ad broadcasted")
 	}
 
 	roundedCostSatoshis = int(costSatoshis)
