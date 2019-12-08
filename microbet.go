@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
@@ -267,6 +268,8 @@ type MicrobetData struct {
 	Cookies []*http.Cookie `json:"cookies"`
 }
 
+var microbetExactMatchExtractor = regexp.MustCompile(`(.+) (\d+ ?- ?\d+) (.+)`)
+
 func microbetKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err error) {
 	bets, err := getMicrobetBets()
 	if err != nil {
@@ -275,9 +278,20 @@ func microbetKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err e
 
 	inlinekeyboard = make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
 	for i, bet := range bets {
+		var gamename, backbet string
+
 		parts := strings.Split(bet.Description, "→")
-		gamename := parts[0]
-		backbet := parts[1]
+		if len(parts) == 1 {
+			res := microbetExactMatchExtractor.FindAllStringSubmatch(bet.Description, -1)
+			if len(res) != 1 || len(res[0]) != 4 {
+				continue
+			}
+			gamename = res[0][0] + " - " + res[0][2]
+			backbet = res[0][1]
+		} else {
+			gamename = parts[0]
+			backbet = parts[1]
+		}
 		if bet.Exact {
 			backbet += " (exact)"
 		}
