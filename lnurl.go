@@ -205,29 +205,7 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 			bpreimage, _ := hex.DecodeString(preimage)
 			callbackURL, _ := url.Parse(callback)
 
-			// notify user with success action with applicable
-			if res.SuccessAction != nil {
-				var text string
-				var decerr error
-
-				switch res.SuccessAction.Tag {
-				case "message":
-					text = res.SuccessAction.Message
-				case "url":
-					text = res.SuccessAction.Description
-				case "aes":
-					text, decerr = res.SuccessAction.Decipher(bpreimage)
-				}
-
-				u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
-					"Domain":        callbackURL.Host,
-					"Text":          text,
-					"URL":           res.SuccessAction.URL,
-					"DecipherError": decerr,
-				}, messageId)
-			}
-
-			// and with raw metadata always, for later checking with the description_hash
+			// send raw metadata, for later checking with the description_hash
 			file := tgbotapi.DocumentConfig{
 				BaseFile: tgbotapi.BaseFile{
 					BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
@@ -247,6 +225,31 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 			})
 			file.ParseMode = "HTML"
 			bot.Send(file)
+
+			// notify user with success action end applicable
+			if res.SuccessAction != nil {
+				var text string
+				var decerr error
+
+				switch res.SuccessAction.Tag {
+				case "message":
+					text = res.SuccessAction.Message
+				case "url":
+					text = res.SuccessAction.Description
+				case "aes":
+					text, decerr = res.SuccessAction.Decipher(bpreimage)
+				}
+
+				// give it a time so it's the last message to be sent
+				time.Sleep(2 * time.Second)
+
+				u.notifyAsReply(t.LNURLPAYSUCCESS, t.T{
+					"Domain":        callbackURL.Host,
+					"Text":          text,
+					"URL":           res.SuccessAction.URL,
+					"DecipherError": decerr,
+				}, messageId)
+			}
 		}()
 	}
 }
