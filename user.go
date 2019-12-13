@@ -472,11 +472,16 @@ func (u User) actuallySendExternalPayment(
 	}
 	defer txn.Rollback()
 
+	fee_reserve := float64(msatoshi) * 0.01
+	if msatoshi < 5000000 {
+		fee_reserve = 0
+	}
+
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, u.Id, msatoshi, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
+  (from_id, amount, fees, description, payment_hash, label, pending, trigger_message, remote_node)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, u.Id, msatoshi, fee_reserve, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
 	if err != nil {
 		log.Debug().Err(err).Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
@@ -492,18 +497,8 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	}
 
 	if balance < 0 {
-		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
-			-float64(balance)/1000)
-	}
-
-	if msatoshi >= 5000000 && msatoshi*1/100 > balance {
-		// if the payment is >= 5000sat, reserve 1% of balance for the transaction fee.
-		// if it's smaller we don't care.
-		// this should provide an easy way for people to empty their wallets while at the same time
-		// protecting against exploits and people who leave with a gigantic negative balance.
-		return errors.New(
-			"Can't use your entire balance for this payment because of fee reserves. Please withdraw in chunks.",
-		)
+		return fmt.Errorf("Amount too big. Usable balance is %.3f sat.",
+			(float64(balance+msatoshi)+fee_reserve)/1000)
 	}
 
 	err = txn.Commit()
