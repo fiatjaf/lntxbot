@@ -647,6 +647,7 @@ parsed:
 
 				u.notify(t.BALANCEMSG, t.T{
 					"Sats":     info.Balance,
+					"Usable":   info.UsableBalance,
 					"Received": info.TotalReceived,
 					"Sent":     info.TotalSent,
 					"Fees":     info.TotalFees,

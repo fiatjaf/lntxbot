@@ -800,6 +800,10 @@ func (u User) getInfo() (info Info, err error) {
 SELECT
   b.account_id,
   b.balance/1000 AS balance,
+  CASE
+    WHEN b.balance > 5000000 THEN b.balance * 0.99009 / 1000
+    ELSE b.balance/1000
+  END AS usable,
   (
     SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.to_id
@@ -987,6 +991,7 @@ func paymentHasFailed(u User, messageId int, hash string) {
 type Info struct {
 	AccountId     string  `db:"account_id"`
 	Balance       float64 `db:"balance"`
+	UsableBalance float64 `db:"usable"`
 	TotalSent     float64 `db:"totalsent"`
 	TotalReceived float64 `db:"totalrecv"`
 	TotalFees     float64 `db:"fees"`
