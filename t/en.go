@@ -523,7 +523,8 @@ Pay the invoice described above?
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
-<b>Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
+<b>Full Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
+<b>Usable Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Usable}})
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
