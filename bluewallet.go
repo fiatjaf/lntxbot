@@ -116,6 +116,7 @@ func registerBluewalletMethods() {
 		}
 
 		decoded, _ := decodeInvoiceAsLndHub(params.Invoice)
+		tx, _ := user.getTransaction(decoded.PaymentHash)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
@@ -124,7 +125,8 @@ func registerBluewalletMethods() {
 			PaymentRoute    map[string]interface{} `json:"route"`
 			PaymentHash     Buffer                 `json:"payment_hash"`
 			Decoded         Decoded                `json:"decoded"`
-		}{"", "", make(map[string]interface{}), "", decoded})
+			FeeMsat         int64                  `json:"fee_msat"`
+		}{"", "", make(map[string]interface{}), "", decoded, int64(tx.Fees * 1000)})
 	})
 
 	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
