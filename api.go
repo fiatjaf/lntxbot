@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/tidwall/gjson"
 )
 
 type Permission int
@@ -94,16 +93,8 @@ func registerAPIMethods() {
 		}
 
 		// transaction not found, so let's wait a while for it
-		wait := make(chan gjson.Result)
-		if chans, ok := waitingInvoices[hash]; ok {
-			chans = append(chans, wait)
-			waitingInvoices[hash] = chans
-		} else {
-			waitingInvoices[hash] = []chan gjson.Result{wait}
-		}
-
 		select {
-		case inv := <-wait:
+		case inv := <-waitInvoice(hash):
 			_, _, preimage, _, _ := parseLabel(inv.Get("label").String())
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"hash":     inv.Get("payment_hash").String(),
@@ -111,7 +102,7 @@ func registerAPIMethods() {
 				"amount":   inv.Get("msatoshi").Int(),
 			})
 			return
-		case <-time.After(60 * time.Second):
+		case <-time.After(180 * time.Second):
 			errorTimeout(w)
 			return
 		}

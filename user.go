@@ -326,10 +326,10 @@ func (u User) makeInvoice(
 	return bolt11, hash, qrpath, nil
 }
 
-func (u User) payInvoice(messageId int, bolt11 string) (err error) {
+func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) {
 	inv, err := decodepay_gjson.Decodepay(bolt11)
 	if err != nil {
-		return errors.New("Failed to decode invoice: " + err.Error())
+		return "", errors.New("Failed to decode invoice: " + err.Error())
 	}
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
@@ -340,11 +340,12 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 	} else {
 		desc = inv.Get("description").String()
 	}
-	hash := inv.Get("payment_hash").String()
+	hash = inv.Get("payment_hash").String()
 
 	if amount == 0 {
 		// if nothing was provided, end here
-		return errors.New("unsupported zero-amount invoice")
+		err = errors.New("unsupported zero-amount invoice")
+		return
 	}
 
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
@@ -354,7 +355,9 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 
 		// handle ticket invoices
 		if strings.HasPrefix(desc, "ticket for") {
-			for label, kickdata := range pendingApproval {
+			for tuple := range pendingApproval.IterBuffered() {
+				label := tuple.Key
+				kickdata := tuple.Val.(KickData)
 				if kickdata.Hash == hash {
 					var target User
 					target, err = chatOwnerFromTicketLabel(label)
@@ -391,7 +394,8 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 		// search the invoices list
 		invoice, ok := findInvoiceOnNode(hash, "")
 		if !ok {
-			return errors.New("Couldn't find internal invoice.")
+			err = errors.New("Couldn't find internal invoice.")
+			return
 		}
 
 		label := invoice.Get("label").String()
@@ -430,11 +434,11 @@ func (u User) payInvoice(messageId int, bolt11 string) (err error) {
 			paymentHasSucceeded, paymentHasFailed,
 		)
 		if err != nil {
-			return err
+			return hash, err
 		}
 	}
 
-	return nil
+	return hash, nil
 }
 
 func (u User) actuallySendExternalPayment(
@@ -468,11 +472,16 @@ func (u User) actuallySendExternalPayment(
 	}
 	defer txn.Rollback()
 
+	fee_reserve := float64(msatoshi) * 0.01
+	if msatoshi < 5000000 {
+		fee_reserve = 0
+	}
+
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, description, payment_hash, label, pending, trigger_message, remote_node)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, u.Id, msatoshi, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
+  (from_id, amount, fees, description, payment_hash, label, pending, trigger_message, remote_node)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, u.Id, msatoshi, fee_reserve, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
 	if err != nil {
 		log.Debug().Err(err).Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
@@ -488,18 +497,8 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	}
 
 	if balance < 0 {
-		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
-			-float64(balance)/1000)
-	}
-
-	if msatoshi >= 5000000 && msatoshi*2/100 > balance {
-		// if the payment is >= 5000sat, reserve 1% of balance for the transaction fee.
-		// if it's smaller we don't care.
-		// this should provide an easy way for people to empty their wallets while at the same time
-		// protecting against exploits and people who leave with a gigantic negative balance.
-		return errors.New(
-			"Can't use your entire balance for this payment because of fee reserves. Please withdraw in chunks.",
-		)
+		return fmt.Errorf("Amount too big. Usable balance is %.3f sat.",
+			(float64(balance+msatoshi)+fee_reserve)/1000)
 	}
 
 	err = txn.Commit()
@@ -512,7 +511,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	params := map[string]interface{}{
 		"riskfactor":    3,
 		"maxfeepercent": 1,
-		"exemptfee":     3,
+		"exemptfee":     0,
 		"label":         fmt.Sprintf("user=%d", u.Id),
 	}
 
@@ -534,7 +533,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			log.Warn().Err(err).
 				Interface("params", params).
 				Interface("tries", tries).
-				Msg("Unexpected error paying invoice.")
+				Msg("unexpected error paying invoice")
 			return
 		}
 
@@ -801,6 +800,7 @@ func (u User) getInfo() (info Info, err error) {
 SELECT
   b.account_id,
   b.balance/1000 AS balance,
+  b.balance-0.99009/1000 AS usable,
   (
     SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.to_id
@@ -988,6 +988,7 @@ func paymentHasFailed(u User, messageId int, hash string) {
 type Info struct {
 	AccountId     string  `db:"account_id"`
 	Balance       float64 `db:"balance"`
+	UsableBalance float64 `db:"usable"`
 	TotalSent     float64 `db:"totalsent"`
 	TotalReceived float64 `db:"totalrecv"`
 	TotalFees     float64 `db:"fees"`

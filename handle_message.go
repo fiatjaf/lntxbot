@@ -352,6 +352,10 @@ parsed:
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
+		if !canJoinGiveaway(u.Id) {
+			u.notify(t.OVERQUOTA, t.T{"App": "giveaway"})
+			return
+		}
 		if !u.checkBalanceFor(sats, "giveaway", nil) {
 			break
 		}
@@ -643,6 +647,7 @@ parsed:
 
 				u.notify(t.BALANCEMSG, t.T{
 					"Sats":     info.Balance,
+					"Usable":   info.UsableBalance,
 					"Received": info.TotalReceived,
 					"Sent":     info.TotalSent,
 					"Fees":     info.TotalFees,

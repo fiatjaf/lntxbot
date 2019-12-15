@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"strconv"
 
 	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/orcaman/concurrent-map"
 )
 
 /*
@@ -40,7 +42,7 @@ func loadGroup(telegramId int64) (g GroupChat, err error) {
 	return
 }
 
-var spammy_cache = map[int64]bool{}
+var spammy_cache = cmap.New()
 
 func toggleSpammy(telegramId int64) (spammy bool, err error) {
 	err = pg.Get(&spammy, `
@@ -49,14 +51,14 @@ WHERE telegram_id = $1
 RETURNING spammy
     `, -telegramId)
 
-	spammy_cache[-telegramId] = spammy
+	spammy_cache.Set(strconv.FormatInt(-telegramId, 10), spammy)
 
 	return
 }
 
 func isSpammy(telegramId int64) (spammy bool) {
-	if spammy, ok := spammy_cache[-telegramId]; ok {
-		return spammy
+	if spammy, ok := spammy_cache.Get(strconv.FormatInt(-telegramId, 10)); ok {
+		return spammy.(bool)
 	}
 
 	err := pg.Get(&spammy, "SELECT spammy FROM telegram.chat WHERE telegram_id = $1", -telegramId)
@@ -64,7 +66,7 @@ func isSpammy(telegramId int64) (spammy bool) {
 		return false
 	}
 
-	spammy_cache[-telegramId] = spammy
+	spammy_cache.Set(strconv.FormatInt(-telegramId, 10), spammy)
 
 	return
 }

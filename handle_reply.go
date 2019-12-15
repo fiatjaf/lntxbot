@@ -23,6 +23,21 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
 			handleLNURLPayConfirmation(u, int64(sats*1000), data, message.MessageID)
+		case "bitrefill":
+			value, err := strconv.ParseFloat(message.Text, 64)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
+			}
+
+			// get item and package info
+			item, ok := bitrefillInventory[data.Get("item").String()]
+			if !ok {
+				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
+				return
+			}
+
+			phone := data.Get("phone").String()
+			handleProcessBitrefillOrder(u, item, BitrefillPackage{Value: value}, &phone)
 		default:
 			log.Debug().Int("userId", u.Id).Int("message", inreplyto).Str("type", data.Get("type").String()).
 				Msg("reply to bot message unhandled procedure")

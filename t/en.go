@@ -43,8 +43,9 @@ lnurl-auth success!
     `,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
 
-{{.SuccessAction.Description | html}}
-{{if eq .SuccessAction.Tag "url"}}<a href="{{.SuccessAction.Data}}">{{.SuccessAction.Data}}</a>{{end}}
+{{if .DecipherError}}Failed to decipher ({{.DecipherError}}):
+{{end}}<pre>{{.Text}}</pre>
+{{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
 	LNURLPAYMETADATA: `lnurl-pay metadata:
 <b>domain</b>: <i>{{.Domain}}</i>
@@ -256,7 +257,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
     `,
 
 	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Choose your provider:`,
-	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your <i>{{.Item}}</i> card:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your <i>{{.Item}}</i> card{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
 	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> No providers found.`,
 	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
 	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
@@ -283,7 +284,7 @@ To buy a gift card, use the /bitrefill command followed by the name of the place
 <code>/bitrefill nextel +5411971732181</code> will display options to refill the given phone number of the operator Nextel.
 <code>/bitrefill amazon</code> will display options of gift cards of various sizes you can buy on Amazon.
 
-You may not found all the gift cards available on the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot. Also often the website has more flexibility in selecting the gift card values. The prices are the same here and there, however.
+You may not find all the providers available in the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot and maybe other things are different here. But the prices are the same.
     `,
 
 	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
@@ -522,7 +523,8 @@ Pay the invoice described above?
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
-<b>Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
+<b>Full Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
+<b>Usable Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Usable}})
 <b>Total received</b>: {{printf "%.3f" .Received}} sat
 <b>Total sent</b>: {{printf "%.3f" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat

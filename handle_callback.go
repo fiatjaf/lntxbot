@@ -125,6 +125,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		claimer := u
 
+		if !canJoinGiveaway(claimer.Id) {
+			u.notify(t.OVERQUOTA, t.T{"App": "giveaway"})
+			return
+		}
+
 		errMsg, err := giver.sendInternally(
 			messageId,
 			claimer,

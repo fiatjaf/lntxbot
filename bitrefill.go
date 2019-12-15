@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -176,10 +175,15 @@ func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInvent
 }
 
 func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
-	packages := getBitRefillPackagesForItem(item)
+	packages := item.Packages
 
 	// make buttons
 	npacks := len(packages)
+	if npacks > 6 {
+		npacks = 6
+		packages = packages[:6]
+	}
+
 	inlinekeyboard := make([][]tgbotapi.InlineKeyboardButton, npacks/2+npacks%2)
 	for i, pack := range packages {
 		if i%2 == 0 {
@@ -192,9 +196,25 @@ func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
 		))
 	}
 
-	user.notifyWithKeyboard(t.BITREFILLPACKAGESHEADER, t.T{
-		"Item": item.Name,
+	// allow replying with custom amount
+	replyCustom := false
+	if item.IsRanged && item.Range.Step == 1 {
+		replyCustom = true
+	}
+
+	sent := user.notifyWithKeyboard(t.BITREFILLPACKAGESHEADER, t.T{
+		"Item":        item.Name,
+		"ReplyCustom": replyCustom,
 	}, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+
+	if replyCustom {
+		rds.Set(
+			fmt.Sprintf("reply:%d:%d", user.Id, sent.MessageID),
+			fmt.Sprintf(`{"type": "bitrefill", "item": "%s", "phone": "%s"}`,
+				item.Slug, phone),
+			time.Hour*1,
+		)
+	}
 }
 
 func placeBitrefillOrder(
@@ -409,31 +429,40 @@ func getBitrefillCountry(user User) (string, error) {
 	return data.Country, nil
 }
 
-var distparam = math.Pow(100, 1/2.8)
-
-func getBitRefillPackagesForItem(item BitrefillInventoryItem) (packages []BitrefillPackage) {
-	if item.IsRanged && item.Range.PurchaseFee == nil && item.Range.Step == 1 {
-		// use custom values (only when there's no odd purchase fee and step is a sane "1")
-		packages = make([]BitrefillPackage, 0, 10)
-
-		min := float64(item.Range.Min)
-		diff := float64(item.Range.Max - item.Range.Min)
-
-		var value float64
-		for j := 0.0; int(value) < item.Range.Max; j += 0.6 {
-			value = math.Floor(diff*math.Pow(float64(j), distparam)/100 + min)
-
-			packages = append(packages, BitrefillPackage{
-				Value: value,
-				SatoshiPrice: int(math.Ceil(
-					item.Range.CustomerSatoshiPriceRate * value,
-				)),
-			})
-		}
-	} else {
-		// use predefined package list
-		packages = item.Packages
+func handleProcessBitrefillOrder(
+	user User,
+	item BitrefillInventoryItem,
+	pack BitrefillPackage,
+	phone *string,
+) {
+	// create order
+	orderId, invoice, err := placeBitrefillOrder(user, item, pack, phone)
+	if err != nil {
+		user.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
+		return
 	}
 
-	return
+	// parse invoice
+	inv, err := ln.Call("decodepay", invoice)
+	if err != nil {
+		user.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
+		return
+	}
+
+	user.notifyWithKeyboard(t.BITREFILLCONFIRMATION, t.T{
+		"Item":    item,
+		"Package": pack,
+		"Sats":    inv.Get("msatoshi").Float() / 1000,
+	}, &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, user.Locale),
+					fmt.Sprintf("cancel=%d", user.Id)),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.YES, user.Locale),
+					fmt.Sprintf("x=bitrefill-pch-%s", orderId)),
+			},
+		},
+	}, 0)
 }

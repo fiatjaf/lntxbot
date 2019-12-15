@@ -70,11 +70,11 @@ lnurl-auth успех!
 	PAYMENTRECEIVED:      "Платёж получен: {{.Sats}}. /tx{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Платёж получен, но не сохранён в базе данных. Пожалуйста, сообщите о проблеме: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
-	SPAMMYMSG:   "{{if .Spammy}}Теперь эта группа будет спамиться. {{else}}Больше спамить не буду.{{end}}",
+	SPAMMYMSG:           "{{if .Spammy}}Теперь эта группа будет спамиться. {{else}}Больше спамить не буду.{{end}}",
 	COINFLIPSENABLEDMSG: "Подбросы монетки {{if .Enabled}}разрешены{{else}}запрещены{{end}} в этой группе.",
-	LANGUAGEMSG: "Установлен язык этого чата <code>{{.Language}}</code>.",
-	TICKETMSG:   "Новые участники должны заплатить {{.Sat}} сат (убедитесь, что вы установили @{{.BotName}} администратором, чтобы это работало).",
-	FREEJOIN:    "К этой группе теперь можно присоединиться свободно.",
+	LANGUAGEMSG:         "Установлен язык этого чата <code>{{.Language}}</code>.",
+	TICKETMSG:           "Новые участники должны заплатить {{.Sat}} сат (убедитесь, что вы установили @{{.BotName}} администратором, чтобы это работало).",
+	FREEJOIN:            "К этой группе теперь можно присоединиться свободно.",
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -253,7 +253,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 /microbet_withdraw выводит весь ваш баланс.
     `,
 	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Выберите провайдера услуг:`,
-	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Выберите вашу <i>{{.Item}}</i> карту:`,
+	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Выберите вашу <i>{{.Item}}</i> карту{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
 	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> Провайдер не найден.`,
 	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Действительно купить <i>{{.Package.Value}} {{.Item.Currency}}</i> карту <b>{{.Item.Name}}</b> за <i>{{.Sats}} сат</i> ({{dollar .Sats}})?`,
 	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Ваш заказ <code>{{.OrderId}}</code> был оплачен, но не сохранён. Сообщите об ошибке: {{.Err}}",
@@ -331,7 +331,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   Hours left in balance: <b>{{.HoursLeft}}</b>
 {{end}}
     `,
-	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Таймаут во время ожидания подготовки хоста bitclouds.sh, вызовите /bitclouds_status_{{.Host}} в течение пары минут, если он по-прежнему не будет доступен, сообщите о проблеме, используя доказательство платежа.",
+	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Таймаут во время ожидания подготовки хоста bitclouds.sh, вызовите /bitclouds_status_{{.EscapedHost}} в течение пары минут, если он по-прежнему не будет доступен, сообщите о проблеме, используя доказательство платежа.",
 	BITCLOUDSNOHOSTS:        "<b>[bitclouds]</b> На вашем аккаунте нет хостов. Может быть, вы желаете создать /bitclouds_create?",
 	BITCLOUDSHOSTSHEADER:    "<b>[bitclouds]</b> Выберите ваш хост:",
 	BITCLOUDSSTATUS: `<b>[bitclouds]</b> Хост <code>{{.Host}}</code>:
@@ -350,7 +350,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 
 {{if .Alarm}}⚠⚠⚠⚠⚠
 
-{{end}}Используйте /bitclouds_topup_{{.Sats}}_{{.Host}} для оплаты следующей недели!
+{{end}}Используйте /bitclouds_topup_{{.Sats}}_{{.EscapedHost}} для оплаты следующей недели!
     `,
 
 	QIWIHELP: `
@@ -449,15 +449,15 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 /poker_play играть здесь!
 /poker_url играть в браузере!
     `,
-    POKERNOTIFYFRIEND: `
+	POKERNOTIFYFRIEND: `
 <b>[Poker]</b> {{.FriendName}} сел за стол!
 
 /poker_status проверить снова!
 /poker_play играть здесь!
 /poker_url играть в браузере!
     `,
-    POKERSUBSCRIBED: "Вы можете играть в покер в течение следующих {{.Minutes}} минут.",
-    POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> первый и простейший безлимитный техасский Холдем Покер, разыгрываемый прямо с использованием сатоши. Просто присоединитесь к столу и начните копить сатоши.
+	POKERSUBSCRIBED: "Вы можете играть в покер в течение следующих {{.Minutes}} минут.",
+	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> первый и простейший безлимитный техасский Холдем Покер, разыгрываемый прямо с использованием сатоши. Просто присоединитесь к столу и начните копить сатоши.
 
 Играя с аккаунта, привязанного к балансу бота, вы можете просто сесть за стол и ваш покерный аккаунт будет пополнен с баланса бота, с минимальными заботами.
 

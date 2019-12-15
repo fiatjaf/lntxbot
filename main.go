@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -19,8 +22,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
+	"github.com/orcaman/concurrent-map"
 	"github.com/rs/zerolog"
-	"github.com/tidwall/gjson"
 	"gopkg.in/redis.v5"
 )
 
@@ -31,7 +34,6 @@ type Settings struct {
 	BotToken    string `envconfig:"BOT_TOKEN" required:"true"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
-	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
@@ -49,6 +51,8 @@ type Settings struct {
 	CoinflipAvgDays    int `envconfig:"COINFLIP_AVG_DAYS" default:"7"`    // days we'll consider for the average
 	GiveflipDailyQuota int `envconfig:"GIVEFLIP_DAILY_QUOTA" default:"5"`
 	GiveflipAvgDays    int `envconfig:"GIVEFLIP_AVG_DAYS" default:"7"`
+	GiveawayDailyQuota int `envconfig:"GIVEAWAY_DAILY_QUOTA" default:"5"`
+	GiveawayAvgDays    int `envconfig:"GIVEAWAY_AVG_DAYS" default:"7"`
 
 	TutorialWalletVideoId string `envconfig:"TUTORIAL_WALLET_VIDEO_ID"`
 	TutorialBlueVideoId   string `envconfig:"TUTORIAL_BLUE_VIDEO_ID"`
@@ -68,20 +72,45 @@ var bot *tgbotapi.BotAPI
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
-var waitingInvoices = make(map[string][]chan gjson.Result)
+var waitingInvoices = cmap.New()         // make(map[string][]chan gjson.Result)
+var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
 var bundle t.Bundle
 
 func main() {
 	p := plugin.Plugin{
-		Name:    "lnurl",
+		Name:    "lntxbot",
 		Version: "v1.0",
-		Options: []plugin.Option{},
+		Options: []plugin.Option{
+			{"lntxbot-envfile", "string", "", "Path to the file containing everything"},
+		},
 		Subscriptions: []plugin.Subscription{
 			{
 				"invoice_payment",
 				func(p *plugin.Plugin, params plugin.Params) {
-					label := params["invoice_payment"].(map[string]interface{})["label"].(string)
-					log.Print("got payment ", label)
+					label := params.Get("invoice_payment.label").String()
+					invspaid, err := ln.Call("listinvoices", label)
+					if err != nil {
+						log.Error().Err(err).Str("label", label).Msg("failed to query paid invoice")
+						return
+					}
+
+					inv := invspaid.Get("invoices.0")
+					go handleInvoicePaid(
+						inv.Get("pay_index").Int(),
+						inv.Get("msatoshi_received").Int(),
+						inv.Get("description").String(),
+						inv.Get("payment_hash").String(),
+						inv.Get("label").String(),
+					)
+					go resolveWaitingInvoice(inv.Get("payment_hash").String(), inv)
+				},
+			},
+			{
+				"sendpay_success",
+				func(p *plugin.Plugin, params plugin.Params) {
+					hash := params.Get("sendpay_success.payment_hash").String()
+					preimage := params.Get("sendpay_success.payment_preimage").String()
+					go resolveWaitingPaymentSuccess(hash, preimage)
 				},
 			},
 		},
@@ -92,7 +121,20 @@ func main() {
 }
 
 func server(p *plugin.Plugin) {
-	godotenv.Load("/home/lightning/lntxbot/prod.env")
+	// globalize the lightning rpc client
+	ln = p.Client
+
+	// load values from envfile (hack)
+	if envpath, err := p.Args.String("lntxbot-envfile"); err == nil {
+		if !filepath.IsAbs(envpath) {
+			// expand tlspath from lightning dir
+			godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
+		} else {
+			godotenv.Load(envpath)
+		}
+	} else {
+		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envpath")
+	}
 	err = envconfig.Process("", &s)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
@@ -105,6 +147,7 @@ func server(p *plugin.Plugin) {
 
 	setupCommands()
 
+	// setup logger
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
 
@@ -157,13 +200,6 @@ func server(p *plugin.Plugin) {
 		}
 	}
 
-	ln = &lightning.Client{
-		Path:             s.SocketPath,
-		LastInvoiceIndex: int(lastinvoiceindex),
-		PaymentHandler:   invoicePaidListener,
-	}
-	ln.ListenForInvoices()
-
 	// handle QR code requests from telegram
 	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[3:]
@@ -197,13 +233,17 @@ func server(p *plugin.Plugin) {
 
 	// start http server
 	srv := &http.Server{
-		Handler: router,
-		Addr:    "0.0.0.0:" + s.Port,
-		// Good practice: enforce timeouts for servers you create!
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		Handler:      router,
+		Addr:         "0.0.0.0:" + s.Port,
+		WriteTimeout: 300 * time.Second,
+		ReadTimeout:  300 * time.Second,
 	}
-	go srv.ListenAndServe()
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Error().Err(err).Msg("error serving http")
+		}
+	}()
 
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()
@@ -227,7 +267,15 @@ func server(p *plugin.Plugin) {
 	for update := range updates {
 		lastTelegramUpdate = int64(update.UpdateID)
 		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		handle(update)
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					fmt.Fprint(os.Stderr, string(debug.Stack()))
+					sendMessage(418342569, string(debug.Stack()))
+				}
+			}()
+			handle(update)
+		}()
 	}
 }
 
