@@ -511,7 +511,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 	params := map[string]interface{}{
 		"riskfactor":    3,
 		"maxfeepercent": 1,
-		"exemptfee":     0,
+		"exemptfee":     3000,
 		"label":         fmt.Sprintf("user=%d", u.Id),
 	}
 
