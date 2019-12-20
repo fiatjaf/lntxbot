@@ -126,7 +126,7 @@ func registerBluewalletMethods() {
 			PaymentHash     Buffer                 `json:"payment_hash"`
 			Decoded         Decoded                `json:"decoded"`
 			FeeMsat         int64                  `json:"fee_msat"`
-		}{"", "", make(map[string]interface{}), "", decoded, int64(tx.Fees * 1000)})
+		}{"", Buffer(tx.Preimage.String), make(map[string]interface{}), Buffer(tx.Hash), decoded, int64(tx.Fees * 1000)})
 	})
 
 	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
