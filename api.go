@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -93,6 +94,11 @@ func registerAPIMethods() {
 		}
 
 		// transaction not found, so let's wait a while for it
+		if r.URL.Query().Get("wait") == "false" {
+			errorTimeout(w)
+			return
+		}
+
 		select {
 		case inv := <-waitInvoice(hash):
 			_, _, preimage, _, _ := parseLabel(inv.Get("label").String())
@@ -106,6 +112,48 @@ func registerAPIMethods() {
 			errorTimeout(w)
 			return
 		}
+	})
+
+	router.Path("/paymentstatus/{hash}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, permission, err := loadUserFromAPICall(r)
+		if err != nil {
+			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
+			return
+		}
+
+		hash := mux.Vars(r)["hash"]
+		if len(hash) != 64 {
+			errorInvalidParams(w)
+			return
+		}
+
+		status := "unknown"
+		txn, err := user.getTransaction(hash)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				status = "failed"
+			} else {
+				errorInvalidParams(w)
+				return
+			}
+		}
+
+		if txn.Status == "PENDING" {
+			status = "pending"
+		} else if txn.Status == "SENT" {
+			status = "complete"
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"hash":   txn.Hash,
+			"status": status,
+		})
+		return
 	})
 }
 
