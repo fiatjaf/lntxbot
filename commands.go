@@ -34,7 +34,7 @@ var methods = []def{
 	},
 	def{
 		aliases:        []string{"receive", "invoice", "fund"},
-		argstr:         "(lnurl | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
+		argstr:         "(lnurl | (<satoshis> | any) [<description>...])",
 		inline:         true,
 		inline_example: "invoice <satoshis>",
 	},

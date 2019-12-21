@@ -31,14 +31,14 @@ var dollarPrice = struct {
 }{time.Now(), 0}
 var nodeAliases = cmap.New()
 
-func makeLabel(userId int, messageId interface{}, preimage, tag string) string {
-	return fmt.Sprintf("%s.%d.%v.%s.%s", s.ServiceId, userId, messageId, preimage, tag)
+func makeLabel(userId int, messageId interface{}, tag string) string {
+	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, tag)
 }
 
-func parseLabel(label string) (messageId, userId int, preimage, tag string, ok bool) {
+func parseLabel(label string) (messageId, userId int, tag string, ok bool) {
 	ok = false
 	parts := strings.Split(label, ".")
-	if len(parts) > 3 {
+	if len(parts) > 2 {
 		userId, err = strconv.Atoi(parts[1])
 		if err == nil {
 			ok = true
@@ -47,11 +47,10 @@ func parseLabel(label string) (messageId, userId int, preimage, tag string, ok b
 		if err == nil {
 			ok = true
 		}
-		preimage = parts[3]
 	}
 
-	if len(parts) > 4 {
-		tag = parts[4]
+	if len(parts) > 3 {
+		tag = parts[3]
 	}
 
 	return

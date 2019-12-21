@@ -262,22 +262,14 @@ func (u User) makeInvoice(
 	label string,
 	expiry *time.Duration,
 	messageId interface{},
-	preimage string,
 	tag string,
 	bluewallet bool,
 ) (bolt11 string, hash string, qrpath string, err error) {
 	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
 		Msg("generating invoice")
 
-	if preimage == "" {
-		preimage, err = randomPreimage()
-		if err != nil {
-			return
-		}
-	}
-
 	if label == "" {
-		label = makeLabel(u.Id, messageId, preimage, tag)
+		label = makeLabel(u.Id, messageId, tag)
 	}
 
 	msatoshi := sats * 1000
@@ -295,7 +287,6 @@ func (u User) makeInvoice(
 		"label":       label,
 		"description": desc,
 		"expiry":      int(exp),
-		"preimage":    preimage,
 	})
 	if err != nil {
 		return
@@ -383,6 +374,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 						amount,
 						desc,
 						hash,
+						"",
 						label,
 					)
 					paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
@@ -399,7 +391,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 		}
 
 		label := invoice.Get("label").String()
-		messageId, targetId, preimage, _, ok := parseLabel(label)
+		messageId, targetId, _, ok := parseLabel(label)
 		if ok {
 			err = u.addInternalPendingInvoice(
 				messageId,
@@ -418,9 +410,10 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 				amount,
 				desc,
 				hash,
+				"",
 				label,
 			)
-			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), preimage, "", hash)
+			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
 			ln.Call("delinvoice", label, "unpaid")
 		} else {
 			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")

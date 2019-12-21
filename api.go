@@ -101,10 +101,9 @@ func registerAPIMethods() {
 
 		select {
 		case inv := <-waitInvoice(hash):
-			_, _, preimage, _, _ := parseLabel(inv.Get("label").String())
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"hash":     inv.Get("payment_hash").String(),
-				"preimage": preimage,
+				"preimage": inv.Get("preimage").String(),
 				"amount":   inv.Get("msatoshi").Int(),
 			})
 			return

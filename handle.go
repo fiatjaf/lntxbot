@@ -44,34 +44,34 @@ func handle(upd tgbotapi.Update) {
 	}
 }
 
-func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
-	if payindex > 0 {
-		rds.Set("lastinvoiceindex", payindex, 0)
-	}
-
-	// extract user id and preimage from label
-	messageId, userId, preimage, tag, ok := parseLabel(label)
+func handleInvoicePaid(payindex, msats int64, desc, hash, preimage, label string) {
 	var receiver User
+	var messageId int
+	var tag string
 
-	if ok {
-		// normal invoice
-		u, err := loadUser(userId, 0)
+	// could be a ticket invoice
+	if strings.HasPrefix(label, "newmember:") {
+		receiver, err = chatOwnerFromTicketLabel(label)
 		if err != nil {
-			log.Warn().Err(err).
-				Int("userid", userId).Str("label", label).
-				Msg("failed to parse label for received payment or loading user")
 			return
 		}
-		receiver = u
+		messageId = 0
 	} else {
-		// could be a ticket invoice
-		if strings.HasPrefix(label, "newmember:") {
-			receiver, err = chatOwnerFromTicketLabel(label)
+		// extract user id from label
+		var ok bool
+		var userId int
+		messageId, userId, tag, ok = parseLabel(label)
+
+		if ok {
+			// normal invoice
+			u, err := loadUser(userId, 0)
 			if err != nil {
+				log.Warn().Err(err).
+					Int("userid", userId).Str("label", label).
+					Msg("failed to parse label for received payment or loading user")
 				return
 			}
-			messageId = 0
-			preimage = ""
+			receiver = u
 		} else {
 			// otherwise we don't know what is this
 			log.Debug().Str("label", label).Int64("msat", msats).Msg("unrecognized payment received.")

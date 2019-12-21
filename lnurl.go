@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -71,8 +70,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 		})
 	case lnurl.LNURLWithdrawResponse:
 		// lnurl-withdraw: make an invoice with the highest possible value and send
-		bolt11, _, _, err := u.makeInvoice(int(params.MaxWithdrawable/1000), params.DefaultDescription,
-			"", nil, messageId, "", "", true)
+		bolt11, _, _, err := u.makeInvoice(int(params.MaxWithdrawable/1000), params.DefaultDescription, "", nil, messageId, "", true)
 		if err != nil {
 			u.notify(t.ERROR, t.T{"Err": err.Error()})
 			return
@@ -451,9 +449,6 @@ func serveLNURL() {
 			tag = apptag
 		}
 
-		preimage := make([]byte, 32)
-		rand.Read(preimage)
-
 		msatoshi, err := strconv.ParseInt(amount, 10, 64)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
@@ -461,7 +456,7 @@ func serveLNURL() {
 		}
 
 		bolt11, err := ln.InvoiceWithDescriptionHash(
-			makeLabel(receiver.Id, 0, hex.EncodeToString(preimage), tag),
+			makeLabel(receiver.Id, 0, tag),
 			msatoshi,
 			string(jmeta),
 			nil,

@@ -71,7 +71,7 @@ func registerBluewalletMethods() {
 
 		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).Msg("bluewallet /addinvoice")
 
-		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", "", true)
+		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", true)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -109,14 +109,21 @@ func registerBluewalletMethods() {
 
 		log.Debug().Str("bolt11", params.Invoice).Msg("bluewallet /payinvoice")
 
-		_, err = user.payInvoice(0, params.Invoice)
+		hash, err := user.payInvoice(0, params.Invoice)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return
 		}
 
 		decoded, _ := decodeInvoiceAsLndHub(params.Invoice)
-		tx, _ := user.getTransaction(decoded.PaymentHash)
+
+		var preimage string
+		select {
+		case preimage = <-waitPaymentSuccess(hash):
+		case <-time.After(150 * time.Second):
+		}
+
+		tx, _ := user.getTransaction(hash)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
@@ -126,7 +133,7 @@ func registerBluewalletMethods() {
 			PaymentHash     Buffer                 `json:"payment_hash"`
 			Decoded         Decoded                `json:"decoded"`
 			FeeMsat         int64                  `json:"fee_msat"`
-		}{"", Buffer(tx.Preimage.String), make(map[string]interface{}), Buffer(tx.Hash), decoded, int64(tx.Fees * 1000)})
+		}{"", Buffer(preimage), make(map[string]interface{}), Buffer(hash), decoded, int64(tx.Fees * 1000)})
 	})
 
 	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

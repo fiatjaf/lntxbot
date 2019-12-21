@@ -685,12 +685,7 @@ parsed:
 
 				desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
 
-				var preimage string
-				if param, ok := opts["--preimage"]; ok {
-					preimage, _ = param.(string)
-				}
-
-				bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, preimage, "", false)
+				bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, "", false)
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to generate invoice")
 					u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})

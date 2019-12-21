@@ -116,7 +116,7 @@ func getPokerBalance(user User) (int, error) {
 
 func withdrawPoker(user User, sats int, messageId int) (err error) {
 	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from lightning-poker.com",
-		"", nil, messageId, "", "poker", true)
+		"", nil, messageId, "poker", true)
 	if err != nil {
 		return
 	}

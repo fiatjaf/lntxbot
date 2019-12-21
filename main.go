@@ -100,6 +100,7 @@ func main() {
 						inv.Get("msatoshi_received").Int(),
 						inv.Get("description").String(),
 						inv.Get("payment_hash").String(),
+						inv.Get("payment_preimage").String(),
 						inv.Get("label").String(),
 					)
 					go resolveWaitingInvoice(inv.Get("payment_hash").String(), inv)
@@ -178,27 +179,6 @@ func server(p *plugin.Plugin) {
 		log.Fatal().Err(err).Msg("")
 	}
 	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
-
-	// lightningd connection
-	lastinvoiceindex, err := rds.Get("lastinvoiceindex").Int64()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to get lastinvoiceindex from redis")
-		return
-	}
-	if lastinvoiceindex < 10 {
-		res, err := ln.Call("listinvoices")
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to get lastinvoiceindex from listinvoices")
-			return
-		}
-		indexes := res.Get("invoices.#.pay_index").Array()
-		for _, indexr := range indexes {
-			index := indexr.Int()
-			if index > lastinvoiceindex {
-				lastinvoiceindex = index
-			}
-		}
-	}
 
 	// handle QR code requests from telegram
 	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
