@@ -456,7 +456,7 @@ func serveLNURL() {
 		}
 
 		bolt11, err := ln.InvoiceWithDescriptionHash(
-			makeLabel(receiver.Id, 0, tag),
+			makeLabel(receiver.Id, nil, tag),
 			msatoshi,
 			string(jmeta),
 			nil,

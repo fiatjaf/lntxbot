@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	mrand "math/rand"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -32,6 +33,12 @@ var dollarPrice = struct {
 var nodeAliases = cmap.New()
 
 func makeLabel(userId int, messageId interface{}, tag string) string {
+	if messageId == nil {
+		// this is a component of the label, so must be unique
+		// if not given we use a random number
+		messageId = mrand.Intn(1000)
+	}
+
 	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, tag)
 }
 
