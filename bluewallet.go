@@ -126,14 +126,19 @@ func registerBluewalletMethods() {
 		tx, _ := user.getTransaction(hash)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct {
-			PaymentError    string                 `json:"payment_error"`
-			PaymentPreimage Buffer                 `json:"payment_preimage"`
-			PaymentRoute    map[string]interface{} `json:"route"`
-			PaymentHash     Buffer                 `json:"payment_hash"`
-			Decoded         Decoded                `json:"decoded"`
-			FeeMsat         int64                  `json:"fee_msat"`
-		}{"", Buffer(preimage), make(map[string]interface{}), Buffer(hash), decoded, int64(tx.Fees * 1000)})
+		json.NewEncoder(w).Encode(LndHubPaymentResult{
+			PaymentError:    "",
+			PaymentPreimage: preimage,
+			PaymentRoute:    make(map[string]interface{}),
+			PaymentHash:     Buffer(hash),
+			Decoded:         decoded,
+			FeeMsat:         int64(tx.Fees * 1000),
+			Type:            "paid_invoice",
+			Fee:             tx.Fees,
+			Value:           tx.Amount,
+			Timestamp:       tx.Time.Unix(),
+			Memo:            tx.Description + " " + tx.PeerActionDescription(),
+		})
 	})
 
 	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -173,35 +178,31 @@ func registerBluewalletMethods() {
 		}
 
 		limit, offset := getLimitAndOffset(r)
-		txns, err := user.listTransactions(limit, offset, 120, Out)
+		txs, err := user.listTransactions(limit, offset, 120, Out)
 		if err != nil {
 			errorInternal(w)
 			return
 		}
 
-		type Payment struct {
-			PaymentPreimage string  `json:"payment_preimage"`
-			Type            string  `json:"type"`
-			Fee             float64 `json:"fee"`
-			Value           float64 `json:"value"`
-			Timestamp       int64   `json:"timestamp"`
-			Memo            string  `json:"memo"`
-		}
-
-		payments := make([]Payment, len(txns))
-		for i, txn := range txns {
-			preimage := txn.Preimage.String
+		payments := make([]LndHubPaymentResult, len(txs))
+		for i, tx := range txs {
+			preimage := tx.Preimage.String
 			if preimage == "" {
 				preimage = "0000000000000000000000000000000000000000000000000000000000000000"
 			}
 
-			payments[i] = Payment{
-				preimage,
-				"paid_invoice",
-				txn.Fees,
-				-txn.Amount,
-				txn.Time.Unix(),
-				txn.Description + " " + txn.PeerActionDescription(),
+			payments[i] = LndHubPaymentResult{
+				PaymentError:    "",
+				PaymentPreimage: preimage,
+				PaymentRoute:    make(map[string]interface{}),
+				PaymentHash:     Buffer(tx.Hash),
+				Decoded:         LndHubDecoded{},
+				FeeMsat:         int64(tx.Fees * 1000),
+				Type:            "paid_invoice",
+				Fee:             tx.Fees,
+				Value:           tx.Amount,
+				Timestamp:       tx.Time.Unix(),
+				Memo:            tx.Description + " " + tx.PeerActionDescription(),
 			}
 		}
 
@@ -247,18 +248,18 @@ func registerBluewalletMethods() {
 		}
 
 		invs := make([]Inv, len(txns))
-		for i, txn := range txns {
+		for i, tx := range txns {
 			invs[i] = Inv{
-				Buffer(txn.Hash),
+				Buffer(tx.Hash),
 				"",
 				"",
 				"1000",
-				txn.PeerActionDescription() + txn.Description,
-				txn.Hash,
+				tx.PeerActionDescription() + tx.Description,
+				tx.Hash,
 				true,
-				txn.Amount,
+				tx.Amount,
 				float64(s.InvoiceTimeout.Seconds()),
-				txn.Time.Unix(),
+				tx.Time.Unix(),
 				"user_invoice",
 			}
 		}
@@ -317,7 +318,21 @@ func (b Buffer) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type Decoded struct {
+type LndHubPaymentResult struct {
+	PaymentError    string                 `json:"payment_error"`
+	PaymentPreimage string                 `json:"payment_preimage"`
+	PaymentRoute    map[string]interface{} `json:"route"`
+	PaymentHash     Buffer                 `json:"payment_hash"`
+	Decoded         LndHubDecoded          `json:"decoded"`
+	FeeMsat         int64                  `json:"fee_msat"`
+	Type            string                 `json:"type"`
+	Fee             float64                `json:"fee"`
+	Value           float64                `json:"value"`
+	Timestamp       int64                  `json:"timestamp"`
+	Memo            string                 `json:"memo"`
+}
+
+type LndHubDecoded struct {
 	Destination     string      `json:"destination"`
 	PaymentHash     string      `json:"payment_hash"`
 	NumSatoshis     string      `json:"num_satoshis"`
@@ -330,13 +345,13 @@ type Decoded struct {
 	RouteHints      interface{} `json:"route_hints"`
 }
 
-func decodeInvoiceAsLndHub(bolt11 string) (Decoded, error) {
+func decodeInvoiceAsLndHub(bolt11 string) (LndHubDecoded, error) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
-		return Decoded{}, err
+		return LndHubDecoded{}, err
 	}
 
-	return Decoded{
+	return LndHubDecoded{
 		Destination:     inv.Get("payee").String(),
 		PaymentHash:     inv.Get("payment_hash").String(),
 		NumSatoshis:     strconv.Itoa(int(inv.Get("msatoshi").Float() / 1000.0)),

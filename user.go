@@ -325,12 +325,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
 	amount := inv.Get("msatoshi").Int()
-	var desc string
-	if inv.Get("description_hash").Exists() {
-		desc = "h: " + inv.Get("description_hash").String()
-	} else {
-		desc = inv.Get("description").String()
-	}
+	desc := inv.Get("description").String()
 	hash = inv.Get("payment_hash").String()
 
 	if amount == 0 {
@@ -862,6 +857,7 @@ SELECT * FROM (
     END AS description,
     tag,
     label,
+    fees::float/1000 AS fees,
     amount::float/1000 AS amount,
     payment_hash,
     preimage
