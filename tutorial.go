@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 )
 
 func handleTutorial(u User, section string) {

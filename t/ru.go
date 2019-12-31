@@ -172,7 +172,6 @@ lnurl-auth успех!
 /bluewallet Печатает строчку вроде "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;", которая должна быть скопирована и вставлена в BlueWallet функцию импорта.
 /bluewallet_refresh очищает предыдущий пароль и печатает новую строку. Вы должны ре-импортировать регистрационные данные в кошелёк BlueWallet после этого шага. Делайте это только в том случае, если предыдущие данные были скомпрометированы.
     `,
-	BLUEWALLETCREDENTIALS:  "<code>{{.Credentials}}</code>",
 	APIPASSWORDUPDATEERROR: "Ошибка обновления пароля. Сообщите о ней: {{.Err}}",
 	APICREDENTIALS: `
 Это токены для <i>Basic Auth</i>. API совместимо с lndhub.io с добавленными методами.

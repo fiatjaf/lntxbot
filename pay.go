@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
-	"github.com/fiatjaf/ln-decodepay/gjson"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi.Message) (paid bool, err error) {
@@ -62,7 +62,7 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 					translate(t.CANCEL, u.Locale),
 					fmt.Sprintf("cancel=%d", u.Id)),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.YES, u.Locale),
+					translateTemplate(t.PAYAMOUNT, u.Locale, t.T{"Sats": amount / 1000}),
 					fmt.Sprintf("pay=%s", hashfirstchars)),
 			),
 		)

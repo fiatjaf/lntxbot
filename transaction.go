@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/lucsky/cuid"
 	"gopkg.in/jmcvetta/napping.v3"
 )

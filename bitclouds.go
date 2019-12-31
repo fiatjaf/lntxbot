@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"gopkg.in/jmcvetta/napping.v3"
 )

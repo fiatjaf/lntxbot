@@ -9,6 +9,7 @@ const (
 	CANCELED       = "Canceled"
 	COMPLETED      = "Completed"
 	CONFIRM        = "Confirm"
+	PAYAMOUNT      = "PayAmount"
 	FAILURE        = "Failure"
 	PROCESSING     = "Processing"
 	WITHDRAW       = "Withdraw"
@@ -97,7 +98,6 @@ const (
 	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
 
 	BLUEWALLETHELP         = "bluewalletHelp"
-	BLUEWALLETCREDENTIALS  = "BluewalletCredentials"
 	APIPASSWORDUPDATEERROR = "APIPasswordUpdateError"
 	APICREDENTIALS         = "APICredentials"
 

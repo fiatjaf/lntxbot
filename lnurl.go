@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	"github.com/fiatjaf/ln-decodepay/gjson"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
@@ -115,7 +115,8 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 						translate(t.CANCEL, u.Locale),
 						fmt.Sprintf("cancel=%d", u.Id)),
 					tgbotapi.NewInlineKeyboardButtonData(
-						translate(t.CONFIRM, u.Locale),
+						translateTemplate(t.PAYAMOUNT, u.Locale,
+							t.T{"Sats": fixedAmount / 1000}),
 						fmt.Sprintf("lnurlpay=%d", fixedAmount)),
 				),
 			)
@@ -132,7 +133,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 					BaseChat:              baseChat,
 					ParseMode:             "HTML",
 					DisableWebPagePreview: true,
-					Text: translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata),
+					Text:                  translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata),
 				}
 				chattable = message
 			}

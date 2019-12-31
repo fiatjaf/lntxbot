@@ -7,6 +7,7 @@ var EN = map[Key]string{
 	CANCELED:   "Canceled.",
 	COMPLETED:  "Completed!",
 	CONFIRM:    "Confirm",
+	PAYAMOUNT:  "Pay {{.Sats}}",
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
@@ -174,7 +175,6 @@ Have contributed: {{.Registered}}
 /bluewallet prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
 /bluewallet_refresh erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
     `,
-	BLUEWALLETCREDENTIALS:  "<code>{{.Credentials}}</code>",
 	APIPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
 	APICREDENTIALS: `
 These are tokens for <i>Basic Auth</i>. The API is compatible with lndhub.io with some extra methods.

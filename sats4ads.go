@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 

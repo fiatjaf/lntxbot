@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/arschles/go-bindata-html-template"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"

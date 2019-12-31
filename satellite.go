@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 )
 
 type SatelliteOrderRequest struct {

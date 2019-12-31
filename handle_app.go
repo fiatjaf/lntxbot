@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/skip2/go-qrcode"

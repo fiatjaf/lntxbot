@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 	"github.com/skip2/go-qrcode"
 )
@@ -182,9 +182,10 @@ parsed:
 			}
 			u.notify(t.COMPLETED, nil)
 		} else {
-			u.notify(t.BLUEWALLETCREDENTIALS, t.T{
-				"Credentials": fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL),
-			})
+			blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
+			qrpath := qrImagePath(fmt.Sprintf("bluewallet-%d", u.Id))
+			qrcode.WriteFile(blueURL, qrcode.Medium, 256, qrpath)
+			sendMessageWithPicture(message.Chat.ID, qrpath, "<code>"+blueURL+"</code>")
 		}
 	case opts["api"].(bool):
 		passwordFull := u.Password

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
