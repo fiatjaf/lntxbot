@@ -194,11 +194,16 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 		return
 	}
 
+	processingMessage := sendMessage(u.ChatId,
+		res.PR+"\n\n"+translate(t.PROCESSING, u.Locale),
+	)
+
 	// pay it
 	hash, err := u.payInvoice(messageId, res.PR)
 	if err == nil {
-		// wait until lnurl-pay is paid successfully.
+		deleteMessage(&processingMessage)
 
+		// wait until lnurl-pay is paid successfully.
 		go func() {
 			preimage := <-waitPaymentSuccess(hash)
 			bpreimage, _ := hex.DecodeString(preimage)
@@ -250,6 +255,8 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 				}, messageId)
 			}
 		}()
+	} else {
+		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, processingMessage.MessageID)
 	}
 }
 
