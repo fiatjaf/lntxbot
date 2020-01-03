@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/ln-decodepay/gjson"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/skip2/go-qrcode"
@@ -469,9 +469,11 @@ func (u User) actuallySendExternalPayment(
 INSERT INTO lightning.transaction
   (from_id, amount, fees, description, payment_hash, label, pending, trigger_message, remote_node)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `, u.Id, msatoshi, fee_reserve, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
+    `, u.Id, msatoshi, int64(fee_reserve), inv.Get("description").String(),
+		hash, label, true, messageId, inv.Get("payee").String())
 	if err != nil {
-		log.Debug().Err(err).Msg("database error inserting transaction")
+		log.Debug().Err(err).Int64("msatoshi", msatoshi).
+			Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
 	}
 
