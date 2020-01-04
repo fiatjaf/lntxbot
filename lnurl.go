@@ -52,12 +52,17 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 		pubkey := hex.EncodeToString(pk.SerializeCompressed())
 
 		var sentsigres lnurl.LNURLResponse
-		_, err = napping.Get(params.Callback, &url.Values{
+		resp, err := napping.Get(params.Callback, &url.Values{
 			"sig": {signature},
 			"key": {pubkey},
 		}, &sentsigres, nil)
 		if err != nil {
 			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+		if resp.Status() >= 300 {
+			u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
+				"Got status %d on callback %s", resp.Status(), params.Callback)})
 			return
 		}
 		if sentsigres.Status == "ERROR" {
@@ -77,12 +82,17 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 		}
 		log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Msg("sending invoice to lnurl callback")
 		var sentinvres lnurl.LNURLResponse
-		_, err = napping.Get(params.Callback, &url.Values{
+		resp, err := napping.Get(params.Callback, &url.Values{
 			"k1": {params.K1},
 			"pr": {bolt11},
 		}, &sentinvres, nil)
 		if err != nil {
 			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+		if resp.Status() >= 300 {
+			u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
+				"Got status %d on callback %s", resp.Status(), params.Callback)})
 			return
 		}
 		if sentinvres.Status == "ERROR" {
@@ -167,9 +177,14 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
-	_, err = napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
+	resp, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+	if resp.Status() >= 300 {
+		u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
+			"Got status %d on callback %s", resp.Status(), callback)})
 		return
 	}
 	if res.Status == "ERROR" {
