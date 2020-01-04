@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type Transaction struct {
@@ -178,11 +178,7 @@ func (t Transaction) PayeeLink() string {
 }
 
 func decimalize(v float64) string {
-	if v == math.Trunc(v) {
-		return fmt.Sprintf("%.0f", v)
-	} else {
-		return fmt.Sprintf("%.3f", v)
-	}
+	return fmt.Sprintf("%g", v)
 }
 
 func renderLogInfo(hash string) (logInfo string) {
@@ -332,7 +328,7 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 				ChatID:      u.ChatId,
 				ReplyMarkup: &keyboard,
 			},
-			Text: text,
+			Text:                  text,
 			DisableWebPagePreview: true,
 			ParseMode:             "HTML",
 		}
@@ -340,8 +336,8 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 		baseEdit := getBaseEdit(cb)
 		baseEdit.ReplyMarkup = &keyboard
 		chattable = tgbotapi.EditMessageTextConfig{
-			BaseEdit: baseEdit,
-			Text:     text,
+			BaseEdit:              baseEdit,
+			Text:                  text,
 			DisableWebPagePreview: true,
 			ParseMode:             "HTML",
 		}
