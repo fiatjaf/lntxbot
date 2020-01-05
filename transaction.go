@@ -178,7 +178,7 @@ func (t Transaction) PayeeLink() string {
 }
 
 func decimalize(v float64) string {
-	return fmt.Sprintf("%g", v)
+	return fmt.Sprintf("%.15g", v)
 }
 
 func renderLogInfo(hash string) (logInfo string) {

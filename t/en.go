@@ -36,7 +36,7 @@ lnurl-auth success!
 <b>domain</b>: <i>{{.Host}}</i>
 <b>key</b>: <i>{{.PublicKey}}</i>
 `,
-	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%g"}}</i> and <i>{{.Max | printf "%g"}} sat</i>{{end}} for:
+	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
 
 {{if .Text}}<code>{{.Text | html}}</code>{{end}}
 
@@ -58,7 +58,7 @@ lnurl-auth success!
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
 	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{printf "%g" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
+	PAIDMESSAGE: `Paid with <b>{{printf "%.15g" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}
@@ -218,7 +218,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
-	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%g" .Sats}}</b>.`,
+	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.15g" .Sats}}</b>.`,
 	BITFLASHTXQUEUED:     "Transaction queued!",
 	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
 	BITFLASHLIST: `
@@ -497,7 +497,7 @@ To broadcast an ad you must send a message to the bot that will be your ad conte
 /sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
 /sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
     `,
-	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%g" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
+	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.15g" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
 	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
 	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users <b>up to</b> each pricing tier.
 {{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
@@ -506,7 +506,7 @@ To broadcast an ad you must send a message to the bot that will be your ad conte
 {{end}}
 Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for each user.
     `,
-	SATS4ADSADFOOTER: `[sats4ads: {{printf "%g" .Sats}} sat]`,
+	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.15g" .Sats}} sat]`,
 
 	HELPHELP: "Shows full help or help about specific command.",
 
@@ -523,11 +523,11 @@ Pay the invoice described above?
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
-<b>Full Balance</b>: {{printf "%g" .Sats}} sat ({{dollar .Sats}})
-<b>Usable Balance</b>: {{printf "%g" .Usable}} sat ({{dollar .Usable}})
-<b>Total received</b>: {{printf "%g" .Received}} sat
-<b>Total sent</b>: {{printf "%g" .Sent}} sat
-<b>Total fees paid</b>: {{printf "%g" .Fees}} sat
+<b>Full Balance</b>: {{printf "%.15g" .Sats}} sat ({{dollar .Sats}})
+<b>Usable Balance</b>: {{printf "%.15g" .Usable}} sat ({{dollar .Usable}})
+<b>Total received</b>: {{printf "%.15g" .Received}} sat
+<b>Total sent</b>: {{printf "%.15g" .Sent}} sat
+<b>Total fees paid</b>: {{printf "%.15g" .Fees}} sat
 
 /balance_apps
 /transactions
@@ -535,7 +535,7 @@ Pay the invoice described above?
 	TAGGEDBALANCEMSG: `
 <b>Total of</b> <code>received - spent</code> <b>on internal and third-party</b> /apps<b>:</b>
 
-{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%g" .Balance}} sat</i>  ({{dollar .Balance}})
+{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.15g" .Balance}} sat</i>  ({{dollar .Balance}})
 {{else}}
 <i>No tagged transactions made yet.</i>
 {{end}}
