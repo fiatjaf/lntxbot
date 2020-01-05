@@ -185,7 +185,7 @@ parsed:
 			blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
 			qrpath := qrImagePath(fmt.Sprintf("bluewallet-%d", u.Id))
 			qrcode.WriteFile(blueURL, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(message.Chat.ID, qrpath, "<code>"+blueURL+"</code>")
+			sendMessageWithPicture(u.ChatId, qrpath, "<code>"+blueURL+"</code>")
 		}
 	case opts["api"].(bool):
 		passwordFull := u.Password
@@ -200,19 +200,19 @@ parsed:
 		case opts["full"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "full"))
 			qrcode.WriteFile(tokenFull, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(message.Chat.ID, qrpath, tokenFull)
+			sendMessageWithPicture(u.ChatId, qrpath, tokenFull)
 		case opts["invoice"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "invoice"))
 			qrcode.WriteFile(tokenInvoice, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(message.Chat.ID, qrpath, tokenInvoice)
+			sendMessageWithPicture(u.ChatId, qrpath, tokenInvoice)
 		case opts["readonly"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "readonly"))
 			qrcode.WriteFile(tokenReadOnly, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(message.Chat.ID, qrpath, tokenReadOnly)
+			sendMessageWithPicture(u.ChatId, qrpath, tokenReadOnly)
 		case opts["url"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "url"))
 			qrcode.WriteFile(s.ServiceURL+"/", qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(message.Chat.ID, qrpath, s.ServiceURL+"/")
+			sendMessageWithPicture(u.ChatId, qrpath, s.ServiceURL+"/")
 		case opts["refresh"].(bool):
 			opts["bluewallet"] = true
 			goto parsed
