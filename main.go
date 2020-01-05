@@ -30,6 +30,7 @@ import (
 type Settings struct {
 	ServiceId   string `envconfig:"SERVICE_ID" default:"lntxbot"`
 	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
+	Host        string `envconfig:"HOST" default:"0.0.0.0"`
 	Port        string `envconfig:"PORT" required:"true"`
 	BotToken    string `envconfig:"BOT_TOKEN" required:"true"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
@@ -214,7 +215,7 @@ func server(p *plugin.Plugin) {
 	// start http server
 	srv := &http.Server{
 		Handler:      router,
-		Addr:         "0.0.0.0:" + s.Port,
+		Addr:         s.Host + ":" + s.Port,
 		WriteTimeout: 300 * time.Second,
 		ReadTimeout:  300 * time.Second,
 	}
