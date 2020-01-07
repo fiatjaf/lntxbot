@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -211,7 +211,12 @@ func withdrawMicrobet(user User, sats int) (err error) {
 		},
 	}
 
-	bolt11, _, _, err := user.makeInvoice(sats, "withdraw from microbet.fun", "", nil, nil, "microbet", true)
+	bolt11, _, _, err := user.makeInvoice(makeInvoiceArgs{
+		Msatoshi: int64(sats) * 1000,
+		Desc:     "withdraw from microbet.fun",
+		Tag:      "microbet",
+		SkipQR:   true,
+	})
 	if err != nil {
 		return
 	}

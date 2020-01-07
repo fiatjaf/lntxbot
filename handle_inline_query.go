@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kballard/go-shellquote"
 	"github.com/lucsky/cuid"
 )
@@ -55,7 +55,10 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		bolt11, _, qrpath, err := u.makeInvoice(sats, "inline-"+q.ID, "", nil, q.ID, "", false)
+		bolt11, _, qrpath, err := u.makeInvoice(makeInvoiceArgs{
+			Msatoshi:  int64(sats) * 1000,
+			MessageId: q.ID,
+		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty

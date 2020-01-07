@@ -18,7 +18,13 @@ type GoLightningResponse struct {
 }
 
 func prepareGoLightningTransaction(user User, messageId int, sats int) (glresp GoLightningResponse, err error) {
-	bolt11, _, _, err := user.makeInvoice(sats, fmt.Sprintf("refill from golightning.club to user %d", user.Id), "", nil, messageId, "golightning", true)
+	bolt11, _, _, err := user.makeInvoice(makeInvoiceArgs{
+		Msatoshi:  int64(sats) * 1000,
+		Desc:      fmt.Sprintf("refill from golightning.club to user %d", user.Id),
+		MessageId: messageId,
+		Tag:       "golightning",
+		SkipQR:    true,
+	})
 	if err != nil {
 		return
 	}

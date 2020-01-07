@@ -55,23 +55,33 @@ func registerBluewalletMethods() {
 		}
 
 		var params struct {
-			Amount string `json:"amt"`
-			Memo   string `json:"memo"`
+			Amount          string `json:"amt"`
+			Memo            string `json:"memo"`
+			DescriptionHash string `json:"description_hash"`
+			Preimage        string `json:"preimage"`
 		}
 		err = json.NewDecoder(r.Body).Decode(&params)
 		if err != nil {
 			errorInvalidParams(w)
 			return
 		}
-		msatoshi, err := strconv.Atoi(params.Amount)
+		msatoshi, err := strconv.ParseInt(params.Amount, 10, 64)
 		if err != nil {
 			errorInvalidParams(w)
 			return
 		}
 
-		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).Msg("bluewallet /addinvoice")
+		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).
+			Msg("bluewallet /addinvoice")
 
-		bolt11, hash, _, err := user.makeInvoice(msatoshi, params.Memo, "", nil, nil, "", true)
+		bolt11, hash, _, err := user.makeInvoice(makeInvoiceArgs{
+			Msatoshi:   msatoshi,
+			Desc:       params.Memo,
+			DescHash:   params.DescriptionHash,
+			Preimage:   params.Preimage,
+			SkipQR:     true,
+			BlueWallet: true,
+		})
 		if err != nil {
 			errorInternal(w)
 			return

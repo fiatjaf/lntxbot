@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -256,56 +257,99 @@ func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tg
 	return bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translateTemplate(key, u.Locale, templateData)))
 }
 
+type makeInvoiceArgs struct {
+	Desc       string
+	DescHash   string
+	Msatoshi   int64
+	Label      string
+	Preimage   string
+	Expiry     *time.Duration
+	MessageId  interface{}
+	Tag        string
+	BlueWallet bool
+	SkipQR     bool
+}
+
 func (u User) makeInvoice(
-	sats int,
-	desc string,
-	label string,
-	expiry *time.Duration,
-	messageId interface{},
-	tag string,
-	bluewallet bool,
+	args makeInvoiceArgs,
 ) (bolt11 string, hash string, qrpath string, err error) {
-	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
+	msatoshi := args.Msatoshi
+	label := args.Label
+
+	log.Debug().Str("user", u.Username).Str("desc", args.Desc).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
 	if label == "" {
-		label = makeLabel(u.Id, messageId, tag)
+		label = makeLabel(u.Id, args.MessageId, args.Tag)
 	}
-
-	msatoshi := sats * 1000
 
 	var exp time.Duration
-	if expiry == nil {
+	if args.Expiry == nil {
 		exp = s.InvoiceTimeout / time.Second
 	} else {
-		exp = *expiry / time.Second
+		exp = *args.Expiry / time.Second
 	}
 
-	// make invoice
-	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
-		"msatoshi":    msatoshi,
-		"label":       label,
-		"description": desc,
-		"expiry":      int(exp),
-	})
+	// make normal invoice
+	if args.DescHash == "" {
+		params := map[string]interface{}{
+			"msatoshi":    msatoshi,
+			"label":       label,
+			"description": args.Desc,
+			"expiry":      int(exp),
+		}
+
+		if args.Preimage != "" {
+			params["preimage"] = args.Preimage
+		}
+
+		var res gjson.Result
+		res, err = ln.CallWithCustomTimeout(time.Second*40, "invoice", params)
+		bolt11 = res.Get("bolt11").String()
+		hash = res.Get("payment_hash").String()
+	} else {
+		// make invoice with description_hash
+		var hhash []byte
+		hhash, err = hex.DecodeString(args.DescHash)
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid description_hash: %w", err)
+		}
+
+		var preimage []byte
+		preimage, err := hex.DecodeString(args.Preimage)
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid preimage: %w", err)
+		}
+
+		expiry := time.Duration(exp) * time.Second
+		bolt11, err = ln.InvoiceWithDescriptionHash(
+			label,
+			msatoshi,
+			hhash,
+			&preimage,
+			&expiry,
+		)
+		res, _ := ln.Call("decodepay", bolt11)
+		hash = res.Get("payment_hash").String()
+	}
 	if err != nil {
-		return
+		return "", "", "", fmt.Errorf("error making invoice: %w", err)
 	}
 
-	bolt11 = res.Get("bolt11").String()
-	hash = res.Get("payment_hash").String()
-
-	if bluewallet {
+	if args.BlueWallet {
 		encodedinv, _ := json.Marshal(map[string]interface{}{
 			"hash":   hash,
 			"bolt11": bolt11,
-			"desc":   desc,
-			"amount": sats,
+			"desc":   args.Desc,
+			"amount": msatoshi / 1000,
 			"expiry": int(exp),
 		})
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
-	} else {
-		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
+	}
+
+	if !args.SkipQR {
+		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256,
+			qrImagePath(label))
 		if err == nil {
 			qrpath = qrImagePath(label)
 		} else {

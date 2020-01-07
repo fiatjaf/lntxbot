@@ -686,7 +686,11 @@ parsed:
 
 				desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
 
-				bolt11, _, qrpath, err := u.makeInvoice(sats, desc, "", nil, message.MessageID, "", false)
+				bolt11, _, qrpath, err := u.makeInvoice(makeInvoiceArgs{
+					Msatoshi:  int64(sats) * 1000,
+					Desc:      desc,
+					MessageId: message.MessageID,
+				})
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to generate invoice")
 					u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})

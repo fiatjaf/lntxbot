@@ -154,7 +154,12 @@ func withdrawPaywall(user User) (err error) {
 		return
 	}
 
-	bolt11, _, _, err := user.makeInvoice(balance, "withdraw from paywall.link", "", nil, nil, "paywall", true)
+	bolt11, _, _, err := user.makeInvoice(makeInvoiceArgs{
+		Msatoshi: int64(balance) * 1000,
+		Desc:     "withdraw from paywall.link",
+		Tag:      "paywall",
+		SkipQR:   true,
+	})
 	if err != nil {
 		return
 	}

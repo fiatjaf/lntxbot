@@ -76,7 +76,12 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 		})
 	case lnurl.LNURLWithdrawResponse:
 		// lnurl-withdraw: make an invoice with the highest possible value and send
-		bolt11, _, _, err := u.makeInvoice(int(params.MaxWithdrawable/1000), params.DefaultDescription, "", nil, messageId, "", true)
+		bolt11, _, _, err := u.makeInvoice(makeInvoiceArgs{
+			Msatoshi:  params.MaxWithdrawable,
+			Desc:      params.DefaultDescription,
+			MessageId: messageId,
+			SkipQR:    true,
+		})
 		if err != nil {
 			u.notify(t.ERROR, t.T{"Err": err.Error()})
 			return
@@ -509,13 +514,13 @@ func serveLNURL() {
 			return
 		}
 
-		bolt11, err := ln.InvoiceWithDescriptionHash(
-			makeLabel(receiver.Id, nil, tag),
-			msatoshi,
-			string(jmeta),
-			nil,
-			nil,
-		)
+		hhash := sha256.Sum256(jmeta)
+		bolt11, _, _, err := receiver.makeInvoice(makeInvoiceArgs{
+			Msatoshi: msatoshi,
+			DescHash: hex.EncodeToString(hhash[:]),
+			Tag:      tag,
+			SkipQR:   true,
+		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
