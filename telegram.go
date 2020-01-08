@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 func sendMessage(chatId int64, msg string) tgbotapi.Message { return sendMessageAsReply(chatId, msg, 0) }
@@ -97,8 +97,8 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 
 	baseEdit := getBaseEdit(cb)
 	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit: baseEdit,
-		Text:     text,
+		BaseEdit:              baseEdit,
+		Text:                  text,
 		DisableWebPagePreview: true,
 	})
 }
@@ -109,7 +109,7 @@ func edit(message *tgbotapi.Message, newText string) {
 			ChatID:    message.Chat.ID,
 			MessageID: message.MessageID,
 		},
-		Text: newText,
+		Text:                  newText,
 		DisableWebPagePreview: true,
 	})
 }
@@ -152,6 +152,9 @@ func isAdmin(message *tgbotapi.Message) bool {
 }
 
 func deleteMessage(message *tgbotapi.Message) {
+	if message == nil {
+		return
+	}
 	bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID))
 }
 
