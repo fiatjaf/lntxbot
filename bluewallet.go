@@ -65,7 +65,7 @@ func registerBluewalletMethods() {
 			errorInvalidParams(w)
 			return
 		}
-		msatoshi, err := strconv.ParseInt(params.Amount, 10, 64)
+		satoshi, err := strconv.ParseInt(params.Amount, 10, 64)
 		if err != nil {
 			errorInvalidParams(w)
 			return
@@ -75,7 +75,7 @@ func registerBluewalletMethods() {
 			Msg("bluewallet /addinvoice")
 
 		bolt11, hash, _, err := user.makeInvoice(makeInvoiceArgs{
-			Msatoshi:   msatoshi,
+			Msatoshi:   1000 * satoshi,
 			Desc:       params.Memo,
 			DescHash:   params.DescriptionHash,
 			Preimage:   params.Preimage,
