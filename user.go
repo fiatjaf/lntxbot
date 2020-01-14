@@ -315,10 +315,13 @@ func (u User) makeInvoice(
 			return "", "", "", fmt.Errorf("invalid description_hash: %w", err)
 		}
 
-		var preimage []byte
-		preimage, err := hex.DecodeString(args.Preimage)
-		if err != nil {
-			return "", "", "", fmt.Errorf("invalid preimage: %w", err)
+		var ppreimage *[]byte
+		if args.Preimage != "" {
+			if preimage, err := hex.DecodeString(args.Preimage); err != nil {
+				return "", "", "", fmt.Errorf("invalid preimage: %w", err)
+			} else {
+				ppreimage = &preimage
+			}
 		}
 
 		expiry := time.Duration(exp) * time.Second
@@ -326,7 +329,7 @@ func (u User) makeInvoice(
 			label,
 			msatoshi,
 			hhash,
-			&preimage,
+			ppreimage,
 			&expiry,
 		)
 		res, _ := ln.Call("decodepay", bolt11)
