@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type Sats4AdsData struct {
@@ -118,8 +118,8 @@ OFFSET $3
 			})
 
 			ad = tgbotapi.MessageConfig{
-				BaseChat: baseChat,
-				Text:     contentMessage.Text + footer,
+				BaseChat:              baseChat,
+				Text:                  contentMessage.Text + footer,
 				DisableWebPagePreview: true,
 			}
 		case contentMessage.Animation != nil:
@@ -205,7 +205,7 @@ OFFSET $3
 			}
 		default:
 			logger.Info().Msg("invalid message used as ad content")
-			break
+			return
 		}
 
 		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
