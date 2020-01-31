@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -14,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/orcaman/concurrent-map"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
 )
@@ -286,7 +287,7 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	}
 
 	if username == "" && uid == 0 {
-		return
+		return nil, "", errors.New("no user")
 	}
 
 	// check entities for user type
@@ -297,16 +298,22 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 				uid = entity.User.ID
 				display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
 				user, err = ensureTelegramId(uid)
-				u = &user
-				return
+				if err != nil {
+					return nil, "", err
+				}
+
+				return &user, display, nil
 			}
 			if entity.Type == "mention" {
 				// user with username
 				uname := username[1:]
 				display = "@" + uname
 				user, err = ensureUsername(uname)
-				u = &user
-				return
+				if err != nil {
+					return nil, "", err
+				}
+
+				return &user, display, nil
 			}
 		}
 	}
@@ -317,12 +324,14 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	// more.
 	if uid != 0 {
 		user, err = ensureTelegramId(uid)
-		display = user.AtName()
-		u = &user
-		return
+		if err != nil {
+			return nil, "", err
+		}
+
+		return &user, user.AtName(), nil
 	}
 
-	return
+	return nil, "", errors.New("no user")
 }
 
 func findSimilar(source string, targets []string) (result []string) {
