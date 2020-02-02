@@ -152,7 +152,7 @@ func isAdmin(message *tgbotapi.Message) bool {
 }
 
 func deleteMessage(message *tgbotapi.Message) {
-	if message == nil {
+	if message == nil || message.Chat == nil {
 		return
 	}
 	bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID))
