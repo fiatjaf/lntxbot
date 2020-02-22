@@ -20,6 +20,7 @@ import (
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/jmoiron/sqlx"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
@@ -496,5 +497,22 @@ func resolveWaitingPaymentSuccess(hash string, preimage string) {
 			}
 		}
 		waitingPaymentSuccesses.Remove(hash)
+	}
+}
+
+func checkProxyBalance(txn *sqlx.Tx) error {
+	// check proxy balance (should be always zero)
+	var proxybalance int64
+	err = txn.Get(&proxybalance, `
+SELECT (coalesce(sum(amount), 0) - coalesce(sum(fees), 0))::numeric(13) AS balance
+FROM lightning.account_txn
+WHERE account_id = $1
+    `, s.ProxyAccount)
+	if err != nil {
+		return err
+	} else if proxybalance != 0 {
+		return errors.New("proxy balance isn't 0")
+	} else {
+		return nil
 	}
 }

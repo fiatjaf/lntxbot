@@ -188,6 +188,7 @@ const (
 	SATS4ADSBROADCAST  = "Sats4adsBroadcast"
 	SATS4ADSPRICETABLE = "Sats4adsPriceTable"
 	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
+	SATS4ADSVIEWED     = "Viewed"
 
 	PAYWALLHELP      = "paywallHelp"
 	PAYWALLBALANCE   = "PaywallBalance"

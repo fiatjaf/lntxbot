@@ -37,17 +37,20 @@ CREATE TABLE lightning.transaction (
   trigger_message int NOT NULL DEFAULT 0,
   remote_node text,
   anonymous boolean NOT NULL DEFAULT false,
-  tag text
+  tag text,
+  proxied_with text -- the transaction related to this if used the proxy account
 );
 
 CREATE INDEX ON lightning.transaction (from_id);
 CREATE INDEX ON lightning.transaction (to_id);
 CREATE INDEX ON lightning.transaction (label);
 CREATE INDEX ON lightning.transaction (payment_hash);
+CREATE INDEX ON lightning.transaction (pending);
+CREATE INDEX ON lightning.transaction (proxied_with);
 
 CREATE VIEW lightning.account_txn AS
   SELECT
-    time, account_id, anonymous, trigger_message, amount,
+    time, account_id, anonymous, trigger_message, amount, pending,
     CASE WHEN label IS NULL AND t.username != '@'
       THEN coalesce(t.username, t.telegram_id::text)
       ELSE NULL
@@ -62,7 +65,8 @@ CREATE VIEW lightning.account_txn AS
         to_id AS peer,
         -amount AS amount, fees,
         payment_hash, label, description, tag, preimage,
-        remote_node AS payee_node
+        remote_node AS payee_node,
+        pending
       FROM lightning.transaction
       WHERE from_id IS NOT NULL
     UNION ALL
@@ -74,7 +78,8 @@ CREATE VIEW lightning.account_txn AS
         from_id AS peer,
         amount, 0 AS fees,
         payment_hash, label, description, tag, preimage,
-        NULL as payee_node
+        NULL as payee_node,
+        pending
       FROM lightning.transaction
       WHERE to_id IS NOT NULL
   ) AS x
@@ -83,9 +88,13 @@ CREATE VIEW lightning.account_txn AS
 CREATE VIEW lightning.balance AS
     SELECT
       account.id AS account_id,
-      (coalesce(sum(amount), 0) - coalesce(sum(fees), 0))::float AS balance
+      (
+        coalesce(sum(amount), 0) -
+        coalesce(sum(fees), 0)
+      )::numeric(13) AS balance
     FROM lightning.account_txn
     RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
+    WHERE amount <= 0 OR (amount > 0 AND pending = false)
     GROUP BY account.id;
 
 CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$

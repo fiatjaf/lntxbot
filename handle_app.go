@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -689,6 +689,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery) (answer string) {
 	parts := strings.Split(cb.Data[2:], "-")
 	switch parts[0] {
+	case "s4a":
+		if parts[1] == "v" {
+			hashfirst10chars := parts[2]
+			confirmAdViewed(u, hashfirst10chars)
+		}
 	case "microbet":
 		if parts[1] == "withdraw" {
 			defer removeKeyboardButtons(cb)

@@ -526,7 +526,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 
 	var balance int64
 	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error fetching balance")
@@ -661,9 +661,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return errors.New("Payment already in course.")
 	}
 
-	var balance int
+	var balance int64
 	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error fetching balance")
@@ -737,7 +737,7 @@ VALUES (
 	}
 
 	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
+SELECT balance FROM lightning.balance WHERE account_id = $1
     `, u.Id)
 	if err != nil {
 		return "Database error.", err
@@ -768,6 +768,7 @@ func (u User) sendThroughProxy(
 	msats int,
 	sourcedesc string,
 	targetdesc string,
+	pending bool,
 	tag string,
 ) (string, error) {
 	var (
@@ -784,7 +785,7 @@ func (u User) sendThroughProxy(
 	defer txn.Rollback()
 
 	// send transaction source->proxy, then proxy->target
-	// both are updated if it exists
+	// both are updated if exist
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction AS t
   (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
@@ -801,21 +802,18 @@ ON CONFLICT (payment_hash) DO UPDATE SET
 
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction AS t
-  (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT (payment_hash) DO UPDATE SET
-  amount = t.amount + $4,
-  description = $5,
-  tag = $6,
-  trigger_message = $7
-    `, targethash, s.ProxyAccount, target.Id, msats, targetdescn, tagn, targetMessageId)
+  (proxied_with, payment_hash, from_id, to_id, amount,
+   description, tag, trigger_message, pending)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, sourcehash, targethash, s.ProxyAccount, target.Id, msats,
+		targetdescn, tagn, targetMessageId, pending)
 	if err != nil {
 		return "Database error.", err
 	}
 
 	// check balance
 	var balance int64
-	err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", u.Id)
+	err = txn.Get(&balance, "SELECT balance FROM lightning.balance WHERE account_id = $1", u.Id)
 	if err != nil {
 		return "Database error.", err
 	}
@@ -826,11 +824,8 @@ ON CONFLICT (payment_hash) DO UPDATE SET
 	}
 
 	// check proxy balance (should be always zero)
-	var proxybalance int
-	err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-	if err != nil || proxybalance != 0 {
-		log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
-		err = errors.New("proxy balance isn't 0")
+	if err := checkProxyBalance(txn); err != nil {
+		log.Error().Err(err).Msg("proxy balance check")
 		return "Database error.", err
 	}
 
