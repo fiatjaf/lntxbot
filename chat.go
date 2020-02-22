@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/orcaman/concurrent-map"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 /*

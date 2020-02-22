@@ -111,9 +111,10 @@ func waitToKick(label string, kickdata KickData) {
 					Msg("invoice deleted, assume it was paid internally")
 				ticketPaid(label, kickdata)
 				return
-			} else if cmderr.Code == -2 {
+			} else if cmderr.Code == 903 {
 				if _, isPending := pendingApproval.Get(label); !isPending {
-					// not pending anymore, means the invoice was paid internally. don't kick.
+					// not pending anymore, means the invoice was paid internally.
+					// don't kick.
 					return
 				}
 
