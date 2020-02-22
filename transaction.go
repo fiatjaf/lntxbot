@@ -197,7 +197,7 @@ type Hop struct {
 func renderLogInfo(hash string) (logInfo string) {
 	lastCall, err := rds.Get("tries:" + hash).Result()
 	if err != nil {
-		return "<b>Payment not tried.</b>"
+		return ""
 	}
 
 	logInfo += "<b>Routes tried:</b>"
