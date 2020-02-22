@@ -88,22 +88,6 @@ func handleMessage(message *tgbotapi.Message) {
 		}
 	}
 
-	// individual transaction query
-	if strings.HasPrefix(messageText, "/tx") {
-		hashfirstchars := messageText[3:]
-		go handleSingleTransaction(u, hashfirstchars, message.MessageID)
-		return
-	}
-
-	// query failed transactions (only available in the first 24h after the failure)
-	if strings.HasPrefix(messageText, "/log") {
-		go func() {
-			hashfirstchars := messageText[4:]
-			sendMessage(u.ChatId, renderLogInfo(hashfirstchars))
-		}()
-		return
-	}
-
 	// otherwise parse the slash command
 	opts, isCommand, err = parse(messageText)
 	if !isCommand {
@@ -224,6 +208,22 @@ parsed:
 				"ServiceURL": s.ServiceURL,
 			})
 		}
+	case opts["tx"].(bool):
+		// individual transaction query
+		hash := opts["<hash>"].(string)
+		if len(hash) < 5 {
+			u.notify(t.ERROR, t.T{"Err": "hash too small."})
+		}
+		hash = hash[:5]
+		go handleSingleTransaction(u, hash, message.MessageID)
+	case opts["log"].(bool):
+		// query failed transactions (only available in the first 24h after the failure)
+		hash := opts["<hash>"].(string)
+		if len(hash) < 5 {
+			u.notify(t.ERROR, t.T{"Err": "hash too small."})
+		}
+		hash = hash[:5]
+		go sendMessage(u.ChatId, renderLogInfo(hash))
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
 		var defaultNotify func(t.Key, t.T)

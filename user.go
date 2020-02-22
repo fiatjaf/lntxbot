@@ -546,6 +546,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 
 	// set common params
 	params := map[string]interface{}{
+		"bolt11":        bolt11,
 		"riskfactor":    3,
 		"maxfeepercent": 1,
 		"exemptfee":     3000,
@@ -554,10 +555,47 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 
 	// perform payment
 	go func() {
-		success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
+		payment, _ := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
 
 		// save payment attempts for future counsultation
 		// only save the latest 10 tries for brevity
+		var tries []Try
+		if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
+			for _, attempt := range status.Get("pay.0.attempts").Array() {
+				var errorMessage string
+				if attempt.Get("failure").Exists() {
+					if attempt.Get("failure.data").Exists() {
+						errorMessage = fmt.Sprintf("%s %s/%d %s",
+							attempt.Get("failure.data.failcodename").String(),
+							attempt.Get("failure.data.erring_channel").String(),
+							attempt.Get("failure.data.erring_direction").Int(),
+							attempt.Get("failure.data.erring_node").String(),
+						)
+					} else {
+						errorMessage = attempt.Get("failure.message").String()
+					}
+				}
+
+				route := attempt.Get("route").Array()
+				hops := make([]Hop, len(route))
+				for i, routehop := range route {
+					hops[i] = Hop{
+						Peer:      routehop.Get("id").String(),
+						Channel:   routehop.Get("channel").String(),
+						Direction: routehop.Get("direction").Int(),
+						Msatoshi:  routehop.Get("msatoshi").Int(),
+						Delay:     routehop.Get("delay").Int(),
+					}
+				}
+
+				tries = append(tries, Try{
+					Success: attempt.Get("success").Exists(),
+					Error:   errorMessage,
+					Route:   hops,
+				})
+			}
+		}
+
 		from := len(tries) - 10
 		if from < 0 {
 			from = 0
@@ -566,15 +604,7 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
 		}
 
-		if err != nil {
-			log.Warn().Err(err).
-				Interface("params", params).
-				Interface("tries", tries).
-				Msg("unexpected error paying invoice")
-			return
-		}
-
-		if success {
+		if payment.Get("status").String() == "complete" {
 			onSuccess(
 				u,
 				messageId,
@@ -584,17 +614,22 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 				"",
 				payment.Get("payment_hash").String(),
 			)
-		} else {
-			log.Warn().
-				Str("user", u.Username).
-				Int("user-id", u.Id).
-				Interface("params", params).
-				Interface("tries", tries).
-				Str("payment", payment.String()).
-				Str("hash", hash).
-				Msg("payment failed")
+			return
+		}
 
-			onFailure(u, messageId, payment.Get("payment_hash").String())
+		// call listpays to check failure
+		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() == "failed" {
+			if listsendpays, _ := ln.Call("listsendpays", bolt11); listsendpays.Get("payments.#").Int() == 1 {
+				log.Warn().
+					Str("user", u.Username).
+					Int("user-id", u.Id).
+					Interface("params", params).
+					Interface("tries", tries).
+					Str("hash", hash).
+					Msg("payment failed")
+
+				onFailure(u, messageId, listsendpays.Get("payments.0.payment_hash").String())
+			}
 		}
 	}()
 

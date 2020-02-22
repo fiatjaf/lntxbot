@@ -6,11 +6,9 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kr/pretty"
 	"github.com/tidwall/gjson"
 )
@@ -699,59 +697,52 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			appendTextToMessage(cb, translate(t.ERROR, locale))
 			return
 		}
+		appendTextToMessage(cb, translate(t.CHECKING, locale))
+
 		go func(u User, messageId int, hash string) {
-			payment, err := ln.Call("waitsendpay", hash)
-			if err != nil {
-				switch cmderr := err.(type) {
-				case lightning.ErrorCommand:
-					// an error we know it's a final error
-					if cmderr.Code == 203 || cmderr.Code == 208 || cmderr.Code == 209 {
-						log.Debug().
-							Err(err).
-							Str("hash", hash).
-							Msg("canceling failed payment because it has failed failed")
-						paymentHasFailed(u, messageId, hash)
-						return
-					}
-
-					// if it's not a final error but it's been a long time call it final
-					if res, err := ln.CallNamed("listpayments", "payment_hash", hash); err == nil &&
-						res.Get("payments.#").Int() == 1 &&
-						time.Unix(res.Get("payments.0.created_at").Int(), 0).Add(time.Hour).
-							Before(time.Now()) &&
-						res.Get("payments.0.status").String() == "failed" {
-
-						log.Debug().
-							Err(err).
-							Str("hash", hash).
-							Str("pay", res.Get("payments.0").String()).
-							Msg("canceling failed payment because it's been a long time")
-						paymentHasFailed(u, messageId, hash)
-					}
-				case lightning.ErrorTimeout:
-					// command timed out, should try again later
-					appendTextToMessage(cb, translate(t.TXPENDING, locale))
-				default:
-					// unexpected error, report
-					log.Warn().Err(err).Str("hash", hash).Str("user", u.Username).
-						Msg("unexpected error waiting payment resolution")
-					appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
-				}
+			sendpays, _ := ln.CallNamed("listsendpays", "payment_hash", hash)
+			if sendpays.Get("payments.#").Int() == 0 {
+				// payment was never tried
+				log.Debug().
+					Err(err).
+					Str("hash", hash).
+					Msg("canceling payment because it is not on listsendpays")
+				paymentHasFailed(u, messageId, hash)
 				return
 			}
 
-			// payment succeeded
-			paymentHasSucceeded(
-				u,
-				messageId,
-				payment.Get("msatoshi").Float(),
-				payment.Get("msatoshi_sent").Float(),
-				payment.Get("payment_preimage").String(),
-				"",
-				payment.Get("payment_hash").String(),
-			)
+			bolt11 := sendpays.Get("payments.0.bolt11").String()
+			if bolt11 == "" {
+				appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
+				return
+			}
+			pays, _ := ln.Call("listpays", bolt11)
+			payment := pays.Get("listpays.0")
+			if !payment.Exists() || payment.Get("status").String() == "failed" {
+				// payment failed
+				log.Debug().
+					Err(err).
+					Str("hash", hash).
+					Str("pay", payment.String()).
+					Msg("canceling failed payment")
+				paymentHasFailed(u, messageId, hash)
+				return
+			} else if payment.Get("status").String() == "pending" {
+				// command timed out, should try again later
+				appendTextToMessage(cb, translate(t.TXPENDING, locale))
+			} else {
+				// payment succeeded
+				paymentHasSucceeded(
+					u,
+					messageId,
+					payment.Get("msatoshi").Float(),
+					payment.Get("msatoshi_sent").Float(),
+					payment.Get("payment_preimage").String(),
+					"",
+					payment.Get("payment_hash").String(),
+				)
+			}
 		}(u, txn.TriggerMessage, txn.Hash)
-		appendTextToMessage(cb, translate(t.CHECKING, locale))
 	case strings.HasPrefix(cb.Data, "x="):
 		// callback from external app
 		answer := handleExternalAppCallback(u, messageId, cb)

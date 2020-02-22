@@ -51,25 +51,25 @@ lnurl-auth success!
 	LNURLPAYMETADATA: `lnurl-pay metadata:
 <b>domain</b>: <i>{{.Domain}}</i>
 <b>lnurl</b>: <i>{{.LNURL}}</i>
-<b>transaction</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
+<b>transaction</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}
     `,
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
-	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
+	PAYMENTFAILED: "Payment failed. /log_{{.ShortHash}}",
 	PAIDMESSAGE: `Paid with <b>{{printf "%.15g" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}
 
-/tx{{.ShortHash}}`,
+/tx_{{.ShortHash}}`,
 	OVERQUOTA:           "You're over your {{.App}} daily quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 
-	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
+	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
@@ -585,7 +585,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}
@@ -596,7 +596,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 
 You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions.
 
-It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
+It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, is capable of paying to <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-pay">addresses</a>, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
 
 With @{{ .BotName }} you're well equipped for doing online stuff on the Lightning Network.
     `,

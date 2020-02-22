@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -132,7 +131,7 @@ func (t Transaction) Icon() string {
 	case "coinflip":
 		return "🎲"
 	case "fundraise":
-		return "📢"
+		return "🎷"
 	case "reveal":
 		return "🔎"
 	case "sats4ads":
@@ -160,7 +159,7 @@ func (t Transaction) Icon() string {
 		case t.IsPending():
 			return "🕓"
 		case t.IsUnclaimed():
-			return "💤 "
+			return "💤"
 		case t.Anonymous:
 			return "🕵"
 		default:
@@ -181,15 +180,29 @@ func decimalize(v float64) string {
 	return fmt.Sprintf("%.15g", v)
 }
 
+type Try struct {
+	Route   []Hop
+	Error   string
+	Success bool
+}
+
+type Hop struct {
+	Peer      string
+	Channel   string
+	Direction int64
+	Msatoshi  int64
+	Delay     int64
+}
+
 func renderLogInfo(hash string) (logInfo string) {
 	lastCall, err := rds.Get("tries:" + hash).Result()
 	if err != nil {
-		return ""
+		return "<b>Payment not tried.</b>"
 	}
 
 	logInfo += "<b>Routes tried:</b>"
 
-	var tries []lightning.Try
+	var tries []Try
 	err = json.Unmarshal([]byte(lastCall), &tries)
 	if err != nil {
 		logInfo += " [error fetching]"
@@ -209,30 +222,15 @@ func renderLogInfo(hash string) (logInfo string) {
 		}
 
 		routeStr := ""
-		arrihop, ok := try.Route.([]interface{})
-		if !ok {
-			return "\n    [error]"
-		}
-		for l, ihop := range arrihop {
-			hop := ihop.(map[string]interface{})
-			peer := hop["id"].(string)
-			msat := int(hop["msatoshi"].(float64))
-			delay := int(hop["delay"].(float64))
+		for l, hop := range try.Route {
 			routeStr += fmt.Sprintf("\n    <code>%s</code>. %s, %dmsat, delay: %d",
-				strings.ToLower(roman(l+1)), nodeLink(peer), msat, delay)
+				strings.ToLower(roman(l+1)),
+				nodeLink(hop.Peer), hop.Msatoshi, hop.Delay)
 		}
 		logInfo += routeStr
 
-		if try.Error != nil {
-			logInfo += fmt.Sprintf("\nError: %s (%d). ", try.Error.Message, try.Error.Code)
-			if try.Error.Data != nil {
-				data, _ := try.Error.Data.(map[string]interface{})
-				ichannel, _ := data["erring_channel"]
-				inode, _ := data["erring_node"]
-				channel, _ := ichannel.(string)
-				node, _ := inode.(string)
-				logInfo += fmt.Sprintf("<b>Erring:</b> %s, %s", channelLink(channel), nodeLink(node))
-			}
+		if try.Error != "" {
+			logInfo += fmt.Sprintf("\nError: %s. ", try.Error)
 		}
 	}
 

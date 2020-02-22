@@ -3,8 +3,8 @@ package main
 import (
 	"strings"
 
-	"github.com/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/kballard/go-shellquote"
 )
 
@@ -52,6 +52,14 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"apps"},
+	},
+	def{
+		aliases: []string{"tx"},
+		argstr:  "<hash>",
+	},
+	def{
+		aliases: []string{"log"},
+		argstr:  "<hash>",
 	},
 	def{
 		aliases: []string{"transactions"},

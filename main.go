@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -91,7 +89,8 @@ func main() {
 					label := params.Get("invoice_payment.label").String()
 					invspaid, err := ln.Call("listinvoices", label)
 					if err != nil {
-						log.Error().Err(err).Str("label", label).Msg("failed to query paid invoice")
+						log.Error().Err(err).Str("label", label).
+							Msg("failed to query paid invoice")
 						return
 					}
 
@@ -135,7 +134,7 @@ func server(p *plugin.Plugin) {
 			godotenv.Load(envpath)
 		}
 	} else {
-		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envpath")
+		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envfile")
 	}
 	err = envconfig.Process("", &s)
 	if err != nil {
@@ -235,8 +234,9 @@ func server(p *plugin.Plugin) {
 	// bot stuff
 	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
 	if err != nil || lastTelegramUpdate < 10 {
-		log.Fatal().Err(err).Int64("got", lastTelegramUpdate).Msg("failed to get lasttelegramupdate from redis")
-		return
+		log.Error().Err(err).Int64("got", lastTelegramUpdate).
+			Msg("failed to get lasttelegramupdate from redis")
+		lastTelegramUpdate = -1
 	}
 
 	u := tgbotapi.NewUpdate(int(lastTelegramUpdate + 1))
@@ -248,15 +248,7 @@ func server(p *plugin.Plugin) {
 	for update := range updates {
 		lastTelegramUpdate = int64(update.UpdateID)
 		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		func() {
-			defer func() {
-				if err := recover(); err != nil {
-					fmt.Fprint(os.Stderr, string(debug.Stack()))
-					sendMessage(418342569, string(debug.Stack()))
-				}
-			}()
-			handle(update)
-		}()
+		handle(update)
 	}
 }
 
