@@ -213,16 +213,16 @@ parsed:
 		hash := opts["<hash>"].(string)
 		if len(hash) < 5 {
 			u.notify(t.ERROR, t.T{"Err": "hash too small."})
+			return
 		}
-		hash = hash[:5]
 		go handleSingleTransaction(u, hash, message.MessageID)
 	case opts["log"].(bool):
 		// query failed transactions (only available in the first 24h after the failure)
 		hash := opts["<hash>"].(string)
 		if len(hash) < 5 {
 			u.notify(t.ERROR, t.T{"Err": "hash too small."})
+			return
 		}
-		hash = hash[:5]
 		go sendMessage(u.ChatId, renderLogInfo(hash))
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things

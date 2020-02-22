@@ -195,7 +195,11 @@ type Hop struct {
 }
 
 func renderLogInfo(hash string) (logInfo string) {
-	lastCall, err := rds.Get("tries:" + hash).Result()
+	if len(hash) < 5 {
+		return ""
+	}
+
+	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
 	if err != nil {
 		return ""
 	}
@@ -248,7 +252,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 
 	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(hashfirstchars),
+		"LogInfo": renderLogInfo(txn.Hash),
 	})
 	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 

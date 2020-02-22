@@ -182,9 +182,9 @@ SELECT
   payee_node
 FROM lightning.account_txn
 WHERE account_id = $1
-  AND substring(payment_hash from 0 for $3) = $2
+  AND payment_hash LIKE $2 || '%'
 ORDER BY time
-    `, u.Id, hash, len(hash)+1)
+    `, u.Id, hash)
 	if err != nil {
 		return
 	}
