@@ -680,8 +680,12 @@ parsed:
 			} else {
 				sats, err := opts.Int("<satoshis>")
 				if err != nil {
-					handleHelp(u, "receive")
-					return
+					if opts["any"].(bool) {
+						sats = 0
+					} else {
+						handleHelp(u, "receive")
+						return
+					}
 				}
 
 				desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
