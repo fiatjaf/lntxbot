@@ -73,8 +73,9 @@ func handlePay(
 					ReplyToMessageID: messageId,
 					ReplyMarkup:      tgbotapi.ForceReply{ForceReply: true},
 				},
-				ParseMode: "HTML",
-				Text:      translateTemplate(t.PAYPROMPT, u.Locale, payTmplParams),
+				ParseMode:             "HTML",
+				DisableWebPagePreview: true,
+				Text:                  translateTemplate(t.PAYPROMPT, u.Locale, payTmplParams),
 			}
 			sent, err := bot.Send(chattable)
 			if err != nil {
@@ -86,6 +87,7 @@ func handlePay(
 				Bolt11 string `json:"bolt11"`
 			}{"pay", bolt11})
 			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*24)
+			return nil
 		}
 
 		// normal invoice, ask for confirmation
