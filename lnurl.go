@@ -550,13 +550,22 @@ func lnurlPayStuff(userid string, username string) (receiver User, jmeta []byte,
 		return
 	}
 
-	jmeta, err = json.Marshal([][]string{
+	metadata := [][]string{
 		[]string{
 			"text/plain",
 			fmt.Sprintf("Fund %s account on t.me/%s.",
 				receiver.AtName(), s.ServiceId),
 		},
-	})
+	}
 
+	if username != "" { /* we may have only a userid */
+		if imageURL, err := getUserPictureURL(username); err == nil {
+			if b64, err := base64FileFromURL(imageURL); err == nil {
+				metadata = append(metadata, []string{"image/jpeg;base64", b64})
+			}
+		}
+	}
+
+	jmeta, err = json.Marshal(metadata)
 	return
 }

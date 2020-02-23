@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -186,4 +187,18 @@ func getChatOwner(chatId int64) (User, error) {
 	}
 
 	return User{}, errors.New("chat has no owner")
+}
+
+func getUserPictureURL(username string) (string, error) {
+	doc, err := goquery.NewDocument("https://t.me/" + username)
+	if err != nil {
+		return "", err
+	}
+
+	image, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
+	if !ok {
+		return "", errors.New("no image available for this user")
+	}
+
+	return image, nil
 }
