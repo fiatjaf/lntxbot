@@ -10,7 +10,12 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi.Message) (paid bool, err error) {
+func handlePay(
+	u User,
+	opts docopt.Opts,
+	messageId int,
+	replyToMessage *tgbotapi.Message,
+) (paid bool, err error) {
 	// pay invoice flow
 	askConfirmation := true
 	if opts["now"].(bool) {
@@ -23,11 +28,11 @@ func handlePay(u User, opts docopt.Opts, messageId int, replyToMessage *tgbotapi
 		if replyToMessage != nil {
 			bolt11, _, ok = searchForInvoice(u, *replyToMessage)
 			if !ok || bolt11 == "" {
-				u.notify(t.NOINVOICE, nil)
+				handleHelp(u, "pay")
 				return false, errors.New("invalid invoice")
 			}
 		}
-		u.notify(t.NOINVOICE, nil)
+		handleHelp(u, "pay")
 		return false, errors.New("invalid invoice")
 	} else {
 		bolt11 = ibolt11.(string)

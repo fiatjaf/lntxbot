@@ -206,7 +206,6 @@ const (
 
 	CONFIRMINVOICE     = "ConfirmInvoice"
 	FAILEDDECODE       = "FailedDecode"
-	NOINVOICE          = "NoInvoice"
 	BALANCEMSG         = "BalanceMsg"
 	TAGGEDBALANCEMSG   = "TaggedBalanceMsg"
 	FAILEDUSER         = "FailedUser"

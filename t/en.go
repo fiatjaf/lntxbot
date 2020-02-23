@@ -98,16 +98,19 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your @{{ .BotName }} balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 
 <code>/receive_320_for_something</code> generates an invoice for 320 sat with the description "for something"
-<code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, you might lose money, only use if you know what you're doing).
+
+<code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, only use if you know what you're doing).
     `,
 
 	PAYHELP: `Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).
 
 Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> decodes and prompts to pay the given invoice.  
+
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> pays the given invoice invoice without asking for confirmation.
-/withdraw_lnurl_3000 generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
-/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the @{{ .BotName }} chat.
-<code>/pay</code>, when sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
+
+/withdraw_lnurl_3000 generates an <b>lnurl and QR code for withdrawing 3000</b> satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
+
+<code>/pay</code>, when sent <b>as a reply to an invoice</b> (for example, in a group), asks privately if you want to pay it.
     `,
 
 	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with @{{ .BotName }}. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
@@ -522,7 +525,6 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 Pay the invoice described above?
     `,
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
-	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
 <b>Full Balance</b>: {{printf "%.15g" .Sats}} sat ({{dollar .Sats}})
 <b>Usable Balance</b>: {{printf "%.15g" .Usable}} sat ({{dollar .Usable}})
