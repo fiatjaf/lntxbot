@@ -531,6 +531,7 @@ func serveLNURL() {
 			LNURLResponse: lnurl.OkResponse(),
 			PR:            bolt11,
 			Routes:        make([][]lnurl.RouteInfo, 0),
+			Disposable:    false,
 		})
 	})
 }
@@ -552,7 +553,7 @@ func lnurlPayStuff(userid string, username string) (receiver User, jmeta []byte,
 	jmeta, err = json.Marshal([][]string{
 		[]string{
 			"text/plain",
-			fmt.Sprintf("Donation to %s on t.me/%s.",
+			fmt.Sprintf("Fund %s account on t.me/%s.",
 				receiver.AtName(), s.ServiceId),
 		},
 	})
