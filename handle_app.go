@@ -690,6 +690,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 	parts := strings.Split(cb.Data[2:], "-")
 	switch parts[0] {
 	case "s4a":
+		defer removeKeyboardButtons(cb)
 		if parts[1] == "v" {
 			hashfirst10chars := parts[2]
 			confirmAdViewed(u, hashfirst10chars)
