@@ -119,7 +119,7 @@ func registerBluewalletMethods() {
 
 		log.Debug().Str("bolt11", params.Invoice).Msg("bluewallet /payinvoice")
 
-		hash, err := user.payInvoice(0, params.Invoice)
+		hash, err := user.payInvoice(0, params.Invoice, 0)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return

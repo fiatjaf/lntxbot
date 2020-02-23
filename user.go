@@ -364,7 +364,11 @@ func (u User) makeInvoice(
 	return bolt11, hash, qrpath, nil
 }
 
-func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) {
+func (u User) payInvoice(
+	messageId int,
+	bolt11 string,
+	manuallySpecifiedMsatoshi int64,
+) (hash string, err error) {
 	inv, err := decodepay_gjson.Decodepay(bolt11)
 	if err != nil {
 		return "", errors.New("Failed to decode invoice: " + err.Error())
@@ -376,9 +380,10 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 	hash = inv.Get("payment_hash").String()
 
 	if amount == 0 {
-		// if nothing was provided, end here
-		err = errors.New("unsupported zero-amount invoice")
-		return
+		amount = manuallySpecifiedMsatoshi
+		if amount == 0 {
+			return "", errors.New("Can't send 0.")
+		}
 	}
 
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
@@ -551,6 +556,11 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		"maxfeepercent": 1,
 		"exemptfee":     3000,
 		"label":         fmt.Sprintf("user=%d", u.Id),
+	}
+
+	if inv.Get("msatoshi").Int() == 0 {
+		// amountless invoice, so send the number of satoshis previously specified
+		params["msatoshi"] = msatoshi
 	}
 
 	// perform payment

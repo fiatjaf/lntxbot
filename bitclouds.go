@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 

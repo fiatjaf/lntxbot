@@ -204,7 +204,7 @@ const (
 
 	STOPHELP = "stopHelp"
 
-	CONFIRMINVOICE     = "ConfirmInvoice"
+	PAYPROMPT          = "PayPrompt"
 	FAILEDDECODE       = "FailedDecode"
 	BALANCEMSG         = "BalanceMsg"
 	TAGGEDBALANCEMSG   = "TaggedBalanceMsg"
@@ -223,7 +223,6 @@ const (
 	CANTJOINTWICE      = "CantJoinTwice"
 	CANTCANCEL         = "CantCancel"
 	FAILEDINVOICE      = "FailedInvoice"
-	ZEROAMOUNTINVOICE  = "ZeroAmountInvoice"
 	INVALIDAMT         = "InvalidAmt"
 	STOPNOTIFY         = "StopNotify"
 	WELCOME            = "Welcome"

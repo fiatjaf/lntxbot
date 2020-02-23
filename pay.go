@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/docopt/docopt-go"
 	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/tidwall/gjson"
 )
 
 func handlePay(
@@ -15,7 +18,7 @@ func handlePay(
 	opts docopt.Opts,
 	messageId int,
 	replyToMessage *tgbotapi.Message,
-) (paid bool, err error) {
+) error {
 	// pay invoice flow
 	askConfirmation := true
 	if opts["now"].(bool) {
@@ -29,11 +32,11 @@ func handlePay(
 			bolt11, _, ok = searchForInvoice(u, *replyToMessage)
 			if !ok || bolt11 == "" {
 				handleHelp(u, "pay")
-				return false, errors.New("invalid invoice")
+				return errors.New("invalid invoice")
 			}
 		}
 		handleHelp(u, "pay")
-		return false, errors.New("invalid invoice")
+		return errors.New("invalid invoice")
 	} else {
 		bolt11 = ibolt11.(string)
 	}
@@ -43,22 +46,49 @@ func handlePay(
 		inv, err := decodepay_gjson.Decodepay(bolt11)
 		if err != nil {
 			u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
-			return false, err
+			return err
 		}
 		if inv.Get("code").Int() != 0 {
 			u.notify(t.FAILEDDECODE, t.T{"Err": inv.Get("message").String()})
-			return false, err
+			return err
 		}
 
 		nodeAlias := getNodeAlias(inv.Get("payee").String())
+		hash := inv.Get("payment_hash").String()
+		amount := float64(inv.Get("msatoshi").Int())
 
-		amount := int(inv.Get("msatoshi").Int())
-		if amount == 0 {
-			u.notify(t.ZEROAMOUNTINVOICE, nil)
-			return false, err
+		payTmplParams := t.T{
+			"Sats":  amount / 1000,
+			"Desc":  escapeHTML(inv.Get("description").String()),
+			"Hash":  hash,
+			"Node":  nodeLink(inv.Get("payee").String()),
+			"Alias": nodeAlias,
 		}
 
-		hash := inv.Get("payment_hash").String()
+		if amount == 0 {
+			// zero-amount invoices, prompt the user to reply with the desired amount
+			chattable := tgbotapi.MessageConfig{
+				BaseChat: tgbotapi.BaseChat{
+					ChatID:           u.ChatId,
+					ReplyToMessageID: messageId,
+					ReplyMarkup:      tgbotapi.ForceReply{ForceReply: true},
+				},
+				ParseMode: "HTML",
+				Text:      translateTemplate(t.PAYPROMPT, u.Locale, payTmplParams),
+			}
+			sent, err := bot.Send(chattable)
+			if err != nil {
+				log.Warn().Err(err).Msg("error sending pay prompt amountless")
+				return err
+			}
+			data, _ := json.Marshal(struct {
+				Type   string `json:"type"`
+				Bolt11 string `json:"bolt11"`
+			}{"pay", bolt11})
+			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*24)
+		}
+
+		// normal invoice, ask for confirmation
 		hashfirstchars := hash[:5]
 		rds.Set("payinvoice:"+hashfirstchars, bolt11, s.PayConfirmTimeout)
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
@@ -72,21 +102,15 @@ func handlePay(
 			),
 		)
 
-		u.notifyWithKeyboard(t.CONFIRMINVOICE, t.T{
-			"Sats":  amount / 1000,
-			"Desc":  escapeHTML(inv.Get("description").String()),
-			"Hash":  hash,
-			"Node":  nodeLink(inv.Get("payee").String()),
-			"Alias": nodeAlias,
-		}, &keyboard, 0)
-		return false, nil
+		u.notifyWithKeyboard(t.PAYPROMPT, payTmplParams, &keyboard, 0)
+		return nil
 	} else {
-		_, err := u.payInvoice(messageId, bolt11)
+		_, err := u.payInvoice(messageId, bolt11, 0)
 		if err != nil {
 			u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
-			return false, err
+			return err
 		}
-		return true, nil
+		return nil
 	}
 }
 
@@ -103,13 +127,23 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 		return
 	}
 
-	bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, translate(t.CALLBACKSENDING, locale)))
+	bot.AnswerCallbackQuery(
+		tgbotapi.NewCallback(cb.ID, translate(t.CALLBACKSENDING, locale)))
 
-	_, err = u.payInvoice(messageId, bolt11)
+	_, err = u.payInvoice(messageId, bolt11, 0)
 	if err == nil {
 		appendTextToMessage(cb, translate(t.CALLBACKATTEMPT, locale))
 	} else {
 		appendTextToMessage(cb, err.Error())
 	}
 	removeKeyboardButtons(cb)
+}
+
+func handlePayVariableAmount(u User, msatoshi int64, data gjson.Result, messageId int) {
+	bolt11 := data.Get("bolt11").String()
+	_, err := u.payInvoice(messageId, bolt11, msatoshi)
+	if err != nil {
+		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+		return
+	}
 }

@@ -250,7 +250,7 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 	)
 
 	// pay it
-	hash, err := u.payInvoice(messageId, res.PR)
+	hash, err := u.payInvoice(messageId, res.PR, 0)
 	if err == nil {
 		deleteMessage(&processingMessage)
 

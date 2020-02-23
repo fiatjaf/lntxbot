@@ -7,7 +7,7 @@ var EN = map[Key]string{
 	CANCELED:   "Canceled.",
 	COMPLETED:  "Completed!",
 	CONFIRM:    "Confirm",
-	PAYAMOUNT:  "Pay {{.Sats}}",
+	PAYAMOUNT:  `Pay {{.Sats | printf "%.15g"}}`,
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
@@ -516,13 +516,15 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 
 	STOPHELP: "The bot stops showing you notifications.",
 
-	CONFIRMINVOICE: `
-{{.Sats}} sat ({{dollar .Sats}})
-<i>{{.Desc}}</i>
+	PAYPROMPT: `
+{{if .Sats}}{{.Sats}} sat ({{dollar .Sats}})
+{{end}}<i>{{.Desc}}</i>
 <b>Hash</b>: {{.Hash}}
 <b>Node</b>: {{.Node}} ({{.Alias}})
 
-Pay the invoice described above?
+{{if .Sats}}Pay the invoice described above?
+{{else}}<b>Reply with the desired amount to confirm.</b>
+{{end}}
     `,
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
 	BALANCEMSG: `
@@ -564,7 +566,6 @@ Registered: {{.Registered}}
 	CANTJOINTWICE:      "Can't join twice!",
 	CANTCANCEL:         "You don't have the powers to cancel this.",
 	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
-	ZEROAMOUNTINVOICE:  "Invoices with undefined amounts are not supported because they are not safe.",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
 	WELCOME: `
