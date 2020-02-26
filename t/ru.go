@@ -49,25 +49,25 @@ lnurl-auth успех!
 	LNURLPAYMETADATA: `lnurl-pay метаданные:
 <b>домен</b>: <i>{{.Domain}}</i>
 <b>lnurl</b>: <i>{{.LNURL}}</i>
-<b>транзакция</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
+<b>транзакция</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}
     `,
 
 	USERALLOWED:       "Счёт оплачен. {{.User}} допущен.",
 	SPAMFILTERMESSAGE: "Привет, {{.User}}. У вас 15 минут, чтобы оплатить счёт на {{.Sats}} сат если вы хотите остаться в этой группе:",
 
-	PAYMENTFAILED: "Платёж не состоялся. /log{{.ShortHash}}",
+	PAYMENTFAILED: "Платёж не состоялся. /log_{{.ShortHash}}",
 	PAIDMESSAGE: `Оплачено <b>{{printf "%.15g" .Sats}} сат</b> (+ {{.Fee}} комиссия). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}
 
-/tx{{.ShortHash}}`,
+/tx_{{.ShortHash}}`,
 	OVERQUOTA:           "Вы превысили квоту {{.App}}.",
 	RATELIMIT:           "Пожалуйста, подождите 30 минут.",
 	DBERROR:             "Ошибка базы данных: не могу отметить транзакцию как не обрабатывающуюся.",
 	INSUFFICIENTBALANCE: "Недостаточный баланс для {{.Purpose}}. Необходимо на {{.Sats}}.0f сат больше.",
 
-	PAYMENTRECEIVED:      "Платёж получен: {{.Sats}}. /tx{{.Hash}}.",
+	PAYMENTRECEIVED:      "Платёж получен: {{.Sats}}. /tx_{{.Hash}}.",
 	FAILEDTOSAVERECEIVED: "Платёж получен, но не сохранён в базе данных. Пожалуйста, сообщите о проблеме: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:           "{{if .Spammy}}Теперь эта группа будет спамиться. {{else}}Больше спамить не буду.{{end}}",
@@ -580,7 +580,7 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
