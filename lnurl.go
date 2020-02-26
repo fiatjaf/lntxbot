@@ -531,7 +531,7 @@ func serveLNURL() {
 			LNURLResponse: lnurl.OkResponse(),
 			PR:            bolt11,
 			Routes:        make([][]lnurl.RouteInfo, 0),
-			Disposable:    false,
+			Disposable:    lnurl.FALSE,
 		})
 	})
 }
