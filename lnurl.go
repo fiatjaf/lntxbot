@@ -132,7 +132,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 						fmt.Sprintf("cancel=%d", u.Id)),
 					tgbotapi.NewInlineKeyboardButtonData(
 						translateTemplate(t.PAYAMOUNT, u.Locale,
-							t.T{"Sats": fixedAmount / 1000}),
+							t.T{"Sats": float64(fixedAmount) / 1000}),
 						fmt.Sprintf("lnurlpay=%d", fixedAmount)),
 				),
 			)
