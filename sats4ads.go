@@ -325,7 +325,7 @@ func cleanupUnviewedAds() {
 WITH adsreceivedtxs AS (
   SELECT to_id, amount, payment_hash, proxied_with FROM lightning.transaction
   WHERE tag = 'sats4ads' AND time < (now() - interval '3 days') AND pending
-), groupedbyproxy
+), groupedbyproxy AS (
   SELECT proxied_with, sum(amount) FROM adsreceivedtxs
   GROUP BY proxied_with
 ), sourceupdates AS (
@@ -376,6 +376,13 @@ SELECT DISTINCT to_id FROM adsreceivedtxs
 				}
 			}
 		}
+	}
+}
+
+func sats4adsCleanupRoutine() {
+	for {
+		cleanupUnviewedAds()
+		time.Sleep(time.Hour * 6)
 	}
 }
 

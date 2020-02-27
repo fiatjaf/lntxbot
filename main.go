@@ -193,17 +193,17 @@ func server(p *plugin.Plugin) {
 	// lndhub-compatible routes
 	registerAPIMethods()
 
-	// lnurl routes
+	// register webserver routes
 	serveLNURL()
-
-	// donation webpage
-	registerPages()
-
-	// app-specific initializations
+	servePages()
 	servePoker()
 	servePaywallWebhook()
 	serveGiftsWebhook()
 	serveBitrefillWebhook()
+
+	// routines
+	go startKicking()
+	go sats4adsCleanupRoutine()
 	go cancelAllLNToRubOrders()
 	go initializeBitrefill()
 	go bitcloudsCheckingRoutine()
@@ -227,9 +227,6 @@ func server(p *plugin.Plugin) {
 
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()
-
-	// dispatch kick job for pending users
-	startKicking()
 
 	// bot stuff
 	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()

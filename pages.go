@@ -7,7 +7,7 @@ import (
 	lnurl "github.com/fiatjaf/go-lnurl"
 )
 
-func registerPages() {
+func servePages() {
 	// lnurl-pay powered donation page
 	router.PathPrefix("/@").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username := r.URL.Path[2:]

@@ -26,14 +26,15 @@ func registerBluewalletMethods() {
 			return
 		}
 		log.Debug().
-			Str("login", params.Login).Str("password", params.Password).Str("token", params.RefreshToken).
-			Msg("bluewallet /auth")
+			Str("login", params.Login).Str("password", params.Password).
+			Str("token", params.RefreshToken).Msg("bluewallet /auth")
 
 		var token string
 		if params.Password == "" {
 			token = params.RefreshToken
 		} else {
-			token = base64.StdEncoding.EncodeToString([]byte(params.Login + ":" + params.Password))
+			token = base64.StdEncoding.EncodeToString(
+				[]byte(params.Login + ":" + params.Password))
 		}
 
 		w.Header().Set("Content-Type", "application/json")
