@@ -326,7 +326,7 @@ WITH adsreceivedtxs AS (
   SELECT to_id, amount, payment_hash, proxied_with FROM lightning.transaction
   WHERE tag = 'sats4ads' AND time < (now() - interval '3 days') AND pending
 ), groupedbyproxy AS (
-  SELECT proxied_with, sum(amount) FROM adsreceivedtxs
+  SELECT proxied_with, sum(amount) AS amount FROM adsreceivedtxs
   GROUP BY proxied_with
 ), sourceupdates AS (
   UPDATE lightning.transaction AS s
@@ -335,7 +335,7 @@ WITH adsreceivedtxs AS (
   WHERE t.proxied_with = s.payment_hash
 ), deletes AS (
   DELETE FROM lightning.transaction
-  WHERE payment_hash IN (SELECT hash FROM adsreceivedtxs)
+  WHERE payment_hash IN (SELECT payment_hash FROM adsreceivedtxs)
 )
 SELECT DISTINCT to_id FROM adsreceivedtxs
     `)
