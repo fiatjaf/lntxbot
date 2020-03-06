@@ -9,7 +9,6 @@ import (
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/kr/pretty"
 	"github.com/tidwall/gjson"
 )
 
@@ -562,7 +561,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, locale)
 		if err != nil {
-			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
+			log.Error().Err(err).Str("key", hiddenkey).
+				Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.HIDDENMSGNOTFOUND, locale))
 			u.alert(cb, t.HIDDENMSGNOTFOUND, nil)
@@ -612,7 +612,6 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
-		pretty.Log("revealers ", revealerIds, totalrevealers)
 		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
 			// participants has been reached. before that we will just update the message in-place.
@@ -655,7 +654,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				})
 			} else {
 				// reveal message privately
-				sendMessage(revealer.ChatId, hiddenmessage.revealed())
+				sendMessageAsText(revealer.ChatId, hiddenmessage.revealed())
 				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated

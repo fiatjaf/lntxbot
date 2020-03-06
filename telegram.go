@@ -34,6 +34,16 @@ func sendMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.Inline
 	return message
 }
 
+func sendMessageAsText(chatId int64, msg string) tgbotapi.Message {
+	chattable := tgbotapi.NewMessage(chatId, msg)
+	chattable.DisableWebPagePreview = true
+	c, err := bot.Send(chattable)
+	if err != nil {
+		log.Warn().Str("message", msg).Err(err).Msg("error sending text message")
+	}
+	return c
+}
+
 func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
 	if picturepath == "" {
 		return sendMessage(chatId, message)
