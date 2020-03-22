@@ -188,6 +188,10 @@ begin:
 }
 
 func nodeLink(nodeId string) string {
+	if nodeId == "" {
+		return "{}"
+	}
+
 	return fmt.Sprintf(`<a href="https://ln.bigsun.xyz/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }

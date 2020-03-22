@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kr/pretty"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"gopkg.in/jmcvetta/napping.v3"
@@ -20,7 +20,7 @@ type BitrefillData struct {
 	PaidOrders []string `json:"orders"`
 }
 
-var BITREFILLCOUNTRIES = []string{"AE", "AF", "AG", "AI", "AL", "AM", "AN", "AO", "AR", "AS", "AT", "AU", "AW", "AZ", "BB", "BD", "BE", "BF", "BH", "BI", "BJ", "BM", "BO", "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG", "CH", "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CW", "CY", "CZ", "DE", "DK", "DM", "DO", "DZ", "EC", "EG", "ES", "ET", "EU", "FI", "FJ", "FR", "GB", "GD", "GE", "GF", "GH", "GM", "GN", "GP", "GR", "GT", "GW", "GY", "HN", "HT", "ID", "IE", "IN", "IQ", "IT", "JM", "JO", "JP", "KE", "KG", "KH", "KM", "KN", "KR", "KW", "KY", "KZ", "LA", "LB", "LC", "LK", "LR", "LT", "LU", "MA", "MC", "MD", "MG", "ML", "MM", "MN", "MQ", "MR", "MS", "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO", "NP", "NR", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PR", "PS", "PT", "PY", "QA", "RO", "RU", "RW", "SA", "SD", "SE", "SG", "SL", "SN", "SO", "SR", "SV", "SZ", "TC", "TG", "TH", "TJ", "TN", "TO", "TR", "TT", "TZ", "UA", "UG", "US", "UY", "UZ", "VC", "VE", "VG", "VN", "VU", "WS", "XI", "XK", "YE", "ZA", "ZM", "ZW"}
+var BITREFILLCOUNTRIES = []string{"AE", "AF", "AG", "AI", "AL", "AM", "AN", "AO", "AR", "AS", "AT", "AU", "AW", "AZ", "BB", "BD", "BE", "BF", "BH", "BI", "BJ", "BM", "BO", "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG", "CH", "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CW", "CY", "CZ", "DE", "DK", "DM", "DO", "DZ", "EC", "EG", "ES", "ET", "EU", "FI", "FJ", "FR", "GB", "GD", "GE", "GF", "GH", "GM", "GN", "GP", "GR", "GT", "GW", "GY", "HN", "HT", "ID", "IE", "IN", "IQ", "IT", "JM", "JO", "JP", "KE", "KG", "KH", "KM", "KN", "KR", "KW", "KY", "KZ", "LA", "LB", "LC", "LK", "LR", "LT", "LU", "MA", "MD", "MG", "ML", "MM", "MN", "MQ", "MR", "MS", "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO", "NP", "NR", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PR", "PS", "PT", "PY", "QA", "RO", "RU", "RW", "SA", "SD", "SE", "SG", "SL", "SN", "SO", "SR", "SV", "SZ", "TC", "TG", "TH", "TJ", "TN", "TO", "TR", "TT", "TZ", "UA", "UG", "US", "UY", "UZ", "VC", "VE", "VG", "VN", "VU", "WS", "XI", "XK", "YE", "ZA", "ZM", "ZW"}
 
 var bitrefillInventory = make(map[string]BitrefillInventoryItem)
 var bitrefillInventoryKeys []string
@@ -262,6 +262,8 @@ func placeBitrefillOrder(
 
 	pretty.Log(resporder)
 
+	user.track("bitrefill place-order", nil)
+
 	// save invoice to redis
 	orderExpiration := time.Unix(0, resporder.ExpirationTime)
 	rds.Set("bitrefillorder:"+resporder.OrderId, resporder.Payment.LightningInvoice, time.Until(orderExpiration))
@@ -315,6 +317,10 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 				u.notify(t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
 				return
 			}
+
+			go u.track("bitrefill purchase-order", map[string]interface{}{
+				"sats": msatoshi / 1000,
+			})
 
 			// acknowledge purchase
 			var resperr BitrefillErrorResponse

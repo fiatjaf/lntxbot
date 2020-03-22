@@ -74,6 +74,8 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			"Host":      params.Host,
 			"PublicKey": pubkey,
 		})
+
+		go u.track("lnurl-auth", map[string]interface{}{"domain": params.Host})
 	case lnurl.LNURLWithdrawResponse:
 		// lnurl-withdraw: make an invoice with the highest possible value and send
 		bolt11, _, _, err := u.makeInvoice(makeInvoiceArgs{
@@ -105,6 +107,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			u.notify(t.ERROR, t.T{"Err": sentinvres.Reason})
 			return
 		}
+		go u.track("lnurl-withdraw", map[string]interface{}{"sats": params.MaxWithdrawable})
 	case lnurl.LNURLPayResponse1:
 		// display metadata and ask for amount
 		var fixedAmount int64 = 0
@@ -198,6 +201,13 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			LNURL    string `json:"lnurl"`
 		}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
 		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
+
+		go u.track("lnurl-pay", map[string]interface{}{
+			"max":    tmpldata["Max"],
+			"min":    tmpldata["Min"],
+			"domain": tmpldata["Domain"],
+			"fixed":  tmpldata["FixedAmount"],
+		})
 	default:
 		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, messageId)
 	}
@@ -455,6 +465,10 @@ func serveLNURL() {
 		// print the bolt11 just because
 		nextMessageId := sendMessageAsReply(u.ChatId, bolt11, messageId).MessageID
 
+		go u.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
+			"sats": inv.Get("msatoshi").Float() / 1000,
+		})
+
 		// do the pay flow with these odd opts and fake message.
 		opts := docopt.Opts{
 			"pay":       true,
@@ -473,11 +487,13 @@ func serveLNURL() {
 		userid := qs.Get("userid")
 		username := qs.Get("username")
 
-		_, jmeta, err := lnurlPayStuff(userid, username)
+		u, jmeta, err := lnurlPayStuff(userid, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
 		}
+
+		go u.track("incoming lnurl-pay attempt", nil)
 
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
 			LNURLResponse: lnurl.OkResponse(),

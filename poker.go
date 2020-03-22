@@ -68,6 +68,12 @@ func pokerDeposit(user User, sats int, messageId int) (err error) {
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
+
+	user.track("poker deposit", map[string]interface{}{
+		"sats":         inv.Get("msatoshi").Float() / 1000,
+		"from-game-ui": true,
+	})
+
 	err = user.actuallySendExternalPayment(
 		messageId, bolt11, inv, inv.Get("msatoshi").Int(),
 		fmt.Sprintf("%s.poker.%s.%d", s.ServiceId, cuid.Slug(), user.Id),

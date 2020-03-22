@@ -62,6 +62,11 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
+	chatOwner.track("ticket shown", map[string]interface{}{
+		"group": joinMessage.Chat.ID,
+		"sats":  g.Ticket,
+	})
+
 	expiration := time.Minute * 15
 
 	bolt11, hash, qrpath, err := chatOwner.makeInvoice(makeInvoiceArgs{
@@ -86,6 +91,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		},
 		newmember,
 		hash,
+		g.Ticket,
 	}
 
 	kickdatajson, _ := json.Marshal(kickdata)
@@ -170,6 +176,11 @@ func ticketPaid(label string, kickdata KickData) {
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")
 	}
+
+	go user.track("user allowed", map[string]interface{}{
+		"sats":  kickdata.Sats,
+		"group": kickdata.JoinMessage.Chat.ID,
+	})
 }
 
 func startKicking() {

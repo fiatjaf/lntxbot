@@ -64,6 +64,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		page, _ := strconv.Atoi(parts[0])
 		filter := InOut(parts[1])
 		go handleTransactionList(u, page, filter, cb)
+		go u.track("txlist page", map[string]interface{}{"page": page})
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
@@ -119,6 +120,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				Msg("failed to load user")
 			goto answerEmpty
 		}
+
+		go u.track("giveaway joined", map[string]interface{}{"sats": sats})
 
 		claimer := u
 
@@ -192,6 +195,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Coinflip"}))
 			goto answerEmpty
 		}
+
+		go u.track("coinflip joined", map[string]interface{}{
+			"sats": sats,
+			"n":    nparticipants,
+		})
 
 		joiner := u
 
@@ -313,6 +321,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		rkey := "giveflip:" + giveflipid
 
 		nregistered := int(rds.SCard(rkey).Val())
+
+		go u.track("coinflip joined", map[string]interface{}{
+			"sats": sats,
+			"n":    nparticipants,
+		})
 
 		joiner := u
 
@@ -463,6 +476,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
+		go u.track("fundraise joined", map[string]interface{}{
+			"sats": sats,
+			"n":    ngivers,
+		})
+
 		joiner := u
 
 		if !joiner.checkBalanceFor(sats, "fundraise", cb) {
@@ -552,6 +570,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 		appendTextToMessage(cb, translate(t.TXCANCELED, locale))
+
+		go u.track("remove unclaimed", nil)
 	case strings.HasPrefix(cb.Data, "reveal="):
 		// locate hidden message with the key given in the callback data,
 		// perform payment between users,
@@ -568,6 +588,13 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			u.alert(cb, t.HIDDENMSGNOTFOUND, nil)
 			return
 		}
+
+		go u.track("reveal", map[string]interface{}{
+			"sats":      hiddenmessage.Satoshis,
+			"times":     hiddenmessage.Times,
+			"crowdfund": hiddenmessage.Crowdfund,
+			"public":    hiddenmessage.Public,
+		})
 
 		revealer := u
 
@@ -684,6 +711,13 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			sendMessageAsReply(revealer.ChatId, hiddenmessage.Content, messageId)
 		}
 
+		go u.track("reveal", map[string]interface{}{
+			"sats":      hiddenmessage.Satoshis,
+			"times":     hiddenmessage.Times,
+			"crowdfund": hiddenmessage.Crowdfund,
+			"public":    hiddenmessage.Public,
+		})
+
 		break
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
@@ -697,6 +731,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 		appendTextToMessage(cb, translate(t.CHECKING, locale))
+
+		go u.track("check pending", nil)
 
 		go func(u User, messageId int, hash string) {
 			sendpays, _ := ln.CallNamed("listsendpays", "payment_hash", hash)

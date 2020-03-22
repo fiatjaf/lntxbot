@@ -41,22 +41,29 @@ func handlePay(
 		bolt11 = ibolt11.(string)
 	}
 
+	// decode invoice
+	inv, err := decodepay_gjson.Decodepay(bolt11)
+	if err != nil {
+		u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
+		return err
+	}
+	if inv.Get("code").Int() != 0 {
+		u.notify(t.FAILEDDECODE, t.T{"Err": inv.Get("message").String()})
+		return err
+	}
+
+	nodeAlias := getNodeAlias(inv.Get("payee").String())
+	hash := inv.Get("payment_hash").String()
+	amount := float64(inv.Get("msatoshi").Int())
+
+	go u.track("pay", map[string]interface{}{
+		"prompt":     askConfirmation,
+		"sats":       amount,
+		"amountless": amount == 0,
+	})
+
 	if askConfirmation {
-		// decode invoice and show a button for confirmation
-		inv, err := decodepay_gjson.Decodepay(bolt11)
-		if err != nil {
-			u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
-			return err
-		}
-		if inv.Get("code").Int() != 0 {
-			u.notify(t.FAILEDDECODE, t.T{"Err": inv.Get("message").String()})
-			return err
-		}
-
-		nodeAlias := getNodeAlias(inv.Get("payee").String())
-		hash := inv.Get("payment_hash").String()
-		amount := float64(inv.Get("msatoshi").Int())
-
+		// show a button for confirmation
 		payTmplParams := t.T{
 			"Sats":  amount / 1000,
 			"Desc":  escapeHTML(inv.Get("description").String()),
@@ -139,6 +146,8 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 		appendTextToMessage(cb, err.Error())
 	}
 	removeKeyboardButtons(cb)
+
+	go u.track("pay confirm", map[string]interface{}{"amountless": false})
 }
 
 func handlePayVariableAmount(u User, msatoshi int64, data gjson.Result, messageId int) {
@@ -148,4 +157,9 @@ func handlePayVariableAmount(u User, msatoshi int64, data gjson.Result, messageI
 		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
 		return
 	}
+
+	go u.track("pay confirm", map[string]interface{}{
+		"amountless": true,
+		"sats":       msatoshi / 1000,
+	})
 }

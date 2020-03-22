@@ -31,6 +31,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				bets = bets[:30]
 			}
 
+			go u.track("microbet list", nil)
+
 			u.notify(t.MICROBETLIST, t.T{"Bets": bets})
 		} else if opts["balance"].(bool) {
 			balance, err := getMicrobetBalance(u)
@@ -38,6 +40,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
 				return
 			}
+
+			go u.track("microbet balance", map[string]interface{}{"sats": balance})
 
 			u.notifyWithKeyboard(t.MICROBETBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
@@ -53,6 +57,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
+			go u.track("microbet withdraw", map[string]interface{}{
+				"sats": balance,
+			})
+
 			err = withdrawMicrobet(u, int(float64(balance)*0.99))
 			if err != nil {
 				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
@@ -67,8 +75,12 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil,
 				&tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+
+			go u.track("microbet show-bets", nil)
 		}
 	case opts["bitflash"].(bool):
+		go u.track("bitflash", nil)
+
 		if opts["orders"].(bool) {
 			var data struct {
 				Orders []string `json:"orders"`
@@ -151,6 +163,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			u.notify(t.SATELLITELIST, t.T{"Orders": orders})
+
+			go u.track("satellite transmissions", nil)
 		} else {
 			// create an order
 			satoshis, err := opts.Int("<satoshis>")
@@ -170,6 +184,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notifyAsReply(t.ERROR, t.T{"App": "satellite", "Err": err.Error()}, messageId)
 				return
 			}
+
+			go u.track("satellite send", map[string]interface{}{"sats": satoshis})
 		}
 	case opts["fundbtc"].(bool):
 		sats, err := opts.Int("<satoshis>")
@@ -192,6 +208,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else {
 			u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
 		}
+		go u.track("fundbtc start", map[string]interface{}{"sats": sats})
 	case opts["bitclouds"].(bool):
 		switch {
 		case opts["create"].(bool):
@@ -201,6 +218,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 			u.notifyWithKeyboard(t.BITCLOUDSCREATEHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+
+			go u.track("bitclouds create-init", nil)
 		case opts["topup"].(bool):
 			satoshis, err := opts.Int("<satoshis>")
 			if err != nil {
@@ -213,6 +232,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				// host provided
 				host = unescapeBitcloudsHost(host)
 				topupBitcloud(u, host, satoshis)
+				go u.track("bitclouds topup", map[string]interface{}{"host": host})
 			} else {
 				// host not provided, display options
 				noHosts, singleHost,
@@ -242,8 +262,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 			if opts["adopt"].(bool) {
 				data[host] = BitcloudInstanceData{Policy: "remind"}
+				go u.track("bitclouds adopt", map[string]interface{}{"host": host})
 			} else {
 				delete(data, host)
+				go u.track("bitclouds abandon", map[string]interface{}{"host": host})
 			}
 			err = u.setAppData("bitclouds", data)
 			if err != nil {
@@ -259,6 +281,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.COMPLETED, nil)
 			}
 		default: // "status"
+			go u.track("bitclouds status", nil)
+
 			host, err := opts.String("<host>")
 			if err == nil {
 				// host provided
@@ -302,6 +326,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			orders, _ := data.Orders[exchangeType]
 			u.notify(t.LNTORUBORDERLIST, t.T{"Type": exchangeType, "Orders": orders})
+
+			go u.track("lntorub list", map[string]interface{}{"type": exchangeType})
 		case opts["default"].(bool):
 			// show or set current default
 			if target, err := opts.String("<target>"); err == nil {
@@ -312,6 +338,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
+
+				go u.track("lntorub set-default", map[string]interface{}{"type": exchangeType})
 			} else {
 				// no target given, show current
 				target := getDefaultLNToRubTarget(u, exchangeType)
@@ -377,6 +405,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				},
 			}, 0)
 
+			go u.track("lntorub send", map[string]interface{}{
+				"sats": order.Sat,
+				"type": exchangeType,
+			})
+
 			// cancel this order after 2 minutes
 			go func() {
 				time.Sleep(2 * time.Minute)
@@ -398,6 +431,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			} else {
 				u.notify(t.BITREFILLINVALIDCOUNTRY, t.T{"CountryCode": countryCode, "Available": BITREFILLCOUNTRIES})
 			}
+
+			go u.track("bitrefill set-country", map[string]interface{}{
+				"country": countryCode,
+			})
 		default:
 			query, err := opts.String("<query>")
 			if err != nil {
@@ -433,6 +470,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				))
 			}
 
+			go u.track("bitrefill query", map[string]interface{}{
+				"query": query,
+			})
+
 			u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 		}
 	case opts["poker"].(bool):
@@ -444,6 +485,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 				break
 			}
+
+			u.track("poker deposit", map[string]interface{}{
+				"sats": satoshis,
+			})
 
 			err = pokerDeposit(u, satoshis, messageId)
 			if err != nil {
@@ -457,6 +502,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
 				break
 			}
+
+			u.track("poker balance", map[string]interface{}{"sats": balance})
 
 			u.notifyWithKeyboard(t.POKERBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
@@ -472,6 +519,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				break
 			}
 
+			u.track("poker withdraw", map[string]interface{}{"sats": balance})
+
 			err = withdrawPoker(u, balance, messageId)
 			if err != nil {
 				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
@@ -486,15 +535,18 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 			bot.Send(chattable)
 			subscribePoker(u, time.Minute*15, false)
+			go u.track("poker game", map[string]interface{}{"inline": false})
 		} else if opts["url"].(bool) {
 			u.notify(t.POKERSECRETURL, t.T{"URL": getPokerURL(u)})
 			subscribePoker(u, time.Minute*15, false)
+			go u.track("poker url", nil)
 		} else if opts["available"].(bool) || opts["wait"].(bool) || opts["watch"].(bool) {
 			if minutes, err := opts.Int("<minutes>"); err != nil {
 				u.notify(t.ERROR, t.T{"Err": err})
 			} else {
 				u.notify(t.POKERSUBSCRIBED, t.T{"Minutes": minutes})
 				subscribePoker(u, time.Minute*time.Duration(minutes), true)
+				go u.track("poker watch", map[string]interface{}{"minutes": minutes})
 			}
 		} else {
 			// default to "status"
@@ -511,6 +563,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				"Chips":   chips,
 			})
 
+			go u.track("poker status", nil)
+
 			subscribePoker(u, time.Minute*10, false)
 		}
 	case opts["gifts"].(bool):
@@ -522,6 +576,9 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
 			}
+
+			go u.track("gifts create", map[string]interface{}{"sats": sats})
+
 			return
 		} else {
 			// list
@@ -538,9 +595,13 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				gifts[i] = gift
 			}
 
+			go u.track("gifts list", nil)
+
 			u.notify(t.GIFTSLIST, t.T{"Gifts": gifts})
 		}
 	case opts["paywall"].(bool):
+		go u.track("paywall", nil)
+
 		switch {
 		case opts["balance"].(bool):
 			balance, err := getPaywallBalance(u)
@@ -609,6 +670,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
+			go u.track("sats4ads on", map[string]interface{}{"rate": rate})
+
 			err = turnSats4AdsOn(u, rate)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
@@ -622,13 +685,18 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
+			go u.track("sats4ads off", nil)
+
 			u.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
 		case opts["rates"].(bool):
-			rates, err := getSats4AdsRates(u)
+			rates, err := getSats4AdsRates()
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
+
+			go u.track("sats4ads rates", nil)
+
 			u.notify(t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
 		case opts["broadcast"].(bool):
 			// check user banned
@@ -648,6 +716,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
+
+			go u.track("sats4ads broadcast", map[string]interface{}{"sats": satoshis})
 
 			// we'll use either a message passed as an argument or the contents of the message being replied to
 			contentMessage := message.ReplyToMessage
@@ -694,6 +764,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		if parts[1] == "v" {
 			hashfirst10chars := parts[2]
 			confirmAdViewed(u, hashfirst10chars)
+			go u.track("sats4ads viewed", nil)
 		}
 	case "microbet":
 		if parts[1] == "withdraw" {
@@ -703,6 +774,10 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
+
+			go u.track("microbet withdraw", map[string]interface{}{
+				"sats": balance,
+			})
 
 			err = withdrawMicrobet(u, int(float64(balance)*0.99))
 			if err != nil {
@@ -729,6 +804,8 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				u.notify(t.ERROR, t.T{"Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
+
+			go u.track("microbet place-bet", nil)
 
 			return translate(t.PROCESSING, u.Locale)
 		}
@@ -788,6 +865,9 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
+
+			go u.track("bitclouds create-finish", map[string]interface{}{"image": image})
+
 			appendTextToMessage(cb, image)
 		case "status":
 			host := unescapeBitcloudsHost(parts[2])
@@ -802,6 +882,8 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 			appendTextToMessage(cb, host)
 			topupBitcloud(u, host, sats)
+
+			go u.track("bitclouds topup", map[string]interface{}{"host": host})
 		}
 	case "lntorub":
 		defer removeKeyboardButtons(cb)
@@ -827,6 +909,8 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			u.notify(t.ERROR, t.T{"App": order.Type, "Err": err.Error()})
 			return translate(t.ERROR, u.Locale)
 		}
+
+		go u.track("lntorub finish", map[string]interface{}{"sats": order.Sat})
 
 		// query the status until it returns a success or error
 		go func() {
@@ -892,6 +976,8 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
+
+			u.track("poker withdraw", map[string]interface{}{"sats": balance})
 
 			err = withdrawPoker(u, balance, messageId)
 			if err != nil {

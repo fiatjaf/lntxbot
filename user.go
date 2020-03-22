@@ -15,6 +15,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
+	"github.com/msingleton/amplitude-go"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 )
@@ -553,7 +554,7 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 	params := map[string]interface{}{
 		"bolt11":        bolt11,
 		"riskfactor":    3,
-		"maxfeepercent": 1,
+		"maxfeepercent": 0.4,
 		"exemptfee":     3000,
 		"label":         fmt.Sprintf("user=%d", u.Id),
 	}
@@ -615,6 +616,9 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		}
 
 		if payment.Get("status").String() == "complete" {
+			go u.track("payment sent", map[string]interface{}{
+				"sats": msatoshi / 1000,
+			})
 			onSuccess(
 				u,
 				messageId,
@@ -1014,6 +1018,14 @@ WHERE id = $1
 
 	err = j.Unmarshal(data)
 	return
+}
+
+func (u User) track(event string, eventProperties map[string]interface{}) {
+	amp.Event(amplitude.Event{
+		UserId:          strconv.Itoa(u.Id),
+		EventType:       event,
+		EventProperties: eventProperties,
+	})
 }
 
 func paymentHasSucceeded(

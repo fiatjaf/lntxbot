@@ -95,6 +95,7 @@ type KickData struct {
 	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
 	NewMember        tgbotapi.User             `json:"new_member"`
 	Hash             string                    `json:"hash"`
+	Sats             int                       `json:"sats"`
 }
 
 func setTicketPrice(telegramId int64, sat int) (err error) {

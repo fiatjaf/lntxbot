@@ -20,6 +20,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
+	"github.com/msingleton/amplitude-go"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/zerolog"
 	"gopkg.in/redis.v5"
@@ -37,6 +38,7 @@ type Settings struct {
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 
+	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
 	PaywallLinkKey     string `envconfig:"PAYWALLLINK_KEY"`
 	LNToRubKey         string `envconfig:"LNTORUB_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
@@ -68,6 +70,7 @@ var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
+var amp *amplitude.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
@@ -171,6 +174,11 @@ func server(p *plugin.Plugin) {
 	if err := rds.Ping().Err(); err != nil {
 		log.Fatal().Err(err).Str("url", s.RedisURL).
 			Msg("failed to connect to redis")
+	}
+
+	// amplitude client
+	if s.AmplitudeKey != "" {
+		amp = amplitude.New(s.AmplitudeKey)
 	}
 
 	// create bot

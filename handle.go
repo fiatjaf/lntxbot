@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 func handle(upd tgbotapi.Update) {
@@ -71,6 +71,11 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, preimage, label string
 					Msg("failed to parse label for received payment or loading user")
 				return
 			}
+
+			u.track("got payment", map[string]interface{}{
+				"sats": float64(msats) / 1000,
+			})
+
 			receiver = u
 		} else {
 			// otherwise we don't know what is this
