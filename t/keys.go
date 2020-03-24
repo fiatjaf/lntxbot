@@ -43,6 +43,10 @@ const (
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"
 
+	RENAMABLEMSG      = "RenamableMsg"
+	RENAMEPROMPT      = "RenamePrompt"
+	GROUPNOTRENAMABLE = "GroupNotRenamable"
+
 	PAYMENTFAILED       = "PaymentFailed"
 	PAIDMESSAGE         = "PaidMessage"
 	DBERROR             = "DBError"

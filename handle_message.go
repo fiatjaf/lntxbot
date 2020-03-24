@@ -775,6 +775,43 @@ parsed:
 		}()
 	case opts["lnurl"].(bool):
 		go handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
+	case opts["rename"].(bool):
+		go func() {
+			if message.Chat.Type == "private" {
+				return
+			}
+
+			name := opts["<name>"].(string)
+
+			var price int
+			pg.Get(&price,
+				"SELECT renamable FROM telegram.chat WHERE telegram_id = $1",
+				-message.Chat.ID)
+			if price == 0 {
+				g.notify(t.GROUPNOTRENAMABLE, nil)
+				return
+			}
+			if !isAdmin(message.Chat, &bot.Self) {
+				g.notify(t.GROUPNOTRENAMABLE, nil)
+				return
+			}
+
+			sendMessageWithKeyboard(
+				message.Chat.ID,
+				translateTemplate(t.RENAMEPROMPT, g.Locale, t.T{
+					"Sats": price,
+					"Name": name,
+				}),
+				renameKeyboard(message.From.ID,
+					message.Chat.ID, price, name, g.Locale),
+				message.MessageID,
+			)
+
+			go u.track("rename started", map[string]interface{}{
+				"group": message.Chat.ID,
+				"sats":  price,
+			})
+		}()
 	case opts["apps"].(bool):
 		go u.track("apps", nil)
 		handleTutorial(u, "apps")
@@ -810,7 +847,7 @@ parsed:
 
 				return
 			}
-			if !isAdmin(message) {
+			if !isAdmin(message.Chat, message.From) {
 				return
 			}
 
@@ -837,6 +874,26 @@ parsed:
 				setTicketPrice(message.Chat.ID, price)
 				if price > 0 {
 					g.notify(t.TICKETMSG, t.T{
+						"Sat":     price,
+						"BotName": s.ServiceId,
+					})
+				}
+			case opts["renamable"].(bool):
+				log.Info().Int64("group", message.Chat.ID).Msg("toggling renamable")
+				price, err := opts.Int("<price>")
+				if err != nil {
+					setTicketPrice(message.Chat.ID, 0)
+					g.notify(t.FREEJOIN, nil)
+				}
+
+				go u.track("toggle renamable", map[string]interface{}{
+					"group": message.Chat.ID,
+					"sats":  price,
+				})
+
+				setRenamablePrice(message.Chat.ID, price)
+				if price > 0 {
+					g.notify(t.RENAMABLEMSG, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})

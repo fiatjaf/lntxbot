@@ -555,6 +555,72 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				)
 			}
 		}
+	case strings.HasPrefix(cb.Data, "rnm"):
+		// rename chat
+		defer removeKeyboardButtons(cb)
+		renameId := cb.Data[4:]
+		data := rds.Get("rename:" + renameId).Val()
+		parts := strings.Split(data, "|~|")
+		if len(parts) != 3 {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Str("app", "rename").Msg("data isn't split in 3")
+			return
+		}
+		chatId, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to parse chatId")
+			return
+		}
+		sats, err := strconv.Atoi(parts[1])
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to parse sats")
+			return
+		}
+		name := parts[2]
+
+		// transfer money
+		owner, err := getChatOwner(chatId)
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to get chat owner")
+			return
+		}
+
+		random, err := randomPreimage()
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to generate random")
+			return
+		}
+		hash := calculateHash(random)
+
+		errMessage, err := u.sendInternally(
+			0, owner, false, sats*1000,
+			fmt.Sprintf("Rename group %d to '%s'", chatId, name),
+			hash, "rename",
+		)
+		if err != nil {
+			appendTextToMessage(cb, translateTemplate(t.ERROR, locale, t.T{
+				"Err": errMessage,
+			}))
+			return
+		}
+
+		// actually change the name
+		_, err = bot.SetChatTitle(tgbotapi.SetChatTitleConfig{chatId, name})
+		if err != nil {
+			appendTextToMessage(cb, translateTemplate(t.ERROR, locale, t.T{
+				"Err": "Unauthorized",
+			}))
+			return
+		}
+
+		go u.track("rename finish", map[string]interface{}{
+			"group": chatId,
+			"sats":  sats,
+		})
 	case strings.HasPrefix(cb.Data, "remunc="):
 		// remove unclaimed transaction
 		// when you tip an invalid account or an account that has never talked with the bot

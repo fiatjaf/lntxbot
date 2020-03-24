@@ -137,24 +137,24 @@ func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.Inline
 	bot.Send(edit)
 }
 
-func isAdmin(message *tgbotapi.Message) bool {
-	if message.Chat.Type == "supergroup" {
+func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
+	if chat.Type == "supergroup" {
 		chatmember, err := bot.GetChatMember(tgbotapi.ChatConfigWithUser{
-			ChatID:             message.Chat.ID,
-			SuperGroupUsername: message.Chat.ChatConfig().SuperGroupUsername,
-			UserID:             message.From.ID,
+			ChatID:             chat.ID,
+			SuperGroupUsername: chat.ChatConfig().SuperGroupUsername,
+			UserID:             user.ID,
 		})
 		if err != nil ||
 			(chatmember.Status != "administrator" && chatmember.Status != "creator") {
 			log.Warn().Err(err).
-				Int64("group", message.Chat.ID).
-				Int("user", message.From.ID).
+				Int64("group", chat.ID).
+				Int("user", user.ID).
 				Msg("can't get user or not an admin.")
 			return false
 		}
 
 		return true
-	} else if message.Chat.Type == "group" {
+	} else if chat.Type == "group" {
 		// ok, everybody can toggle
 		return true
 	} else {

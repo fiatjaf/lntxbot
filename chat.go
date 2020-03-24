@@ -106,6 +106,14 @@ WHERE telegram_id = $1
 	return
 }
 
+func setRenamablePrice(telegramId int64, sat int) (err error) {
+	_, err = pg.Exec(`
+UPDATE telegram.chat SET renamable = $2
+WHERE telegram_id = $1
+    `, -telegramId, sat)
+	return
+}
+
 func setLanguage(chatId int64, lang string) (err error) {
 	if _, languageAvailable := bundle.Translations[lang]; !languageAvailable {
 		return errors.New("language not available.")

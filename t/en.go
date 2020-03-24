@@ -54,8 +54,13 @@ lnurl-auth success!
 <b>transaction</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}
     `,
 
+	TICKETMSG:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
+
+	RENAMABLEMSG:      "Anyone can rename this group as long as they pay {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
+	RENAMEPROMPT:      "Pay <b>{{.Sats}} sat</b> to rename this group to <i>{{.Name}}</i>?",
+	GROUPNOTRENAMABLE: "This group is not renamable!",
 
 	PAYMENTFAILED: "Payment failed. /log_{{.ShortHash}}",
 	PAIDMESSAGE: `Paid with <b>{{printf "%.15g" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
@@ -75,7 +80,6 @@ lnurl-auth success!
 	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG: "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
-	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:            "This group is now free to join.",
 
 	HELPINTRO: `

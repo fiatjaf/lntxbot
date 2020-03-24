@@ -159,8 +159,12 @@ var methods = []def{
 		argstr:  "[refresh]",
 	},
 	def{
+		aliases: []string{"rename"},
+		argstr:  "<name>",
+	},
+	def{
 		aliases: []string{"toggle"},
-		argstr:  "(ticket [<price>] | spammy | language [<lang>] | coinflips)",
+		argstr:  "(ticket [<price>] | renamable [<price>] | spammy | language [<lang>] | coinflips)",
 	},
 	def{
 		aliases: []string{"help"},

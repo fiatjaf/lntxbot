@@ -20,6 +20,7 @@ CREATE TABLE telegram.chat (
   locale text NOT NULL DEFAULT 'en',
   spammy boolean NOT NULL DEFAULT false,
   ticket int NOT NULL DEFAULT 0,
+  renamable int NOT NULL DEFAULT 0,
   coinflips bool NOT NULL DEFAULT true
 );
 

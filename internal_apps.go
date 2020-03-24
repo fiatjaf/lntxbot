@@ -1,14 +1,17 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 )
 
@@ -540,4 +543,37 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		"Senders":   strings.Join(giverNames, " "),
 	})
 	return
+}
+
+// rename groups
+func renameKeyboard(
+	renamerId int,
+	chatId int64,
+	sats int,
+	name string,
+	locale string,
+) *tgbotapi.InlineKeyboardMarkup {
+	hash := sha256.Sum256([]byte(name))
+	renameId := hex.EncodeToString(hash[:])[:12]
+
+	rds.Set(
+		fmt.Sprintf("rename:%s", renameId),
+		fmt.Sprintf("%d|~|%d|~|%s", chatId, sats, name),
+		time.Minute*60,
+	)
+
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, locale),
+					fmt.Sprintf("cancel=%d", renamerId),
+				),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.YES, locale),
+					fmt.Sprintf("rnm=%s", renameId),
+				),
+			},
+		},
+	}
 }
