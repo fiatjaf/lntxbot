@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -566,11 +567,16 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 
 	// perform payment
 	go func() {
-		payment, _ := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
+		var tries []Try
+		var from int
+
+		payment, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
+		if _, ok := err.(lightning.ErrorCommand); ok {
+			goto failure
+		}
 
 		// save payment attempts for future counsultation
 		// only save the latest 10 tries for brevity
-		var tries []Try
 		if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
 			for _, attempt := range status.Get("pay.0.attempts").Array() {
 				var errorMessage string
@@ -607,7 +613,7 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 			}
 		}
 
-		from := len(tries) - 10
+		from = len(tries) - 10
 		if from < 0 {
 			from = 0
 		}
@@ -616,6 +622,7 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		}
 
 		if payment.Get("status").String() == "complete" {
+			// payment successful!
 			go u.track("payment sent", map[string]interface{}{
 				"sats": msatoshi / 1000,
 			})
@@ -632,19 +639,29 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		}
 
 		// call listpays to check failure
-		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() == "failed" {
-			if listsendpays, _ := ln.Call("listsendpays", bolt11); listsendpays.Get("payments.#").Int() == 1 {
-				log.Warn().
-					Str("user", u.Username).
-					Int("user-id", u.Id).
-					Interface("params", params).
-					Interface("tries", tries).
-					Str("hash", hash).
-					Msg("payment failed")
-
-				onFailure(u, messageId, listsendpays.Get("payments.0.payment_hash").String())
-			}
+		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
+			// not a failure -- but also not a success
+			// we don't know what happened, maybe it's pending, so don't do anything
+			log.Debug().Str("bolt11", bolt11).
+				Msg("we don't know what happened with this payment")
+			return
 		}
+
+		// if we reached this point then it's a failure
+	failure:
+		go u.track("payment failed", map[string]interface{}{
+			"sats":  msatoshi / 1000,
+			"payee": inv.Get("payee").String(),
+		})
+		log.Warn().
+			Str("user", u.Username).
+			Int("user-id", u.Id).
+			Interface("params", params).
+			Interface("tries", tries).
+			Str("hash", hash).
+			Msg("payment failed")
+			// give the money back to the user
+		onFailure(u, messageId, hash)
 	}()
 
 	return nil
