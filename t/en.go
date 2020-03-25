@@ -20,7 +20,7 @@ var EN = map[Key]string{
 	CALLBACKWINNER:  "Winner: {{.Winner}}",
 	CALLBACKERROR:   "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
 	CALLBACKEXPIRED: "{{.BotOp}} expired.",
-	CALLBACKATTEMPT: "Attempting payment.",
+	CALLBACKATTEMPT: "Attempting payment. /tx_{{.Hash}}",
 	CALLBACKSENDING: "Sending payment.",
 
 	INLINEINVOICERESULT:  "Payment request for {{.Sats}} sat.",

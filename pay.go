@@ -141,7 +141,9 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 
 	_, err = u.payInvoice(messageId, bolt11, 0)
 	if err == nil {
-		appendTextToMessage(cb, translate(t.CALLBACKATTEMPT, locale))
+		appendTextToMessage(cb, translateTemplate(t.CALLBACKATTEMPT, locale, t.T{
+			"Hash": hashfirstchars,
+		}))
 	} else {
 		appendTextToMessage(cb, err.Error())
 	}

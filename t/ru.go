@@ -19,7 +19,7 @@ var RU = map[Key]string{
 	CALLBACKWINNER:  "Победитель: {{.Winner}}",
 	CALLBACKERROR:   "{{.BotOp}} ошибка{{if .Err}}: {{.Err}}{{else}}.{{end}}",
 	CALLBACKEXPIRED: "{{.BotOp}} время истекло.",
-	CALLBACKATTEMPT: "Ищу маршрут.",
+	CALLBACKATTEMPT: "Ищу маршрут. /tx_{{.Hash}}",
 	CALLBACKSENDING: "Отправляю платёж.",
 
 	INLINEINVOICERESULT:  "Счёт на {{.Sats}} сат.",
