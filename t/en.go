@@ -602,7 +602,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	TUTORIALWALLET: `
 @{{.BotName}} is a Lightning wallet that works from your Telegram account.
 
-You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions.
+You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions. Also, it charges <b>zero fees</b>!
 
 It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, is capable of paying to <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-pay">addresses</a>, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
 
@@ -635,5 +635,8 @@ These are the services we currently support:
 ⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
 
 Read more in the /help page for each app.
+    `,
+	TUTORIALTWITTER: `
+@{{.BotName}} won't spam you anymore unless you get payments or request anything. So if you want to get notified of new features, follow us on follow us on <a href="https://twitter.com/{{.BotName}}">https://twitter.com/{{.BotName}}</a>!
     `,
 }

@@ -237,7 +237,8 @@ const (
 	TXINFO             = "TxInfo"
 	TXLIST             = "TxList"
 
-	TUTORIALWALLET = "TutorialWallet"
-	TUTORIALBLUE   = "TutorialBlue"
-	TUTORIALAPPS   = "TutorialApps"
+	TUTORIALWALLET  = "TutorialWallet"
+	TUTORIALBLUE    = "TutorialBlue"
+	TUTORIALAPPS    = "TutorialApps"
+	TUTORIALTWITTER = "TutorialTwitter"
 )
