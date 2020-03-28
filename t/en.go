@@ -82,6 +82,8 @@ lnurl-auth success!
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
 	FREEJOIN:            "This group is now free to join.",
 
+	APPBALANCE: `<b>[{{.App}}]</b> Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
+
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
 For more information on each command type <code>/help &lt;command&gt;</code>.
@@ -242,6 +244,17 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 /bitflash_orders lists your previous transactions.
     `,
 
+	ETLENEUMHELP: `
+<a href="https://etleneum.com/">Etleneum</a> is a smart contract platform that operates with satoshis as its main currency. Anyone can write and publish stateful contracts written in Lua. They can take calls with satoshis from registered and anonymous users, read and modify internal state, read and call other contracts and read data from the outside world with HTTP and payout satoshis to people.
+
+/etleneum_account shows your Etleneum account id. It should be the same as if you <a href="https://etleneum.com/#/account">logged in directly with lnurl-auth</a>.
+/etleneum_balance shows your balance on Etleneum.
+/etleneum_withdraw withdraws your balance from Etleneum to @{{.BotName}}.
+/etleneum_cew5i79gyj_bet_321 will call <code>bet</code> on contract <code>cew5i79gyj</code> paying <code>321</code> satoshis.
+/etleneum_c680z7fefr_state will show the full state for contract <code>c680z7fefr</code>.
+    `,
+	ETLENEUMACCOUNT: "<b>[Etleneum]</b> Account id: {{.Account}}",
+
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
 	MICROBETPAIDBUTNOTCONFIRMED: "<b>[Microbet]</b> Paid, but bet not confirmed. Huge Microbet bug?",
 	MICROBETPLACING:             "<b>[Microbet]</b> Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
@@ -253,7 +266,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 <i>~ no bets were ever made. ~</i>
 {{end}}
     `,
-	MICROBETBALANCE: "<b>[Microbet]</b> balance: <i>{{.Balance}} sat</i>",
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
@@ -429,7 +441,6 @@ By generating your paywalls on @{{ .BotName }} you can keep track of them all wi
 /paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
 /paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
     `,
-	PAYWALLBALANCE: "<b>[paywall]</b> Balance: <i>{{.Balance}} sat</i>",
 	PAYWALLCREATED: `<b>[paywall]</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
 	PAYWALLLISTLINKS: `<b>[paywall]</b>
 {{range .Links}}- <code>{{.LndValue}} sat</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
@@ -444,7 +455,6 @@ Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
 	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
 	POKERSECRETURL:    `<a href="{{.URL}}">Your personal secret Poker URL is here, never share it with anyone.</a>`,
-	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
 	POKERSTATUS: `
 <b>[Poker]</b>
 Players online: {{.Players}}

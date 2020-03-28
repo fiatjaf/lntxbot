@@ -24,7 +24,13 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
-func handleLNURL(u User, lnurltext string, messageId int) {
+type handleLNURLOpts struct {
+	messageId          int
+	loginSilently      bool
+	payWithoutPromptIf int
+}
+
+func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 	iparams, err := lnurl.HandleLNURL(lnurltext)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
@@ -70,18 +76,21 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			u.notify(t.ERROR, t.T{"Err": sentsigres.Reason})
 			return
 		}
-		u.notify(t.LNURLAUTHSUCCESS, t.T{
-			"Host":      params.Host,
-			"PublicKey": pubkey,
-		})
 
-		go u.track("lnurl-auth", map[string]interface{}{"domain": params.Host})
+		if !opts.loginSilently {
+			u.notify(t.LNURLAUTHSUCCESS, t.T{
+				"Host":      params.Host,
+				"PublicKey": pubkey,
+			})
+
+			go u.track("lnurl-auth", map[string]interface{}{"domain": params.Host})
+		}
 	case lnurl.LNURLWithdrawResponse:
 		// lnurl-withdraw: make an invoice with the highest possible value and send
 		bolt11, _, _, err := u.makeInvoice(makeInvoiceArgs{
 			Msatoshi:  params.MaxWithdrawable,
 			Desc:      params.DefaultDescription,
-			MessageId: messageId,
+			MessageId: opts.messageId,
 			SkipQR:    true,
 		})
 		if err != nil {
@@ -124,7 +133,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 
 		baseChat := tgbotapi.BaseChat{
 			ChatID:           u.ChatId,
-			ReplyToMessageID: messageId,
+			ReplyToMessageID: opts.messageId,
 		}
 
 		if fixedAmount > 0 {
@@ -209,7 +218,7 @@ func handleLNURL(u User, lnurltext string, messageId int) {
 			"fixed":  tmpldata["FixedAmount"],
 		})
 	default:
-		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, messageId)
+		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, opts.messageId)
 	}
 
 	return

@@ -63,6 +63,8 @@ const (
 	TICKETMSG           = "TicketMsg"
 	FREEJOIN            = "FreeJoin"
 
+	APPBALANCE = "AppBalance"
+
 	HELPINTRO   = "HelpIntro"
 	HELPSIMILAR = "HelpSimilar"
 	HELPMETHOD  = "HelpMethod"
@@ -121,13 +123,15 @@ const (
 	BITFLASHFAILEDTOSAVE = "BitflashFailedToSave"
 	BITFLASHLIST         = "BitflashList"
 
+	ETLENEUMHELP    = "etleneumHelp"
+	ETLENEUMACCOUNT = "EtleneumAccount"
+
 	MICROBETHELP                = "microbetHelp"
 	MICROBETBETHEADER           = "MicrobetBetHeader"
 	MICROBETPAIDBUTNOTCONFIRMED = "MicrobetPaidButNotConfirmed"
 	MICROBETPLACING             = "MicrobetPlacing"
 	MICROBETPLACED              = "MicrobetPlaced"
 	MICROBETLIST                = "MicrobetList"
-	MICROBETBALANCE             = "MicrobetBalance"
 
 	BITREFILLHELP            = "bitrefillHelp"
 	BITREFILLINVENTORYHEADER = "BitrefillInventoryHeader"
@@ -185,7 +189,6 @@ const (
 	POKERNOTIFYFRIEND = "PokerNotifyFriend"
 	POKERSUBSCRIBED   = "PokerSubscribed"
 	POKERSECRETURL    = "PokerSecretURL"
-	POKERBALANCE      = "PokerBalance"
 
 	SATS4ADSHELP       = "sats4adsHelp"
 	SATS4ADSTOGGLE     = "Sats4adsToggle"
@@ -195,7 +198,6 @@ const (
 	SATS4ADSVIEWED     = "Viewed"
 
 	PAYWALLHELP      = "paywallHelp"
-	PAYWALLBALANCE   = "PaywallBalance"
 	PAYWALLCREATED   = "PaywallCreated"
 	PAYWALLLISTLINKS = "PaywallListLinks"
 	PAYWALLPAIDEVENT = "PaywallPaidEvent"

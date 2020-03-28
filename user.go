@@ -571,7 +571,12 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		var from int
 
 		payment, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
-		if _, ok := err.(lightning.ErrorCommand); ok {
+		if errw, ok := err.(lightning.ErrorCommand); ok {
+			tries = append(tries, Try{
+				Success: false,
+				Error:   errw.Message,
+				Route:   []Hop{},
+			})
 			goto failure
 		}
 

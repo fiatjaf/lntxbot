@@ -1,14 +1,26 @@
 package main
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"sort"
+	"strings"
+	"time"
 
-	"github.com/fiatjaf/lntxbot/t"
-	"github.com/tidwall/gjson"
+	"github.com/go-rfc/sse"
 	"gopkg.in/jmcvetta/napping.v3"
 )
+
+type EtleneumAppData struct {
+	Account string `json:"account"`
+	Secret  string `json:"secret"`
+}
 
 type EtleneumResponse struct {
 	Ok    bool            `json:"ok"`
@@ -16,9 +28,57 @@ type EtleneumResponse struct {
 	Value json.RawMessage `json:"value"`
 }
 
-func getContractState(contractId string) (state gjson.Result, err error) {
+func etleneumLogin(user User) (account, secret string, balance float64, withdraw string) {
+	es, _ := sse.NewEventSource("https://etleneum.com/~~~/session")
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		es.Close()
+	}()
+
+	for ev := range es.MessageEvents() {
+		log.Print(ev.Name)
+		log.Print(ev.Data)
+		var data map[string]interface{}
+		json.Unmarshal([]byte(ev.Data), &data)
+
+		if _, ok := data["auth"]; ok {
+			handleLNURL(user, data["auth"].(string), handleLNURLOpts{
+				loginSilently: true,
+			})
+			withdraw = data["withdraw"].(string)
+		}
+		if _, ok := data["account"]; ok {
+			account = data["account"].(string)
+			secret = data["secret"].(string)
+			balance = data["balance"].(float64) / 1000
+			es.Close()
+			break
+		}
+	}
+
+	go user.setAppData("etleneum", EtleneumAppData{
+		account,
+		secret,
+	})
+
+	return
+}
+
+func getEtleneumContractState(contractId, jqfilter string) (state string, err error) {
 	var reply EtleneumResponse
-	_, err = napping.Get("https://etleneum.com/~/contract/"+contractId+"/state", nil, &reply, &reply)
+	if jqfilter == "" {
+		_, err = napping.Get("https://etleneum.com/~/contract/"+contractId+"/state", nil, &reply, &reply)
+	} else {
+		_, err = napping.Send(&napping.Request{
+			Url:        "https://etleneum.com/~/contract/" + contractId + "/state",
+			Method:     "POST",
+			Payload:    bytes.NewBufferString(jqfilter),
+			RawPayload: true,
+			Result:     &reply,
+			Error:      &reply,
+		})
+	}
 	if err != nil {
 		err = errors.New("etleneum.com invalid response: " + err.Error())
 		return
@@ -28,103 +88,106 @@ func getContractState(contractId string) (state gjson.Result, err error) {
 		return
 	}
 
-	return gjson.ParseBytes([]byte(reply.Value)), nil
+	d, err := json.MarshalIndent(reply.Value, "", "  ")
+	return string(d), err
 }
 
-func prepareCall(
+func buildEtleneumCallLNURL(
+	user *User,
 	contractId string,
-	method string, payload interface{}, sats int,
-) (callId, bolt11 string, err error) {
-	var reply EtleneumResponse
-	_, err = napping.Post(
-		"https://etleneum.com/~/contract/"+contractId+"/call",
-		&payload, &reply, &reply,
-	)
-	if err != nil {
-		err = errors.New("etleneum.com invalid response: " + err.Error())
-		return
-	}
-	if !reply.Ok {
-		err = errors.New("etleneum.com call failed: " + reply.Error)
-		return
-	}
+	method string,
+	args []string,
+	sats *int,
+) (string, error) {
+	qs := url.Values{}
 
-	decoded := gjson.ParseBytes([]byte(reply.Value))
-	bolt11 = decoded.Get("invoice").String()
-	callId = decoded.Get("id").String()
+	for _, kv := range args {
+		spl := strings.Split(kv, "=")
+		if len(spl) != 2 {
+			return "", fmt.Errorf("%s is not a valid key-value pair.", kv)
+		}
 
-	return
-}
+		v := strings.TrimSpace(spl[1])
 
-func payAndDispatchCall(
-	user User, messageId int,
-	callId, bolt11 string,
-	appname string, successKey t.Key,
-) (ret gjson.Result, err error) {
-	inv, err := ln.Call("decodepay", bolt11)
-	if err != nil {
-		err = errors.New("Failed to decode invoice.")
-		return
-	}
-
-	err = user.actuallySendExternalPayment(
-		messageId, bolt11, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.etleneum.%s.%d", s.ServiceId, callId, user.Id),
-		func(
-			u User,
-			messageId int,
-			msatoshi float64,
-			msatoshi_sent float64,
-			preimage string,
-			tag string,
-			hash string,
-		) {
-			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, appname, hash)
-
-			// finish call on etleneum
-			var reply EtleneumResponse
-			_, err := napping.Post("https://etleneum.com/~/call/"+callId, nil, &reply, &reply)
+		// if kv is like "user=@fiatjaf" we will translate "@fiatjaf" into the
+		// actual etleneum account for @fiatjaf
+		if strings.HasPrefix(v, "@") && strings.Index(v, " ") == -1 {
+			v, err = translateToEtleneumAccount(v)
 			if err != nil {
-				err = errors.New("etleneum.com invalid response: " + err.Error())
-				return
+				return "", err
 			}
-			if !reply.Ok {
-				err = errors.New("etleneum.com call failed: " + reply.Error)
-				return
-			}
+		}
 
-			// grab returned value from call
-			ret = gjson.ParseBytes([]byte(reply.Value))
+		qs.Set(strings.TrimSpace(spl[0]), v)
+	}
 
-			u.notifyAsReply(successKey, nil, messageId)
-		},
-		func(
-			u User,
-			messageId int,
-			hash string,
-		) {
-			// on failure
-			paymentHasFailed(u, messageId, hash)
+	if user != nil {
+		var userdata EtleneumAppData
+		err := user.getAppData("etleneum", &userdata)
+		if err != nil {
+			return "", err
+		}
 
-			u.notifyAsReply(t.ETLENEUMFAILEDTOPAY, nil, messageId)
-		},
-	)
+		mac := etleneumHmacCall(userdata.Secret, contractId, method, qs, sats)
+		qs.Set("_account", userdata.Account)
+		qs.Set("_hmac", mac)
+	}
 
-	return
+	amount := ""
+	if sats != nil {
+		amount = fmt.Sprintf("/%d", *sats*1000)
+	}
+
+	return fmt.Sprintf("https://etleneum.com/lnurl/contract/%s/call/%s%s?%s",
+		contractId, method, amount, qs.Encode()), nil
 }
 
-func patchCall(callId string, payload interface{}) (err error) {
-	var reply EtleneumResponse
-	_, err = napping.Patch("https://etleneum.com/~/call/"+callId, &payload, &reply, &reply)
-	if err != nil {
-		err = errors.New("etleneum.com invalid response: " + err.Error())
-		return
+func etleneumHmacCall(secret, ctid, method string, args url.Values, sats *int) string {
+	msatoshi := 0
+	if sats != nil {
+		msatoshi = *sats * 1000
 	}
-	if !reply.Ok {
-		err = errors.New("etleneum.com call failed: " + reply.Error)
+
+	res := fmt.Sprintf("%s:%s:%d,", ctid, method, msatoshi)
+
+	// sort payload keys
+	keys := make([]string, len(args))
+	i := 0
+	for k, _ := range args {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+
+	// add key-values
+	for _, k := range keys {
+		v := args.Get(k)
+		res += fmt.Sprintf("%s=%v", k, v)
+		res += ","
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(res))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func translateToEtleneumAccount(username string) (accountId string, err error) {
+	user, err := ensureUsername(username[1:])
+	if err != nil {
 		return
 	}
 
-	return
+	var userdata EtleneumAppData
+	err = user.getAppData("etleneum", &userdata)
+	if err != nil {
+		return
+	}
+
+	if userdata.Account != "" {
+		return userdata.Account, nil
+	} else {
+		// create etleneum account for this user now and who cares
+		account, _, _, _ := etleneumLogin(user)
+		return account, nil
+	}
 }

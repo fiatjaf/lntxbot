@@ -102,6 +102,10 @@ var methods = []def{
 		argstr:  "[list | bets | balance | withdraw | bet]",
 	},
 	def{
+		aliases: []string{"etleneum"},
+		argstr:  "(account | balance | withdraw | <contract> (state [<jqfilter>] | <method> [<satoshi>] [<params>...]))",
+	},
+	def{
 		aliases: []string{"bitflash"},
 		argstr:  "(orders | status | rate | <satoshis> <address>)",
 	},

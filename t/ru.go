@@ -76,6 +76,8 @@ lnurl-auth успех!
 	TICKETMSG:           "Новые участники должны заплатить {{.Sat}} сат (убедитесь, что вы установили @{{.BotName}} администратором, чтобы это работало).",
 	FREEJOIN:            "К этой группе теперь можно присоединиться свободно.",
 
+	APPBALANCE: "<b>[{{.App}}]</b> Баланс: <i>{{.Balance}} sat</i>",
+
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
 Для более подробной информации по каждой команде пожалуйста введите <code>/help &lt;command&gt;</code>.
@@ -245,7 +247,6 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 <i>~ не было ни одной ставки. ~</i>
 {{end}}
     `,
-	MICROBETBALANCE: "<b>[Microbet]</b> баланс: <i>{{.Balance}} сат</i>",
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> это простой сервис, который позволяет ставить на результат спортивных игр. Величина ставки фиксирована и шансы вычисляются с учётом количества ставок. Имеется 1% комиссия на все выводы.
 
@@ -419,7 +420,6 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 /paywall_balance покажет ваш paywall.link баланс и спросит, желаете ли вы его вывести в бот.
 /paywall_withdraw просто опустошает весь ваш paywall.link баланс и переводит его в баланс @{{ .BotName }}.
     `,
-	PAYWALLBALANCE: "<b>[paywall]</b> Баланс: <i>{{.Balance}} sat</i>",
 	PAYWALLCREATED: `<b>[paywall]</b> Пейволл создан: {{.Link.LndValue}} сат за просмотр <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
 	PAYWALLLISTLINKS: `<b>[paywall]</b>
 {{range .Links}}- <code>{{.LndValue}} сат</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
@@ -434,7 +434,6 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 	POKERDEPOSITFAIL:  "<b>[Poker]</b> Ошибка депозита: {{.Err}}",
 	POKERWITHDRAWFAIL: "<b>[Poker]</b> Ошибка вывода: {{.Err}}",
 	POKERSECRETURL:    `<a href="{{.URL}}">Ваша персональная секретная ссылка на покер здесь, никогда не разглашайте её.</a>`,
-	POKERBALANCE:      "<b>[Poker]</b> Баланс: {{.Balance}}",
 	POKERSTATUS: `
 <b>[Poker]</b>
 Игроков онлайн: {{.Players}}

@@ -164,7 +164,8 @@ parsed:
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["paywall"].(bool), opts["sats4ads"].(bool),
 		opts["qiwi"].(bool), opts["yandex"].(bool),
-		opts["bitrefill"].(bool), opts["bitclouds"].(bool):
+		opts["bitrefill"].(bool), opts["bitclouds"].(bool),
+		opts["etleneum"].(bool):
 		handleExternalApp(u, opts, message)
 		break
 	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
@@ -774,7 +775,9 @@ parsed:
 			}
 		}()
 	case opts["lnurl"].(bool):
-		go handleLNURL(u, opts["<lnurl>"].(string), message.MessageID)
+		go handleLNURL(u, opts["<lnurl>"].(string), handleLNURLOpts{
+			messageId: message.MessageID,
+		})
 	case opts["rename"].(bool):
 		go func() {
 			if message.Chat.Type == "private" {

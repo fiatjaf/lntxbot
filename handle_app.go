@@ -17,12 +17,62 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 	messageId := message.MessageID
 
 	switch {
+	case opts["etleneum"].(bool):
+		if contract, err := opts.String("<contract>"); err == nil {
+			if opts["state"].(bool) {
+				jqfilter, _ := opts.String("<jqfilter>")
+				state, err := getEtleneumContractState(contract, jqfilter)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					return
+				}
+				sendMessage(u.ChatId, "<pre>"+state+"</pre>")
+			} else {
+				method := opts["<method>"].(string)
+				params := opts["<params>"].([]string)
+				var sats *int // nil means not specified
+				if satoshi, err := opts.Int("<satoshi>"); err == nil {
+					sats = &satoshi
+				} else {
+					// surprise! supplying <satoshi> is actually optional.
+					// if it's not an integer we'll interpret it as a kv param.
+					if kv, err := opts.String("<satoshi>"); err == nil {
+						params = append(params, kv)
+					}
+				}
+
+				lnurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					return
+				}
+				handleLNURL(u, lnurl, handleLNURLOpts{messageId: message.MessageID})
+			}
+		} else if opts["account"].(bool) {
+			account, _, _, _ := etleneumLogin(u)
+			go u.track("etleneum account", nil)
+			u.notify(t.ETLENEUMACCOUNT, t.T{"account": account})
+		} else if opts["balance"].(bool) {
+			_, _, balance, _ := etleneumLogin(u)
+			go u.track("etleneum balance", map[string]interface{}{"sats": balance})
+			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Etleneum", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=etleneum-withdraw"),
+					},
+				},
+			}, 0)
+		} else if opts["withdraw"].(bool) {
+			_, _, _, withdraw := etleneumLogin(u)
+			go u.track("etleneum withdraw", nil)
+			handleLNURL(u, withdraw, handleLNURLOpts{messageId: message.MessageID})
+		}
 	case opts["microbet"].(bool):
 		if opts["bets"].(bool) || opts["list"].(bool) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
@@ -32,18 +82,16 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			go u.track("microbet list", nil)
-
 			u.notify(t.MICROBETLIST, t.T{"Bets": bets})
 		} else if opts["balance"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
 			go u.track("microbet balance", map[string]interface{}{"sats": balance})
-
-			u.notifyWithKeyboard(t.MICROBETBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Etleneum", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=microbet-withdraw"),
@@ -53,14 +101,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["withdraw"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
-			go u.track("microbet withdraw", map[string]interface{}{
-				"sats": balance,
-			})
-
+			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
 			err = withdrawMicrobet(u, int(float64(balance)*0.99))
 			if err != nil {
 				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
@@ -70,7 +115,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			// list available bets as actionable buttons
 			inlineKeyboard, err := microbetKeyboard()
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil,
@@ -505,7 +550,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			u.track("poker balance", map[string]interface{}{"sats": balance})
 
-			u.notifyWithKeyboard(t.POKERBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Poker", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=poker-withdraw"),
@@ -610,7 +655,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
-			u.notifyWithKeyboard(t.PAYWALLBALANCE, t.T{"Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Paywall", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=paywall-withdraw"),
@@ -766,19 +811,22 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			confirmAdViewed(u, hashfirst10chars)
 			go u.track("sats4ads viewed", nil)
 		}
+	case "etleneum":
+		if parts[1] == "withdraw" {
+			_, _, _, withdraw := etleneumLogin(u)
+			go u.track("etleneum withdraw", nil)
+			handleLNURL(u, withdraw, handleLNURLOpts{})
+		}
 	case "microbet":
 		if parts[1] == "withdraw" {
 			defer removeKeyboardButtons(cb)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "microbet", "Err": err.Error()})
+				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
 			}
 
-			go u.track("microbet withdraw", map[string]interface{}{
-				"sats": balance,
-			})
-
+			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
 			err = withdrawMicrobet(u, int(float64(balance)*0.99))
 			if err != nil {
 				u.notify(t.ERROR, t.T{"Err": err.Error()})
