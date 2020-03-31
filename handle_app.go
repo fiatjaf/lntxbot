@@ -27,6 +27,9 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 				sendMessage(u.ChatId, "<pre>"+state+"</pre>")
+				go u.track("etleneum state", map[string]interface{}{
+					"contract": contract,
+				})
 			} else {
 				method := opts["<method>"].(string)
 				params := opts["<params>"].([]string)
@@ -41,12 +44,19 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					}
 				}
 
-				lnurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)
+				etlurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)
 				if err != nil {
 					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
-				handleLNURL(u, lnurl, handleLNURLOpts{messageId: message.MessageID})
+				log.Debug().Str("url", etlurl).Msg("etleneum call lnurl")
+				handleLNURL(u, etlurl, handleLNURLOpts{messageId: message.MessageID})
+
+				go u.track("etleneum call", map[string]interface{}{
+					"contract": contract,
+					"method":   method,
+					"sats":     *sats,
+				})
 			}
 		} else if opts["account"].(bool) {
 			account, _, _, _ := etleneumLogin(u)
