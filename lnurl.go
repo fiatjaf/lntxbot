@@ -27,7 +27,7 @@ import (
 type handleLNURLOpts struct {
 	messageId          int
 	loginSilently      bool
-	payWithoutPromptIf int
+	payWithoutPromptIf int64
 }
 
 func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
@@ -124,99 +124,110 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			fixedAmount = params.MaxSendable
 		}
 
-		tmpldata := t.T{
-			"Domain":      params.CallbackURL.Host,
-			"FixedAmount": float64(fixedAmount) / 1000,
-			"Max":         float64(params.MaxSendable) / 1000,
-			"Min":         float64(params.MinSendable) / 1000,
-		}
+		go u.track("lnurl-pay", map[string]interface{}{
+			"domain": params.CallbackURL.Host,
+			"fixed":  float64(fixedAmount) / 1000,
+			"max":    float64(params.MaxSendable) / 1000,
+			"min":    float64(params.MinSendable) / 1000,
+		})
 
-		baseChat := tgbotapi.BaseChat{
-			ChatID:           u.ChatId,
-			ReplyToMessageID: opts.messageId,
-		}
-
-		if fixedAmount > 0 {
-			baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(
-						translate(t.CANCEL, u.Locale),
-						fmt.Sprintf("cancel=%d", u.Id)),
-					tgbotapi.NewInlineKeyboardButtonData(
-						translateTemplate(t.PAYAMOUNT, u.Locale,
-							t.T{"Sats": float64(fixedAmount) / 1000}),
-						fmt.Sprintf("lnurlpay=%d", fixedAmount)),
-				),
+		if fixedAmount > 0 && opts.payWithoutPromptIf < fixedAmount+3000 {
+			lnurlpayFetchInvoiceAndPay(
+				u,
+				fixedAmount,
+				params.Callback,
+				params.EncodedMetadata,
+				lnurltext,
+				opts.messageId,
 			)
 		} else {
-			baseChat.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
-		}
+			tmpldata := t.T{
+				"Domain":      params.CallbackURL.Host,
+				"FixedAmount": float64(fixedAmount) / 1000,
+				"Max":         float64(params.MaxSendable) / 1000,
+				"Min":         float64(params.MinSendable) / 1000,
+			}
 
-		var chattable tgbotapi.Chattable
-		tmpldata["Text"] = params.ParsedMetadata["text/plain"]
-		text := translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata)
+			baseChat := tgbotapi.BaseChat{
+				ChatID:           u.ChatId,
+				ReplyToMessageID: opts.messageId,
+			}
 
-		chattable = tgbotapi.MessageConfig{
-			BaseChat:              baseChat,
-			DisableWebPagePreview: true,
-			ParseMode:             "HTML",
-			Text:                  text,
-		}
-		if b64image, ok := params.ParsedMetadata["image/jpeg;base64"]; ok {
-			contents, err := base64.StdEncoding.DecodeString(b64image)
-			if err == nil {
-				chattable = tgbotapi.PhotoConfig{
-					BaseFile: tgbotapi.BaseFile{
-						BaseChat: baseChat,
-						File: tgbotapi.FileBytes{
-							Name:  "image",
-							Bytes: contents,
+			if fixedAmount > 0 {
+				baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData(
+							translate(t.CANCEL, u.Locale),
+							fmt.Sprintf("cancel=%d", u.Id)),
+						tgbotapi.NewInlineKeyboardButtonData(
+							translateTemplate(t.PAYAMOUNT, u.Locale,
+								t.T{"Sats": float64(fixedAmount) / 1000}),
+							fmt.Sprintf("lnurlpay=%d", fixedAmount)),
+					),
+				)
+			} else {
+				baseChat.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
+			}
+
+			var chattable tgbotapi.Chattable
+			tmpldata["Text"] = params.ParsedMetadata["text/plain"]
+			text := translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata)
+
+			chattable = tgbotapi.MessageConfig{
+				BaseChat:              baseChat,
+				DisableWebPagePreview: true,
+				ParseMode:             "HTML",
+				Text:                  text,
+			}
+			if b64image, ok := params.ParsedMetadata["image/jpeg;base64"]; ok {
+				contents, err := base64.StdEncoding.DecodeString(b64image)
+				if err == nil {
+					chattable = tgbotapi.PhotoConfig{
+						BaseFile: tgbotapi.BaseFile{
+							BaseChat: baseChat,
+							File: tgbotapi.FileBytes{
+								Name:  "image",
+								Bytes: contents,
+							},
+							MimeType: "image/jpeg",
 						},
-						MimeType: "image/jpeg",
-					},
-					ParseMode: "HTML",
-					Caption:   text,
+						ParseMode: "HTML",
+						Caption:   text,
+					}
 				}
 			}
-		}
-		if b64image, ok := params.ParsedMetadata["image/png;base64"]; ok {
-			contents, err := base64.StdEncoding.DecodeString(b64image)
-			if err == nil {
-				chattable = tgbotapi.PhotoConfig{
-					BaseFile: tgbotapi.BaseFile{
-						BaseChat: baseChat,
-						File: tgbotapi.FileBytes{
-							Name:  "image",
-							Bytes: contents,
+			if b64image, ok := params.ParsedMetadata["image/png;base64"]; ok {
+				contents, err := base64.StdEncoding.DecodeString(b64image)
+				if err == nil {
+					chattable = tgbotapi.PhotoConfig{
+						BaseFile: tgbotapi.BaseFile{
+							BaseChat: baseChat,
+							File: tgbotapi.FileBytes{
+								Name:  "image",
+								Bytes: contents,
+							},
+							MimeType: "image/png",
 						},
-						MimeType: "image/png",
-					},
-					ParseMode: "HTML",
-					Caption:   text,
+						ParseMode: "HTML",
+						Caption:   text,
+					}
 				}
 			}
+
+			sent, err := bot.Send(chattable)
+			if err != nil {
+				log.Warn().Err(err).Msg("error sending lnurl-pay message")
+				return
+			}
+
+			data, _ := json.Marshal(struct {
+				Type     string `json:"type"`
+				Metadata string `json:"metadata"`
+				URL      string `json:"url"`
+				LNURL    string `json:"lnurl"`
+			}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
+			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 		}
-
-		sent, err := bot.Send(chattable)
-		if err != nil {
-			log.Warn().Err(err).Msg("error sending lnurl-pay message")
-			return
-		}
-
-		data, _ := json.Marshal(struct {
-			Type     string `json:"type"`
-			Metadata string `json:"metadata"`
-			URL      string `json:"url"`
-			LNURL    string `json:"lnurl"`
-		}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
-		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
-
-		go u.track("lnurl-pay", map[string]interface{}{
-			"max":    tmpldata["Max"],
-			"min":    tmpldata["Min"],
-			"domain": tmpldata["Domain"],
-			"fixed":  tmpldata["FixedAmount"],
-		})
 	default:
 		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, opts.messageId)
 	}
@@ -230,6 +241,18 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 	metadata := data.Get("metadata").String()
 	encodedLnurl := data.Get("lnurl").String()
 
+	// proceed to fetch invoice and pay
+	lnurlpayFetchInvoiceAndPay(u, msats, callback, metadata, encodedLnurl, messageId)
+}
+
+func lnurlpayFetchInvoiceAndPay(
+	u User,
+	msats int64,
+	callback,
+	metadata,
+	encodedLnurl string,
+	messageId int,
+) {
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
 	resp, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
@@ -246,6 +269,8 @@ func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageI
 		u.notify(t.ERROR, t.T{"Err": res.Reason})
 		return
 	}
+
+	log.Debug().Interface("res", res).Msg("got lnurl-pay values")
 
 	// check invoice amount
 	decoded, err := decodepay_gjson.Decodepay(res.PR)
