@@ -85,6 +85,7 @@ func main() {
 		Options: []plugin.Option{
 			{"lntxbot-envfile", "string", "", "Path to the file containing everything"},
 		},
+		Dynamic: true,
 		Subscriptions: []plugin.Subscription{
 			{
 				"invoice_payment",
