@@ -159,8 +159,7 @@ parsed:
 			go u.track("stop", nil)
 		}
 		break
-	case opts["microbet"].(bool), opts["bitflash"].(bool),
-		opts["fundbtc"].(bool), opts["poker"].(bool),
+	case opts["microbet"].(bool), opts["fundbtc"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["paywall"].(bool), opts["sats4ads"].(bool),
 		opts["qiwi"].(bool), opts["yandex"].(bool),

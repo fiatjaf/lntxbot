@@ -227,23 +227,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
-	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.15g" .Sats}}</b>.`,
-	BITFLASHTXQUEUED:     "Transaction queued!",
-	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
-	BITFLASHLIST: `
-<b>[bitflash]</b> Your past orders
-{{range .Orders}}🧱 <code>{{.Amount}}</code> to <code>{{.Address}}</code> <i>{{.Status}}</i>
-{{else}}
-<i>~ no orders were ever made. ~</i>
-{{end}}
-    `,
-	BITFLASHHELP: `
-<a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
-
-/bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
-/bitflash_orders lists your previous transactions.
-    `,
-
 	ETLENEUMHELP: `
 <a href="https://etleneum.com/">Etleneum</a> is a smart contract platform that operates with satoshis as its main currency. Anyone can write and publish stateful contracts written in Lua. They can take calls with satoshis from registered and anonymous users, read and modify internal state, read and call other contracts and read data from the outside world with HTTP and payout satoshis to people.
 
@@ -452,46 +435,6 @@ By generating your paywalls on @{{ .BotName }} you can keep track of them all wi
 Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a> for <i>{{.Destination}}</i>.
     `,
 
-	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
-	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
-	POKERSECRETURL:    `<a href="{{.URL}}">Your personal secret Poker URL is here, never share it with anyone.</a>`,
-	POKERSTATUS: `
-<b>[Poker]</b>
-Players online: {{.Players}}
-Active Tables: {{.Tables}}
-Satoshis in play: {{.Chips}}
-
-/poker_play to play here!
-/poker_url to play in a browser window!
-    `,
-	POKERNOTIFY: `
-<b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
-
-/poker_status to double-check!
-/poker_play to play here!
-/poker_url to play in a browser window!
-    `,
-	POKERNOTIFYFRIEND: `
-<b>[Poker]</b> {{.FriendName}} has sitted in a poker table!
-
-/poker_status to double-check!
-/poker_play to play here!
-/poker_url to play in a browser window!
-    `,
-	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
-	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
-
-By playing from an account tied to your @{{ .BotName }} balance you can just sit on a table and your poker balance will be automatically refilled from your @{{ .BotName }} account, with minimal friction.
-
-/poker_deposit_10000 puts 10000 satoshis in your poker bag.
-/poker_balance shows how much you have there.
-/poker_withdraw brings all the money back to the bot balance.
-/poker_status tells you how active are the poker tables right now.
-/poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
-/poker_play displays the game widget.
-/poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game you'll be unsubscribed.
-    `,
-
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
 
 /toggle_ticket_10 starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
@@ -633,7 +576,6 @@ These are the services we currently support:
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
 ☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
 ⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
-♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
 🧱 /paywall -- create paywalls on paywall.link, get notified whenever someone pays, withdraw easily. /help_paywall
 🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
 📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite

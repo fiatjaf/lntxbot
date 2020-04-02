@@ -140,14 +140,12 @@ func (t Transaction) Icon() string {
 		return "📡"
 	case "microbet":
 		return "⚽"
-	case "golightning", "bitflash":
+	case "golightning":
 		return "⛓️"
 	case "bitclouds":
 		return "☁️"
 	case "lntorub":
 		return "💸"
-	case "poker":
-		return "♠️"
 	case "paywall":
 		return "🧱"
 	default:

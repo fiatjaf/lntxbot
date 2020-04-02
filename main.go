@@ -205,7 +205,6 @@ func server(p *plugin.Plugin) {
 	// register webserver routes
 	serveLNURL()
 	servePages()
-	servePoker()
 	servePaywallWebhook()
 	serveGiftsWebhook()
 	serveBitrefillWebhook()

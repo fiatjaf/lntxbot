@@ -22,18 +22,6 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	// it's a game!
-	if cb.GameShortName != "" {
-		switch cb.GameShortName {
-		case "poker":
-			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
-				CallbackQueryID: cb.ID,
-				URL:             getPokerURL(u),
-			})
-		}
-		return
-	}
-
 	log.Debug().Str("d", cb.Data).Str("user", u.Username).Msg("got callback")
 
 	var messageId int

@@ -117,12 +117,6 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	BITFLASHHELP         = "bitflashHelp"
-	BITFLASHCONFIRM      = "BitflashConfirm"
-	BITFLASHTXQUEUED     = "BitflashTxQueued"
-	BITFLASHFAILEDTOSAVE = "BitflashFailedToSave"
-	BITFLASHLIST         = "BitflashList"
-
 	ETLENEUMHELP    = "etleneumHelp"
 	ETLENEUMACCOUNT = "EtleneumAccount"
 
@@ -180,15 +174,6 @@ const (
 	GIFTSFAILEDSAVE = "GiftsFailedSave"
 	GIFTSLIST       = "GiftsList"
 	GIFTSSPENTEVENT = "GiftsSpentEvent"
-
-	POKERHELP         = "pokerHelp"
-	POKERDEPOSITFAIL  = "PokerDepositFail"
-	POKERWITHDRAWFAIL = "PokerWithdrawFail"
-	POKERSTATUS       = "PokerStatus"
-	POKERNOTIFY       = "PokerNotify"
-	POKERNOTIFYFRIEND = "PokerNotifyFriend"
-	POKERSUBSCRIBED   = "PokerSubscribed"
-	POKERSECRETURL    = "PokerSecretURL"
 
 	SATS4ADSHELP       = "sats4adsHelp"
 	SATS4ADSTOGGLE     = "Sats4adsToggle"

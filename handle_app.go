@@ -61,7 +61,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["account"].(bool) {
 			account, _, _, _ := etleneumLogin(u)
 			go u.track("etleneum account", nil)
-			u.notify(t.ETLENEUMACCOUNT, t.T{"account": account})
+			u.notify(t.ETLENEUMACCOUNT, t.T{"Account": account})
 		} else if opts["balance"].(bool) {
 			_, _, balance, _ := etleneumLogin(u)
 			go u.track("etleneum balance", map[string]interface{}{"sats": balance})
@@ -132,72 +132,6 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				&tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 
 			go u.track("microbet show-bets", nil)
-		}
-	case opts["bitflash"].(bool):
-		go u.track("bitflash", nil)
-
-		if opts["orders"].(bool) {
-			var data struct {
-				Orders []string `json:"orders"`
-			}
-			err := u.getAppData("bitflash", &data)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
-				return
-			}
-
-			orders := make([]BitflashOrder, len(data.Orders))
-			for i, id := range data.Orders {
-				order, err := getBitflashOrder(id)
-				if err != nil {
-					log.Warn().Err(err).Str("id", id).Msg("error getting bitflash order on list")
-					continue
-				}
-				orders[i] = order
-			}
-
-			u.notify(t.BITFLASHLIST, t.T{"Orders": orders})
-		} else if opts["status"].(bool) {
-
-		} else if opts["rate"].(bool) {
-
-		} else {
-			// queue a transaction or show help if no arguments
-			satoshis, err1 := opts.Int("<satoshis>")
-			address, err2 := opts.String("<address>")
-
-			if err1 != nil || err2 != nil {
-				handleHelp(u, "bitflash")
-				return
-			}
-
-			ordercreated, err := prepareBitflashTransaction(u, messageId, satoshis, address)
-			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
-				return
-			}
-
-			inv, _ := ln.Call("decodepay", ordercreated.Bolt11)
-
-			// confirm
-			u.notifyWithKeyboard(t.BITFLASHCONFIRM, t.T{
-				"BTCAmount": ordercreated.ReceiverAmount,
-				"Address":   ordercreated.Receiver,
-				"Sats":      inv.Get("msatoshi").Float() / 1000,
-			}, &tgbotapi.InlineKeyboardMarkup{
-				[][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.CANCEL, u.Locale),
-							fmt.Sprintf("cancel=%d", u.Id),
-						),
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.CONFIRM, u.Locale),
-							fmt.Sprintf("x=bitflash-%s", ordercreated.ChargeId),
-						),
-					},
-				},
-			}, 0)
 		}
 	case opts["satellite"].(bool):
 		if opts["transmissions"].(bool) {
@@ -530,97 +464,6 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			})
 
 			u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
-		}
-	case opts["poker"].(bool):
-		subscribePoker(u, time.Minute*5, false)
-
-		if opts["deposit"].(bool) {
-			satoshis, err := opts.Int("<satoshis>")
-			if err != nil {
-				u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
-				break
-			}
-
-			u.track("poker deposit", map[string]interface{}{
-				"sats": satoshis,
-			})
-
-			err = pokerDeposit(u, satoshis, messageId)
-			if err != nil {
-				u.notify(t.POKERDEPOSITFAIL, t.T{"Err": err.Error()})
-				break
-			}
-			subscribePoker(u, time.Minute*15, false)
-		} else if opts["balance"].(bool) {
-			balance, err := getPokerBalance(u)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
-				break
-			}
-
-			u.track("poker balance", map[string]interface{}{"sats": balance})
-
-			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Poker", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
-				[][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=poker-withdraw"),
-					},
-				},
-			}, 0)
-		} else if opts["withdraw"].(bool) {
-			balance, err := getPokerBalance(u)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
-				break
-			}
-
-			u.track("poker withdraw", map[string]interface{}{"sats": balance})
-
-			err = withdrawPoker(u, balance, messageId)
-			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
-				break
-			}
-		} else if opts["play"].(bool) {
-			chattable := tgbotapi.GameConfig{
-				BaseChat: tgbotapi.BaseChat{
-					ChatID: u.ChatId,
-				},
-				GameShortName: "poker",
-			}
-			bot.Send(chattable)
-			subscribePoker(u, time.Minute*15, false)
-			go u.track("poker game", map[string]interface{}{"inline": false})
-		} else if opts["url"].(bool) {
-			u.notify(t.POKERSECRETURL, t.T{"URL": getPokerURL(u)})
-			subscribePoker(u, time.Minute*15, false)
-			go u.track("poker url", nil)
-		} else if opts["available"].(bool) || opts["wait"].(bool) || opts["watch"].(bool) {
-			if minutes, err := opts.Int("<minutes>"); err != nil {
-				u.notify(t.ERROR, t.T{"Err": err})
-			} else {
-				u.notify(t.POKERSUBSCRIBED, t.T{"Minutes": minutes})
-				subscribePoker(u, time.Minute*time.Duration(minutes), true)
-				go u.track("poker watch", map[string]interface{}{"minutes": minutes})
-			}
-		} else {
-			// default to "status"
-			nplayers, ntables, err1 := getActivePokerTables()
-			_, chips, err2 := getCurrentPokerPlayers()
-			if err1 != nil || err2 != nil {
-				u.notify(t.ERROR, t.T{"Err": "failed to query."})
-				break
-			}
-
-			u.notify(t.POKERSTATUS, t.T{
-				"Tables":  ntables,
-				"Players": nplayers,
-				"Chips":   chips,
-			})
-
-			go u.track("poker status", nil)
-
-			subscribePoker(u, time.Minute*10, false)
 		}
 	case opts["gifts"].(bool):
 		// create gift or fallback to list gifts
@@ -999,52 +842,6 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				}
 			}
 		}()
-	case "bitflash":
-		defer removeKeyboardButtons(cb)
-		chargeId := parts[1]
-
-		// get data for this charge
-		order, err := getBitflashOrder(chargeId)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return translate(t.ERROR, u.Locale)
-		}
-
-		// pay it - just paying the invoice is enough
-		err = payBitflashInvoice(u, order, messageId)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return translate(t.FAILURE, u.Locale)
-		}
-
-		// store order id so we can show it later on /app bitflash orders
-		saveBitflashOrder(u, order.Id)
-
-		return translate(t.PROCESSING, u.Locale)
-	case "poker":
-		defer removeKeyboardButtons(cb)
-		if parts[1] == "withdraw" {
-			balance, err := getPokerBalance(u)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
-			}
-
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "poker", "Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
-			}
-
-			u.track("poker withdraw", map[string]interface{}{"sats": balance})
-
-			err = withdrawPoker(u, balance, messageId)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
-			}
-
-			return translate(t.PROCESSING, u.Locale)
-		}
 	case "paywall":
 		defer removeKeyboardButtons(cb)
 		if parts[1] == "withdraw" {

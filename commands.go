@@ -106,10 +106,6 @@ var methods = []def{
 		argstr:  "(account | balance | withdraw | <contract> (state [<jqfilter>] | <method> [<satoshi>] [<params>...]))",
 	},
 	def{
-		aliases: []string{"bitflash"},
-		argstr:  "(orders | status | rate | <satoshis> <address>)",
-	},
-	def{
 		aliases: []string{"satellite"},
 		argstr:  "(transmissions | <satoshis> [<message>...])",
 	},
@@ -143,12 +139,6 @@ var methods = []def{
 	def{
 		aliases: []string{"paywall"},
 		argstr:  "[list | <url> <satoshis> <memo>... | balance | withdraw]",
-	},
-	def{
-		aliases:        []string{"poker"},
-		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
-		inline:         true,
-		inline_example: "poker",
 	},
 	def{
 		aliases: []string{"sats4ads"},
