@@ -497,65 +497,6 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			u.notify(t.GIFTSLIST, t.T{"Gifts": gifts})
 		}
-	case opts["paywall"].(bool):
-		go u.track("paywall", nil)
-
-		switch {
-		case opts["balance"].(bool):
-			balance, err := getPaywallBalance(u)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
-				return
-			}
-
-			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Paywall", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
-				[][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=paywall-withdraw"),
-					},
-				},
-			}, 0)
-		case opts["withdraw"].(bool):
-			err := withdrawPaywall(u)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
-				return
-			}
-		default:
-			// create paywall link or fallback to list paywalls
-			if url, ok := opts["<url>"].(string); ok {
-				// create
-				sats, err := opts.Int("<satoshis>")
-				if err != nil {
-					u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
-					return
-				}
-
-				memo := getVariadicFieldOrReplyToContent(opts, nil, "<memo>")
-				if memo == "" {
-					handleHelp(u, "paywall")
-					return
-				}
-
-				link, err := createPaywallLink(u, sats, url, memo)
-				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
-					return
-				}
-
-				u.notify(t.PAYWALLCREATED, t.T{"Link": link})
-				sendMessage(u.ChatId, fmt.Sprintf(`<a href="https://paywall.link/to/%s">https://paywall.link/to/%s</a>`, link.ShortURL, link.ShortURL))
-			} else {
-				// list
-				links, err := listPaywallLinks(u)
-				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
-					return
-				}
-
-				u.notify(t.PAYWALLLISTLINKS, t.T{"Links": links})
-			}
-		}
 	case opts["sats4ads"].(bool):
 		switch {
 		case opts["on"].(bool):
@@ -842,15 +783,6 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				}
 			}
 		}()
-	case "paywall":
-		defer removeKeyboardButtons(cb)
-		if parts[1] == "withdraw" {
-			err := withdrawPaywall(u)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
-			}
-		}
 	}
 
 	return

@@ -39,7 +39,6 @@ type Settings struct {
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 
 	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
-	PaywallLinkKey     string `envconfig:"PAYWALLLINK_KEY"`
 	LNToRubKey         string `envconfig:"LNTORUB_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
 
@@ -205,7 +204,6 @@ func server(p *plugin.Plugin) {
 	// register webserver routes
 	serveLNURL()
 	servePages()
-	servePaywallWebhook()
 	serveGiftsWebhook()
 	serveBitrefillWebhook()
 

@@ -137,10 +137,6 @@ var methods = []def{
 		argstr:  "(list | [<satoshis>])",
 	},
 	def{
-		aliases: []string{"paywall"},
-		argstr:  "[list | <url> <satoshis> <memo>... | balance | withdraw]",
-	},
-	def{
 		aliases: []string{"sats4ads"},
 		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
 	},

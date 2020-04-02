@@ -414,27 +414,6 @@ Your {{.Amount}} sat gift <code>{{.Id}}</code> was redeemed{{if .Description}} f
 <i>{{.Description}}</i>{{end}}.
     `,
 
-	PAYWALLHELP: `
-<a href="https://paywall.link/">paywall.link</a> is a Paywall Generator. It allows you to sell digital goods (files, articles, music, videos, any form of content that can be published on the open web) by simply wrapping their URLs in a paywall.
-
-By generating your paywalls on @{{ .BotName }} you can keep track of them all without leaving Telegram and get information on how much of each you've sold.
-
-/paywall will list all your paywalls.
-<code>/paywall https://mysite.com/secret-content 230 'access my secret content'</code> will create a paywall for a secret content with a price of 230 satoshis.
-/paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
-/paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
-    `,
-	PAYWALLCREATED: `<b>[paywall]</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
-	PAYWALLLISTLINKS: `<b>[paywall]</b>
-{{range .Links}}- <code>{{.LndValue}} sat</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
-{{else}}
-<i>~ no paywalls were ever built. ~</i>
-{{end}}
-    `,
-	PAYWALLPAIDEVENT: `<b>[paywall]</b> New click!
-Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a> for <i>{{.Destination}}</i>.
-    `,
-
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
 
 /toggle_ticket_10 starts charging a fee for all new entrants. Useful as an antispam measure. The money goes to the group owner.
@@ -576,7 +555,6 @@ These are the services we currently support:
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
 ☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
 ⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
-🧱 /paywall -- create paywalls on paywall.link, get notified whenever someone pays, withdraw easily. /help_paywall
 🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
 📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip

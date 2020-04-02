@@ -182,11 +182,6 @@ const (
 	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
 	SATS4ADSVIEWED     = "Viewed"
 
-	PAYWALLHELP      = "paywallHelp"
-	PAYWALLCREATED   = "PaywallCreated"
-	PAYWALLLISTLINKS = "PaywallListLinks"
-	PAYWALLPAIDEVENT = "PaywallPaidEvent"
-
 	ETLENEUMFAILEDTOPAY = "EtleneumFailedToPay"
 
 	TOGGLEHELP = "toggleHelp"
