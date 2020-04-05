@@ -789,7 +789,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		go u.track("check pending", nil)
 
 		go func(u User, messageId int, hash string) {
-			sendpays, _ := ln.CallNamed("listpays", "payment_hash", hash)
+			sendpays, _ := ln.CallNamed("listsendpays", "payment_hash", hash)
 			if sendpays.Get("payments.#").Int() == 0 {
 				// payment was never tried
 				log.Debug().
