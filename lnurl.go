@@ -131,7 +131,7 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			"min":    float64(params.MinSendable) / 1000,
 		})
 
-		if fixedAmount > 0 && opts.payWithoutPromptIf < fixedAmount+3000 {
+		if fixedAmount > 0 && fixedAmount+3000 < opts.payWithoutPromptIf {
 			lnurlpayFetchInvoiceAndPay(
 				u,
 				fixedAmount,
