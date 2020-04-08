@@ -618,14 +618,6 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 			}
 		}
 
-		from = len(tries) - 10
-		if from < 0 {
-			from = 0
-		}
-		if jsontries, err := json.Marshal(tries[from:]); err == nil {
-			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
-		}
-
 		if payment.Get("status").String() == "complete" {
 			// payment successful!
 			go u.track("payment sent", map[string]interface{}{
@@ -654,6 +646,14 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 
 		// if we reached this point then it's a failure
 	failure:
+		from = len(tries) - 10
+		if from < 0 {
+			from = 0
+		}
+		if jsontries, err := json.Marshal(tries[from:]); err == nil {
+			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
+		}
+
 		go u.track("payment failed", map[string]interface{}{
 			"sats":  msatoshi / 1000,
 			"payee": inv.Get("payee").String(),
