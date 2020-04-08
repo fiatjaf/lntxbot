@@ -222,7 +222,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.",
-	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You've got {{.Sats}} sat.",
+	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You got {{.Sats}} sat.",
 	HIDDENREVEALMSG:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
@@ -520,7 +520,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Amount</b>: {{.Txn.Amount}} sat ({{dollar .Txn.Amount}})
+<b>Amount</b>: {{.Txn.Amount | printf "%.15g"}} sat ({{dollar .Txn.Amount}})
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
 {{.LogInfo}}
     `,

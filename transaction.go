@@ -108,12 +108,12 @@ func (t Transaction) Satoshis() string {
 
 func (t Transaction) PaddedSatoshis() string {
 	if t.Amount > 99999 {
-		return fmt.Sprintf("%7.0f", t.Amount)
+		return fmt.Sprintf("%7.15g", t.Amount)
 	}
 	if t.Amount < -9999 {
-		return fmt.Sprintf("%7.0f", t.Amount)
+		return fmt.Sprintf("%7.15g", t.Amount)
 	}
-	return fmt.Sprintf("%7.1f", t.Amount)
+	return fmt.Sprintf("%7.15g", t.Amount)
 }
 
 func (t Transaction) FeeSatoshis() string {
