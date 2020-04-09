@@ -145,6 +145,9 @@ var methods = []def{
 		argstr:  "[full | invoice | readonly | url | refresh]",
 	},
 	def{
+		aliases: []string{"lightningatm"},
+	},
+	def{
 		aliases: []string{"bluewallet", "lndhub"},
 		argstr:  "[refresh]",
 	},
@@ -208,6 +211,9 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 	// turn /app_microbet_bets, for example, into /app microbet bet
 	parts := strings.SplitN(message, " ", 2)
 	parts[0] = strings.ReplaceAll(parts[0], "_", " ")
+	message = strings.Join(parts, " ")
+	parts = strings.SplitN(message, " ", 2)
+	parts[0] = strings.ToLower(parts[0])
 	message = strings.Join(parts, " ")
 
 	// apply this to get shell-like quoting rules

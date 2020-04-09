@@ -226,6 +226,13 @@ parsed:
 				"ServiceURL": s.ServiceURL,
 			})
 		}
+	case opts["lightningatm"].(bool):
+		token := base64.StdEncoding.EncodeToString(
+			[]byte(fmt.Sprintf("%d:%s", u.Id, u.Password)))
+		text := fmt.Sprintf("%s@%s", token, s.ServiceURL)
+		qrpath := qrImagePath(fmt.Sprintf("lightningatm-%d", u.Id))
+		qrcode.WriteFile(text, qrcode.Medium, 256, qrpath)
+		sendMessageWithPicture(u.ChatId, qrpath, text)
 	case opts["tx"].(bool):
 		// individual transaction query
 		hash := opts["<hash>"].(string)
