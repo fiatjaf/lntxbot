@@ -558,6 +558,7 @@ SELECT balance FROM lightning.balance WHERE account_id = $1
 		"maxfeepercent": 0.4,
 		"exemptfee":     3000,
 		"label":         fmt.Sprintf("user=%d", u.Id),
+		"use_shadow":    false,
 	}
 
 	if inv.Get("msatoshi").Int() == 0 {
