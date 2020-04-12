@@ -68,13 +68,13 @@ lnurl-auth success!
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}
 
-/tx_{{.ShortHash}}`,
+/tx_{{.ShortHash}} #tx`,
 	OVERQUOTA:           "You're over your {{.App}} daily quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
 
-	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}.",
+	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}} #tx",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
@@ -494,6 +494,7 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 <b>Total sent</b>: {{printf "%.15g" .Sent}} sat
 <b>Total fees paid</b>: {{printf "%.15g" .Fees}} sat
 
+#balance
 /balance_apps
 /transactions
     `,
@@ -504,6 +505,7 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 {{else}}
 <i>No tagged transactions made yet.</i>
 {{end}}
+#balance
     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `
