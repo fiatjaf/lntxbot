@@ -255,6 +255,9 @@ func lnurlpayFetchInvoiceAndPay(
 	encodedLnurl string,
 	messageId int,
 ) {
+	// transform lnurl into bech32ed lnurl if necessary
+	encodedLnurl, _ = lnurl.LNURLEncode(encodedLnurl)
+
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
 	resp, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)

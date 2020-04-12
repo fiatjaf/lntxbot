@@ -48,7 +48,7 @@ lnurl-auth success!
 {{end}}<pre>{{.Text}}</pre>
 {{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
-	LNURLPAYMETADATA: `lnurl-pay metadata:
+	LNURLPAYMETADATA: `#lnurlpay metadata :
 <b>domain</b>: <i>{{.Domain}}</i>
 <b>lnurl</b>: <i>{{.LNURL}}</i>
 <b>transaction</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}

@@ -46,7 +46,7 @@ lnurl-auth успех!
 {{.SuccessAction.Description | html}}
 {{if eq .SuccessAction.Tag "url"}}<a href="{{.SuccessAction.Data}}">{{.SuccessAction.Data}}</a>{{end}}
     `,
-	LNURLPAYMETADATA: `lnurl-pay метаданные:
+	LNURLPAYMETADATA: `#lnurlpay метаданные:
 <b>домен</b>: <i>{{.Domain}}</i>
 <b>lnurl</b>: <i>{{.LNURL}}</i>
 <b>транзакция</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}
