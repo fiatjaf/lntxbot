@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-rfc/sse"
+	"github.com/fiatjaf/sse"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
