@@ -924,6 +924,17 @@ FROM lightning.balance AS b
 WHERE b.account_id = $1
 GROUP BY b.account_id, b.balance
     `, u.Id)
+	if err == sql.ErrNoRows {
+		info = Info{
+			AccountId:     strconv.Itoa(u.Id),
+			Balance:       0,
+			UsableBalance: 0,
+			TotalSent:     0,
+			TotalReceived: 0,
+			TotalFees:     0,
+		}
+	}
+
 	return
 }
 
