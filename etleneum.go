@@ -17,6 +17,11 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
+const (
+	ALIAS_CONTRACT        string = "c7c491sw04"
+	ALIAS_DEFAULT_ACCOUNT string = "ay81i7dw7"
+)
+
 type EtleneumAppData struct {
 	Account string `json:"account"`
 	Secret  string `json:"secret"`
@@ -26,6 +31,77 @@ type EtleneumResponse struct {
 	Ok    bool            `json:"ok"`
 	Error string          `json:"error"`
 	Value json.RawMessage `json:"value"`
+}
+
+type EtleneumContract struct {
+	Id     string `json:"id"`
+	Name   string `json:"name"`
+	Funds  int64  `json:"funds"`
+	NCalls int    `json:"ncalls"`
+	Readme string `json:"readme"`
+	Code   string `json:"code"`
+}
+
+func listEtleneumContracts(user User) (contracts []EtleneumContract, aliases map[string]string, err error) {
+	// list contracts
+	var reply EtleneumResponse
+	_, err = napping.Get("https://etleneum.com/~/contracts", nil, &reply, &reply)
+	if err != nil {
+		err = errors.New("etleneum.com invalid response: " + reply.Error)
+		return
+	}
+	if !reply.Ok {
+		err = errors.New("etleneum.com call failed: " + reply.Error)
+		return
+	}
+	err = json.Unmarshal(reply.Value, &contracts)
+	if err != nil {
+		err = fmt.Errorf("failed to decode contracts JSON: %s", err.Error())
+		return
+	}
+
+	// get aliases
+	var userdata EtleneumAppData
+	user.getAppData("etleneum", &userdata)
+	accountId := userdata.Account
+	if accountId == "" {
+		accountId = "bogus"
+	}
+
+	state, _ := getEtleneumContractState(ALIAS_CONTRACT,
+		` .`+ALIAS_DEFAULT_ACCOUNT+` * (.`+accountId+` // {})
+        | to_entries
+        | map(._ = .value | .value = .key | .key = ._)
+        | from_entries
+        `)
+	err = json.Unmarshal(state, &aliases)
+	if err != nil {
+		err = fmt.Errorf("failed to decode aliases JSON: %s", err.Error())
+		return
+	}
+
+	return
+}
+
+func aliasToEtleneumContractId(user User, aliasOrId string) (id string) {
+	var userdata EtleneumAppData
+	user.getAppData("etleneum", &userdata)
+	accountId := userdata.Account
+	if accountId == "" {
+		accountId = "bogus"
+	}
+
+	state, _ := getEtleneumContractState(ALIAS_CONTRACT,
+		` .`+ALIAS_DEFAULT_ACCOUNT+` * (.`+accountId+` // {})
+        | .["`+aliasOrId+`"] // "`+aliasOrId+`"
+        `)
+	json.Unmarshal(state, &id)
+
+	if id == "" {
+		id = aliasOrId
+	}
+
+	return
 }
 
 func etleneumLogin(user User) (account, secret string, balance float64, withdraw string) {
@@ -65,7 +141,32 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 	return
 }
 
-func getEtleneumContractState(contractId, jqfilter string) (state string, err error) {
+func getEtleneumContractMetadata(contractId string) (ct EtleneumContract, err error) {
+	var reply EtleneumResponse
+	_, err = napping.Get("https://etleneum.com/~/contracts?id="+contractId, nil, &reply, &reply)
+	if err != nil {
+		err = errors.New("etleneum.com invalid response: " + reply.Error)
+		return
+	}
+	if !reply.Ok {
+		err = errors.New("etleneum.com call failed: " + reply.Error)
+		return
+	}
+
+	var arr []EtleneumContract
+	err = json.Unmarshal(reply.Value, &arr)
+	if err != nil {
+		return
+	}
+	if len(arr) != 1 {
+		err = errors.New("not found")
+		return
+	}
+
+	return arr[0], err
+}
+
+func getEtleneumContractState(contractId, jqfilter string) (state json.RawMessage, err error) {
 	var reply EtleneumResponse
 	if jqfilter == "" {
 		_, err = napping.Get("https://etleneum.com/~/contract/"+contractId+"/state", nil, &reply, &reply)
@@ -80,7 +181,7 @@ func getEtleneumContractState(contractId, jqfilter string) (state string, err er
 		})
 	}
 	if err != nil {
-		err = errors.New("etleneum.com invalid response: " + err.Error())
+		err = errors.New("etleneum.com invalid response: " + reply.Error)
 		return
 	}
 	if !reply.Ok {
@@ -88,8 +189,7 @@ func getEtleneumContractState(contractId, jqfilter string) (state string, err er
 		return
 	}
 
-	d, err := json.MarshalIndent(reply.Value, "", "  ")
-	return string(d), err
+	return reply.Value, err
 }
 
 func buildEtleneumCallLNURL(

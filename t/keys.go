@@ -117,8 +117,11 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	ETLENEUMHELP    = "etleneumHelp"
-	ETLENEUMACCOUNT = "EtleneumAccount"
+	ETLENEUMHELP          = "etleneumHelp"
+	ETLENEUMACCOUNT       = "EtleneumAccount"
+	ETLENEUMCONTRACT      = "EtleneumContract"
+	ETLENEUMCONTRACTSTATE = "EtleneumContractState"
+	ETLENEUMCONTRACTS     = "EtleneumContracts"
 
 	MICROBETHELP                = "microbetHelp"
 	MICROBETBETHEADER           = "MicrobetBetHeader"

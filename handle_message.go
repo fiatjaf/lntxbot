@@ -164,7 +164,7 @@ parsed:
 		opts["sats4ads"].(bool),
 		opts["qiwi"].(bool), opts["yandex"].(bool),
 		opts["bitrefill"].(bool), opts["bitclouds"].(bool),
-		opts["etleneum"].(bool):
+		opts["etleneum"].(bool), opts["etl"].(bool):
 		handleExternalApp(u, opts, message)
 		break
 	case opts["bluewallet"].(bool), opts["lndhub"].(bool):

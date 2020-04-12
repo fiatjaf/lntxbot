@@ -307,6 +307,19 @@ func createLocalizerBundle() (t.Bundle, error) {
 			return "~"
 		}
 	})
+	bundle.AddFunc("msatToSat", func(imsat interface{}) float64 {
+		switch msat := imsat.(type) {
+		case int64:
+			return float64(msat) / 1000
+		case int:
+			return float64(msat) / 1000
+		case float64:
+			return msat / 1000
+		default:
+			return 0
+		}
+	})
+	bundle.AddFunc("escapehtml", escapeHTML)
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

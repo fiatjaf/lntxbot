@@ -27,7 +27,7 @@ import (
 type handleLNURLOpts struct {
 	messageId          int
 	loginSilently      bool
-	payWithoutPromptIf int64
+	payWithoutPromptIf *int64
 }
 
 func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
@@ -131,7 +131,9 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			"min":    float64(params.MinSendable) / 1000,
 		})
 
-		if fixedAmount > 0 && fixedAmount+3000 < opts.payWithoutPromptIf {
+		if fixedAmount > 0 &&
+			opts.payWithoutPromptIf != nil &&
+			fixedAmount < *opts.payWithoutPromptIf+3000 {
 			lnurlpayFetchInvoiceAndPay(
 				u,
 				fixedAmount,

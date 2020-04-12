@@ -17,21 +17,35 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 	messageId := message.MessageID
 
 	switch {
-	case opts["etleneum"].(bool):
+	case opts["etleneum"].(bool), opts["etl"].(bool):
 		if contract, err := opts.String("<contract>"); err == nil {
+			method, _ := opts["<method>"].(string)
+
+			// translate alias into contract id
+			contract = aliasToEtleneumContractId(u, contract)
+
 			if opts["state"].(bool) {
+				// contract state
 				jqfilter, _ := opts.String("<jqfilter>")
 				state, err := getEtleneumContractState(contract, jqfilter)
 				if err != nil {
 					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
-				sendMessage(u.ChatId, "<pre>"+state+"</pre>")
-				go u.track("etleneum state", map[string]interface{}{
-					"contract": contract,
-				})
+				statestr, _ := json.MarshalIndent(state, "", "  ")
+				u.notify(t.ETLENEUMCONTRACTSTATE, t.T{"State": string(statestr)})
+				go u.track("etleneum state", map[string]interface{}{"contract": contract})
+			} else if method == "" {
+				// contract metadata
+				ct, err := getEtleneumContractMetadata(contract)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					return
+				}
+				u.notify(t.ETLENEUMCONTRACT, t.T{"Contract": ct})
+				go u.track("etleneum metadata", map[string]interface{}{"contract": contract})
 			} else {
-				method := opts["<method>"].(string)
+				// make a call
 				params := opts["<params>"].([]string)
 				var sats *int // nil means not specified
 				if satoshi, err := opts.Int("<satoshi>"); err == nil {
@@ -50,32 +64,49 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 				log.Debug().Str("url", etlurl).Msg("etleneum call lnurl")
-				handleLNURL(u, etlurl, handleLNURLOpts{messageId: message.MessageID})
+
+				var msatsAcceptable *int64
+				if sats != nil {
+					msatsAcceptableV := int64(*sats) * 1000
+					msatsAcceptable = &msatsAcceptableV
+				}
+
+				handleLNURL(u, etlurl, handleLNURLOpts{
+					messageId:          message.MessageID,
+					payWithoutPromptIf: msatsAcceptable,
+				})
 
 				go u.track("etleneum call", map[string]interface{}{
 					"contract": contract,
 					"method":   method,
-					"sats":     *sats,
+					"sats":     sats,
 				})
 			}
-		} else if opts["account"].(bool) {
-			account, _, _, _ := etleneumLogin(u)
-			go u.track("etleneum account", nil)
-			u.notify(t.ETLENEUMACCOUNT, t.T{"Account": account})
-		} else if opts["balance"].(bool) {
-			_, _, balance, _ := etleneumLogin(u)
-			go u.track("etleneum balance", map[string]interface{}{"sats": balance})
-			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Etleneum", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+		} else if opts["contracts"].(bool) {
+			contracts, aliases, err := listEtleneumContracts(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				return
+			}
+			go u.track("etleneum contracts", nil)
+			u.notify(t.ETLENEUMCONTRACTS, t.T{"Contracts": contracts, "Aliases": aliases})
+		} else if opts["withdraw"].(bool) {
+			_, _, _, withdraw := etleneumLogin(u)
+			go u.track("etleneum withdraw", nil)
+			handleLNURL(u, withdraw, handleLNURLOpts{messageId: message.MessageID})
+		} else {
+			account, _, balance, _ := etleneumLogin(u)
+			go u.track("etleneum account", map[string]interface{}{"sats": balance})
+			u.notifyWithKeyboard(t.ETLENEUMACCOUNT, t.T{
+				"Account": account,
+				"Balance": balance,
+			}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=etleneum-withdraw"),
 					},
 				},
 			}, 0)
-		} else if opts["withdraw"].(bool) {
-			_, _, _, withdraw := etleneumLogin(u)
-			go u.track("etleneum withdraw", nil)
-			handleLNURL(u, withdraw, handleLNURLOpts{messageId: message.MessageID})
 		}
 	case opts["microbet"].(bool):
 		if opts["bets"].(bool) || opts["list"].(bool) {
@@ -591,7 +622,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}()
 		}
 	default:
-		handleHelp(u, "app")
+		handleHelp(u, "apps")
 	}
 }
 
@@ -607,6 +638,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		}
 	case "etleneum":
 		if parts[1] == "withdraw" {
+			defer removeKeyboardButtons(cb)
 			_, _, _, withdraw := etleneumLogin(u)
 			go u.track("etleneum withdraw", nil)
 			handleLNURL(u, withdraw, handleLNURLOpts{})

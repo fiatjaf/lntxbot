@@ -230,13 +230,37 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	ETLENEUMHELP: `
 <a href="https://etleneum.com/">Etleneum</a> is a smart contract platform that operates with satoshis as its main currency. Anyone can write and publish stateful contracts written in Lua. They can take calls with satoshis from registered and anonymous users, read and modify internal state, read and call other contracts and read data from the outside world with HTTP and payout satoshis to people.
 
-/etleneum_account shows your Etleneum account id. It should be the same as if you <a href="https://etleneum.com/#/account">logged in directly with lnurl-auth</a>.
-/etleneum_balance shows your balance on Etleneum.
-/etleneum_withdraw withdraws your balance from Etleneum to @{{.BotName}}.
-/etleneum_cew5i79gyj_bet_321 will call <code>bet</code> on contract <code>cew5i79gyj</code> paying <code>321</code> satoshis.
-/etleneum_c680z7fefr_state will show the full state for contract <code>c680z7fefr</code>.
+/etl shows your Etleneum balance and account id. The id should be the same as if you <a href="https://etleneum.com/#/account">logged in directly with lnurl-auth</a>.
+/etl_withdraw withdraws your balance from Etleneum to @{{.BotName}}.
+/etl_contracts lists all Etleneum contracts with their aliases.
+/etl_stupidlottery_bet_321 will call <code>bet</code> on contract <code>cew5i79gyj</code> paying <code>321</code> satoshis.
+/etl_stupidlottery will show metadata for the contract <code>cew5i79gyj</code>.
+/etl_pyramid_state will show the full state for contract <code>ccg0i764ou</code>.
+<code>/etl alias set 0 id=&lt;contract_id&gt; alias=&lt;alias&gt;</code> sets an alias to a contract for referencing later (this is a normal Etleneum call to the contract <code>c7c491sw04</code>).
     `,
-	ETLENEUMACCOUNT: "<b>[Etleneum]</b> Account id: {{.Account}}",
+	ETLENEUMACCOUNT: `<b>[Etleneum]</b>
+Account id: {{.Account}}
+Balance: <i>{{printf "%.15g" .Balance}} sat</i>
+    `,
+	ETLENEUMCONTRACT: `{{with .Contract}}
+Contract <code>{{.Id}}</code> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
+
+<a href="https://etleneum.com/#/contract/{{.Id}}">https://etleneum.com/#/contract/{{.Id}}</a>
+
+<i>{{escapehtml .Readme}}</i>
+{{end}}
+    `,
+	ETLENEUMCONTRACTSTATE: `<b>[Etleneum]</b> Contract <code>{{.Id}}</code> state:
+<pre>
+{{.State}}
+</pre>
+    `,
+	ETLENEUMCONTRACTS: `
+{{$aliases := .Aliases}}
+<b>[Etleneum]</b> Contracts:
+{{range .Contracts}}
+{{with index $aliases .Id}}/etl_{{.}} or {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>){{end}}
+    `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
 	MICROBETPAIDBUTNOTCONFIRMED: "<b>[Microbet]</b> Paid, but bet not confirmed. Huge Microbet bug?",
