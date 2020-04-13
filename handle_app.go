@@ -641,7 +641,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			defer removeKeyboardButtons(cb)
 			_, _, _, withdraw := etleneumLogin(u)
 			go u.track("etleneum withdraw", nil)
-			handleLNURL(u, withdraw, handleLNURLOpts{})
+			handleLNURL(u, withdraw, handleLNURLOpts{messageId: messageId})
 		}
 	case "microbet":
 		if parts[1] == "withdraw" {
