@@ -46,5 +46,5 @@ func tutorialApps(u User) {
 }
 
 func tutorialTwitter(u User) {
-	sendMessage(u.ChatId, translateTemplate(t.TUTORIALAPPS, u.Locale, t.T{"BotName": s.ServiceId}))
+	sendMessage(u.ChatId, translateTemplate(t.TUTORIALTWITTER, u.Locale, t.T{"BotName": s.ServiceId}))
 }

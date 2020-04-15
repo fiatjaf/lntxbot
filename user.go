@@ -531,15 +531,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		return errors.New("Payment already in course.")
 	}
 
-	var balance int64
-	err = txn.Get(&balance, `
-SELECT balance FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error fetching balance")
-		return errors.New("Database error. Couldn't fetch balance.")
-	}
-
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Errorf("Amount too big. Usable balance is %.3f sat.",
 			(float64(balance+msatoshi)+fee_reserve)/1000)
@@ -698,15 +690,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return errors.New("Payment already in course.")
 	}
 
-	var balance int64
-	err = txn.Get(&balance, `
-SELECT balance FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error fetching balance")
-		return errors.New("Database error. Couldn't fetch balance.")
-	}
-
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
 			-float64(balance)/1000)
@@ -751,7 +735,6 @@ func (u User) sendInternally(
 	}
 	defer txn.Rollback()
 
-	var balance int64
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, to_id, anonymous, amount, description, tag, payment_hash, trigger_message)
@@ -773,13 +756,7 @@ VALUES (
 		return "Database error.", err
 	}
 
-	err = txn.Get(&balance, `
-SELECT balance FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		return "Database error.", err
-	}
-
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
 				-float64(balance)/1000),
@@ -849,11 +826,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	}
 
 	// check balance
-	var balance int64
-	err = txn.Get(&balance, "SELECT balance FROM lightning.balance WHERE account_id = $1", u.Id)
-	if err != nil {
-		return "Database error.", err
-	}
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
 				-float64(balance)/1000),

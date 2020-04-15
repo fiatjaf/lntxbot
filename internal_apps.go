@@ -126,21 +126,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check sender balance
-		var balance int
-		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
-		if err != nil {
-			return
-		}
+		balance := getBalance(txn, fromId)
 		if balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		var proxybalance int
-		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-		if err != nil || proxybalance != 0 {
-			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		proxybalance := getBalance(txn, s.ProxyAccount)
+		if proxybalance != 0 {
+			log.Error().Err(err).Int64("balance", proxybalance).
+				Msg("proxy balance isn't 0")
 			err = errors.New("proxy balance isn't 0")
 			return
 		}
@@ -346,16 +342,10 @@ func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error
 	receiver, _ = loadUser(toId, 0)
 	giverNames := make([]string, 0, len(fromIds))
 
-	msats := sats * 1000
+	msats := int64(sats) * 1000
 
 	// receiver must also have the necessary sats in his balance at the time
-	var receiverBalance int
-	err = txn.Get(&receiverBalance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, toId)
-	if err != nil {
-		return
-	}
+	receiverBalance := getBalance(txn, toId)
 	if receiverBalance < msats {
 		err = errors.New("Receiver has insufficient balance.")
 		return
@@ -392,21 +382,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check sender balance
-		var balance int
-		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
-		if err != nil {
-			return
-		}
+		balance := getBalance(txn, fromId)
 		if balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		var proxybalance int
-		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-		if err != nil || proxybalance != 0 {
-			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		proxybalance := getBalance(txn, s.ProxyAccount)
+		if proxybalance != 0 {
+			log.Error().Err(err).Int64("balance", proxybalance).
+				Msg("proxy balance isn't 0")
 			err = errors.New("proxy balance isn't 0")
 			return
 		}
@@ -505,21 +491,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 			return
 		}
 
-		var balance int
-		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
-		if err != nil {
-			return
-		}
+		balance := getBalance(txn, fromId)
 		if balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		var proxybalance int
-		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-		if err != nil || proxybalance != 0 {
-			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		proxybalance := getBalance(txn, s.ProxyAccount)
+		if proxybalance != 0 {
+			log.Error().Err(err).Int64("balance", proxybalance).
+				Msg("proxy balance isn't 0")
 			err = errors.New("proxy balance isn't 0")
 			return
 		}

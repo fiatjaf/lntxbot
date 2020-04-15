@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
@@ -83,25 +81,6 @@ func chatOwnerFromTicketLabel(label string) (owner User, err error) {
 	return
 }
 
-func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
-	if hash == "" {
-		preimagehex, _ := hex.DecodeString(preimage)
-		sum := sha256.Sum256(preimagehex)
-		hash = hex.EncodeToString(sum[:])
-	}
-
-	invs, err := ln.Call("listinvoices")
-	if err == nil {
-		for _, inv := range invs.Get("invoices").Array() {
-			if inv.Get("payment_hash").String() == hash {
-				return inv, true
-			}
-		}
-	}
-
-	return gjson.Result{}, false
-}
-
 func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurltext string, ok bool) {
 	text := message.Text
 	if text == "" {
@@ -163,30 +142,6 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	return results[1], true
 }
 
-func getNodeAlias(id string) string {
-begin:
-	if alias, ok := nodeAliases.Get(id); ok {
-		return alias.(string)
-	}
-
-	if id == "" {
-		return "~"
-	}
-
-	res, err := ln.Call("listnodes", id)
-	if err != nil {
-		return "~"
-	}
-
-	alias := res.Get("nodes.0.alias").String()
-	if alias == "" {
-		alias = "~"
-	}
-
-	nodeAliases.Set(id, alias)
-	goto begin
-}
-
 func nodeLink(nodeId string) string {
 	if nodeId == "" {
 		return "{}"
@@ -234,21 +189,6 @@ begin:
 	dollarPrice.rate = 1 / (btcrate / 100000000000)
 	dollarPrice.lastUpdate = time.Now()
 	goto begin
-}
-
-func messageFromError(err error) string {
-	switch terr := err.(type) {
-	case lightning.ErrorTimeout:
-		return fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
-	case lightning.ErrorCommand:
-		return terr.Message
-	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
-		return "Problem connecting to our node. Please try again in a minute."
-	case lightning.ErrorJSONDecode:
-		return "Error reading response from lightningd."
-	default:
-		return err.Error()
-	}
 }
 
 func randomPreimage() (string, error) {

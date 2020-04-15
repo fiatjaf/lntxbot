@@ -38,6 +38,7 @@ type Settings struct {
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 
+	LNPayKey           string `envconfig:"LNPAY_KEY"`
 	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
 	LNToRubKey         string `envconfig:"LNTORUB_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
