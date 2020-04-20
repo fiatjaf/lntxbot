@@ -110,8 +110,8 @@ func registerBluewalletMethods() {
 		}
 
 		var params struct {
-			Invoice string `json:"invoice"`
-			Amount  int64  `json:"amount"`
+			Invoice string      `json:"invoice"`
+			Amount  interface{} `json:"amount"`
 		}
 		err = json.NewDecoder(r.Body).Decode(&params)
 		if err != nil {
@@ -119,9 +119,21 @@ func registerBluewalletMethods() {
 			return
 		}
 
+		var amount int64
+		switch val := params.Amount.(type) {
+		case string:
+			amount, _ = strconv.ParseInt(val, 10, 64)
+		case int:
+			amount = int64(val)
+		case int64:
+			amount = val
+		case float64:
+			amount = int64(val)
+		}
+
 		log.Debug().Str("bolt11", params.Invoice).Msg("bluewallet /payinvoice")
 
-		hash, err := user.payInvoice(0, params.Invoice, 1000*params.Amount)
+		hash, err := user.payInvoice(0, params.Invoice, 1000*amount)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return
