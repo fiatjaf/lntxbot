@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fiatjaf/sse"
+	"github.com/donovanhide/eventsource"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -104,19 +104,26 @@ func aliasToEtleneumContractId(user User, aliasOrId string) (id string) {
 	return
 }
 
-func etleneumLogin(user User) (account, secret string, balance float64, withdraw string) {
-	es, _ := sse.NewEventSource("https://etleneum.com/~~~/session")
+func etleneumLogin(user User) (account, secret string, balance float64, withdraw string, err error) {
+	es, err := eventsource.Subscribe("https://etleneum.com/~~~/session", "")
+	if err != nil {
+		return
+	}
+
+	go func() {
+		for err := range es.Errors {
+			log.Debug().Err(err).Msg("eventsource error")
+		}
+	}()
 
 	go func() {
 		time.Sleep(10 * time.Second)
 		es.Close()
 	}()
 
-	for ev := range es.MessageEvents() {
-		log.Print(ev.Name)
-		log.Print(ev.Data)
+	for ev := range es.Events {
 		var data map[string]interface{}
-		json.Unmarshal([]byte(ev.Data), &data)
+		json.Unmarshal([]byte(ev.Data()), &data)
 
 		if _, ok := data["auth"]; ok {
 			handleLNURL(user, data["auth"].(string), handleLNURLOpts{
@@ -131,6 +138,11 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 			es.Close()
 			break
 		}
+	}
+
+	if account == "" {
+		err = errors.New("etleneum.com authorization timed out")
+		return
 	}
 
 	go user.setAppData("etleneum", EtleneumAppData{
@@ -287,7 +299,11 @@ func translateToEtleneumAccount(username string) (accountId string, err error) {
 		return userdata.Account, nil
 	} else {
 		// create etleneum account for this user now and who cares
-		account, _, _, _ := etleneumLogin(user)
+		account, _, _, _, err := etleneumLogin(user)
+		if err != nil {
+			return "", err
+		}
+
 		return account, nil
 	}
 }
