@@ -243,16 +243,21 @@ Account id: {{.Account}}
 Balance: <i>{{printf "%.15g" .Balance}} sat</i>
     `,
 	ETLENEUMCONTRACT: `{{with .Contract}}
-Contract <code>{{.Id}}</code> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
+Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
 
-<a href="https://etleneum.com/#/contract/{{.Id}}">https://etleneum.com/#/contract/{{.Id}}</a>
+<b>Description</b>
+<i>{{escapehtml .Readme}}
 
-<i>{{escapehtml .Readme}}</i>
+(...)</i>
+
+<b>Methods:</b>
+{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>
+{{end}}
 {{end}}
     `,
 	ETLENEUMCONTRACTSTATE: `<b>[Etleneum]</b> Contract <code>{{.Id}}</code> state:
 <pre>
-{{.State}}
+{{escapehtml .State}}
 </pre>
     `,
 	ETLENEUMCONTRACTS: `

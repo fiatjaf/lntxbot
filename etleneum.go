@@ -34,12 +34,19 @@ type EtleneumResponse struct {
 }
 
 type EtleneumContract struct {
-	Id     string `json:"id"`
-	Name   string `json:"name"`
-	Funds  int64  `json:"funds"`
-	NCalls int    `json:"ncalls"`
-	Readme string `json:"readme"`
-	Code   string `json:"code"`
+	Id      string           `json:"id"`
+	Name    string           `json:"name"`
+	Funds   int64            `json:"funds"`
+	NCalls  int              `json:"ncalls"`
+	Readme  string           `json:"readme"`
+	Code    string           `json:"code"`
+	Methods []EtleneumMethod `json:"methods"`
+}
+
+type EtleneumMethod struct {
+	Name   string   `json:"name"`
+	Params []string `json:"params"`
+	Auth   bool     `json:"auth"`
 }
 
 func listEtleneumContracts(user User) (contracts []EtleneumContract, aliases map[string]string, err error) {
@@ -153,9 +160,9 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 	return
 }
 
-func getEtleneumContractMetadata(contractId string) (ct EtleneumContract, err error) {
+func getEtleneumContract(contractId string) (ct EtleneumContract, err error) {
 	var reply EtleneumResponse
-	_, err = napping.Get("https://etleneum.com/~/contracts?id="+contractId, nil, &reply, &reply)
+	_, err = napping.Get("https://etleneum.com/~/contract/"+contractId, nil, &reply, &reply)
 	if err != nil {
 		err = errors.New("etleneum.com invalid response: " + reply.Error)
 		return
@@ -165,17 +172,8 @@ func getEtleneumContractMetadata(contractId string) (ct EtleneumContract, err er
 		return
 	}
 
-	var arr []EtleneumContract
-	err = json.Unmarshal(reply.Value, &arr)
-	if err != nil {
-		return
-	}
-	if len(arr) != 1 {
-		err = errors.New("not found")
-		return
-	}
-
-	return arr[0], err
+	err = json.Unmarshal(reply.Value, &ct)
+	return ct, err
 }
 
 func getEtleneumContractState(contractId, jqfilter string) (state json.RawMessage, err error) {

@@ -103,7 +103,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"etleneum", "etl"},
-		argstr:  "[withdraw | contracts | <contract> [state [<jqfilter>] | <method> [<satoshi>] [<params>...]]]",
+		argstr:  "[withdraw | (apps | contracts) | <contract> [state [<jqfilter>] | <method> [<satoshi>] [<params>...]]]",
 	},
 	def{
 		aliases: []string{"satellite"},

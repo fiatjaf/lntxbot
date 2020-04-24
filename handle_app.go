@@ -33,15 +33,21 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 				statestr, _ := json.MarshalIndent(state, "", "  ")
-				u.notify(t.ETLENEUMCONTRACTSTATE, t.T{"State": string(statestr)})
+				u.notify(t.ETLENEUMCONTRACTSTATE, t.T{
+					"Id":    contract,
+					"State": string(statestr),
+				})
 				go u.track("etleneum state", map[string]interface{}{"contract": contract})
 			} else if method == "" {
 				// contract metadata
-				ct, err := getEtleneumContractMetadata(contract)
+				ct, err := getEtleneumContract(contract)
 				if err != nil {
 					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
+
+				ct.Readme = strings.Split(strings.TrimSpace(ct.Readme), "\n")[0]
+
 				u.notify(t.ETLENEUMCONTRACT, t.T{"Contract": ct})
 				go u.track("etleneum metadata", map[string]interface{}{"contract": contract})
 			} else {
@@ -82,7 +88,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					"sats":     sats,
 				})
 			}
-		} else if opts["contracts"].(bool) {
+		} else if opts["contracts"].(bool) || opts["apps"].(bool) {
 			contracts, aliases, err := listEtleneumContracts(u)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
