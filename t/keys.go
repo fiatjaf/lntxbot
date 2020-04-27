@@ -103,6 +103,7 @@ const (
 	FUNDRAISERECEIVERMSG = "FundraiseReceiverMsg"
 	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
 
+	LIGHTNINGATMHELP       = "lightningatmHelp"
 	BLUEWALLETHELP         = "bluewalletHelp"
 	APIPASSWORDUPDATEERROR = "APIPasswordUpdateError"
 	APICREDENTIALS         = "APICredentials"
