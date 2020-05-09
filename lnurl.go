@@ -33,7 +33,14 @@ type handleLNURLOpts struct {
 func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 	iparams, err := lnurl.HandleLNURL(lnurltext)
 	if err != nil {
-		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		if lnurlerr, ok := err.(lnurl.LNURLErrorResponse); ok {
+			u.notify(t.LNURLERROR, t.T{
+				"Host":   lnurlerr.URL.Host,
+				"Reason": lnurlerr.Reason,
+			})
+		} else {
+			u.notify(t.ERROR, t.T{"Err": err.Error()})
+		}
 		return
 	}
 
