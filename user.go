@@ -167,7 +167,9 @@ RETURNING password;
 }
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {
-	err = pg.Get(&txn, `
+	var txs []Transaction
+
+	err = pg.Select(&txs, `
 SELECT
   time,
   telegram_peer,
@@ -185,13 +187,21 @@ SELECT
 FROM lightning.account_txn
 WHERE account_id = $1
   AND payment_hash LIKE $2 || '%'
-ORDER BY time
+ORDER BY time, amount DESC
+LIMIT 2 -- when it was paid internally
     `, u.Id, hash)
 	if err != nil {
 		return
 	}
 
+	txn = txs[0]
 	txn.Description = escapeHTML(txn.Description)
+
+	// handle case in which it was paid internally and so two results were returned
+	if len(txs) == 2 {
+		txn.Preimage = sql.NullString{String: "internal_payment", Valid: true}
+	}
+
 	return
 }
 
@@ -561,22 +571,21 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	// perform payment
 	go func() {
 		var tries []Try
-		var from int
+		var fallbackError Try
 
 		payment, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
 		if errw, ok := err.(lightning.ErrorCommand); ok {
-			tries = append(tries, Try{
+			fallbackError = Try{
 				Success: false,
 				Error:   errw.Message,
 				Route:   []Hop{},
-			})
-			goto failure
+			}
 		}
 
 		// save payment attempts for future counsultation
 		// only save the latest 10 tries for brevity
 		if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
-			for _, attempt := range status.Get("pay.0.attempts").Array() {
+			for i, attempt := range status.Get("pay.0.attempts").Array() {
 				var errorMessage string
 				if attempt.Get("failure").Exists() {
 					if attempt.Get("failure.data").Exists() {
