@@ -425,7 +425,7 @@ func (u User) payInvoice(
 					}
 
 					ticketPaid(label, kickdata)
-					handleInvoicePaid(
+					go handleInvoicePaid(
 						-1,
 						amount,
 						desc,
@@ -433,7 +433,7 @@ func (u User) payInvoice(
 						"",
 						label,
 					)
-					paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
+					go paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
 					break
 				}
 			}
@@ -461,7 +461,7 @@ func (u User) payInvoice(
 				return
 			}
 
-			handleInvoicePaid(
+			go handleInvoicePaid(
 				0,
 				amount,
 				desc,
@@ -469,7 +469,10 @@ func (u User) payInvoice(
 				"",
 				label,
 			)
-			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
+			invs, _ := ln.Call("listinvoices", label)
+			go resolveWaitingInvoice(hash, invs.Get("invoices.0"))
+
+			go paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
 			ln.Call("delinvoice", label, "unpaid")
 		} else {
 			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")

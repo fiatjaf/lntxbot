@@ -133,28 +133,30 @@ func registerBluewalletMethods() {
 
 		log.Debug().Str("bolt11", params.Invoice).Msg("bluewallet /payinvoice")
 
-		hash, err := user.payInvoice(0, params.Invoice, 1000*amount)
+		decoded, _ := decodeInvoiceAsLndHub(params.Invoice)
+		var preimage string
+
+		go func() {
+			select {
+			case preimage = <-waitPaymentSuccess(decoded.PaymentHash):
+			case <-time.After(150 * time.Second):
+			}
+		}()
+
+		_, err = user.payInvoice(0, params.Invoice, 1000*amount)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return
 		}
 
-		decoded, _ := decodeInvoiceAsLndHub(params.Invoice)
-
-		var preimage string
-		select {
-		case preimage = <-waitPaymentSuccess(hash):
-		case <-time.After(150 * time.Second):
-		}
-
-		tx, _ := user.getTransaction(hash)
+		tx, _ := user.getTransaction(decoded.PaymentHash)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(LndHubPaymentResult{
 			PaymentError:    "",
 			PaymentPreimage: preimage,
 			PaymentRoute:    make(map[string]interface{}),
-			PaymentHash:     Buffer(hash),
+			PaymentHash:     Buffer(decoded.PaymentHash),
 			Decoded:         decoded,
 			FeeMsat:         int64(tx.Fees * 1000),
 			Type:            "paid_invoice",
