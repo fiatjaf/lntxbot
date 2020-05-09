@@ -73,7 +73,10 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			return
 		}
 		if sentsigres.Status == "ERROR" {
-			u.notify(t.ERROR, t.T{"Err": sentsigres.Reason})
+			u.notify(t.LNURLERROR, t.T{
+				"Host":   params.Host,
+				"Reason": sentsigres.Reason,
+			})
 			return
 		}
 
@@ -113,7 +116,10 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			return
 		}
 		if sentinvres.Status == "ERROR" {
-			u.notify(t.ERROR, t.T{"Err": sentinvres.Reason})
+			u.notify(t.LNURLERROR, t.T{
+				"Host":   params.CallbackURL.Host,
+				"Reason": sentinvres.Reason,
+			})
 			return
 		}
 		go u.track("lnurl-withdraw", map[string]interface{}{"sats": params.MaxWithdrawable})
@@ -271,7 +277,15 @@ func lnurlpayFetchInvoiceAndPay(
 		return
 	}
 	if res.Status == "ERROR" {
-		u.notify(t.ERROR, t.T{"Err": res.Reason})
+		callbackURL, _ := url.Parse(callback)
+		if callbackURL == nil {
+			callbackURL = &url.URL{Host: "<unknown>"}
+		}
+
+		u.notify(t.LNURLERROR, t.T{
+			"Host":   callbackURL.Host,
+			"Reason": res.Reason,
+		})
 		return
 	}
 

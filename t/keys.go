@@ -35,6 +35,7 @@ const (
 	INLINEHIDDENRESULT   = "InlineHiddenResult"
 
 	LNURLUNSUPPORTED = "LnurlUnsupported"
+	LNURLERROR       = "LnurlError"
 	LNURLAUTHSUCCESS = "LnurlAuthSuccess"
 	LNURLPAYPROMPT   = "LnurlPayPrompt"
 	LNURLPAYSUCCESS  = "LnurlPaySuccess"

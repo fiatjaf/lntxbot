@@ -30,11 +30,12 @@ var EN = map[Key]string{
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
 
 	LNURLUNSUPPORTED: "That kind of lnurl is not supported here.",
+	LNURLERROR:       `<b>{{.Host}}</b> lnurl error: {{.Reason}}`,
 	LNURLAUTHSUCCESS: `
 lnurl-auth success!
 
-<b>domain</b>: <i>{{.Host}}</i>
-<b>key</b>: <i>{{.PublicKey}}</i>
+<b>Domain</b>: <i>{{.Host}}</i>
+<b>Public Key</b>: <i>{{.PublicKey}}</i>
 `,
 	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
 
