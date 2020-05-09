@@ -167,9 +167,7 @@ RETURNING password;
 }
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {
-	var txs []Transaction
-
-	err = pg.Select(&txs, `
+	err = pg.Get(&txn, `
 SELECT
   time,
   telegram_peer,
@@ -188,17 +186,16 @@ FROM lightning.account_txn
 WHERE account_id = $1
   AND payment_hash LIKE $2 || '%'
 ORDER BY time, amount DESC
-LIMIT 2 -- when it was paid internally
+LIMIT 1
     `, u.Id, hash)
 	if err != nil {
 		return
 	}
 
-	txn = txs[0]
 	txn.Description = escapeHTML(txn.Description)
 
 	// handle case in which it was paid internally and so two results were returned
-	if len(txs) == 2 {
+	if txn.Preimage.Valid == false {
 		txn.Preimage = sql.NullString{String: "internal_payment", Valid: true}
 	}
 
