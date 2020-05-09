@@ -614,9 +614,23 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 					Error:   errorMessage,
 					Route:   hops,
 				})
+
+				if i >= 9 {
+					break
+				}
 			}
+		} else {
+			// no 'paystatus' for this payment: it has failed before any attempt
+			// let's use the error message returned from 'pay'
+			tries = append(tries, fallbackError)
 		}
 
+		// save the payment tries here
+		if jsontries, err := json.Marshal(tries); err == nil {
+			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
+		}
+
+		// check success (from the 'pay' call)
 		if payment.Get("status").String() == "complete" {
 			// payment successful!
 			go u.track("payment sent", map[string]interface{}{
@@ -634,38 +648,35 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			return
 		}
 
-		// call listpays to check failure
-		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
+		// check failure (by checking the 'listpays' command)
+		// that should be enough for us to be 100% sure
+		listpays, _ := ln.Call("listpays", bolt11)
+		payattempts := listpays.Get("pays.#").Int()
+		if payattempts == 1 && listpays.Get("pays.0.status").String() != "failed" {
 			// not a failure -- but also not a success
-			// we don't know what happened, maybe it's pending, so don't do anything
+			// we don't know what happened, maybe it's pending,
+			// so don't do anything
 			log.Debug().Str("bolt11", bolt11).
 				Msg("we don't know what happened with this payment")
 			return
 		}
 
-		// if we reached this point then it's a failure
-	failure:
-		from = len(tries) - 10
-		if from < 0 {
-			from = 0
+		// the payment wasn't even tried -- so it's a failure
+		if payattempts == 0 {
+			go u.track("payment failed", map[string]interface{}{
+				"sats":  msatoshi / 1000,
+				"payee": inv.Get("payee").String(),
+			})
+			log.Warn().
+				Str("user", u.Username).
+				Int("user-id", u.Id).
+				Interface("params", params).
+				Interface("tries", tries).
+				Str("hash", hash).
+				Msg("payment failed")
+				// give the money back to the user
+			onFailure(u, messageId, hash)
 		}
-		if jsontries, err := json.Marshal(tries[from:]); err == nil {
-			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
-		}
-
-		go u.track("payment failed", map[string]interface{}{
-			"sats":  msatoshi / 1000,
-			"payee": inv.Get("payee").String(),
-		})
-		log.Warn().
-			Str("user", u.Username).
-			Int("user-id", u.Id).
-			Interface("params", params).
-			Interface("tries", tries).
-			Str("hash", hash).
-			Msg("payment failed")
-			// give the money back to the user
-		onFailure(u, messageId, hash)
 	}()
 
 	return nil
