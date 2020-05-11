@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
 )
 
@@ -44,6 +45,8 @@ func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
 
 	return gjson.Result{}, false
 }
+
+var nodeAliases = cmap.New()
 
 func getNodeAlias(id string) string {
 begin:

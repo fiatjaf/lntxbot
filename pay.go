@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
-	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
+	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
@@ -42,19 +42,14 @@ func handlePay(
 	}
 
 	// decode invoice
-	inv, err := decodepay_gjson.Decodepay(bolt11)
+	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
 		u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
 		return err
 	}
-	if inv.Get("code").Int() != 0 {
-		u.notify(t.FAILEDDECODE, t.T{"Err": inv.Get("message").String()})
-		return err
-	}
 
-	nodeAlias := getNodeAlias(inv.Get("payee").String())
-	hash := inv.Get("payment_hash").String()
-	amount := float64(inv.Get("msatoshi").Int())
+	hash := inv.PaymentHash
+	amount := float64(inv.MSatoshi)
 
 	go u.track("pay", map[string]interface{}{
 		"prompt":     askConfirmation,
@@ -65,11 +60,19 @@ func handlePay(
 	if askConfirmation {
 		// show a button for confirmation
 		payTmplParams := t.T{
-			"Sats":  amount / 1000,
-			"Desc":  escapeHTML(inv.Get("description").String()),
-			"Hash":  hash,
-			"Node":  nodeLink(inv.Get("payee").String()),
-			"Alias": nodeAlias,
+			"Sats":            amount / 1000,
+			"Description":     escapeHTML(inv.Description),
+			"DescriptionHash": escapeHTML(inv.DescriptionHash),
+			"Hash":            hash,
+			"Payee":           inv.Payee,
+			"Created": time.Unix(int64(inv.CreatedAt), 0).
+				Format("Mon Jan 2 15:04"),
+			"Expiry": time.Unix(int64(inv.CreatedAt+inv.Expiry), 0).
+				Format("Mon Jan 2 15:04"),
+			"Expired": time.Unix(int64(inv.CreatedAt+inv.Expiry), 0).
+				Before(time.Now()),
+			"Currency": inv.Currency,
+			"Hints":    inv.Route,
 		}
 
 		if amount == 0 {

@@ -20,7 +20,6 @@ import (
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
-	cmap "github.com/orcaman/concurrent-map"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
 )
@@ -31,7 +30,6 @@ var dollarPrice = struct {
 	lastUpdate time.Time
 	rate       float64
 }{time.Now(), 0}
-var nodeAliases = cmap.New()
 
 func makeLabel(userId int, messageId interface{}, tag string) string {
 	if messageId == nil {

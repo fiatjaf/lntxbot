@@ -44,7 +44,7 @@ type Settings struct {
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"480h"`
-	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"10min"`
+	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"10m`
 	GiveAwayTimeout      time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"5h"`
 	HiddenMessageTimeout time.Duration `envconfig:"HIDDEN_MESSAGE_TIMEOUT" default:"72h"`
 
@@ -321,6 +321,8 @@ func createLocalizerBundle() (t.Bundle, error) {
 		}
 	})
 	bundle.AddFunc("escapehtml", escapeHTML)
+	bundle.AddFunc("nodeLink", nodeLink)
+	bundle.AddFunc("nodeAlias", getNodeAlias)
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {
