@@ -41,7 +41,6 @@ type Settings struct {
 
 	LNPayKey           string `envconfig:"LNPAY_KEY"`
 	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
-	LNToRubKey         string `envconfig:"LNTORUB_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"480h"`
@@ -212,7 +211,6 @@ func server(p *plugin.Plugin) {
 	// routines
 	go startKicking()
 	go sats4adsCleanupRoutine()
-	go cancelAllLNToRubOrders()
 	go initializeBitrefill()
 	go bitcloudsCheckingRoutine()
 	go startListeningToEtleneumContracts()
