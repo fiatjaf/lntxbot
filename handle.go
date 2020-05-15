@@ -9,12 +9,6 @@ import (
 
 func handle(upd tgbotapi.Update) {
 	if upd.Message != nil {
-		// is temporarily s.Banned?
-		if _, ok := s.Banned[upd.Message.From.ID]; ok {
-			log.Debug().Int("tgid", upd.Message.From.ID).Msg("got request from banned user")
-			return
-		}
-
 		// people joining
 		if upd.Message.NewChatMembers != nil {
 			for _, newmember := range *upd.Message.NewChatMembers {

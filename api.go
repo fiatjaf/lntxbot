@@ -169,6 +169,13 @@ func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err
 	if err != nil {
 		return
 	}
+
+	// check user temporarily banned
+	if _, ok := s.Banned[userId]; ok {
+		log.Debug().Int("id", userId).Msg("got api request from banned user")
+		return
+	}
+
 	password := parts[1]
 
 	// load user

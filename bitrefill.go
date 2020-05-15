@@ -10,7 +10,6 @@ import (
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/kr/pretty"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"gopkg.in/jmcvetta/napping.v3"
 )
@@ -260,8 +259,6 @@ func placeBitrefillOrder(
 		return
 	}
 
-	pretty.Log(resporder)
-
 	user.track("bitrefill place-order", nil)
 
 	// save invoice to redis
@@ -376,8 +373,6 @@ func pollBitrefillOrder(user User, orderId string, countdown int) {
 			Msg("error polling bitrefill order")
 		return
 	}
-
-	pretty.Log(orderinfo)
 
 	// got a valid response
 	if orderinfo.ErrorType != "" {

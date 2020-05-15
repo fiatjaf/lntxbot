@@ -28,6 +28,12 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
+	// stop if temporarily banned
+	if _, ok := s.Banned[u.Id]; ok {
+		log.Debug().Int("id", u.Id).Msg("got request from banned user")
+		return
+	}
+
 	// by default we use the user locale for the group object, because
 	// we may end up sending the message to the user instead of to the group
 	// (if, for example, the user calls /coinflip on his own chat) then
