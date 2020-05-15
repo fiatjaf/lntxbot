@@ -107,26 +107,6 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 			// on success
 			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "satellite", hash)
 
-			// save order uuid and token
-			var satdata SatelliteData
-			err := u.getAppData("satellite", &satdata)
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).
-					Msg("failed to get satellite data")
-				u.notify(t.SATELLITEFAILEDTOSTORE, t.T{"Err": err.Error()})
-			} else {
-				satdata.Orders = append(satdata.Orders, []string{orderreq.UUID, orderreq.AuthToken})
-				if len(satdata.Orders) > 20 {
-					satdata.Orders = satdata.Orders[len(satdata.Orders)-20:]
-				}
-				err = u.setAppData("satellite", satdata)
-				if err != nil {
-					log.Warn().Err(err).Str("user", u.Username).Interface("satdata", satdata).
-						Msg("failed to set satellite data")
-					u.notify(t.SATELLITEFAILEDTOSTORE, t.T{"Err": err.Error()})
-				}
-			}
-
 			// done
 			u.notifyAsReply(t.SATELLITEPAID, t.T{"UUID": orderreq.UUID}, messageId)
 		},
@@ -137,8 +117,6 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 		) {
 			// on failure
 			paymentHasFailed(u, messageId, hash)
-
-			u.notifyAsReply(t.SATELLITEFAILEDTOPAY, nil, messageId)
 		},
 	)
 }

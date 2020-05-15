@@ -11,7 +11,7 @@ var EN = map[Key]string{
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
-	ERROR:      "{{if .App}}<b>[{{.App}}]</b> {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "{{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
 	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
@@ -51,7 +51,7 @@ lnurl-auth success!
     `,
 	LNURLPAYMETADATA: `#lnurlpay metadata :
 <b>domain</b>: <i>{{.Domain}}</i>
-<b>lnurl</b>: <i>{{.LNURL}}</i>
+<b>lnurl</b>: <i>{{.LNURL | lower}}</i>
 <b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
 
@@ -83,7 +83,7 @@ lnurl-auth success!
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
 	FREEJOIN:            "This group is now free to join.",
 
-	APPBALANCE: `<b>[{{.App}}]</b> Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
+	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -245,7 +245,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 <code>/etl &lt;contract&gt; subscribe</code> Notifies you of calls made to this contract in the future.
 <code>/etl &lt;contract&gt; unsubscribe</code> Unsubscribes.
     `,
-	ETLENEUMACCOUNT: `<b>[Etleneum]</b>
+	ETLENEUMACCOUNT: `#etleneum
 <b>Account id</b>: {{.Account}}
 <b>Balance</b>: <i>{{printf "%.15g" .Balance}} sat</i>
 <b>All available contracts</b>: /etl_apps
@@ -265,12 +265,12 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
 <b>State:</b> /etl_{{.Id}}_state
 {{end}}
     `,
-	ETLENEUMCONTRACTSTATE: `<b>[Etleneum]</b> Contract <code>{{.Id}}</code> state:
+	ETLENEUMCONTRACTSTATE: `#etleneum Contract <code>{{.Id}}</code> state:
 <pre>
 {{escapehtml .State}}
 </pre>
     `,
-	ETLENEUMCALL: `{{with .Call}}<b>[Etleneum]</b> Call <code>{{.Id}}</code>:
+	ETLENEUMCALL: `{{with .Call}}#etleneum Call <code>{{.Id}}</code>:
 <b>Contract</b>: /etl_{{.Contract}}
 <b>Method</b>: <code>{{.Method}}</code>
 <b>Payload</b>: <pre>{{.Payload | json}}</pre>{{with .Caller}}
@@ -289,23 +289,23 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
     `,
 	ETLENEUMCONTRACTS: `
 {{$aliases := .Aliases}}
-<b>[Etleneum]</b> Contracts:
+#etleneum Contracts:
 {{range .Contracts}}
 {{with index $aliases .Id}}/etl_{{.}} or {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>){{end}}
     `,
-	ETLENEUMSUBSCRIBED: `<b>[Etleneum]</b> You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
-	ETLENEUMCONTRACTEVENT: `<b>[Etleneum]</b> <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
+	ETLENEUMSUBSCRIBED: `#etleneum You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
+	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
 <code>[{{.Data.kind}} error]</code>{{else if eq .Event "call-run-event"}}
 <code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
 <code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
     `,
 
-	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
-	MICROBETPAIDBUTNOTCONFIRMED: "<b>[Microbet]</b> Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "<b>[Microbet]</b> Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
-	MICROBETPLACED:              "<b>[Microbet]</b> Bet placed!",
+	MICROBETBETHEADER:           "#microbet Bet on one of these predictions:",
+	MICROBETPAIDBUTNOTCONFIRMED: "#microbet Paid, but bet not confirmed. Huge Microbet bug?",
+	MICROBETPLACING:             "#microbet Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
+	MICROBETPLACED:              "#microbet Bet placed!",
 	MICROBETLIST: `
-<b>[Microbet]</b> Your bets
+#microbet Your bets
 {{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}canceled{{else if .Closed}}{{if .WonAmount}}won {{.AmountWon}}{{else}}lost {{.AmountLost}}{{end}}{{else}}open{{end}}</i>
 {{else}}
 <i>~ no bets were ever made. ~</i>
@@ -320,12 +320,12 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
 /microbet_withdraw withdraws all your balance.
     `,
 
-	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Choose your provider:`,
-	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your <i>{{.Item}}</i> card{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
-	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> No providers found.`,
-	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
-	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
-	BITREFILLPURCHASEDONE: `<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was purchased successfully.
+	BITREFILLINVENTORYHEADER: `#bitrefill Choose your provider:`,
+	BITREFILLPACKAGESHEADER:  `#bitrefill Choose your <i>{{.Item}}</i> card{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
+	BITREFILLNOPROVIDERS:     `#bitrefill No providers found.`,
+	BITREFILLCONFIRMATION:    `#bitrefill Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
+	BITREFILLFAILEDSAVE:      "#bitrefill Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
+	BITREFILLPURCHASEDONE: `#bitrefill Your order <code>{{.OrderId}}</code> was purchased successfully.
 {{if .Info.LinkInfo}}
 Link: <a href="{{.Info.LinkInfo.Link}}">{{.Info.LinkInfo.Link}}</a>
 Instructions: <i>{{.Info.LinkInfo.Other}}</i>
@@ -335,9 +335,9 @@ Instructions: <i>{{.Info.PinInfo.Instructions}}</i>
 <i>{{.Info.PinInfo.Other}}</i>
 {{end}}
     `,
-	BITREFILLPURCHASEFAILED: "<b>[Bitrefill]</b> Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
-	BITREFILLCOUNTRYSET:     "<b>[Bitrefill]</b> Country set to {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
-	BITREFILLINVALIDCOUNTRY: "<b>[Bitrefill]</b> Invalid country <code>{{.CountryCode}}</code>. The countries available are{{range .Available}} <code>{{.}}</code>{{end}}.",
+	BITREFILLPURCHASEFAILED: "#bitrefill Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
+	BITREFILLCOUNTRYSET:     "#bitrefill Country set to {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
+	BITREFILLINVALIDCOUNTRY: "#bitrefill Invalid country <code>{{.CountryCode}}</code>. The countries available are{{range .Available}} <code>{{.}}</code>{{end}}.",
 	BITREFILLHELP: `
 <a href="https://www.bitrefill.com/">Bitrefill</a> is the biggest Lightning-enabled gift-card and phone refill store in the world. If you want to buy real-world stuff with Lightning, this should be your first stop.
 
@@ -351,24 +351,12 @@ To buy a gift card, use the /bitrefill command followed by the name of the place
 You may not find all the providers available in the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot and maybe other things are different here. But the prices are the same.
     `,
 
-	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
-	SATELLITEFAILEDTOGET:       "<b>[satellite]</b> Failed to get stored satellite data: {{.Err}}",
-	SATELLITEPAID:              "<b>[satellite]</b> Transmission <code>{{.UUID}}</code> queued!",
-	SATELLITEFAILEDTOPAY:       "<b>[satellite]</b> Failed to pay for transmission.",
-	SATELLITETRANSMISSIONERROR: "<b>[satellite]</b> Error making transmission: {{.Err}}",
-	SATELLITELIST: `
-<b>[Satellite]</b> Your transmissions
-{{range .Orders}}📡 <code>{{.UUID}}</code> <i>{{.Status}}</i> <code>{{.MessageSize}}b</code> <code>{{printf "%.62" .BidPerByte}} msat/b</code> <i>{{.Time}}</i>
-{{else}}
-<i>No transmissions made yet.</i>
-{{end}}
-    `,
 	SATELLITEHELP: `
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
 <code>/satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
-/satellite_transmissions lists your transmissions.
     `,
+	SATELLITEPAID: "#satellite Transmission <code>{{.UUID}}</code> queued!",
 
 	FUNDBTCFINISH: "Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
 	FUNDBTCHELP: `
@@ -386,8 +374,8 @@ Provided by <a href="https://golightning.club/">golightning.club</a>, this is th
 
 Also @{{.BotName}} will remind you to topup your hosts when they're running low on hour balance.
     `,
-	BITCLOUDSCREATEHEADER: "<b>[bitclouds]</b> Choose your image:",
-	BITCLOUDSCREATED: `<b>[bitclouds]</b> Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
+	BITCLOUDSCREATEHEADER: "#bitclouds Choose your image:",
+	BITCLOUDSCREATED: `#bitclouds Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
 {{with .Status}}
   {{if .SSHPwd}}<b>ssh access:</b>
   <pre>ssh-copy-id -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}
@@ -401,10 +389,10 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   Hours left in balance: <b>{{.HoursLeft}}</b>
 {{end}}
     `,
-	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Timed out while waiting for your bitclouds.sh host <code>{{.Host}}</code> to be ready, call /bitclouds_status_{{.EscapedHost}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
-	BITCLOUDSNOHOSTS:        "<b>[bitclouds]</b> No hosts found in your account. Maybe you want to /bitclouds_create one?",
-	BITCLOUDSHOSTSHEADER:    "<b>[bitclouds]</b> Choose your host:",
-	BITCLOUDSSTATUS: `<b>[bitclouds]</b> Host <code>{{.Host}}</code>:
+	BITCLOUDSSTOPPEDWAITING: "#bitclouds Timed out while waiting for your bitclouds.sh host <code>{{.Host}}</code> to be ready, call /bitclouds_status_{{.EscapedHost}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
+	BITCLOUDSNOHOSTS:        "#bitclouds No hosts found in your account. Maybe you want to /bitclouds_create one?",
+	BITCLOUDSHOSTSHEADER:    "#bitclouds Choose your host:",
+	BITCLOUDSSTATUS: `#bitclouds Host <code>{{.Host}}</code>:
 {{with .Status}}
   Status: <i>Subscribed</i>
   Balance: <i>{{.HoursLeft}} hours left</i>
@@ -416,7 +404,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   {{end}}
 {{end}}
     `,
-	BITCLOUDSREMINDER: `<b>[bitclouds]</b> {{if .Alarm}}⚠{{else}}⏰{{end}} Bitclouds host <code>{{.Host}}</code> is going to expire in {{if .Alarm}}<b>{{.TimeToExpire}}</b> and <i>everything is going to be deleted</i>!{{else}}{{.TimeToExpire}}.{{end}}
+	BITCLOUDSREMINDER: `#bitclouds {{if .Alarm}}⚠{{else}}⏰{{end}} Bitclouds host <code>{{.Host}}</code> is going to expire in {{if .Alarm}}<b>{{.TimeToExpire}}</b> and <i>everything is going to be deleted</i>!{{else}}{{.TimeToExpire}}.{{end}}
 
 {{if .Alarm}}⚠⚠⚠⚠⚠
 
@@ -460,15 +448,15 @@ By generating your gifts on @{{ .BotName }} you can keep track of the ones that 
 /gifts lists the gifts you've created.
 /gifts_1000 creates a gift voucher of 1000 satoshis.
     `,
-	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
-	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
-	GIFTSLIST: `<b>[gifts]</b>
+	GIFTSCREATED:    "#gifts Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
+	GIFTSFAILEDSAVE: "#gifts Failed to save your gift. Please report: {{.Err}}",
+	GIFTSLIST: `#gifts
 {{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
 {{else}}
 <i>~ no gifts were ever given. ~</i>
 {{end}}
     `,
-	GIFTSSPENTEVENT: `<b>[gifts]</b> Gift redeemed!
+	GIFTSSPENTEVENT: `#gifts Gift redeemed!
 
 Your {{.Amount}} sat gift <code>{{.Id}}</code> was redeemed{{if .Description}} from an invoice described as
 <i>{{.Description}}</i>{{end}}.
@@ -496,9 +484,9 @@ To broadcast an ad you must send a message to the bot that will be your ad conte
 /sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
 /sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
     `,
-	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.15g" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
-	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
-	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users <b>up to</b> each pricing tier.
+	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Seeing ads and receiving {{printf "%.15g" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
+	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
+	SATS4ADSPRICETABLE: `#sats4ads Quantity of users <b>up to</b> each pricing tier.
 {{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>No one is registered to see ads yet.</i>

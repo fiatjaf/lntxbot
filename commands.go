@@ -107,7 +107,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"satellite"},
-		argstr:  "(transmissions | <satoshis> [<message>...])",
+		argstr:  "<satoshis> [<message>...]",
 	},
 	def{
 		// golightning

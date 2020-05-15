@@ -333,6 +333,7 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle.AddFunc("timeSmall", func(t time.Time) string {
 		return t.Format("2 Jan 15:04")
 	})
+	bundle.AddFunc("lower", strings.ToLower)
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

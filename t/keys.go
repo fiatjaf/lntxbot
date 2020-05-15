@@ -146,13 +146,8 @@ const (
 	BITREFILLCOUNTRYSET      = "BitrefillCountrySet"
 	BITREFILLINVALIDCOUNTRY  = "BitrefillInvalidCountry"
 
-	SATELLITEHELP              = "satelliteHelp"
-	SATELLITEFAILEDTOSTORE     = "SatelliteFailedToStore"
-	SATELLITEFAILEDTOGET       = "SatelliteFailedToGet"
-	SATELLITEPAID              = "SatellitePaid"
-	SATELLITEFAILEDTOPAY       = "SatelliteFailedToPay"
-	SATELLITETRANSMISSIONERROR = "SatelliteTransmissionError"
-	SATELLITELIST              = "SatelliteList"
+	SATELLITEHELP = "satelliteHelp"
+	SATELLITEPAID = "SatellitePaid"
 
 	FUNDBTCHELP   = "fundbtcHelp"
 	FUNDBTCFAIL   = "fundbtcFail"

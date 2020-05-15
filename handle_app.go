@@ -219,48 +219,27 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			go u.track("microbet show-bets", nil)
 		}
 	case opts["satellite"].(bool):
-		if opts["transmissions"].(bool) {
-			// show past transmissions
-			var satdata SatelliteData
-			err := u.getAppData("satellite", &satdata)
-			if err != nil {
-				u.notify(t.SATELLITEFAILEDTOGET, t.T{"Err": err.Error()})
-				return
-			}
-
-			orders := make([]SatelliteOrder, len(satdata.Orders))
-			for i, tuple := range satdata.Orders {
-				order, err := fetchSatelliteOrder(tuple[0], tuple[1])
-				if err == nil {
-					orders[i] = order
-				}
-			}
-
-			u.notify(t.SATELLITELIST, t.T{"Orders": orders})
-
-			go u.track("satellite transmissions", nil)
-		} else {
-			// create an order
-			satoshis, err := opts.Int("<satoshis>")
-			if err != nil {
-				handleHelp(u, "satellite")
-				return
-			}
-
-			message := getVariadicFieldOrReplyToContent(opts, message, "<message>")
-			if message == "" {
-				handleHelp(u, "satellite")
-				return
-			}
-
-			err = createSatelliteOrder(u, messageId, satoshis, message)
-			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"App": "satellite", "Err": err.Error()}, messageId)
-				return
-			}
-
-			go u.track("satellite send", map[string]interface{}{"sats": satoshis})
+		// create an order
+		satoshis, err := opts.Int("<satoshis>")
+		if err != nil {
+			handleHelp(u, "satellite")
+			return
 		}
+
+		message := getVariadicFieldOrReplyToContent(opts, message, "<message>")
+		if message == "" {
+			handleHelp(u, "satellite")
+			return
+		}
+
+		err = createSatelliteOrder(u, messageId, satoshis, message)
+		if err != nil {
+			u.notifyAsReply(t.ERROR,
+				t.T{"App": "satellite", "Err": err.Error()}, messageId)
+			return
+		}
+
+		go u.track("satellite send", map[string]interface{}{"sats": satoshis})
 	case opts["fundbtc"].(bool):
 		sats, err := opts.Int("<satoshis>")
 		if err != nil {
