@@ -358,14 +358,17 @@ func translateToEtleneumAccount(username string) (accountId string, err error) {
 
 var etleneumContractListeners = cmap.New()
 
-func setEtleneumListener(user User, ctid string, temp bool) error {
+func subscribeEtleneum(user User, ctid string, temp bool) error {
 	if !temp {
 		_, err := pg.Exec(`
 UPDATE telegram.account
 SET appdata = jsonb_set(
   appdata,
   '{etleneum,listening}',
-  coalesce(appdata->'etleneum'->'listening', '{}') || jsonb_build_object($2::text, true),
+  coalesce(
+    jsonb_strip_nulls(appdata->'etleneum')->'listening',
+    '{}'
+  ) || jsonb_build_object($2::text, true),
   true
 )
 WHERE id = $1
@@ -393,7 +396,7 @@ WHERE id = $1
 	return nil
 }
 
-func unsetEtleneumListener(user User, ctid string, temp bool) error {
+func unsubscribeEtleneum(user User, ctid string, temp bool) error {
 	// it may sound odd, but we must check for temp here because the
 	// user may have explicitly set a subscription, and then when he
 	// calls a method for this contract the subscription can't be
@@ -411,7 +414,11 @@ UPDATE telegram.account
 SET appdata = jsonb_set(
   appdata,
   '{etleneum,listening}',
-  coalesce(appdata->'etleneum'->'listening', '{}') - $2,
+  jsonb_strip_nulls(
+    jsonb_set(
+      appdata->'etleneum'->'listening', ARRAY[$2], 'null'
+    )
+  ),
   true
 )
 WHERE id = $1

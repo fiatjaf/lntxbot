@@ -52,7 +52,7 @@ lnurl-auth success!
 	LNURLPAYMETADATA: `#lnurlpay metadata :
 <b>domain</b>: <i>{{.Domain}}</i>
 <b>lnurl</b>: <i>{{.LNURL}}</i>
-<b>transaction</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}
+<b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
 
 	TICKETMSG:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
@@ -242,10 +242,14 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 /etl_stupidlottery will show metadata for the contract <code>cew5i79gyj</code>.
 /etl_pyramid_state will show the full state for contract <code>ccg0i764ou</code>.
 <code>/etl alias set 0 id=&lt;contract_id&gt; alias=&lt;alias&gt;</code> sets an alias to a contract for referencing later (this is a normal Etleneum call to the contract <code>c7c491sw04</code>).
+<code>/etl &lt;contract&gt; subscribe</code> Notifies you of calls made to this contract in the future.
+<code>/etl &lt;contract&gt; unsubscribe</code> Unsubscribes.
     `,
 	ETLENEUMACCOUNT: `<b>[Etleneum]</b>
-Account id: {{.Account}}
-Balance: <i>{{printf "%.15g" .Balance}} sat</i>
+<b>Account id</b>: {{.Account}}
+<b>Balance</b>: <i>{{printf "%.15g" .Balance}} sat</i>
+<b>All available contracts</b>: /etl_apps
+
     `,
 	ETLENEUMCONTRACT: `{{with .Contract}}
 Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
@@ -256,8 +260,9 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
 (...)</i>
 
 <b>Methods:</b>
-{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>
-{{end}}
+{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>{{end}}
+
+<b>State:</b> /etl_{{.Id}}_state
 {{end}}
     `,
 	ETLENEUMCONTRACTSTATE: `<b>[Etleneum]</b> Contract <code>{{.Id}}</code> state:

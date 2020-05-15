@@ -42,7 +42,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				go u.track("etleneum state", map[string]interface{}{"contract": contract})
 			} else if opts["subscribe"].(bool) {
 				// subscribe to a contract
-				err = setEtleneumListener(u, contract, false)
+				err = subscribeEtleneum(u, contract, false)
 				if err != nil {
 					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
@@ -51,7 +51,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				go u.track("etleneum subscribe", map[string]interface{}{"contract": contract})
 			} else if opts["unsubscribe"].(bool) {
 				// unsubscribe from a contract
-				err = unsetEtleneumListener(u, contract, false)
+				err = unsubscribeEtleneum(u, contract, false)
 				if err != nil {
 					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
@@ -89,10 +89,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				}
 
 				// start listening to this contract for a couple of minutes minutes
-				setEtleneumListener(u, contract, true)
+				subscribeEtleneum(u, contract, true)
 				go func() {
 					time.Sleep(5 * time.Minute)
-					unsetEtleneumListener(u, contract, true)
+					unsubscribeEtleneum(u, contract, true)
 				}()
 
 				etlurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)

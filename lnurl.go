@@ -346,7 +346,7 @@ func lnurlpayFetchInvoiceAndPay(
 			}
 			file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
 				"Domain":         callbackURL.Host,
-				"LNURL":          encodedLnurl,
+				"LNURL":          strings.ToLower(encodedLnurl),
 				"Hash":           decoded.Get("payment_hash").String(),
 				"HashFirstChars": decoded.Get("payment_hash").String()[:5],
 			})

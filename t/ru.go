@@ -49,7 +49,7 @@ lnurl-auth успех!
 	LNURLPAYMETADATA: `#lnurlpay метаданные:
 <b>домен</b>: <i>{{.Domain}}</i>
 <b>lnurl</b>: <i>{{.LNURL}}</i>
-<b>транзакция</b>: <i>{{.Hash}}</i> /tx_{{.HashFirstChars}}
+<b>транзакция</b>: /tx_{{.HashFirstChars}}
     `,
 
 	USERALLOWED:       "Счёт оплачен. {{.User}} допущен.",
