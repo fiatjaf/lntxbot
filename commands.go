@@ -119,14 +119,12 @@ var methods = []def{
 		argstr:  "[create | status [<host>] | topup <satoshis> [<host>] | adopt <host> | abandon <host>]",
 	},
 	def{
-		// lntorub
-		aliases: []string{"qiwi"},
-		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+		aliases: []string{"rub"},
+		argstr:  "<service> <account> [<rub>]",
 	},
 	def{
-		// lntorub
-		aliases: []string{"yandex"},
-		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+		aliases: []string{"skype"},
+		argstr:  "<username> [<usd>]",
 	},
 	def{
 		aliases: []string{"bitrefill"},

@@ -167,15 +167,8 @@ const (
 	BITCLOUDSSTATUS         = "BitcloudsStatus"
 	BITCLOUDSREMINDER       = "BitcloudsReminder"
 
-	QIWIHELP             = "qiwiHelp"
-	YANDEXHELP           = "yandexHelp"
-	LNTORUBCONFIRMATION  = "LNToRubConfirmation"
-	LNTORUBFULFILLED     = "LNToRubFulfilled"
-	LNTORUBCANCELED      = "LNToRubCanceled"
-	LNTORUBMISSINGTARGET = "LNToRubMissingTarget"
-	LNTORUBFIATERROR     = "LNToRubFiatError"
-	LNTORUBORDERLIST     = "LNToRubOrderList"
-	LNTORUBDEFAULTTARGET = "LNToRubDefaultTarget"
+	SKYPEHELP = "skypeHelp"
+	RUBHELP   = "rubHelp"
 
 	GIFTSHELP       = "giftsHelp"
 	GIFTSCREATED    = "GiftsCreated"

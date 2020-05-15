@@ -289,7 +289,7 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
 {{with index $aliases .Id}}/etl_{{.}} or {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>){{end}}
     `,
 	ETLENEUMSUBSCRIBED: `<b>[Etleneum]</b> You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
-	ETLENEUMCONTRACTEVENT: `<b>[Etleneum]</b> <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}, contract /etl_{{.Id}}:{{if eq .Event "call-error"}}
+	ETLENEUMCONTRACTEVENT: `<b>[Etleneum]</b> <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
 <code>[{{.Data.kind}} error]</code>{{else if eq .Event "call-run-event"}}
 <code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
 <code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
@@ -418,35 +418,33 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 {{end}}Use /bitclouds_topup_{{.Sats}}_{{.EscapedHost}} to give it one week more!
     `,
 
-	QIWIHELP: `
-Transfer your satoshis to your <a href="https://qiwi.com/">Qiwi</a> account instantly. Powered by @lntorubbot.
+	SKYPEHELP: `
+Powered by @lntorubbot and https://vds.sw4me.com/rulnurl/.
 
-<code>/qiwi 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
-<code>/qiwi default 999999999</code> sets 999999999 as your default account.
-<code>/qiwi 10000 sat</code> sends 10000 sat as rubles to your default account.
-/qiwi_default shows your default account.
-/qiwi_list shows your past transactions.
-    `,
-	YANDEXHELP: `
-Transfer your satoshis to your <a href="https://money.yandex.ru/">Yandex.Money</a> account instantly. Powered by @lntorubbot.
+Fund your Skype account.
 
-<code>/yandex 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
-<code>/yandex default 999999999</code> sets 999999999 as your default account.
-<code>/yandex 10000 sat</code> sends 10000 sat as rubles to your default account.
-/yandex_default shows your default account.
-/yandex_list shows your past transactions.
+<code>/skype abcxyz</code> prompts you to choose an amount in satoshis to top-up the Skype account with username abcxyz.
+<code>/skype abcxyz 20</code> converts 20 USD to satoshis and prompts you to confirm the payment that will top-up your Skype account with username abcxyz.
     `,
-	LNTORUBCONFIRMATION:  "Sending <i>{{.Sat}} sat ({{.Rub}} rubles)</i> to <b>{{.Type}}</b> account <code>{{.Target}}</code>. Is that ok?",
-	LNTORUBFULFILLED:     "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> finished.",
-	LNTORUBCANCELED:      "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> canceled.",
-	LNTORUBFIATERROR:     "<b>[{{.Type}}]</b> Error sending out the rubles. Please report this issue with the order id <code>{{.OrderId}}</code>.",
-	LNTORUBMISSINGTARGET: "<b>[{{.Type}}]</b> You didn't specify a destination and there isn't a default destination specified!",
-	LNTORUBDEFAULTTARGET: `<b>[{{.Type}}]</b> Default target: {{.Target}}`,
-	LNTORUBORDERLIST: `<b>[{{.Type}}]</b>
-{{range .Orders}}<i>{{.Sat}} sat ({{.Rub}} rub)</i> to <code>{{.Target}}</code> at <i>{{.Time}}</i>
-{{else}}
-<i>~ no sats were ever exchanged. ~</i>
-{{end}}
+
+	RUBHELP: `
+Powered by @lntorubbot and https://vds.sw4me.com/rulnurl/.
+
+Fund your account in one of the following Russian services:
+
+ - <code>qiwi</code> (Qiwi Wallet, by phone number)
+ - <code>yandex</code> (Yandex.Money, by wallet or phone number)
+ - <code>mobile</code> (RU Mobile)
+ - <code>strelka</code> (Strelka card, by card number)
+ - <code>troika</code> (Troika card, by card number)
+ - <code>flex</code> (Flex.ru, by personal account number, not login)
+ - <code>sipnet</code> (SipNET.ru, by SIP ID)
+ - <code>spaceweb</code> (SpaceWeb.ru, by login).
+
+The amount in RUB is optional, you can leave it blank and you'll be asked for the amount in satoshis. 
+
+<code>/rub qiwi 12345678</code> prompts you to choose an amount in satoshis to top-up the Qiwi wallet with number 12345678.
+<code>/rub yandex 12345678 100</code> converts 100 RUB to satoshis and prompts you to confirm the payment that will top-up your Yandex.Money account with number 12345678.
     `,
 
 	GIFTSHELP: `
@@ -617,6 +615,7 @@ Thanks to some background magic we have in place you can seamlessly interact wit
 
 These are the services we currently support:
 
+🖥️  /etleneum -- make arbitrary calls, browse state and calls and subscribe to events on https://etleneum.com/. /help_etleneum
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
 ☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
 ⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
@@ -626,7 +625,8 @@ These are the services we currently support:
 🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
 📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise
 📲 /bitrefill -- buy gift cards and refill phones. /help_bitrefill
-💸 /yandex and /qiwi -- send satoshis to an yandex.money or qiwi.com account as rubles with the best exchange rate.  /help_yandex /help_qiwi 
+📞 /skype -- top-up an Skype account, provided by @lntorubbot. /help_skype
+💸 /rub -- fund your account on Qiwi, Yandex.Money, Troika, Strelka and many other Russian services with great exchange rate, provided by @lntorubbot. /help_rub  
 ⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
 
 Read more in the /help page for each app.

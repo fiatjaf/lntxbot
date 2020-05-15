@@ -39,7 +39,9 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 				"Reason": lnurlerr.Reason,
 			})
 		} else {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			u.notify(t.ERROR, t.T{
+				"Err": fmt.Sprintf("failed to fetch lnurl params: %s", err.Error()),
+			})
 		}
 		return
 	}

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -380,114 +382,30 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 			}
 		}
-	case opts["qiwi"].(bool), opts["yandex"].(bool):
-		exchangeType := "qiwi"
-		if opts["yandex"].(bool) {
-			exchangeType = "yandex"
+	case opts["skype"].(bool):
+		lntorublnurl, _ := url.Parse("https://vds.sw4me.com/lnpay")
+		qs := lntorublnurl.Query()
+		qs.Set("tag", "pay")
+		qs.Set("acc", hex.EncodeToString([]byte(opts["<username>"].(string))))
+		qs.Set("p", "skype")
+		if usd, err := opts.String("<usd>"); err == nil {
+			qs.Set("usd", usd)
 		}
-
-		switch {
-		case opts["list"].(bool):
-			// list past orders
-			var data LNToRubData
-			err := u.getAppData("lntorub", &data)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
-				return
-			}
-
-			orders, _ := data.Orders[exchangeType]
-			u.notify(t.LNTORUBORDERLIST, t.T{"Type": exchangeType, "Orders": orders})
-
-			go u.track("lntorub list", map[string]interface{}{"type": exchangeType})
-		case opts["default"].(bool):
-			// show or set current default
-			if target, err := opts.String("<target>"); err == nil {
-				// set target
-				err := setDefaultLNToRubTarget(u, exchangeType, target)
-				if err != nil {
-					u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
-					return
-				}
-				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
-
-				go u.track("lntorub set-default", map[string]interface{}{"type": exchangeType})
-			} else {
-				// no target given, show current
-				target := getDefaultLNToRubTarget(u, exchangeType)
-				u.notify(t.LNTORUBDEFAULTTARGET, t.T{"Type": exchangeType, "Target": target})
-			}
-		default:
-			// ask to send transfer
-			amount, err := opts.Float64("<amount>")
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": "Invalid amount."})
-				return
-			}
-
-			unit := "rub"
-			if opts["sat"].(bool) {
-				unit = "sat"
-			}
-
-			target, err := opts.String("<target>")
-			if err != nil {
-				// no target, let's check if there's some saved
-				target = getDefaultLNToRubTarget(u, exchangeType)
-				if target == "" {
-					u.notify(t.LNTORUBMISSINGTARGET, t.T{"Type": exchangeType})
-					return
-				}
-			}
-
-			// init an order and get the exchange rate
-			order, err := LNToRubExchangeInit(u, amount, exchangeType, unit, target, messageId)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
-				return
-			}
-
-			// serialize this intermediary structure to json an save it on redis
-			jorder, err := json.Marshal(order)
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
-				return
-			}
-			err = rds.Set("lntorub:"+order.Hash, jorder, time.Hour).Err()
-			if err != nil {
-				u.notify(t.ERROR, t.T{"App": exchangeType, "Err": err.Error()})
-				return
-			}
-
-			u.notifyWithKeyboard(t.LNTORUBCONFIRMATION, t.T{
-				"Sat":    order.Sat,
-				"Rub":    order.Rub,
-				"Type":   order.Type,
-				"Target": order.Target,
-			}, &tgbotapi.InlineKeyboardMarkup{
-				[][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.CANCEL, u.Locale),
-							fmt.Sprintf("cancel=%d", u.Id)),
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.YES, u.Locale),
-							fmt.Sprintf("x=lntorub-%s", order.Hash)),
-					},
-				},
-			}, 0)
-
-			go u.track("lntorub send", map[string]interface{}{
-				"sats": order.Sat,
-				"type": exchangeType,
-			})
-
-			// cancel this order after 2 minutes
-			go func() {
-				time.Sleep(2 * time.Minute)
-				LNToRubExchangeCancel(order.Hash)
-			}()
+		lntorublnurl.RawQuery = qs.Encode()
+		handleLNURL(u, lntorublnurl.String(),
+			handleLNURLOpts{messageId: message.MessageID})
+	case opts["rub"].(bool):
+		lntorublnurl, _ := url.Parse("https://vds.sw4me.com/lnpay")
+		qs := lntorublnurl.Query()
+		qs.Set("tag", "pay")
+		qs.Set("acc", hex.EncodeToString([]byte(opts["<account>"].(string))))
+		qs.Set("p", opts["<service>"].(string))
+		if rub, err := opts.String("<rub>"); err == nil {
+			qs.Set("rub", rub)
 		}
+		lntorublnurl.RawQuery = qs.Encode()
+		handleLNURL(u, lntorublnurl.String(),
+			handleLNURLOpts{messageId: message.MessageID})
 	case opts["bitrefill"].(bool):
 		switch {
 		case opts["country"].(bool):
@@ -815,62 +733,6 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			go u.track("bitclouds topup", map[string]interface{}{"host": host})
 		}
-	case "lntorub":
-		defer removeKeyboardButtons(cb)
-		orderId := parts[1]
-
-		// get order data from redis
-		var order LNToRubOrder
-		j, err := rds.Get("lntorub:" + orderId).Bytes()
-		if err != nil {
-			LNToRubExchangeCancel(orderId)
-			u.notify(t.LNTORUBCANCELED, t.T{"Type": order.Type, "OrderId": orderId})
-			return translate(t.ERROR, u.Locale)
-		}
-		err = json.Unmarshal(j, &order)
-		if err != nil {
-			LNToRubExchangeCancel(orderId)
-			u.notify(t.ERROR, nil)
-			return translate(t.ERROR, u.Locale)
-		}
-
-		err = LNToRubExchangeFinish(u, order)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"App": order.Type, "Err": err.Error()})
-			return translate(t.ERROR, u.Locale)
-		}
-
-		go u.track("lntorub finish", map[string]interface{}{"sats": order.Sat})
-
-		// query the status until it returns a success or error
-		go func() {
-			for i := 0; i < 10; i++ {
-				time.Sleep(time.Second * 5 * time.Duration(i))
-				status, err := LNToRubQueryStatus(orderId)
-				if err != nil {
-					break
-				}
-
-				switch status {
-				case LNIN:
-					continue
-				case OKAY:
-					u.notifyAsReply(t.LNTORUBFULFILLED,
-						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
-					return
-				case CANC:
-					u.notifyAsReply(t.LNTORUBCANCELED,
-						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
-					return
-				case QER1, QER2:
-					u.notifyAsReply(t.LNTORUBFIATERROR,
-						t.T{"Type": order.Type, "OrderId": orderId}, order.MessageId)
-					return
-				default:
-					continue
-				}
-			}
-		}()
 	}
 
 	return

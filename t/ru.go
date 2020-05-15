@@ -339,37 +339,6 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 {{end}}Используйте /bitclouds_topup_{{.Sats}}_{{.EscapedHost}} для оплаты следующей недели!
     `,
 
-	QIWIHELP: `
-Мгновенно переводит ваши сатоши на кошелёк <a href="https://qiwi.com/">Qiwi</a>. Сервис осуществляется @lntorubbot.
-
-<code>/qiwi 50 rub to 777777777</code> отправляет эквивалент 50 рублей на номер 77777777.
-<code>/qiwi default 999999999</code> устанавливает номер 999999999 как ваш аккаунт по умолчанию.
-<code>/qiwi 10000 sat</code> отправляет 10000 сат с конвертацией в рубли на ваш аккаунт.
-/qiwi_default показывает ваш аккаунт по умолчанию.
-/qiwi_list показывает ваши прошлые транзакции.
-    `,
-	YANDEXHELP: `
-Мгновенно переводит ваши сатоши на аккаунт <a href="https://money.yandex.ru/">Yandex.Money</a>. Сервис осуществляется @lntorubbot.
-
-<code>/yandex 50 rub to 777777777</code> отправляет эквивалент 50 рублей на номер 77777777.
-<code>/yandex default 999999999</code> устанавливает номер 999999999 как ваш аккаунт по умолчанию.
-<code>/yandex 10000 sat</code> отправляет 10000 сат с конвертацией в рубли на ваш аккаунт.
-/yandex_default показывает ваш аккаунт по умолчанию.
-/yandex_list показывает ваши прошлые транзакции.
-    `,
-	LNTORUBCONFIRMATION:  "Отправляю <i>{{.Sat}} сат ({{.Rub}} рублей)</i> на <b>{{.Type}}</b> счёт <code>{{.Target}}</code>. Подтверждаете?",
-	LNTORUBFULFILLED:     "<b>[{{.Type}}]</b> Перевод <code>{{.OrderId}}</code> завершён.",
-	LNTORUBCANCELED:      "<b>[{{.Type}}]</b> Перевод <code>{{.OrderId}}</code> отменён.",
-	LNTORUBFIATERROR:     "<b>[{{.Type}}]</b> Ошибка отправки рублей. Пожалуйста, сообщите об этой проблеме, упомянув идентификатор <code>{{.OrderId}}</code>.",
-	LNTORUBMISSINGTARGET: "<b>[{{.Type}}]</b> Вы не указали получателя и получатель по умолчанию не установлен!",
-	LNTORUBDEFAULTTARGET: `<b>[{{.Type}}]</b> Обмен по умолчанию: {{.Target}}`,
-	LNTORUBORDERLIST: `<b>[{{.Type}}]</b>
-{{range .Orders}}<i>{{.Sat}} сат ({{.Rub}} руб)</i> на <code>{{.Target}}</code> время <i>{{.Time}}</i>
-{{else}}
-<i>~ не было ни одного обмена. ~</i>
-{{end}}
-    `,
-
 	GIFTSHELP: `
 <a href="https://lightning.gifts/">Lightning Gifts</a> это лучший способ отослать сатоши в качестве подарка. Простой сервис, простая ссылка URL, нет блокировки средств <b>нет комиссии</b>.
 
