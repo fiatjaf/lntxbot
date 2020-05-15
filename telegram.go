@@ -9,7 +9,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func sendMessage(chatId int64, msg string) tgbotapi.Message { return sendMessageAsReply(chatId, msg, 0) }
+func sendMessage(chatId int64, msg string) tgbotapi.Message {
+	return sendMessageAsReply(chatId, msg, 0)
+}
+
 func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	return sendMessageWithKeyboard(chatId, msg, nil, replyToId)
 }

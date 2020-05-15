@@ -265,11 +265,34 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
 {{escapehtml .State}}
 </pre>
     `,
+	ETLENEUMCALL: `{{with .Call}}<b>[Etleneum]</b> Call <code>{{.Id}}</code>:
+<b>Contract</b>: /etl_{{.Contract}}
+<b>Method</b>: <code>{{.Method}}</code>
+<b>Payload</b>: <pre>{{.Payload | json}}</pre>{{with .Caller}}
+<b>Caller</b>: {{.}}{{end}}
+<b>Amount</b>: <i>{{msatToSat .Msatoshi | printf "%.15g"}} sat</i>
+<b>Cost</b>: <i>{{msatToSat .Cost | printf "%.15g"}} sat</i>
+{{if .Ran}}
+<i>[executed on {{.Time | time}}]</i>
+<b>State diff</b>: <pre>{{.Diff}}</pre>
+<b>Transfers</b>: {{range .Transfers}}
+  - {{msatToSat .Msatoshi | printf "%.15g"}} {{if eq .Direction "out"}}to{{else}}from{{end}} {{.Counterparty}}{{end}}
+{{else}}
+<i>[call not executed]</i>
+{{end}}
+{{end}}
+    `,
 	ETLENEUMCONTRACTS: `
 {{$aliases := .Aliases}}
 <b>[Etleneum]</b> Contracts:
 {{range .Contracts}}
 {{with index $aliases .Id}}/etl_{{.}} or {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>){{end}}
+    `,
+	ETLENEUMSUBSCRIBED: `<b>[Etleneum]</b> You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
+	ETLENEUMCONTRACTEVENT: `<b>[Etleneum]</b> <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}, contract /etl_{{.Id}}:{{if eq .Event "call-error"}}
+<code>[{{.Data.kind}} error]</code>{{else if eq .Event "call-run-event"}}
+<code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
+<code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
     `,
 
 	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
@@ -557,17 +580,17 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	RETRACTQUESTION: "Retract unclaimed tip?",
 	RECHECKPENDING:  "Recheck pending payment?",
 	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
 <b>Amount</b>: {{.Txn.Amount | printf "%.15g"}} sat ({{dollar .Txn.Amount}})
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{printf "%.15g" .Txn.Fees}}{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx_{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}

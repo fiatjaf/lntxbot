@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/donovanhide/eventsource"
+	"github.com/fiatjaf/lntxbot/t"
+	"github.com/lib/pq"
+	cmap "github.com/orcaman/concurrent-map"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -23,8 +26,9 @@ const (
 )
 
 type EtleneumAppData struct {
-	Account string `json:"account"`
-	Secret  string `json:"secret"`
+	Account   string          `json:"account"`
+	Secret    string          `json:"secret"`
+	Listening map[string]bool `json:"listening"` // list of contract ids to listen
 }
 
 type EtleneumResponse struct {
@@ -49,6 +53,24 @@ type EtleneumMethod struct {
 	Auth   bool     `json:"auth"`
 }
 
+type EtleneumCall struct {
+	Id        string    `json:"id"`
+	Contract  string    `json:"contract_id"`
+	Method    string    `json:"method"`
+	Msatoshi  int64     `json:"msatoshi"`
+	Cost      int64     `json:"cost"`
+	Caller    string    `json:"caller"`
+	Ran       bool      `json:"ran"`
+	Diff      string    `json:"diff"`
+	Time      time.Time `json:"time"`
+	Transfers []struct {
+		Msatoshi     int64  `json:"msatoshi"`
+		Direction    string `json:"direction"`
+		Counterparty string `json:"counterparty"`
+	} `json:"transfers"`
+	Payload json.RawMessage `json:"payload"`
+}
+
 func listEtleneumContracts(user User) (contracts []EtleneumContract, aliases map[string]string, err error) {
 	// list contracts
 	var reply EtleneumResponse
@@ -58,7 +80,7 @@ func listEtleneumContracts(user User) (contracts []EtleneumContract, aliases map
 		return
 	}
 	if !reply.Ok {
-		err = errors.New("etleneum.com call failed: " + reply.Error)
+		err = errors.New("etleneum.com failed: " + reply.Error)
 		return
 	}
 	err = json.Unmarshal(reply.Value, &contracts)
@@ -152,10 +174,20 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 		return
 	}
 
-	go user.setAppData("etleneum", EtleneumAppData{
-		account,
-		secret,
-	})
+	// load and update user app data
+	var userdata EtleneumAppData
+	err = user.getAppData("etleneum", &userdata)
+	if err != nil {
+		go user.setAppData("etleneum", EtleneumAppData{
+			account,
+			secret,
+			make(map[string]bool),
+		})
+	} else if account != userdata.Account || secret != userdata.Secret {
+		userdata.Account = account
+		userdata.Secret = secret
+		go user.setAppData("etleneum", userdata)
+	}
 
 	return
 }
@@ -168,7 +200,7 @@ func getEtleneumContract(contractId string) (ct EtleneumContract, err error) {
 		return
 	}
 	if !reply.Ok {
-		err = errors.New("etleneum.com call failed: " + reply.Error)
+		err = errors.New("etleneum.com failed: " + reply.Error)
 		return
 	}
 
@@ -195,11 +227,27 @@ func getEtleneumContractState(contractId, jqfilter string) (state json.RawMessag
 		return
 	}
 	if !reply.Ok {
-		err = errors.New("etleneum.com call failed: " + reply.Error)
+		err = errors.New("etleneum.com failed: " + reply.Error)
 		return
 	}
 
 	return reply.Value, err
+}
+
+func getEtleneumCall(callId string) (call EtleneumCall, err error) {
+	var reply EtleneumResponse
+	_, err = napping.Get("https://etleneum.com/~/call/"+callId, nil, &reply, &reply)
+	if err != nil {
+		err = errors.New("etleneum.com invalid response: " + reply.Error)
+		return
+	}
+	if !reply.Ok {
+		err = errors.New("etleneum.com failed: " + reply.Error)
+		return
+	}
+
+	err = json.Unmarshal(reply.Value, &call)
+	return call, err
 }
 
 func buildEtleneumCallLNURL(
@@ -276,6 +324,8 @@ func etleneumHmacCall(secret, ctid, method string, args url.Values, sats *int) s
 		res += ","
 	}
 
+	log.Debug().Str("serialized", res).Msg("hmac etleneum string")
+
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(res))
 	return hex.EncodeToString(mac.Sum(nil))
@@ -303,5 +353,156 @@ func translateToEtleneumAccount(username string) (accountId string, err error) {
 		}
 
 		return account, nil
+	}
+}
+
+var etleneumContractListeners = cmap.New()
+
+func setEtleneumListener(user User, ctid string, temp bool) error {
+	if !temp {
+		_, err := pg.Exec(`
+UPDATE telegram.account
+SET appdata = jsonb_set(
+  appdata,
+  '{etleneum,listening}',
+  coalesce(appdata->'etleneum'->'listening', '{}') || jsonb_build_object($2::text, true),
+  true
+)
+WHERE id = $1
+    `, user.Id, ctid)
+		if err != nil {
+			return err
+		}
+	}
+
+	var listeners map[int]bool
+	if ilisteners, ok := etleneumContractListeners.Get(ctid); ok {
+		// add user to cmap entry
+		listeners, _ = ilisteners.(map[int]bool)
+		if listeners == nil {
+			listeners = make(map[int]bool)
+		}
+		listeners[user.Id] = true
+	} else {
+		// cmap entry didn't exist, create now
+		listeners = map[int]bool{user.Id: true}
+		go listenToEtleneumContract(ctid) // start listening
+	}
+	etleneumContractListeners.Set(ctid, listeners)
+
+	return nil
+}
+
+func unsetEtleneumListener(user User, ctid string, temp bool) error {
+	// it may sound odd, but we must check for temp here because the
+	// user may have explicitly set a subscription, and then when he
+	// calls a method for this contract the subscription can't be
+	// canceled automatically.
+	var permanentSubscription bool
+	if temp {
+		pg.Get(&permanentSubscription, `
+SELECT appdata->'etleneum'->'listening'->>$2
+FROM telegram.account
+WHERE id = $1
+        `, user.Id, ctid)
+	} else {
+		_, err := pg.Exec(`
+UPDATE telegram.account
+SET appdata = jsonb_set(
+  appdata,
+  '{etleneum,listening}',
+  coalesce(appdata->'etleneum'->'listening', '{}') - $2,
+  true
+)
+WHERE id = $1
+    `, user.Id, ctid)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !permanentSubscription {
+		if ilisteners, ok := etleneumContractListeners.Get(ctid); ok {
+			listeners, _ := ilisteners.(map[int]bool)
+			delete(listeners, user.Id)
+			etleneumContractListeners.Set(ctid, listeners)
+		}
+	}
+
+	return nil
+}
+
+func startListeningToEtleneumContracts() {
+	var ctListeners []struct {
+		Contract string        `db:"ctid"`
+		UserIds  pq.Int64Array `db:"users"`
+	}
+	err := pg.Select(&ctListeners, `
+WITH contracts_per_user AS (
+  SELECT id AS user_id, jsonb_object_keys(appdata->'etleneum'->'listening') AS ctid
+  FROM telegram.account
+  WHERE appdata->'etleneum'->>'listening' IS NOT NULL
+)
+SELECT ctid, array_agg(user_id) AS users
+FROM contracts_per_user
+GROUP BY ctid
+    `)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to fetch etleneum contracts to listen")
+		return
+	}
+
+	for _, ctl := range ctListeners {
+		listeners := make(map[int]bool, len(ctl.UserIds))
+		for _, userId := range ctl.UserIds {
+			listeners[int(userId)] = true
+		}
+
+		etleneumContractListeners.Set(ctl.Contract, listeners)
+		go listenToEtleneumContract(ctl.Contract)
+	}
+}
+
+func listenToEtleneumContract(ctid string) {
+	es, err := eventsource.Subscribe("https://etleneum.com/~~~/contract/"+ctid, "")
+	if err != nil {
+		log.Warn().Err(err).Str("contract", ctid).
+			Msg("failed to subscribe to etleneum contract")
+		return
+	}
+
+	go func() {
+		for err := range es.Errors {
+			log.Debug().Err(err).Msg("eventsource error")
+		}
+	}()
+
+	defer es.Close()
+
+	for ev := range es.Events {
+		if !strings.HasPrefix(ev.Event(), "call-") {
+			continue
+		}
+
+		iuserIds, ok := etleneumContractListeners.Get(ctid)
+		if !ok {
+			break
+		}
+		userIds, _ := iuserIds.(map[int]bool)
+		if len(userIds) == 0 {
+			break
+		}
+
+		var data map[string]interface{}
+		json.Unmarshal([]byte(ev.Data()), &data)
+
+		for userId, _ := range userIds {
+			user, _ := loadUser(userId, 0)
+			user.notify(t.ETLENEUMCONTRACTEVENT, t.T{
+				"Event": ev.Event(),
+				"Id":    ctid,
+				"Data":  data,
+			})
+		}
 	}
 }

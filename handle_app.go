@@ -38,6 +38,24 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					"State": string(statestr),
 				})
 				go u.track("etleneum state", map[string]interface{}{"contract": contract})
+			} else if opts["subscribe"].(bool) {
+				// subscribe to a contract
+				err = setEtleneumListener(u, contract, false)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					return
+				}
+				u.notify(t.ETLENEUMSUBSCRIBED, t.T{"Contract": contract, "Subscribed": true})
+				go u.track("etleneum subscribe", map[string]interface{}{"contract": contract})
+			} else if opts["unsubscribe"].(bool) {
+				// unsubscribe from a contract
+				err = unsetEtleneumListener(u, contract, false)
+				if err != nil {
+					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					return
+				}
+				u.notify(t.ETLENEUMSUBSCRIBED, t.T{"Contract": contract, "Subscribed": false})
+				go u.track("etleneum unsubscribe", map[string]interface{}{"contract": contract})
 			} else if method == "" {
 				// contract metadata
 				ct, err := getEtleneumContract(contract)
@@ -62,7 +80,18 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					if kv, err := opts.String("<satoshi>"); err == nil {
 						params = append(params, kv)
 					}
+
+					// and set sats to 0
+					satoshi := 0
+					sats = &satoshi
 				}
+
+				// start listening to this contract for a couple of minutes minutes
+				setEtleneumListener(u, contract, true)
+				go func() {
+					time.Sleep(5 * time.Minute)
+					unsetEtleneumListener(u, contract, true)
+				}()
 
 				etlurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)
 				if err != nil {
@@ -88,6 +117,14 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					"sats":     sats,
 				})
 			}
+		} else if opts["call"].(bool) {
+			call, err := getEtleneumCall(opts["<id>"].(string))
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				return
+			}
+			u.notify(t.ETLENEUMCALL, t.T{"Call": call})
+			go u.track("etleneum view call", nil)
 		} else if opts["contracts"].(bool) || opts["apps"].(bool) {
 			contracts, aliases, err := listEtleneumContracts(u)
 			if err != nil {

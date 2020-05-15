@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -94,18 +93,6 @@ WHERE tx.payment_hash = $1
 	return unclaimed
 }
 
-func (t Transaction) TimeFormat() string {
-	return t.Time.Format("2 Jan 2006 at 3:04PM")
-}
-
-func (t Transaction) TimeFormatSmall() string {
-	return t.Time.Format("2 Jan 15:04")
-}
-
-func (t Transaction) Satoshis() string {
-	return decimalize(math.Abs(t.Amount))
-}
-
 func (t Transaction) PaddedSatoshis() string {
 	if t.Amount > 99999 {
 		return fmt.Sprintf("%7.15g", t.Amount)
@@ -114,10 +101,6 @@ func (t Transaction) PaddedSatoshis() string {
 		return fmt.Sprintf("%7.15g", t.Amount)
 	}
 	return fmt.Sprintf("%7.15g", t.Amount)
-}
-
-func (t Transaction) FeeSatoshis() string {
-	return decimalize(t.Fees)
 }
 
 func (t Transaction) HashReduced() string {
@@ -170,10 +153,6 @@ func (t Transaction) PayeeAlias() string {
 
 func (t Transaction) PayeeLink() string {
 	return nodeLink(t.Payee.String)
-}
-
-func decimalize(v float64) string {
-	return fmt.Sprintf("%.15g", v)
 }
 
 type Try struct {

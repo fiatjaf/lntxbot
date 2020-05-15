@@ -123,7 +123,10 @@ const (
 	ETLENEUMACCOUNT       = "EtleneumAccount"
 	ETLENEUMCONTRACT      = "EtleneumContract"
 	ETLENEUMCONTRACTSTATE = "EtleneumContractState"
+	ETLENEUMCALL          = "EtleneumCall"
 	ETLENEUMCONTRACTS     = "EtleneumContracts"
+	ETLENEUMSUBSCRIBED    = "EtleneumSubscribed"
+	ETLENEUMCONTRACTEVENT = "EtleneumContractEvent"
 
 	MICROBETHELP                = "microbetHelp"
 	MICROBETBETHEADER           = "MicrobetBetHeader"

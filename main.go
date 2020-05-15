@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -214,6 +215,7 @@ func server(p *plugin.Plugin) {
 	go cancelAllLNToRubOrders()
 	go initializeBitrefill()
 	go bitcloudsCheckingRoutine()
+	go startListeningToEtleneumContracts()
 
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
@@ -323,6 +325,16 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle.AddFunc("escapehtml", escapeHTML)
 	bundle.AddFunc("nodeLink", nodeLink)
 	bundle.AddFunc("nodeAlias", getNodeAlias)
+	bundle.AddFunc("json", func(v interface{}) string {
+		j, _ := json.MarshalIndent(v, "", "  ")
+		return string(j)
+	})
+	bundle.AddFunc("time", func(t time.Time) string {
+		return t.Format("2 Jan 2006 at 3:04PM")
+	})
+	bundle.AddFunc("timeSmall", func(t time.Time) string {
+		return t.Format("2 Jan 15:04")
+	})
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {
