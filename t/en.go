@@ -73,7 +73,7 @@ lnurl-auth success!
 	OVERQUOTA:           "You're over your {{.App}} daily quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
-	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
+	INSUFFICIENTBALANCE: `Insufficient balance for {{.Purpose}}. Needs {{.Sats | printf "%.15g"}} sat more.`,
 
 	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}} #tx",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
@@ -556,7 +556,7 @@ Registered: {{.Registered}}
     `,
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
 	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
-	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
+	USERSENTTOUSER:     "{{.Sats}} ({{dollar .Sats}}) sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
 	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
 	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat ({{dollar .Sats}}).",
 	FAILEDSEND:         "Failed to send: ",
