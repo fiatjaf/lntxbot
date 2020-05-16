@@ -625,6 +625,6 @@ These are the services we currently support:
 Read more in the /help page for each app.
     `,
 	TUTORIALTWITTER: `
-@{{.BotName}} won't spam you anymore unless you get payments or request anything. So if you want to get notified of new features, follow us on follow us on <a href="https://twitter.com/{{.BotName}}">https://twitter.com/{{.BotName}}</a>!
+@{{.BotName}} won't spam you anymore unless you get payments or request anything. So if you want to get notified of new features, follow us on <a href="https://twitter.com/{{.BotName}}">https://twitter.com/{{.BotName}}</a>!
     `,
 }
