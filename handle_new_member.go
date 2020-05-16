@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/orcaman/concurrent-map"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 var pendingApproval = cmap.New()
@@ -62,12 +62,22 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
+	chatOwner.track("ticket shown", map[string]interface{}{
+		"group": joinMessage.Chat.ID,
+		"sats":  g.Ticket,
+	})
+
 	expiration := time.Minute * 15
 
-	bolt11, hash, qrpath, err := chatOwner.makeInvoice(g.Ticket, fmt.Sprintf(
-		"ticket for %s to join %s (%d).",
-		username, joinMessage.Chat.Title, joinMessage.Chat.ID,
-	), label, &expiration, nil, "", "", false)
+	bolt11, hash, qrpath, err := chatOwner.makeInvoice(makeInvoiceArgs{
+		Msatoshi: int64(g.Ticket) * 1000,
+		Desc: fmt.Sprintf(
+			"ticket for %s to join %s (%d).",
+			username, joinMessage.Chat.Title, joinMessage.Chat.ID,
+		),
+		Label:  label,
+		Expiry: &expiration,
+	})
 
 	invoiceMessage := sendMessageWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 
@@ -81,6 +91,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		},
 		newmember,
 		hash,
+		g.Ticket,
 	}
 
 	kickdatajson, _ := json.Marshal(kickdata)
@@ -106,9 +117,10 @@ func waitToKick(label string, kickdata KickData) {
 					Msg("invoice deleted, assume it was paid internally")
 				ticketPaid(label, kickdata)
 				return
-			} else if cmderr.Code == -2 {
+			} else if cmderr.Code == 903 {
 				if _, isPending := pendingApproval.Get(label); !isPending {
-					// not pending anymore, means the invoice was paid internally. don't kick.
+					// not pending anymore, means the invoice was paid internally.
+					// don't kick.
 					return
 				}
 
@@ -164,6 +176,11 @@ func ticketPaid(label string, kickdata KickData) {
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")
 	}
+
+	go user.track("user allowed", map[string]interface{}{
+		"sats":  kickdata.Sats,
+		"group": kickdata.JoinMessage.Chat.ID,
+	})
 }
 
 func startKicking() {

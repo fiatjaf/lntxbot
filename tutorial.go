@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 )
 
 func handleTutorial(u User, section string) {
@@ -25,6 +25,8 @@ func handleTutorial(u User, section string) {
 			tutorialBlueWallet(u)
 			time.Sleep(120 * time.Second)
 			tutorialApps(u)
+			time.Sleep(240 * time.Second)
+			tutorialTwitter(u)
 		}()
 	}
 }
@@ -41,4 +43,8 @@ func tutorialBlueWallet(u User) {
 
 func tutorialApps(u User) {
 	sendMessage(u.ChatId, translateTemplate(t.TUTORIALAPPS, u.Locale, t.T{"BotName": s.ServiceId}))
+}
+
+func tutorialTwitter(u User) {
+	sendMessage(u.ChatId, translateTemplate(t.TUTORIALTWITTER, u.Locale, t.T{"BotName": s.ServiceId}))
 }

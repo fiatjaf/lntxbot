@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
 )
 
@@ -17,6 +17,12 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 	} else {
 		data := gjson.Parse(val)
 		switch data.Get("type").String() {
+		case "pay":
+			sats, err := strconv.ParseFloat(message.Text, 64)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
+			}
+			handlePayVariableAmount(u, int64(sats*1000), data, message.MessageID)
 		case "lnurlpay":
 			sats, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {

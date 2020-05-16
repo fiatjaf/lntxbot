@@ -4,14 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type Transaction struct {
@@ -95,30 +93,14 @@ WHERE tx.payment_hash = $1
 	return unclaimed
 }
 
-func (t Transaction) TimeFormat() string {
-	return t.Time.Format("2 Jan 2006 at 3:04PM")
-}
-
-func (t Transaction) TimeFormatSmall() string {
-	return t.Time.Format("2 Jan 15:04")
-}
-
-func (t Transaction) Satoshis() string {
-	return decimalize(math.Abs(t.Amount))
-}
-
 func (t Transaction) PaddedSatoshis() string {
 	if t.Amount > 99999 {
-		return fmt.Sprintf("%7.0f", t.Amount)
+		return fmt.Sprintf("%7.15g", t.Amount)
 	}
 	if t.Amount < -9999 {
-		return fmt.Sprintf("%7.0f", t.Amount)
+		return fmt.Sprintf("%7.15g", t.Amount)
 	}
-	return fmt.Sprintf("%7.1f", t.Amount)
-}
-
-func (t Transaction) FeeSatoshis() string {
-	return decimalize(t.Fees)
+	return fmt.Sprintf("%7.15g", t.Amount)
 }
 
 func (t Transaction) HashReduced() string {
@@ -132,7 +114,7 @@ func (t Transaction) Icon() string {
 	case "coinflip":
 		return "🎲"
 	case "fundraise":
-		return "📢"
+		return "🎷"
 	case "reveal":
 		return "🔎"
 	case "sats4ads":
@@ -141,16 +123,12 @@ func (t Transaction) Icon() string {
 		return "📡"
 	case "microbet":
 		return "⚽"
-	case "golightning", "bitflash":
+	case "golightning":
 		return "⛓️"
 	case "bitclouds":
 		return "☁️"
 	case "lntorub":
 		return "💸"
-	case "poker":
-		return "♠️"
-	case "paywall":
-		return "🧱"
 	default:
 		switch {
 		case strings.HasPrefix(t.Label.String, "newmember:"):
@@ -160,7 +138,7 @@ func (t Transaction) Icon() string {
 		case t.IsPending():
 			return "🕓"
 		case t.IsUnclaimed():
-			return "💤 "
+			return "💤"
 		case t.Anonymous:
 			return "🕵"
 		default:
@@ -177,23 +155,33 @@ func (t Transaction) PayeeLink() string {
 	return nodeLink(t.Payee.String)
 }
 
-func decimalize(v float64) string {
-	if v == math.Trunc(v) {
-		return fmt.Sprintf("%.0f", v)
-	} else {
-		return fmt.Sprintf("%.3f", v)
-	}
+type Try struct {
+	Route   []Hop
+	Error   string
+	Success bool
+}
+
+type Hop struct {
+	Peer      string
+	Channel   string
+	Direction int64
+	Msatoshi  int64
+	Delay     int64
 }
 
 func renderLogInfo(hash string) (logInfo string) {
-	lastCall, err := rds.Get("tries:" + hash).Result()
+	if len(hash) < 5 {
+		return ""
+	}
+
+	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
 	if err != nil {
 		return ""
 	}
 
 	logInfo += "<b>Routes tried:</b>"
 
-	var tries []lightning.Try
+	var tries []Try
 	err = json.Unmarshal([]byte(lastCall), &tries)
 	if err != nil {
 		logInfo += " [error fetching]"
@@ -213,30 +201,15 @@ func renderLogInfo(hash string) (logInfo string) {
 		}
 
 		routeStr := ""
-		arrihop, ok := try.Route.([]interface{})
-		if !ok {
-			return "\n    [error]"
-		}
-		for l, ihop := range arrihop {
-			hop := ihop.(map[string]interface{})
-			peer := hop["id"].(string)
-			msat := int(hop["msatoshi"].(float64))
-			delay := int(hop["delay"].(float64))
+		for l, hop := range try.Route {
 			routeStr += fmt.Sprintf("\n    <code>%s</code>. %s, %dmsat, delay: %d",
-				strings.ToLower(roman(l+1)), nodeLink(peer), msat, delay)
+				strings.ToLower(roman(l+1)),
+				nodeLink(hop.Peer), hop.Msatoshi, hop.Delay)
 		}
 		logInfo += routeStr
 
-		if try.Error != nil {
-			logInfo += fmt.Sprintf("\nError: %s (%d). ", try.Error.Message, try.Error.Code)
-			if try.Error.Data != nil {
-				data, _ := try.Error.Data.(map[string]interface{})
-				ichannel, _ := data["erring_channel"]
-				inode, _ := data["erring_node"]
-				channel, _ := ichannel.(string)
-				node, _ := inode.(string)
-				logInfo += fmt.Sprintf("<b>Erring:</b> %s, %s", channelLink(channel), nodeLink(node))
-			}
+		if try.Error != "" {
+			logInfo += fmt.Sprintf("\nError: %s. ", try.Error)
 		}
 	}
 
@@ -254,7 +227,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 
 	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(hashfirstchars),
+		"LogInfo": renderLogInfo(txn.Hash),
 	})
 	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 
@@ -332,7 +305,7 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 				ChatID:      u.ChatId,
 				ReplyMarkup: &keyboard,
 			},
-			Text: text,
+			Text:                  text,
 			DisableWebPagePreview: true,
 			ParseMode:             "HTML",
 		}
@@ -340,8 +313,8 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 		baseEdit := getBaseEdit(cb)
 		baseEdit.ReplyMarkup = &keyboard
 		chattable = tgbotapi.EditMessageTextConfig{
-			BaseEdit: baseEdit,
-			Text:     text,
+			BaseEdit:              baseEdit,
+			Text:                  text,
 			DisableWebPagePreview: true,
 			ParseMode:             "HTML",
 		}

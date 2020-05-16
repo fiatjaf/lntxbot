@@ -4,22 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/PuerkitoBio/goquery"
 	lnurl "github.com/fiatjaf/go-lnurl"
 )
 
-func registerPages() {
+func servePages() {
 	// lnurl-pay powered donation page
 	router.PathPrefix("/@").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username := r.URL.Path[2:]
-		doc, err := goquery.NewDocument("https://t.me/" + username)
+		image, err := getUserPictureURL(username)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		image, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
-		if !ok {
 			http.Error(w, err.Error(), 500)
 			return
 		}

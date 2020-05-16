@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,11 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/ln-decodepay/gjson"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
+	"github.com/msingleton/amplitude-go"
 	"github.com/skip2/go-qrcode"
 	"github.com/tidwall/gjson"
 )
@@ -181,14 +184,21 @@ SELECT
   payee_node
 FROM lightning.account_txn
 WHERE account_id = $1
-  AND substring(payment_hash from 0 for $3) = $2
-ORDER BY time
-    `, u.Id, hash, len(hash)+1)
+  AND payment_hash LIKE $2 || '%'
+ORDER BY time, amount DESC
+LIMIT 1
+    `, u.Id, hash)
 	if err != nil {
 		return
 	}
 
 	txn.Description = escapeHTML(txn.Description)
+
+	// handle case in which it was paid internally and so two results were returned
+	if txn.Preimage.Valid == false {
+		txn.Preimage = sql.NullString{String: "internal_payment", Valid: true}
+	}
+
 	return
 }
 
@@ -256,65 +266,102 @@ func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tg
 	return bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translateTemplate(key, u.Locale, templateData)))
 }
 
+type makeInvoiceArgs struct {
+	Desc       string
+	DescHash   string
+	Msatoshi   int64
+	Label      string
+	Preimage   string
+	Expiry     *time.Duration
+	MessageId  interface{}
+	Tag        string
+	BlueWallet bool
+	SkipQR     bool
+}
+
 func (u User) makeInvoice(
-	sats int,
-	desc string,
-	label string,
-	expiry *time.Duration,
-	messageId interface{},
-	preimage string,
-	tag string,
-	bluewallet bool,
+	args makeInvoiceArgs,
 ) (bolt11 string, hash string, qrpath string, err error) {
-	log.Debug().Str("user", u.Username).Str("desc", desc).Int("sats", sats).
+	msatoshi := args.Msatoshi
+	label := args.Label
+
+	log.Debug().Str("user", u.Username).Str("desc", args.Desc).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
-	if preimage == "" {
-		preimage, err = randomPreimage()
-		if err != nil {
-			return
-		}
-	}
-
 	if label == "" {
-		label = makeLabel(u.Id, messageId, preimage, tag)
+		label = makeLabel(u.Id, args.MessageId, args.Tag)
 	}
-
-	msatoshi := sats * 1000
 
 	var exp time.Duration
-	if expiry == nil {
+	if args.Expiry == nil {
 		exp = s.InvoiceTimeout / time.Second
 	} else {
-		exp = *expiry / time.Second
+		exp = *args.Expiry / time.Second
 	}
 
-	// make invoice
-	res, err := ln.CallWithCustomTimeout(time.Second*40, "invoice", map[string]interface{}{
-		"msatoshi":    msatoshi,
-		"label":       label,
-		"description": desc,
-		"expiry":      int(exp),
-		"preimage":    preimage,
-	})
+	// make normal invoice
+	if args.DescHash == "" {
+		params := map[string]interface{}{
+			"msatoshi":    msatoshi,
+			"label":       label,
+			"description": args.Desc,
+			"expiry":      int(exp),
+		}
+
+		if args.Preimage != "" {
+			params["preimage"] = args.Preimage
+		}
+
+		var res gjson.Result
+		res, err = ln.CallWithCustomTimeout(time.Second*40, "invoice", params)
+		bolt11 = res.Get("bolt11").String()
+		hash = res.Get("payment_hash").String()
+	} else {
+		// make invoice with description_hash
+		var hhash []byte
+		hhash, err = hex.DecodeString(args.DescHash)
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid description_hash: %w", err)
+		}
+
+		var ppreimage *[]byte
+		if args.Preimage != "" {
+			if preimage, err := hex.DecodeString(args.Preimage); err != nil {
+				return "", "", "", fmt.Errorf("invalid preimage: %w", err)
+			} else {
+				ppreimage = &preimage
+			}
+		}
+
+		expiry := time.Duration(exp) * time.Second
+		bolt11, err = ln.InvoiceWithDescriptionHash(
+			label,
+			msatoshi,
+			hhash,
+			ppreimage,
+			&expiry,
+		)
+		res, _ := ln.Call("decodepay", bolt11)
+		hash = res.Get("payment_hash").String()
+	}
 	if err != nil {
-		return
+		return "", "", "", fmt.Errorf("error making invoice: %w", err)
 	}
 
-	bolt11 = res.Get("bolt11").String()
-	hash = res.Get("payment_hash").String()
-
-	if bluewallet {
+	if args.BlueWallet {
 		encodedinv, _ := json.Marshal(map[string]interface{}{
 			"hash":   hash,
 			"bolt11": bolt11,
-			"desc":   desc,
-			"amount": sats,
+			"desc":   args.Desc,
+			"amount": msatoshi / 1000,
 			"expiry": int(exp),
 		})
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
-	} else {
-		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256, qrImagePath(label))
+	}
+
+	if !args.SkipQR {
+		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256,
+			qrImagePath(label))
 		if err == nil {
 			qrpath = qrImagePath(label)
 		} else {
@@ -326,7 +373,11 @@ func (u User) makeInvoice(
 	return bolt11, hash, qrpath, nil
 }
 
-func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) {
+func (u User) payInvoice(
+	messageId int,
+	bolt11 string,
+	manuallySpecifiedMsatoshi int64,
+) (hash string, err error) {
 	inv, err := decodepay_gjson.Decodepay(bolt11)
 	if err != nil {
 		return "", errors.New("Failed to decode invoice: " + err.Error())
@@ -334,18 +385,14 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
 	amount := inv.Get("msatoshi").Int()
-	var desc string
-	if inv.Get("description_hash").Exists() {
-		desc = "h: " + inv.Get("description_hash").String()
-	} else {
-		desc = inv.Get("description").String()
-	}
+	desc := inv.Get("description").String()
 	hash = inv.Get("payment_hash").String()
 
 	if amount == 0 {
-		// if nothing was provided, end here
-		err = errors.New("unsupported zero-amount invoice")
-		return
+		amount = manuallySpecifiedMsatoshi
+		if amount == 0 {
+			return "", errors.New("Can't send 0.")
+		}
 	}
 
 	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
@@ -378,14 +425,15 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 					}
 
 					ticketPaid(label, kickdata)
-					handleInvoicePaid(
+					go handleInvoicePaid(
 						-1,
 						amount,
 						desc,
 						hash,
+						"",
 						label,
 					)
-					paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
+					go paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
 					break
 				}
 			}
@@ -399,7 +447,7 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 		}
 
 		label := invoice.Get("label").String()
-		messageId, targetId, preimage, _, ok := parseLabel(label)
+		messageId, targetId, _, ok := parseLabel(label)
 		if ok {
 			err = u.addInternalPendingInvoice(
 				messageId,
@@ -413,14 +461,18 @@ func (u User) payInvoice(messageId int, bolt11 string) (hash string, err error) 
 				return
 			}
 
-			handleInvoicePaid(
+			go handleInvoicePaid(
 				0,
 				amount,
 				desc,
 				hash,
+				"",
 				label,
 			)
-			paymentHasSucceeded(u, messageId, float64(amount), float64(amount), preimage, "", hash)
+			invs, _ := ln.Call("listinvoices", label)
+			go resolveWaitingInvoice(hash, invs.Get("invoices.0"))
+
+			go paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
 			ln.Call("delinvoice", label, "unpaid")
 		} else {
 			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")
@@ -481,21 +533,15 @@ func (u User) actuallySendExternalPayment(
 INSERT INTO lightning.transaction
   (from_id, amount, fees, description, payment_hash, label, pending, trigger_message, remote_node)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `, u.Id, msatoshi, fee_reserve, inv.Get("description").String(), hash, label, true, messageId, inv.Get("payee").String())
+    `, u.Id, msatoshi, int64(fee_reserve), inv.Get("description").String(),
+		hash, label, true, messageId, inv.Get("payee").String())
 	if err != nil {
-		log.Debug().Err(err).Msg("database error inserting transaction")
+		log.Debug().Err(err).Int64("msatoshi", msatoshi).
+			Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
 	}
 
-	var balance int64
-	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error fetching balance")
-		return errors.New("Database error. Couldn't fetch balance.")
-	}
-
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Errorf("Amount too big. Usable balance is %.3f sat.",
 			(float64(balance+msatoshi)+fee_reserve)/1000)
@@ -509,35 +555,90 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 
 	// set common params
 	params := map[string]interface{}{
+		"bolt11":        bolt11,
 		"riskfactor":    3,
-		"maxfeepercent": 1,
-		"exemptfee":     0,
+		"maxfeepercent": 0.4,
+		"exemptfee":     3000,
 		"label":         fmt.Sprintf("user=%d", u.Id),
+		"use_shadow":    false,
+	}
+
+	if inv.Get("msatoshi").Int() == 0 {
+		// amountless invoice, so send the number of satoshis previously specified
+		params["msatoshi"] = msatoshi
 	}
 
 	// perform payment
 	go func() {
-		success, payment, tries, err := ln.PayAndWaitUntilResolution(bolt11, params)
+		var tries []Try
+		var fallbackError Try
+
+		payment, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
+		if errw, ok := err.(lightning.ErrorCommand); ok {
+			fallbackError = Try{
+				Success: false,
+				Error:   errw.Message,
+				Route:   []Hop{},
+			}
+		}
 
 		// save payment attempts for future counsultation
 		// only save the latest 10 tries for brevity
-		from := len(tries) - 10
-		if from < 0 {
-			from = 0
+		if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
+			for i, attempt := range status.Get("pay.0.attempts").Array() {
+				var errorMessage string
+				if attempt.Get("failure").Exists() {
+					if attempt.Get("failure.data").Exists() {
+						errorMessage = fmt.Sprintf("%s %s/%d %s",
+							attempt.Get("failure.data.failcodename").String(),
+							attempt.Get("failure.data.erring_channel").String(),
+							attempt.Get("failure.data.erring_direction").Int(),
+							attempt.Get("failure.data.erring_node").String(),
+						)
+					} else {
+						errorMessage = attempt.Get("failure.message").String()
+					}
+				}
+
+				route := attempt.Get("route").Array()
+				hops := make([]Hop, len(route))
+				for i, routehop := range route {
+					hops[i] = Hop{
+						Peer:      routehop.Get("id").String(),
+						Channel:   routehop.Get("channel").String(),
+						Direction: routehop.Get("direction").Int(),
+						Msatoshi:  routehop.Get("msatoshi").Int(),
+						Delay:     routehop.Get("delay").Int(),
+					}
+				}
+
+				tries = append(tries, Try{
+					Success: attempt.Get("success").Exists(),
+					Error:   errorMessage,
+					Route:   hops,
+				})
+
+				if i >= 9 {
+					break
+				}
+			}
+		} else {
+			// no 'paystatus' for this payment: it has failed before any attempt
+			// let's use the error message returned from 'pay'
+			tries = append(tries, fallbackError)
 		}
-		if jsontries, err := json.Marshal(tries[from:]); err == nil {
+
+		// save the payment tries here
+		if jsontries, err := json.Marshal(tries); err == nil {
 			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
 		}
 
-		if err != nil {
-			log.Warn().Err(err).
-				Interface("params", params).
-				Interface("tries", tries).
-				Msg("unexpected error paying invoice")
-			return
-		}
-
-		if success {
+		// check success (from the 'pay' call)
+		if payment.Get("status").String() == "complete" {
+			// payment successful!
+			go u.track("payment sent", map[string]interface{}{
+				"sats": msatoshi / 1000,
+			})
 			onSuccess(
 				u,
 				messageId,
@@ -547,17 +648,37 @@ SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
 				"",
 				payment.Get("payment_hash").String(),
 			)
-		} else {
+			return
+		}
+
+		// check failure (by checking the 'listpays' command)
+		// that should be enough for us to be 100% sure
+		listpays, _ := ln.Call("listpays", bolt11)
+		payattempts := listpays.Get("pays.#").Int()
+		if payattempts == 1 && listpays.Get("pays.0.status").String() != "failed" {
+			// not a failure -- but also not a success
+			// we don't know what happened, maybe it's pending,
+			// so don't do anything
+			log.Debug().Str("bolt11", bolt11).
+				Msg("we don't know what happened with this payment")
+			return
+		}
+
+		// the payment wasn't even tried -- so it's a failure
+		if payattempts == 0 {
+			go u.track("payment failed", map[string]interface{}{
+				"sats":  msatoshi / 1000,
+				"payee": inv.Get("payee").String(),
+			})
 			log.Warn().
 				Str("user", u.Username).
 				Int("user-id", u.Id).
 				Interface("params", params).
 				Interface("tries", tries).
-				Str("payment", payment.String()).
 				Str("hash", hash).
 				Msg("payment failed")
-
-			onFailure(u, messageId, payment.Get("payment_hash").String())
+				// give the money back to the user
+			onFailure(u, messageId, hash)
 		}
 	}()
 
@@ -589,15 +710,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return errors.New("Payment already in course.")
 	}
 
-	var balance int
-	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		log.Debug().Err(err).Msg("database error fetching balance")
-		return errors.New("Database error. Couldn't fetch balance.")
-	}
-
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
 			-float64(balance)/1000)
@@ -642,7 +755,6 @@ func (u User) sendInternally(
 	}
 	defer txn.Rollback()
 
-	var balance int64
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, to_id, anonymous, amount, description, tag, payment_hash, trigger_message)
@@ -664,13 +776,7 @@ VALUES (
 		return "Database error.", err
 	}
 
-	err = txn.Get(&balance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, u.Id)
-	if err != nil {
-		return "Database error.", err
-	}
-
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
 				-float64(balance)/1000),
@@ -696,6 +802,7 @@ func (u User) sendThroughProxy(
 	msats int,
 	sourcedesc string,
 	targetdesc string,
+	pending bool,
 	tag string,
 ) (string, error) {
 	var (
@@ -712,7 +819,7 @@ func (u User) sendThroughProxy(
 	defer txn.Rollback()
 
 	// send transaction source->proxy, then proxy->target
-	// both are updated if it exists
+	// both are updated if exist
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction AS t
   (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
@@ -729,24 +836,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET
 
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction AS t
-  (payment_hash, from_id, to_id, amount, description, tag, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT (payment_hash) DO UPDATE SET
-  amount = t.amount + $4,
-  description = $5,
-  tag = $6,
-  trigger_message = $7
-    `, targethash, s.ProxyAccount, target.Id, msats, targetdescn, tagn, targetMessageId)
+  (proxied_with, payment_hash, from_id, to_id, amount,
+   description, tag, trigger_message, pending)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, sourcehash, targethash, s.ProxyAccount, target.Id, msats,
+		targetdescn, tagn, targetMessageId, pending)
 	if err != nil {
 		return "Database error.", err
 	}
 
 	// check balance
-	var balance int64
-	err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", u.Id)
-	if err != nil {
-		return "Database error.", err
-	}
+	balance := getBalance(txn, u.Id)
 	if balance < 0 {
 		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
 				-float64(balance)/1000),
@@ -754,11 +854,8 @@ ON CONFLICT (payment_hash) DO UPDATE SET
 	}
 
 	// check proxy balance (should be always zero)
-	var proxybalance int
-	err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-	if err != nil || proxybalance != 0 {
-		log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
-		err = errors.New("proxy balance isn't 0")
+	if err := checkProxyBalance(txn); err != nil {
+		log.Error().Err(err).Msg("proxy balance check")
 		return "Database error.", err
 	}
 
@@ -800,7 +897,10 @@ func (u User) getInfo() (info Info, err error) {
 SELECT
   b.account_id,
   b.balance/1000 AS balance,
-  b.balance-0.99009/1000 AS usable,
+  CASE
+    WHEN b.balance > 5000000 THEN b.balance * 0.99009 / 1000
+    ELSE b.balance/1000
+  END AS usable,
   (
     SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.to_id
@@ -817,6 +917,17 @@ FROM lightning.balance AS b
 WHERE b.account_id = $1
 GROUP BY b.account_id, b.balance
     `, u.Id)
+	if err == sql.ErrNoRows {
+		info = Info{
+			AccountId:     strconv.Itoa(u.Id),
+			Balance:       0,
+			UsableBalance: 0,
+			TotalSent:     0,
+			TotalReceived: 0,
+			TotalFees:     0,
+		}
+	}
+
 	return
 }
 
@@ -866,6 +977,7 @@ SELECT * FROM (
     END AS description,
     tag,
     label,
+    fees::float/1000 AS fees,
     amount::float/1000 AS amount,
     payment_hash,
     preimage
@@ -933,6 +1045,14 @@ WHERE id = $1
 
 	err = j.Unmarshal(data)
 	return
+}
+
+func (u User) track(event string, eventProperties map[string]interface{}) {
+	amp.Event(amplitude.Event{
+		UserId:          strconv.Itoa(u.Id),
+		EventType:       event,
+		EventProperties: eventProperties,
+	})
 }
 
 func paymentHasSucceeded(

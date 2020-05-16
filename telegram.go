@@ -5,10 +5,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/PuerkitoBio/goquery"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func sendMessage(chatId int64, msg string) tgbotapi.Message { return sendMessageAsReply(chatId, msg, 0) }
+func sendMessage(chatId int64, msg string) tgbotapi.Message {
+	return sendMessageAsReply(chatId, msg, 0)
+}
+
 func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
 	return sendMessageWithKeyboard(chatId, msg, nil, replyToId)
 }
@@ -31,6 +35,16 @@ func sendMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.Inline
 		log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).Msg("error sending message")
 	}
 	return message
+}
+
+func sendMessageAsText(chatId int64, msg string) tgbotapi.Message {
+	chattable := tgbotapi.NewMessage(chatId, msg)
+	chattable.DisableWebPagePreview = true
+	c, err := bot.Send(chattable)
+	if err != nil {
+		log.Warn().Str("message", msg).Err(err).Msg("error sending text message")
+	}
+	return c
 }
 
 func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
@@ -97,8 +111,8 @@ func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
 
 	baseEdit := getBaseEdit(cb)
 	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit: baseEdit,
-		Text:     text,
+		BaseEdit:              baseEdit,
+		Text:                  text,
 		DisableWebPagePreview: true,
 	})
 }
@@ -109,7 +123,7 @@ func edit(message *tgbotapi.Message, newText string) {
 			ChatID:    message.Chat.ID,
 			MessageID: message.MessageID,
 		},
-		Text: newText,
+		Text:                  newText,
 		DisableWebPagePreview: true,
 	})
 }
@@ -126,24 +140,24 @@ func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.Inline
 	bot.Send(edit)
 }
 
-func isAdmin(message *tgbotapi.Message) bool {
-	if message.Chat.Type == "supergroup" {
+func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
+	if chat.Type == "supergroup" {
 		chatmember, err := bot.GetChatMember(tgbotapi.ChatConfigWithUser{
-			ChatID:             message.Chat.ID,
-			SuperGroupUsername: message.Chat.ChatConfig().SuperGroupUsername,
-			UserID:             message.From.ID,
+			ChatID:             chat.ID,
+			SuperGroupUsername: chat.ChatConfig().SuperGroupUsername,
+			UserID:             user.ID,
 		})
 		if err != nil ||
 			(chatmember.Status != "administrator" && chatmember.Status != "creator") {
 			log.Warn().Err(err).
-				Int64("group", message.Chat.ID).
-				Int("user", message.From.ID).
+				Int64("group", chat.ID).
+				Int("user", user.ID).
 				Msg("can't get user or not an admin.")
 			return false
 		}
 
 		return true
-	} else if message.Chat.Type == "group" {
+	} else if chat.Type == "group" {
 		// ok, everybody can toggle
 		return true
 	} else {
@@ -152,6 +166,9 @@ func isAdmin(message *tgbotapi.Message) bool {
 }
 
 func deleteMessage(message *tgbotapi.Message) {
+	if message == nil || message.Chat == nil {
+		return
+	}
 	bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.MessageID))
 }
 
@@ -183,4 +200,18 @@ func getChatOwner(chatId int64) (User, error) {
 	}
 
 	return User{}, errors.New("chat has no owner")
+}
+
+func getUserPictureURL(username string) (string, error) {
+	doc, err := goquery.NewDocument("https://t.me/" + username)
+	if err != nil {
+		return "", err
+	}
+
+	image, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
+	if !ok {
+		return "", errors.New("no image available for this user")
+	}
+
+	return image, nil
 }

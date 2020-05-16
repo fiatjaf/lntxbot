@@ -6,12 +6,9 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/kr/pretty"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
 )
 
@@ -22,18 +19,6 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			Str("username", cb.From.UserName).
 			Int("id", cb.From.ID).
 			Msg("failed to ensure user on callback")
-		return
-	}
-
-	// it's a game!
-	if cb.GameShortName != "" {
-		switch cb.GameShortName {
-		case "poker":
-			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
-				CallbackQueryID: cb.ID,
-				URL:             getPokerURL(u),
-			})
-		}
 		return
 	}
 
@@ -67,6 +52,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		page, _ := strconv.Atoi(parts[0])
 		filter := InOut(parts[1])
 		go handleTransactionList(u, page, filter, cb)
+		go u.track("txlist page", map[string]interface{}{"page": page})
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
@@ -122,6 +108,8 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				Msg("failed to load user")
 			goto answerEmpty
 		}
+
+		go u.track("giveaway joined", map[string]interface{}{"sats": sats})
 
 		claimer := u
 
@@ -195,6 +183,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Coinflip"}))
 			goto answerEmpty
 		}
+
+		go u.track("coinflip joined", map[string]interface{}{
+			"sats": sats,
+			"n":    nparticipants,
+		})
 
 		joiner := u
 
@@ -316,6 +309,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		rkey := "giveflip:" + giveflipid
 
 		nregistered := int(rds.SCard(rkey).Val())
+
+		go u.track("coinflip joined", map[string]interface{}{
+			"sats": sats,
+			"n":    nparticipants,
+		})
 
 		joiner := u
 
@@ -466,6 +464,11 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
+		go u.track("fundraise joined", map[string]interface{}{
+			"sats": sats,
+			"n":    ngivers,
+		})
+
 		joiner := u
 
 		if !joiner.checkBalanceFor(sats, "fundraise", cb) {
@@ -540,6 +543,72 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				)
 			}
 		}
+	case strings.HasPrefix(cb.Data, "rnm"):
+		// rename chat
+		defer removeKeyboardButtons(cb)
+		renameId := cb.Data[4:]
+		data := rds.Get("rename:" + renameId).Val()
+		parts := strings.Split(data, "|~|")
+		if len(parts) != 3 {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Str("app", "rename").Msg("data isn't split in 3")
+			return
+		}
+		chatId, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to parse chatId")
+			return
+		}
+		sats, err := strconv.Atoi(parts[1])
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to parse sats")
+			return
+		}
+		name := parts[2]
+
+		// transfer money
+		owner, err := getChatOwner(chatId)
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to get chat owner")
+			return
+		}
+
+		random, err := randomPreimage()
+		if err != nil {
+			appendTextToMessage(cb, translate(t.ERROR, locale))
+			log.Warn().Err(err).Str("app", "rename").Msg("failed to generate random")
+			return
+		}
+		hash := calculateHash(random)
+
+		errMessage, err := u.sendInternally(
+			0, owner, false, sats*1000,
+			fmt.Sprintf("Rename group %d to '%s'", chatId, name),
+			hash, "rename",
+		)
+		if err != nil {
+			appendTextToMessage(cb, translateTemplate(t.ERROR, locale, t.T{
+				"Err": errMessage,
+			}))
+			return
+		}
+
+		// actually change the name
+		_, err = bot.SetChatTitle(tgbotapi.SetChatTitleConfig{chatId, name})
+		if err != nil {
+			appendTextToMessage(cb, translateTemplate(t.ERROR, locale, t.T{
+				"Err": "Unauthorized",
+			}))
+			return
+		}
+
+		go u.track("rename finish", map[string]interface{}{
+			"group": chatId,
+			"sats":  sats,
+		})
 	case strings.HasPrefix(cb.Data, "remunc="):
 		// remove unclaimed transaction
 		// when you tip an invalid account or an account that has never talked with the bot
@@ -555,6 +624,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 		appendTextToMessage(cb, translate(t.TXCANCELED, locale))
+
+		go u.track("remove unclaimed", nil)
 	case strings.HasPrefix(cb.Data, "reveal="):
 		// locate hidden message with the key given in the callback data,
 		// perform payment between users,
@@ -564,12 +635,20 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, locale)
 		if err != nil {
-			log.Error().Err(err).Str("key", hiddenkey).Msg("error locating hidden message")
+			log.Error().Err(err).Str("key", hiddenkey).
+				Msg("error locating hidden message")
 			removeKeyboardButtons(cb)
 			appendTextToMessage(cb, translate(t.HIDDENMSGNOTFOUND, locale))
 			u.alert(cb, t.HIDDENMSGNOTFOUND, nil)
 			return
 		}
+
+		go u.track("reveal", map[string]interface{}{
+			"sats":      hiddenmessage.Satoshis,
+			"times":     hiddenmessage.Times,
+			"crowdfund": hiddenmessage.Crowdfund,
+			"public":    hiddenmessage.Public,
+		})
 
 		revealer := u
 
@@ -614,7 +693,6 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
-		pretty.Log("revealers ", revealerIds, totalrevealers)
 		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
 			// participants has been reached. before that we will just update the message in-place.
@@ -657,7 +735,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				})
 			} else {
 				// reveal message privately
-				sendMessage(revealer.ChatId, hiddenmessage.revealed())
+				sendMessageAsText(revealer.ChatId, hiddenmessage.revealed())
 				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated
@@ -687,6 +765,13 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			sendMessageAsReply(revealer.ChatId, hiddenmessage.Content, messageId)
 		}
 
+		go u.track("reveal", map[string]interface{}{
+			"sats":      hiddenmessage.Satoshis,
+			"times":     hiddenmessage.Times,
+			"crowdfund": hiddenmessage.Crowdfund,
+			"public":    hiddenmessage.Public,
+		})
+
 		break
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
@@ -699,59 +784,54 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			appendTextToMessage(cb, translate(t.ERROR, locale))
 			return
 		}
+		appendTextToMessage(cb, translate(t.CHECKING, locale))
+
+		go u.track("check pending", nil)
+
 		go func(u User, messageId int, hash string) {
-			payment, err := ln.Call("waitsendpay", hash)
-			if err != nil {
-				switch cmderr := err.(type) {
-				case lightning.ErrorCommand:
-					// an error we know it's a final error
-					if cmderr.Code == 203 || cmderr.Code == 208 || cmderr.Code == 209 {
-						log.Debug().
-							Err(err).
-							Str("hash", hash).
-							Msg("canceling failed payment because it has failed failed")
-						paymentHasFailed(u, messageId, hash)
-						return
-					}
-
-					// if it's not a final error but it's been a long time call it final
-					if res, err := ln.CallNamed("listpayments", "payment_hash", hash); err == nil &&
-						res.Get("payments.#").Int() == 1 &&
-						time.Unix(res.Get("payments.0.created_at").Int(), 0).Add(time.Hour).
-							Before(time.Now()) &&
-						res.Get("payments.0.status").String() == "failed" {
-
-						log.Debug().
-							Err(err).
-							Str("hash", hash).
-							Str("pay", res.Get("payments.0").String()).
-							Msg("canceling failed payment because it's been a long time")
-						paymentHasFailed(u, messageId, hash)
-					}
-				case lightning.ErrorTimeout:
-					// command timed out, should try again later
-					appendTextToMessage(cb, translate(t.TXPENDING, locale))
-				default:
-					// unexpected error, report
-					log.Warn().Err(err).Str("hash", hash).Str("user", u.Username).
-						Msg("unexpected error waiting payment resolution")
-					appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
-				}
+			sendpays, _ := ln.CallNamed("listsendpays", "payment_hash", hash)
+			if sendpays.Get("payments.#").Int() == 0 {
+				// payment was never tried
+				log.Debug().
+					Err(err).
+					Str("hash", hash).
+					Msg("canceling payment because it is not on listpays")
+				paymentHasFailed(u, messageId, hash)
 				return
 			}
 
-			// payment succeeded
-			paymentHasSucceeded(
-				u,
-				messageId,
-				payment.Get("msatoshi").Float(),
-				payment.Get("msatoshi_sent").Float(),
-				payment.Get("payment_preimage").String(),
-				"",
-				payment.Get("payment_hash").String(),
-			)
+			bolt11 := sendpays.Get("payments.0.bolt11").String()
+			if bolt11 == "" {
+				appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
+				return
+			}
+			pays, _ := ln.Call("listpays", bolt11)
+			payment := pays.Get("listpays.0")
+			if !payment.Exists() || payment.Get("status").String() == "failed" {
+				// payment failed
+				log.Debug().
+					Err(err).
+					Str("hash", hash).
+					Str("pay", payment.String()).
+					Msg("canceling failed payment")
+				paymentHasFailed(u, messageId, hash)
+				return
+			} else if payment.Get("status").String() == "pending" {
+				// command timed out, should try again later
+				appendTextToMessage(cb, translate(t.TXPENDING, locale))
+			} else {
+				// payment succeeded
+				paymentHasSucceeded(
+					u,
+					messageId,
+					payment.Get("msatoshi").Float(),
+					payment.Get("msatoshi_sent").Float(),
+					payment.Get("payment_preimage").String(),
+					"",
+					payment.Get("payment_hash").String(),
+				)
+			}
 		}(u, txn.TriggerMessage, txn.Hash)
-		appendTextToMessage(cb, translate(t.CHECKING, locale))
 	case strings.HasPrefix(cb.Data, "x="):
 		// callback from external app
 		answer := handleExternalAppCallback(u, messageId, cb)

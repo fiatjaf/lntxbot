@@ -7,10 +7,11 @@ var EN = map[Key]string{
 	CANCELED:   "Canceled.",
 	COMPLETED:  "Completed!",
 	CONFIRM:    "Confirm",
+	PAYAMOUNT:  `Pay {{.Sats | printf "%.15g"}}`,
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
-	ERROR:      "{{if .App}}<b>[{{.App}}]</b> {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "{{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
 	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
@@ -19,7 +20,7 @@ var EN = map[Key]string{
 	CALLBACKWINNER:  "Winner: {{.Winner}}",
 	CALLBACKERROR:   "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
 	CALLBACKEXPIRED: "{{.BotOp}} expired.",
-	CALLBACKATTEMPT: "Attempting payment.",
+	CALLBACKATTEMPT: "Attempting payment. /tx_{{.Hash}}",
 	CALLBACKSENDING: "Sending payment.",
 
 	INLINEINVOICERESULT:  "Payment request for {{.Sats}} sat.",
@@ -29,13 +30,14 @@ var EN = map[Key]string{
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
 
 	LNURLUNSUPPORTED: "That kind of lnurl is not supported here.",
+	LNURLERROR:       `<b>{{.Host}}</b> lnurl error: {{.Reason}}`,
 	LNURLAUTHSUCCESS: `
 lnurl-auth success!
 
-<b>domain</b>: <i>{{.Host}}</i>
-<b>key</b>: <i>{{.PublicKey}}</i>
+<b>Domain</b>: <i>{{.Host}}</i>
+<b>Public Key</b>: <i>{{.PublicKey}}</i>
 `,
-	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.3f"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.3f"}}</i> and <i>{{.Max | printf "%.3f"}} sat</i>{{end}} for the following:
+	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
 
 {{if .Text}}<code>{{.Text | html}}</code>{{end}}
 
@@ -47,35 +49,41 @@ lnurl-auth success!
 {{end}}<pre>{{.Text}}</pre>
 {{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
-	LNURLPAYMETADATA: `lnurl-pay metadata:
+	LNURLPAYMETADATA: `#lnurlpay metadata :
 <b>domain</b>: <i>{{.Domain}}</i>
-<b>lnurl</b>: <i>{{.LNURL}}</i>
-<b>transaction</b>: <i>{{.Hash}}</i> /tx{{.HashFirstChars}}
+<b>lnurl</b>: <i>{{.LNURL | lower}}</i>
+<b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
 
+	TICKETMSG:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
-	PAYMENTFAILED: "Payment failed. /log{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{printf "%.3f" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
+	RENAMABLEMSG:      "Anyone can rename this group as long as they pay {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
+	RENAMEPROMPT:      "Pay <b>{{.Sats}} sat</b> to rename this group to <i>{{.Name}}</i>?",
+	GROUPNOTRENAMABLE: "This group is not renamable!",
+
+	PAYMENTFAILED: "Payment failed. /log_{{.ShortHash}}",
+	PAIDMESSAGE: `Paid with <b>{{printf "%.15g" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
 
 <b>Hash:</b> {{.Hash}}{{if .Preimage}}
 <b>Proof:</b> {{.Preimage}}{{end}}
 
-/tx{{.ShortHash}}`,
+/tx_{{.ShortHash}} #tx`,
 	OVERQUOTA:           "You're over your {{.App}} daily quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
-	INSUFFICIENTBALANCE: "Insufficient balance for {{.Purpose}}. Needs {{.Sats}}.0f sat more.",
+	INSUFFICIENTBALANCE: `Insufficient balance for {{.Purpose}}. Needs {{.Sats | printf "%.15g"}} sat more.`,
 
-	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx{{.Hash}}.",
+	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}} #tx",
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG: "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
-	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:            "This group is now free to join.",
+
+	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -97,16 +105,19 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your @{{ .BotName }} balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 
 <code>/receive_320_for_something</code> generates an invoice for 320 sat with the description "for something"
-<code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, you might lose money, only use if you know what you're doing).
+
+<code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, only use if you know what you're doing).
     `,
 
 	PAYHELP: `Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).
 
 Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> decodes and prompts to pay the given invoice.  
+
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> pays the given invoice invoice without asking for confirmation.
-/withdraw_lnurl_3000 generates an lnurl and QR code for withdrawing 3000 satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
-/withdraw_lnurl generates an lnurl and QR code for withdrawing any amount, but will ask for confirmation in the @{{ .BotName }} chat.
-<code>/pay</code>, when sent as a reply to another message containing an invoice (for example, in a group), asks privately if you want to pay it.
+
+/withdraw_lnurl_3000 generates an <b>lnurl and QR code for withdrawing 3000</b> satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
+
+<code>/pay</code>, when sent <b>as a reply to an invoice</b> (for example, in a group), asks privately if you want to pay it.
     `,
 
 	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with @{{ .BotName }}. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.
@@ -169,12 +180,15 @@ Have contributed: {{.Registered}}
 	FUNDRAISERECEIVERMSG: "You've received {{.TotalSats}} sat of a fundraise from {{.Senders}}s",
 	FUNDRAISEGIVERMSG:    "You've given {{.IndividualSats}} in a fundraise to {{.Receiver}}.",
 
+	LIGHTNINGATMHELP: `Returns the credentials in the format expected by @Z1isenough's <a href="https://docs.lightningatm.me">LightningATM</a>.
+
+For specific documentation on how to setup it with @{{.BotName}} visit <a href="https://docs.lightningatm.me/lightningatm-setup/wallet-setup/lntxbot">the lntxbot setup tutorial</a> (there's also <a href="https://docs.lightningatm.me/faq-and-common-problems/wallet-communication#talking-to-an-api-in-practice">a more detailed and technical background</a>).
+  `,
 	BLUEWALLETHELP: `Returns your credentials for importing your bot wallet on BlueWallet. You can use the same account from both places interchangeably.
 
 /bluewallet prints a string like "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" which must be copied and pasted on BlueWallet's import screen.
 /bluewallet_refresh erases your previous password and prints a new string. You'll have to reimport the credentials on BlueWallet after this step. Only do it if your previous credentials were compromised.
     `,
-	BLUEWALLETCREDENTIALS:  "<code>{{.Credentials}}</code>",
 	APIPASSWORDUPDATEERROR: "Error updating password. Please report: {{.Err}}",
 	APICREDENTIALS: `
 These are tokens for <i>Basic Auth</i>. The API is compatible with lndhub.io with some extra methods.
@@ -210,43 +224,93 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 
 <code>/reveal 5c0b2rh4x</code> creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}} in-place{{else }} privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
 	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.",
-	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You've got {{.Sats}} sat.",
+	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You got {{.Sats}} sat.",
 	HIDDENREVEALMSG:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
 	HIDDENMSGNOTFOUND:    "Hidden message not found.",
 	HIDDENSHAREBTN:       "Share in another chat",
 
-	BITFLASHCONFIRM:      `<b>[bitflash]</b> Do you confirm you want to queue a Bitflash transaction that will send <b>{{.BTCAmount}} BTC</b> to <code>{{.Address}}</code>? You will pay <b>{{printf "%.0f" .Sats}}</b>.`,
-	BITFLASHTXQUEUED:     "Transaction queued!",
-	BITFLASHFAILEDTOSAVE: "Failed to save Bitflash order. Please report: {{.Err}}",
-	BITFLASHLIST: `
-<b>[bitflash]</b> Your past orders
-{{range .Orders}}🧱 <code>{{.Amount}}</code> to <code>{{.Address}}</code> <i>{{.Status}}</i>
-{{else}}
-<i>~ no orders were ever made. ~</i>
+	ETLENEUMHELP: `
+<a href="https://etleneum.com/">Etleneum</a> is a smart contract platform that operates with satoshis as its main currency. Anyone can write and publish stateful contracts written in Lua. They can take calls with satoshis from registered and anonymous users, read and modify internal state, read and call other contracts and read data from the outside world with HTTP and payout satoshis to people.
+
+/etl shows your Etleneum balance and account id. The id should be the same as if you <a href="https://etleneum.com/#/account">logged in directly with lnurl-auth</a>.
+/etl_withdraw withdraws your balance from Etleneum to @{{.BotName}}.
+/etl_contracts lists all Etleneum contracts with their aliases.
+/etl_stupidlottery_bet_321 will call <code>bet</code> on contract <code>cew5i79gyj</code> paying <code>321</code> satoshis.
+/etl_stupidlottery will show metadata for the contract <code>cew5i79gyj</code>.
+/etl_pyramid_state will show the full state for contract <code>ccg0i764ou</code>.
+<code>/etl alias set 0 id=&lt;contract_id&gt; alias=&lt;alias&gt;</code> sets an alias to a contract for referencing later (this is a normal Etleneum call to the contract <code>c7c491sw04</code>).
+<code>/etl &lt;contract&gt; subscribe</code> Notifies you of calls made to this contract in the future.
+<code>/etl &lt;contract&gt; unsubscribe</code> Unsubscribes.
+    `,
+	ETLENEUMACCOUNT: `#etleneum
+<b>Account id</b>: {{.Account}}
+<b>Balance</b>: <i>{{printf "%.15g" .Balance}} sat</i>
+<b>All available contracts</b>: /etl_apps
+
+    `,
+	ETLENEUMCONTRACT: `{{with .Contract}}
+Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
+
+<b>Description</b>
+<i>{{escapehtml .Readme}}
+
+(...)</i>
+
+<b>Methods:</b>
+{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>{{end}}
+
+<b>State:</b> /etl_{{.Id}}_state
 {{end}}
     `,
-	BITFLASHHELP: `
-<a href="https://bitflash.club/">Bitflash</a> is a service that does cheap onchain transactions from Lightning payments. It does it cheaply because it aggregates many Lightning transactions and then dispatches them to the chain after a certain threshold is reached.
-
-/bitflash_100000_3NRnMC5gVug7Mb4R3QHtKUcp27MAKAPbbJ buys an onchain transaction to the given address using bitflash.club's shared fee feature. Will ask for confirmation.
-/bitflash_orders lists your previous transactions.
+	ETLENEUMCONTRACTSTATE: `#etleneum Contract <code>{{.Id}}</code> state:
+<pre>
+{{escapehtml .State}}
+</pre>
+    `,
+	ETLENEUMCALL: `{{with .Call}}#etleneum Call <code>{{.Id}}</code>:
+<b>Contract</b>: /etl_{{.Contract}}
+<b>Method</b>: <code>{{.Method}}</code>
+<b>Payload</b>: <pre>{{.Payload | json}}</pre>{{with .Caller}}
+<b>Caller</b>: {{.}}{{end}}
+<b>Amount</b>: <i>{{msatToSat .Msatoshi | printf "%.15g"}} sat</i>
+<b>Cost</b>: <i>{{msatToSat .Cost | printf "%.15g"}} sat</i>
+{{if .Ran}}
+<i>[executed on {{.Time | time}}]</i>
+<b>State diff</b>: <pre>{{.Diff}}</pre>
+<b>Transfers</b>: {{range .Transfers}}
+  - {{msatToSat .Msatoshi | printf "%.15g"}} {{if eq .Direction "out"}}to{{else}}from{{end}} {{.Counterparty}}{{end}}
+{{else}}
+<i>[call not executed]</i>
+{{end}}
+{{end}}
+    `,
+	ETLENEUMCONTRACTS: `
+{{$aliases := .Aliases}}
+#etleneum Contracts:
+{{range .Contracts}}
+{{with index $aliases .Id}}/etl_{{.}} or {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>){{end}}
+    `,
+	ETLENEUMSUBSCRIBED: `#etleneum You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
+	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
+<code>[{{.Data.kind}} error]</code>{{else if eq .Event "call-run-event"}}
+<code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
+<code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
     `,
 
-	MICROBETBETHEADER:           "<b>[Microbet]</b> Bet on one of these predictions:",
-	MICROBETPAIDBUTNOTCONFIRMED: "<b>[Microbet]</b> Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "<b>[Microbet]</b> Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
-	MICROBETPLACED:              "<b>[Microbet]</b> Bet placed!",
+	MICROBETBETHEADER:           "#microbet Bet on one of these predictions:",
+	MICROBETPAIDBUTNOTCONFIRMED: "#microbet Paid, but bet not confirmed. Huge Microbet bug?",
+	MICROBETPLACING:             "#microbet Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
+	MICROBETPLACED:              "#microbet Bet placed!",
 	MICROBETLIST: `
-<b>[Microbet]</b> Your bets
+#microbet Your bets
 {{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}canceled{{else if .Closed}}{{if .WonAmount}}won {{.AmountWon}}{{else}}lost {{.AmountLost}}{{end}}{{else}}open{{end}}</i>
 {{else}}
 <i>~ no bets were ever made. ~</i>
 {{end}}
     `,
-	MICROBETBALANCE: "<b>[Microbet]</b> balance: <i>{{.Balance}} sat</i>",
 	MICROBETHELP: `
 <a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
 
@@ -256,12 +320,12 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 /microbet_withdraw withdraws all your balance.
     `,
 
-	BITREFILLINVENTORYHEADER: `<b>[Bitrefill]</b> Choose your provider:`,
-	BITREFILLPACKAGESHEADER:  `<b>[Bitrefill]</b> Choose your <i>{{.Item}}</i> card{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
-	BITREFILLNOPROVIDERS:     `<b>[Bitrefill]</b> No providers found.`,
-	BITREFILLCONFIRMATION:    `<b>[Bitrefill]</b> Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
-	BITREFILLFAILEDSAVE:      "<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
-	BITREFILLPURCHASEDONE: `<b>[Bitrefill]</b> Your order <code>{{.OrderId}}</code> was purchased successfully.
+	BITREFILLINVENTORYHEADER: `#bitrefill Choose your provider:`,
+	BITREFILLPACKAGESHEADER:  `#bitrefill Choose your <i>{{.Item}}</i> card{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
+	BITREFILLNOPROVIDERS:     `#bitrefill No providers found.`,
+	BITREFILLCONFIRMATION:    `#bitrefill Really buy a <i>{{.Package.Value}} {{.Item.Currency}}</i> card at <b>{{.Item.Name}}</b> for <i>{{.Sats}} sat</i> ({{dollar .Sats}})?`,
+	BITREFILLFAILEDSAVE:      "#bitrefill Your order <code>{{.OrderId}}</code> was paid for, but not saved. Please report: {{.Err}}",
+	BITREFILLPURCHASEDONE: `#bitrefill Your order <code>{{.OrderId}}</code> was purchased successfully.
 {{if .Info.LinkInfo}}
 Link: <a href="{{.Info.LinkInfo.Link}}">{{.Info.LinkInfo.Link}}</a>
 Instructions: <i>{{.Info.LinkInfo.Other}}</i>
@@ -271,9 +335,9 @@ Instructions: <i>{{.Info.PinInfo.Instructions}}</i>
 <i>{{.Info.PinInfo.Other}}</i>
 {{end}}
     `,
-	BITREFILLPURCHASEFAILED: "<b>[Bitrefill]</b> Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
-	BITREFILLCOUNTRYSET:     "<b>[Bitrefill]</b> Country set to {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
-	BITREFILLINVALIDCOUNTRY: "<b>[Bitrefill]</b> Invalid country <code>{{.CountryCode}}</code>. The countries available are{{range .Available}} <code>{{.}}</code>{{end}}.",
+	BITREFILLPURCHASEFAILED: "#bitrefill Your order was paid for, but Bitrefill encountered an error when trying to fulfill it: <i>{{.ErrorMessage}}</i>. Please report this so we can ask Bitrefill what to do.",
+	BITREFILLCOUNTRYSET:     "#bitrefill Country set to {{if .CountryCode}}<code>{{.CountryCode}}</code>{{else}}none{{end}}.",
+	BITREFILLINVALIDCOUNTRY: "#bitrefill Invalid country <code>{{.CountryCode}}</code>. The countries available are{{range .Available}} <code>{{.}}</code>{{end}}.",
 	BITREFILLHELP: `
 <a href="https://www.bitrefill.com/">Bitrefill</a> is the biggest Lightning-enabled gift-card and phone refill store in the world. If you want to buy real-world stuff with Lightning, this should be your first stop.
 
@@ -287,24 +351,12 @@ To buy a gift card, use the /bitrefill command followed by the name of the place
 You may not find all the providers available in the <a href="https://www.bitrefill.com/">official Bitrefill website</a> through the bot and maybe other things are different here. But the prices are the same.
     `,
 
-	SATELLITEFAILEDTOSTORE:     "<b>[satellite]</b> Failed to store satellite order data. Please report: {{.Err}}",
-	SATELLITEFAILEDTOGET:       "<b>[satellite]</b> Failed to get stored satellite data: {{.Err}}",
-	SATELLITEPAID:              "<b>[satellite]</b> Transmission <code>{{.UUID}}</code> queued!",
-	SATELLITEFAILEDTOPAY:       "<b>[satellite]</b> Failed to pay for transmission.",
-	SATELLITETRANSMISSIONERROR: "<b>[satellite]</b> Error making transmission: {{.Err}}",
-	SATELLITELIST: `
-<b>[Satellite]</b> Your transmissions
-{{range .Orders}}📡 <code>{{.UUID}}</code> <i>{{.Status}}</i> <code>{{.MessageSize}}b</code> <code>{{printf "%.62" .BidPerByte}} msat/b</code> <i>{{.Time}}</i>
-{{else}}
-<i>No transmissions made yet.</i>
-{{end}}
-    `,
 	SATELLITEHELP: `
 The <a href="https://blockstream.com/satellite/">Blockstream Satellite</a> is a service that broadcasts Bitcoin blocks and other transmissions to the entire planet. You can transmit any message you want and pay with some satoshis.
 
 <code>/satellite 13 'hello from the satellite! vote trump!'</code> queues that transmission to the satellite with a bid of 13 satoshis.
-/satellite_transmissions lists your transmissions.
     `,
+	SATELLITEPAID: "#satellite Transmission <code>{{.UUID}}</code> queued!",
 
 	FUNDBTCFINISH: "Finish your order by sending <code>{{.Order.Price}} BTC</code> to <code>{{.Order.Address}}</code>.",
 	FUNDBTCHELP: `
@@ -322,8 +374,8 @@ Provided by <a href="https://golightning.club/">golightning.club</a>, this is th
 
 Also @{{.BotName}} will remind you to topup your hosts when they're running low on hour balance.
     `,
-	BITCLOUDSCREATEHEADER: "<b>[bitclouds]</b> Choose your image:",
-	BITCLOUDSCREATED: `<b>[bitclouds]</b> Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
+	BITCLOUDSCREATEHEADER: "#bitclouds Choose your image:",
+	BITCLOUDSCREATED: `#bitclouds Your <i>{{.Image}}</i> host <code>{{.Host}}</code> is ready!
 {{with .Status}}
   {{if .SSHPwd}}<b>ssh access:</b>
   <pre>ssh-copy-id -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}
@@ -337,10 +389,10 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   Hours left in balance: <b>{{.HoursLeft}}</b>
 {{end}}
     `,
-	BITCLOUDSSTOPPEDWAITING: "<b>[bitclouds]</b> Timed out while waiting for your bitclouds.sh host <code>{{.Host}}</code> to be ready, call /bitclouds_status_{{.EscapedHost}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
-	BITCLOUDSNOHOSTS:        "<b>[bitclouds]</b> No hosts found in your account. Maybe you want to /bitclouds_create one?",
-	BITCLOUDSHOSTSHEADER:    "<b>[bitclouds]</b> Choose your host:",
-	BITCLOUDSSTATUS: `<b>[bitclouds]</b> Host <code>{{.Host}}</code>:
+	BITCLOUDSSTOPPEDWAITING: "#bitclouds Timed out while waiting for your bitclouds.sh host <code>{{.Host}}</code> to be ready, call /bitclouds_status_{{.EscapedHost}} in a couple of minutes -- if it still doesn't work please report this issue along with the payment proof.",
+	BITCLOUDSNOHOSTS:        "#bitclouds No hosts found in your account. Maybe you want to /bitclouds_create one?",
+	BITCLOUDSHOSTSHEADER:    "#bitclouds Choose your host:",
+	BITCLOUDSSTATUS: `#bitclouds Host <code>{{.Host}}</code>:
 {{with .Status}}
   Status: <i>Subscribed</i>
   Balance: <i>{{.HoursLeft}} hours left</i>
@@ -352,42 +404,40 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
   {{end}}
 {{end}}
     `,
-	BITCLOUDSREMINDER: `<b>[bitclouds]</b> {{if .Alarm}}⚠{{else}}⏰{{end}} Bitclouds host <code>{{.Host}}</code> is going to expire in {{if .Alarm}}<b>{{.TimeToExpire}}</b> and <i>everything is going to be deleted</i>!{{else}}{{.TimeToExpire}}.{{end}}
+	BITCLOUDSREMINDER: `#bitclouds {{if .Alarm}}⚠{{else}}⏰{{end}} Bitclouds host <code>{{.Host}}</code> is going to expire in {{if .Alarm}}<b>{{.TimeToExpire}}</b> and <i>everything is going to be deleted</i>!{{else}}{{.TimeToExpire}}.{{end}}
 
 {{if .Alarm}}⚠⚠⚠⚠⚠
 
 {{end}}Use /bitclouds_topup_{{.Sats}}_{{.EscapedHost}} to give it one week more!
     `,
 
-	QIWIHELP: `
-Transfer your satoshis to your <a href="https://qiwi.com/">Qiwi</a> account instantly. Powered by @lntorubbot.
+	SKYPEHELP: `
+Powered by @lntorubbot and https://vds.sw4me.com/rulnurl/.
 
-<code>/qiwi 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
-<code>/qiwi default 999999999</code> sets 999999999 as your default account.
-<code>/qiwi 10000 sat</code> sends 10000 sat as rubles to your default account.
-/qiwi_default shows your default account.
-/qiwi_list shows your past transactions.
-    `,
-	YANDEXHELP: `
-Transfer your satoshis to your <a href="https://money.yandex.ru/">Yandex.Money</a> account instantly. Powered by @lntorubbot.
+Fund your Skype account.
 
-<code>/yandex 50 rub to 777777777</code> sends the equivalent of 50 rubles to 77777777.
-<code>/yandex default 999999999</code> sets 999999999 as your default account.
-<code>/yandex 10000 sat</code> sends 10000 sat as rubles to your default account.
-/yandex_default shows your default account.
-/yandex_list shows your past transactions.
+<code>/skype abcxyz</code> prompts you to choose an amount in satoshis to top-up the Skype account with username abcxyz.
+<code>/skype abcxyz 20</code> converts 20 USD to satoshis and prompts you to confirm the payment that will top-up your Skype account with username abcxyz.
     `,
-	LNTORUBCONFIRMATION:  "Sending <i>{{.Sat}} sat ({{.Rub}} rubles)</i> to <b>{{.Type}}</b> account <code>{{.Target}}</code>. Is that ok?",
-	LNTORUBFULFILLED:     "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> finished.",
-	LNTORUBCANCELED:      "<b>[{{.Type}}]</b> Transfer <code>{{.OrderId}}</code> canceled.",
-	LNTORUBFIATERROR:     "<b>[{{.Type}}]</b> Error sending out the rubles. Please report this issue with the order id <code>{{.OrderId}}</code>.",
-	LNTORUBMISSINGTARGET: "<b>[{{.Type}}]</b> You didn't specify a destination and there isn't a default destination specified!",
-	LNTORUBDEFAULTTARGET: `<b>[{{.Type}}]</b> Default target: {{.Target}}`,
-	LNTORUBORDERLIST: `<b>[{{.Type}}]</b>
-{{range .Orders}}<i>{{.Sat}} sat ({{.Rub}} rub)</i> to <code>{{.Target}}</code> at <i>{{.Time}}</i>
-{{else}}
-<i>~ no sats were ever exchanged. ~</i>
-{{end}}
+
+	RUBHELP: `
+Powered by @lntorubbot and https://vds.sw4me.com/rulnurl/.
+
+Fund your account in one of the following Russian services:
+
+ - <code>qiwi</code> (Qiwi Wallet, by phone number)
+ - <code>yandex</code> (Yandex.Money, by wallet or phone number)
+ - <code>mobile</code> (RU Mobile)
+ - <code>strelka</code> (Strelka card, by card number)
+ - <code>troika</code> (Troika card, by card number)
+ - <code>flex</code> (Flex.ru, by personal account number, not login)
+ - <code>sipnet</code> (SipNET.ru, by SIP ID)
+ - <code>spaceweb</code> (SpaceWeb.ru, by login).
+
+The amount in RUB is optional, you can leave it blank and you'll be asked for the amount in satoshis. 
+
+<code>/rub qiwi 12345678</code> prompts you to choose an amount in satoshis to top-up the Qiwi wallet with number 12345678.
+<code>/rub yandex 12345678 100</code> converts 100 RUB to satoshis and prompts you to confirm the payment that will top-up your Yandex.Money account with number 12345678.
     `,
 
 	GIFTSHELP: `
@@ -398,81 +448,18 @@ By generating your gifts on @{{ .BotName }} you can keep track of the ones that 
 /gifts lists the gifts you've created.
 /gifts_1000 creates a gift voucher of 1000 satoshis.
     `,
-	GIFTSCREATED:    "<b>[gifts]</b> Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
-	GIFTSFAILEDSAVE: "<b>[gifts]</b> Failed to save your gift. Please report: {{.Err}}",
-	GIFTSLIST: `<b>[gifts]</b>
+	GIFTSCREATED:    "#gifts Gift created. To redeem visit <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
+	GIFTSFAILEDSAVE: "#gifts Failed to save your gift. Please report: {{.Err}}",
+	GIFTSLIST: `#gifts
 {{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}sat</a> {{if .Spent}}redeemed on <i>{{.WithdrawDate}}</i> by {{.RedeemerURL}}{{else}}not redeemed yet{{end}}
 {{else}}
 <i>~ no gifts were ever given. ~</i>
 {{end}}
     `,
-	GIFTSSPENTEVENT: `<b>[gifts]</b> Gift redeemed!
+	GIFTSSPENTEVENT: `#gifts Gift redeemed!
 
 Your {{.Amount}} sat gift <code>{{.Id}}</code> was redeemed{{if .Description}} from an invoice described as
 <i>{{.Description}}</i>{{end}}.
-    `,
-
-	PAYWALLHELP: `
-<a href="https://paywall.link/">paywall.link</a> is a Paywall Generator. It allows you to sell digital goods (files, articles, music, videos, any form of content that can be published on the open web) by simply wrapping their URLs in a paywall.
-
-By generating your paywalls on @{{ .BotName }} you can keep track of them all without leaving Telegram and get information on how much of each you've sold.
-
-/paywall will list all your paywalls.
-<code>/paywall https://mysite.com/secret-content 230 'access my secret content'</code> will create a paywall for a secret content with a price of 230 satoshis.
-/paywall_balance will show your paywall.link balance and ask you if you want to withdraw it.
-/paywall_withdraw will just withdraw all your paywall.link balance to your @{{ .BotName }} balance.
-    `,
-	PAYWALLBALANCE: "<b>[paywall]</b> Balance: <i>{{.Balance}} sat</i>",
-	PAYWALLCREATED: `<b>[paywall]</b> Paywall created: {{.Link.LndValue}} sat for <a href="{{.Link.DestinationURL}}">{{.Link.DestinationURL}}</a>: <code>https://paywall.link/to/{{.Link.ShortURL}}</code>: <i>{{.Link.Memo}}</i>`,
-	PAYWALLLISTLINKS: `<b>[paywall]</b>
-{{range .Links}}- <code>{{.LndValue}} sat</code> <a href="https://paywall.link/to/{{.ShortURL}}">{{.DestinationURL}}</a>: <i>{{.Memo}}</i>
-{{else}}
-<i>~ no paywalls were ever built. ~</i>
-{{end}}
-    `,
-	PAYWALLPAIDEVENT: `<b>[paywall]</b> New click!
-Someone just paid {{.Sats}} sat at your paywall <a href="{{.Link}}">{{.Memo}}</a> for <i>{{.Destination}}</i>.
-    `,
-
-	POKERDEPOSITFAIL:  "<b>[Poker]</b> Failed to deposit: {{.Err}}",
-	POKERWITHDRAWFAIL: "<b>[Poker]</b> Failed to withdraw: {{.Err}}",
-	POKERSECRETURL:    `<a href="{{.URL}}">Your personal secret Poker URL is here, never share it with anyone.</a>`,
-	POKERBALANCE:      "<b>[Poker]</b> Balance: {{.Balance}}",
-	POKERSTATUS: `
-<b>[Poker]</b>
-Players online: {{.Players}}
-Active Tables: {{.Tables}}
-Satoshis in play: {{.Chips}}
-
-/poker_play to play here!
-/poker_url to play in a browser window!
-    `,
-	POKERNOTIFY: `
-<b>[Poker]</b> There are {{.Playing}} people playing {{if ne .Waiting 0}}and {{.Waiting}} waiting to play {{end}}poker right now{{if ne .Sats 0}} with a total of {{.Sats}} in play{{end}}!
-
-/poker_status to double-check!
-/poker_play to play here!
-/poker_url to play in a browser window!
-    `,
-	POKERNOTIFYFRIEND: `
-<b>[Poker]</b> {{.FriendName}} has sitted in a poker table!
-
-/poker_status to double-check!
-/poker_play to play here!
-/poker_url to play in a browser window!
-    `,
-	POKERSUBSCRIBED: "You are available to play poker for the next {{.Minutes}} minutes.",
-	POKERHELP: `<a href="https://lightning-poker.com/">Lightning Poker</a> is the first and simplest multiplayer live No-Limit Texas Hold'em Poker game played directly with satoshis. Just join a table and start staking sats.
-
-By playing from an account tied to your @{{ .BotName }} balance you can just sit on a table and your poker balance will be automatically refilled from your @{{ .BotName }} account, with minimal friction.
-
-/poker_deposit_10000 puts 10000 satoshis in your poker bag.
-/poker_balance shows how much you have there.
-/poker_withdraw brings all the money back to the bot balance.
-/poker_status tells you how active are the poker tables right now.
-/poker_url displays your <b>secret</b> game URL which you can open from any browser and gives access to your bot balance.
-/poker_play displays the game widget.
-/poker_watch_120 will put you in a subscribed state on the game for 2 hours and notify other subscribed people you are waiting to play. You'll be notified whenever there were people playing. If you join a game you'll be unsubscribed.
     `,
 
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
@@ -497,48 +484,58 @@ To broadcast an ad you must send a message to the bot that will be your ad conte
 /sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
 /sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
     `,
-	SATS4ADSTOGGLE:    `<b>[sats4ads]</b> {{if .On}}Seeing ads and receiving {{printf "%.3f" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
-	SATS4ADSBROADCAST: `<b>[sats4ads]</b> {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
-	SATS4ADSPRICETABLE: `<b>[sats4ads]</b> Quantity of users <b>up to</b> each pricing tier.
+	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Seeing ads and receiving {{printf "%.15g" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
+	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Message broadcasted {{.NSent}} time{{s .NSent}} for a total cost of {{.Sats}} sat ({{dollar .Sats}}).{{else}}Couldn't find a peer to notify with the given parameters. /sats4ads_rates{{end}}`,
+	SATS4ADSPRICETABLE: `#sats4ads Quantity of users <b>up to</b> each pricing tier.
 {{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>No one is registered to see ads yet.</i>
 {{end}}
 Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for each user.
     `,
-	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.3f" .Sats}} sat]`,
+	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.15g" .Sats}} sat]`,
+	SATS4ADSVIEWED:   `Claim`,
 
 	HELPHELP: "Shows full help or help about specific command.",
 
 	STOPHELP: "The bot stops showing you notifications.",
 
-	CONFIRMINVOICE: `
-{{.Sats}} sat ({{dollar .Sats}})
-<i>{{.Desc}}</i>
-<b>Hash</b>: {{.Hash}}
-<b>Node</b>: {{.Node}} ({{.Alias}})
+	PAYPROMPT: `
+{{if .Sats}}{{.Sats}} sat ({{dollar .Sats}})
+{{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
+<b>Hash</b>: {{.Hash}}{{if ne .Currency "bc"}}
+<b>Chain</b>: {{.Currency}}{{end}}
+<b>Node</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}})
+<b>Created at</b>: {{.Created}}
+<b>Expires at</b>: {{.Expiry}}{{if .Expired}} <b>[EXPIRED]</b>{{end}}
+{{if .Hints}}<b>Hints</b>: {{range .Hints}}
+- {{range .}}{{.PubKey | nodeLink}} {{end}}
+{{end}}{{end}}
 
-Pay the invoice described above?
+{{if .Sats}}Pay the invoice described above?
+{{else}}<b>Reply with the desired amount to confirm.</b>
+{{end}}
     `,
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
-	NOINVOICE:    "Invoice not provided.",
 	BALANCEMSG: `
-<b>Full Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Sats}})
-<b>Usable Balance</b>: {{printf "%.3f" .Sats}} sat ({{dollar .Usable}})
-<b>Total received</b>: {{printf "%.3f" .Received}} sat
-<b>Total sent</b>: {{printf "%.3f" .Sent}} sat
-<b>Total fees paid</b>: {{printf "%.3f" .Fees}} sat
+<b>Full Balance</b>: {{printf "%.15g" .Sats}} sat ({{dollar .Sats}})
+<b>Usable Balance</b>: {{printf "%.15g" .Usable}} sat ({{dollar .Usable}})
+<b>Total received</b>: {{printf "%.15g" .Received}} sat
+<b>Total sent</b>: {{printf "%.15g" .Sent}} sat
+<b>Total fees paid</b>: {{printf "%.15g" .Fees}} sat
 
+#balance
 /balance_apps
 /transactions
     `,
 	TAGGEDBALANCEMSG: `
 <b>Total of</b> <code>received - spent</code> <b>on internal and third-party</b> /apps<b>:</b>
 
-{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.0f" .Balance}} sat</i>  ({{dollar .Balance}})
+{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.15g" .Balance}} sat</i>  ({{dollar .Balance}})
 {{else}}
 <i>No tagged transactions made yet.</i>
 {{end}}
+#balance
     `,
 	FAILEDUSER: "Failed to parse receiver name.",
 	LOTTERYMSG: `
@@ -550,7 +547,7 @@ Registered: {{.Registered}}
     `,
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
 	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
-	USERSENTTOUSER:     "{{.Sats}} sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}",
+	USERSENTTOUSER:     "{{.Sats}} ({{dollar .Sats}}) sat sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
 	USERSENTYOUSATS:    "{{.User}} has sent you {{.Sats}} sat ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
 	RECEIVEDSATSANON:   "Someone has sent you {{.Sats}} sat ({{dollar .Sats}}).",
 	FAILEDSEND:         "Failed to send: ",
@@ -561,7 +558,6 @@ Registered: {{.Registered}}
 	CANTJOINTWICE:      "Can't join twice!",
 	CANTCANCEL:         "You don't have the powers to cancel this.",
 	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
-	ZEROAMOUNTINVOICE:  "Invoices with undefined amounts are not supported because they are not safe.",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
 	WELCOME: `
@@ -575,17 +571,17 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	RETRACTQUESTION: "Retract unclaimed tip?",
 	RECHECKPENDING:  "Recheck pending payment?",
 	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Amount</b>: {{.Txn.Amount}} sat ({{dollar .Txn.Amount}})
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{.Txn.FeeSatoshis}}{{end}}
+<b>Amount</b>: {{.Txn.Amount | printf "%.15g"}} sat ({{dollar .Txn.Amount}})
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{printf "%.15g" .Txn.Fees}}{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}
@@ -594,9 +590,9 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	TUTORIALWALLET: `
 @{{.BotName}} is a Lightning wallet that works from your Telegram account.
 
-You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions.
+You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions. Also, it charges <b>zero fees</b>!
 
-It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
+It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, is capable of paying to <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-pay">addresses</a>, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
 
 With @{{ .BotName }} you're well equipped for doing online stuff on the Lightning Network.
     `,
@@ -612,20 +608,23 @@ Thanks to some background magic we have in place you can seamlessly interact wit
 
 These are the services we currently support:
 
+🖥️  /etleneum -- make arbitrary calls, browse state and calls and subscribe to events on https://etleneum.com/. /help_etleneum
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
 ☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
 ⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
-♠️ /poker -- play lightning-poker.com by automatically paying table buy-ins and keeping a unified balance. /help_poker
-🧱 /paywall -- create paywalls on paywall.link, get notified whenever someone pays, withdraw easily. /help_paywall
 🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
 📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
 🎁 /giveaway  and /giveflip -- generate a message that gives money from your to the first person to click or to the lottery winner. /help_giveaway /help_giveflip
 📢 /fundraise -- many people contribute to a single person, for good causes. /help_fundraise
 📲 /bitrefill -- buy gift cards and refill phones. /help_bitrefill
-💸 /yandex and /qiwi -- send satoshis to an yandex.money or qiwi.com account as rubles with the best exchange rate.  /help_yandex /help_qiwi 
+📞 /skype -- top-up an Skype account, provided by @lntorubbot. /help_skype
+💸 /rub -- fund your account on Qiwi, Yandex.Money, Troika, Strelka and many other Russian services with great exchange rate, provided by @lntorubbot. /help_rub  
 ⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
 
 Read more in the /help page for each app.
+    `,
+	TUTORIALTWITTER: `
+@{{.BotName}} won't spam you anymore unless you get payments or request anything. So if you want to get notified of new features, follow us on follow us on <a href="https://twitter.com/{{.BotName}}">https://twitter.com/{{.BotName}}</a>!
     `,
 }

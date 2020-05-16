@@ -3,18 +3,12 @@ package main
 import (
 	"strings"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 func handle(upd tgbotapi.Update) {
 	if upd.Message != nil {
-		// is temporarily s.Banned?
-		if _, ok := s.Banned[upd.Message.From.ID]; ok {
-			log.Debug().Int("tgid", upd.Message.From.ID).Msg("got request from banned user")
-			return
-		}
-
 		// people joining
 		if upd.Message.NewChatMembers != nil {
 			for _, newmember := range *upd.Message.NewChatMembers {
@@ -44,34 +38,39 @@ func handle(upd tgbotapi.Update) {
 	}
 }
 
-func handleInvoicePaid(payindex, msats int64, desc, hash, label string) {
-	if payindex > 0 {
-		rds.Set("lastinvoiceindex", payindex, 0)
-	}
-
-	// extract user id and preimage from label
-	messageId, userId, preimage, tag, ok := parseLabel(label)
+func handleInvoicePaid(payindex, msats int64, desc, hash, preimage, label string) {
 	var receiver User
+	var messageId int
+	var tag string
 
-	if ok {
-		// normal invoice
-		u, err := loadUser(userId, 0)
+	// could be a ticket invoice
+	if strings.HasPrefix(label, "newmember:") {
+		receiver, err = chatOwnerFromTicketLabel(label)
 		if err != nil {
-			log.Warn().Err(err).
-				Int("userid", userId).Str("label", label).
-				Msg("failed to parse label for received payment or loading user")
 			return
 		}
-		receiver = u
+		messageId = 0
 	} else {
-		// could be a ticket invoice
-		if strings.HasPrefix(label, "newmember:") {
-			receiver, err = chatOwnerFromTicketLabel(label)
+		// extract user id from label
+		var ok bool
+		var userId int
+		messageId, userId, tag, ok = parseLabel(label)
+
+		if ok {
+			// normal invoice
+			u, err := loadUser(userId, 0)
 			if err != nil {
+				log.Warn().Err(err).
+					Int("userid", userId).Str("label", label).
+					Msg("failed to parse label for received payment or loading user")
 				return
 			}
-			messageId = 0
-			preimage = ""
+
+			u.track("got payment", map[string]interface{}{
+				"sats": float64(msats) / 1000,
+			})
+
+			receiver = u
 		} else {
 			// otherwise we don't know what is this
 			log.Debug().Str("label", label).Int64("msat", msats).Msg("unrecognized payment received.")

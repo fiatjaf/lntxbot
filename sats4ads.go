@@ -3,10 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
+
+const SATS4ADSUNACTIVITYDATEFORMAT = "20060102"
 
 type Sats4AdsData struct {
 	On     bool `json:"on"`
@@ -44,6 +47,22 @@ func turnSats4AdsOff(user User) error {
 
 	data.On = false
 	return user.setAppData("sats4ads", data)
+}
+
+func getSats4AdsRates() (rates []Sats4AdsRateGroup, err error) {
+	err = pg.Select(&rates, `
+WITH enabled_listeners AS (
+  SELECT (appdata->'sats4ads'->>'rate')::integer AS rate
+  FROM telegram.account
+  WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
+), rategroups AS (
+  SELECT generate_series ^ 3 AS uptorate FROM generate_series(1, 10)
+)
+
+SELECT uptorate, (SELECT count(*) FROM enabled_listeners WHERE rate <= uptorate) AS nusers
+FROM rategroups
+    `)
+	return
 }
 
 func broadcastSats4Ads(
@@ -101,12 +120,31 @@ OFFSET $3
 			continue
 		}
 
+		// identifier for the received payment
+		// will be pending until the user clicks the "Viewed" button
+		targethash := calculateHash(
+			fmt.Sprintf("%d:%s:%d", contentMessage.MessageID, sourcehash, target.Id),
+		)
+		data := "x=s4a-v-" + targethash[:10]
+
 		// build ad message based on the message that was replied to
 		var nchars int
 		var ad tgbotapi.Chattable
 		var thisCostMsat int = 1000 // fixed 1sat fee for each message
 		var thisCostSatoshis float64
-		baseChat := tgbotapi.BaseChat{ChatID: target.ChatId}
+		baseChat := tgbotapi.BaseChat{
+			ChatID: target.ChatId,
+			ReplyMarkup: tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.InlineKeyboardButton{
+							Text:         "Viewed",
+							CallbackData: &data,
+						},
+					},
+				},
+			},
+		}
 
 		switch {
 		case contentMessage.Text != "":
@@ -118,8 +156,8 @@ OFFSET $3
 			})
 
 			ad = tgbotapi.MessageConfig{
-				BaseChat: baseChat,
-				Text:     contentMessage.Text + footer,
+				BaseChat:              baseChat,
+				Text:                  contentMessage.Text + footer,
 				DisableWebPagePreview: true,
 			}
 		case contentMessage.Animation != nil:
@@ -205,7 +243,7 @@ OFFSET $3
 			}
 		default:
 			logger.Info().Msg("invalid message used as ad content")
-			break
+			return
 		}
 
 		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
@@ -222,21 +260,17 @@ OFFSET $3
 			continue
 		}
 
-		// commit payment
-		var random string
-		random, err = randomPreimage()
-		if err != nil {
-			return
-		}
+		// commit payment (pending for receiver)
 		errMsg, err = user.sendThroughProxy(
 			sourcehash,
-			calculateHash(random),
+			targethash,
 			contentMessage.MessageID,
 			message.MessageID,
 			target,
 			thisCostMsat,
 			fmt.Sprintf("ad dispatched to %d", messagesSent+1),
 			fmt.Sprintf("%d characters ad (%s) at %d msat/char", nchars, sourcehash, row.Rate),
+			true, // pending
 			"sats4ads",
 		)
 		if err != nil {
@@ -244,31 +278,113 @@ OFFSET $3
 			return
 		}
 
+		// we will store this for 7 days so we can use this information on a task
+		// if someone fail to see an ad for more than 3 days they will be excluded
+		rds.SetNX(redisKeyUnviewedAd(
+			target.Id),
+			time.Now().Format(SATS4ADSUNACTIVITYDATEFORMAT),
+			time.Hour*24*7,
+		)
+
 		messagesSent += 1
 		costSatoshis += thisCostSatoshis
-
-		//	logger.Debug().Float64("cost", thisCostSatoshis).Int("rate", row.Rate).
-		//		Float64("total", costSatoshis).Int("n", messagesSent).
-		//		Msg("ad broadcasted")
 	}
 
 	roundedCostSatoshis = int(costSatoshis)
 	return
 }
 
-func getSats4AdsRates(user User) (rates []Sats4AdsRateGroup, err error) {
-	err = pg.Select(&rates, `
-WITH enabled_listeners AS (
-  SELECT (appdata->'sats4ads'->>'rate')::integer AS rate
-  FROM telegram.account
-  WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
-    AND id != $1
-), rategroups AS (
-  SELECT generate_series ^ 3 AS uptorate FROM generate_series(1, 10)
-)
+func confirmAdViewed(user User, hashfirst10chars string) {
+	_, err := pg.Exec(`
+UPDATE lightning.transaction
+SET pending = false
+WHERE to_id = $1 AND payment_hash LIKE $2 || '%'
+    `, user.Id, hashfirst10chars)
+	if err != nil {
+		log.Warn().Err(err).Str("hash", hashfirst10chars).Int("user", user.Id).
+			Msg("failed to mark sats4ads tx as not pending")
+	}
 
-SELECT uptorate, (SELECT count(*) FROM enabled_listeners WHERE rate <= uptorate) AS nusers
-FROM rategroups
-    `, user.Id)
-	return
+	// user viewed (any) ad, so prevent unsubscribing him
+	rds.Del(redisKeyUnviewedAd(user.Id))
+}
+
+func cleanupUnviewedAds() {
+	// for every person who has received an ad over 3 days ago and haven't seen it
+	// we will cancel that payment (which is pending) and remove that person from
+	// the sats4ads list
+	txn, err := pg.Beginx()
+	if err != nil {
+		return
+	}
+	defer txn.Rollback()
+
+	var deletedReceiverIds []int
+	err = txn.Select(&deletedReceiverIds, `
+WITH adsreceivedtxs AS (
+  SELECT to_id, amount, payment_hash, proxied_with FROM lightning.transaction
+  WHERE tag = 'sats4ads' AND time < (now() - interval '3 days') AND pending
+), groupedbyproxy AS (
+  SELECT proxied_with, sum(amount) AS amount FROM adsreceivedtxs
+  GROUP BY proxied_with
+), sourceupdates AS (
+  UPDATE lightning.transaction AS s
+  SET amount = s.amount - t.amount
+  FROM groupedbyproxy AS t
+  WHERE t.proxied_with = s.payment_hash
+), deletes AS (
+  DELETE FROM lightning.transaction
+  WHERE payment_hash IN (SELECT payment_hash FROM adsreceivedtxs)
+)
+SELECT DISTINCT to_id FROM adsreceivedtxs
+    `)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to delete sats4ads pending tx")
+		return
+	}
+
+	// check proxy balance (should be always zero)
+	if err := checkProxyBalance(txn); err != nil {
+		log.Error().Err(err).Msg("proxy balance check on cleanupUnviewedAds")
+		return
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return
+	}
+
+	// for each deleted we check redis for sats4ads viewer inactivity and unsubscribe
+	threedaysago := time.Now().AddDate(0, 0, -3)
+	for _, receiverId := range deletedReceiverIds {
+		key := redisKeyUnviewedAd(receiverId)
+		if val, err := rds.Get(key).Result(); err == nil {
+			if rec, err := time.Parse(SATS4ADSUNACTIVITYDATEFORMAT, val); err == nil {
+				if rec.Before(threedaysago) {
+					if receiver, err := loadUser(receiverId, 0); err == nil {
+						err = turnSats4AdsOff(receiver)
+						if err != nil {
+							log.Warn().Int("user", receiverId).
+								Msg("failed to turn off sats4ads for inactive user")
+							continue
+						}
+
+						receiver.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
+						rds.Del(key)
+					}
+				}
+			}
+		}
+	}
+}
+
+func sats4adsCleanupRoutine() {
+	for {
+		cleanupUnviewedAds()
+		time.Sleep(time.Hour * 6)
+	}
+}
+
+func redisKeyUnviewedAd(userId int) string {
+	return fmt.Sprintf("sats4ads:unviewed:%d", userId)
 }

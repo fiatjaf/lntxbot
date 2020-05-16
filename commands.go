@@ -3,8 +3,8 @@ package main
 import (
 	"strings"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/kballard/go-shellquote"
 )
 
@@ -34,7 +34,7 @@ var methods = []def{
 	},
 	def{
 		aliases:        []string{"receive", "invoice", "fund"},
-		argstr:         "(lnurl | (<satoshis> | any) [<description>...] [--preimage=<preimage>])",
+		argstr:         "(lnurl | (<satoshis> | any) [<description>...])",
 		inline:         true,
 		inline_example: "invoice <satoshis>",
 	},
@@ -52,6 +52,14 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"apps"},
+	},
+	def{
+		aliases: []string{"tx"},
+		argstr:  "<hash>",
+	},
+	def{
+		aliases: []string{"log"},
+		argstr:  "<hash>",
 	},
 	def{
 		aliases: []string{"transactions"},
@@ -94,12 +102,12 @@ var methods = []def{
 		argstr:  "[list | bets | balance | withdraw | bet]",
 	},
 	def{
-		aliases: []string{"bitflash"},
-		argstr:  "(orders | status | rate | <satoshis> <address>)",
+		aliases: []string{"etleneum", "etl"},
+		argstr:  "[withdraw | (apps | contracts) | call <id> | <contract> [state [<jqfilter>] | subscribe | unsubscribe | <method> [<satoshi>] [<params>...]]]",
 	},
 	def{
 		aliases: []string{"satellite"},
-		argstr:  "(transmissions | <satoshis> [<message>...])",
+		argstr:  "<satoshis> [<message>...]",
 	},
 	def{
 		// golightning
@@ -111,14 +119,12 @@ var methods = []def{
 		argstr:  "[create | status [<host>] | topup <satoshis> [<host>] | adopt <host> | abandon <host>]",
 	},
 	def{
-		// lntorub
-		aliases: []string{"qiwi"},
-		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+		aliases: []string{"rub"},
+		argstr:  "<service> <account> [<rub>]",
 	},
 	def{
-		// lntorub
-		aliases: []string{"yandex"},
-		argstr:  "(list | <amount> (sat | rub) [to <target>] | default [<target>])",
+		aliases: []string{"skype"},
+		argstr:  "<username> [<usd>]",
 	},
 	def{
 		aliases: []string{"bitrefill"},
@@ -129,16 +135,6 @@ var methods = []def{
 		argstr:  "(list | [<satoshis>])",
 	},
 	def{
-		aliases: []string{"paywall"},
-		argstr:  "[list | <url> <satoshis> <memo>... | balance | withdraw]",
-	},
-	def{
-		aliases:        []string{"poker"},
-		argstr:         "[deposit <satoshis> | balance | withdraw | status | url | play | (available|watch|wait) <minutes>]",
-		inline:         true,
-		inline_example: "poker",
-	},
-	def{
 		aliases: []string{"sats4ads"},
 		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
 	},
@@ -147,12 +143,19 @@ var methods = []def{
 		argstr:  "[full | invoice | readonly | url | refresh]",
 	},
 	def{
+		aliases: []string{"lightningatm"},
+	},
+	def{
 		aliases: []string{"bluewallet", "lndhub"},
 		argstr:  "[refresh]",
 	},
 	def{
+		aliases: []string{"rename"},
+		argstr:  "<name>",
+	},
+	def{
 		aliases: []string{"toggle"},
-		argstr:  "(ticket [<price>] | spammy | language [<lang>] | coinflips)",
+		argstr:  "(ticket [<price>] | renamable [<price>] | spammy | language [<lang>] | coinflips)",
 	},
 	def{
 		aliases: []string{"help"},
@@ -206,6 +209,9 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 	// turn /app_microbet_bets, for example, into /app microbet bet
 	parts := strings.SplitN(message, " ", 2)
 	parts[0] = strings.ReplaceAll(parts[0], "_", " ")
+	message = strings.Join(parts, " ")
+	parts = strings.SplitN(message, " ", 2)
+	parts[0] = strings.ToLower(parts[0])
 	message = strings.Join(parts, " ")
 
 	// apply this to get shell-like quoting rules

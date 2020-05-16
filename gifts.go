@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
+	"github.com/fiatjaf/lntxbot/t"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 

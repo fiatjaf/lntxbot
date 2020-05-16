@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strconv"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/orcaman/concurrent-map"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 /*
@@ -95,11 +95,20 @@ type KickData struct {
 	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
 	NewMember        tgbotapi.User             `json:"new_member"`
 	Hash             string                    `json:"hash"`
+	Sats             int                       `json:"sats"`
 }
 
 func setTicketPrice(telegramId int64, sat int) (err error) {
 	_, err = pg.Exec(`
 UPDATE telegram.chat SET ticket = $2
+WHERE telegram_id = $1
+    `, -telegramId, sat)
+	return
+}
+
+func setRenamablePrice(telegramId int64, sat int) (err error) {
+	_, err = pg.Exec(`
+UPDATE telegram.chat SET renamable = $2
 WHERE telegram_id = $1
     `, -telegramId, sat)
 	return

@@ -1,14 +1,17 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
 )
 
@@ -123,21 +126,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check sender balance
-		var balance int
-		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
-		if err != nil {
-			return
-		}
+		balance := getBalance(txn, fromId)
 		if balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		var proxybalance int
-		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-		if err != nil || proxybalance != 0 {
-			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		proxybalance := getBalance(txn, s.ProxyAccount)
+		if proxybalance != 0 {
+			log.Error().Err(err).Int64("balance", proxybalance).
+				Msg("proxy balance isn't 0")
 			err = errors.New("proxy balance isn't 0")
 			return
 		}
@@ -343,16 +342,10 @@ func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error
 	receiver, _ = loadUser(toId, 0)
 	giverNames := make([]string, 0, len(fromIds))
 
-	msats := sats * 1000
+	msats := int64(sats) * 1000
 
 	// receiver must also have the necessary sats in his balance at the time
-	var receiverBalance int
-	err = txn.Get(&receiverBalance, `
-SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1
-    `, toId)
-	if err != nil {
-		return
-	}
+	receiverBalance := getBalance(txn, toId)
 	if receiverBalance < msats {
 		err = errors.New("Receiver has insufficient balance.")
 		return
@@ -389,21 +382,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check sender balance
-		var balance int
-		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
-		if err != nil {
-			return
-		}
+		balance := getBalance(txn, fromId)
 		if balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		var proxybalance int
-		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-		if err != nil || proxybalance != 0 {
-			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		proxybalance := getBalance(txn, s.ProxyAccount)
+		if proxybalance != 0 {
+			log.Error().Err(err).Int64("balance", proxybalance).
+				Msg("proxy balance isn't 0")
 			err = errors.New("proxy balance isn't 0")
 			return
 		}
@@ -502,21 +491,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 			return
 		}
 
-		var balance int
-		err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", fromId)
-		if err != nil {
-			return
-		}
+		balance := getBalance(txn, fromId)
 		if balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		var proxybalance int
-		err = txn.Get(&proxybalance, "SELECT balance FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
-		if err != nil || proxybalance != 0 {
-			log.Error().Err(err).Int("balance", proxybalance).Msg("proxy balance isn't 0")
+		proxybalance := getBalance(txn, s.ProxyAccount)
+		if proxybalance != 0 {
+			log.Error().Err(err).Int64("balance", proxybalance).
+				Msg("proxy balance isn't 0")
 			err = errors.New("proxy balance isn't 0")
 			return
 		}
@@ -540,4 +525,37 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		"Senders":   strings.Join(giverNames, " "),
 	})
 	return
+}
+
+// rename groups
+func renameKeyboard(
+	renamerId int,
+	chatId int64,
+	sats int,
+	name string,
+	locale string,
+) *tgbotapi.InlineKeyboardMarkup {
+	hash := sha256.Sum256([]byte(name))
+	renameId := hex.EncodeToString(hash[:])[:12]
+
+	rds.Set(
+		fmt.Sprintf("rename:%s", renameId),
+		fmt.Sprintf("%d|~|%d|~|%s", chatId, sats, name),
+		time.Minute*60,
+	)
+
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, locale),
+					fmt.Sprintf("cancel=%d", renamerId),
+				),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.YES, locale),
+					fmt.Sprintf("rnm=%s", renameId),
+				),
+			},
+		},
+	}
 }

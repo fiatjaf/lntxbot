@@ -1,28 +1,28 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
-	"github.com/arschles/go-bindata-html-template"
-	"github.com/elazarl/go-bindata-assetfs"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
+	template "github.com/arschles/go-bindata-html-template"
+	assetfs "github.com/elazarl/go-bindata-assetfs"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
-	"github.com/orcaman/concurrent-map"
+	"github.com/msingleton/amplitude-go"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/zerolog"
 	"gopkg.in/redis.v5"
 )
@@ -30,6 +30,7 @@ import (
 type Settings struct {
 	ServiceId   string `envconfig:"SERVICE_ID" default:"lntxbot"`
 	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
+	Host        string `envconfig:"HOST" default:"0.0.0.0"`
 	Port        string `envconfig:"PORT" required:"true"`
 	BotToken    string `envconfig:"BOT_TOKEN" required:"true"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
@@ -38,12 +39,12 @@ type Settings struct {
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 
-	PaywallLinkKey     string `envconfig:"PAYWALLLINK_KEY"`
-	LNToRubKey         string `envconfig:"LNTORUB_KEY"`
+	LNPayKey           string `envconfig:"LNPAY_KEY"`
+	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
 
-	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"24h"`
-	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"5h"`
+	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"480h"`
+	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"10m`
 	GiveAwayTimeout      time.Duration `envconfig:"GIVE_AWAY_TIMEOUT" default:"5h"`
 	HiddenMessageTimeout time.Duration `envconfig:"HIDDEN_MESSAGE_TIMEOUT" default:"72h"`
 
@@ -69,6 +70,7 @@ var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
+var amp *amplitude.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
@@ -83,6 +85,7 @@ func main() {
 		Options: []plugin.Option{
 			{"lntxbot-envfile", "string", "", "Path to the file containing everything"},
 		},
+		Dynamic: true,
 		Subscriptions: []plugin.Subscription{
 			{
 				"invoice_payment",
@@ -90,7 +93,8 @@ func main() {
 					label := params.Get("invoice_payment.label").String()
 					invspaid, err := ln.Call("listinvoices", label)
 					if err != nil {
-						log.Error().Err(err).Str("label", label).Msg("failed to query paid invoice")
+						log.Error().Err(err).Str("label", label).
+							Msg("failed to query paid invoice")
 						return
 					}
 
@@ -100,6 +104,7 @@ func main() {
 						inv.Get("msatoshi_received").Int(),
 						inv.Get("description").String(),
 						inv.Get("payment_hash").String(),
+						inv.Get("payment_preimage").String(),
 						inv.Get("label").String(),
 					)
 					go resolveWaitingInvoice(inv.Get("payment_hash").String(), inv)
@@ -133,7 +138,7 @@ func server(p *plugin.Plugin) {
 			godotenv.Load(envpath)
 		}
 	} else {
-		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envpath")
+		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envfile")
 	}
 	err = envconfig.Process("", &s)
 	if err != nil {
@@ -172,33 +177,17 @@ func server(p *plugin.Plugin) {
 			Msg("failed to connect to redis")
 	}
 
+	// amplitude client
+	if s.AmplitudeKey != "" {
+		amp = amplitude.New(s.AmplitudeKey)
+	}
+
 	// create bot
 	bot, err = tgbotapi.NewBotAPI(s.BotToken)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
 	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
-
-	// lightningd connection
-	lastinvoiceindex, err := rds.Get("lastinvoiceindex").Int64()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to get lastinvoiceindex from redis")
-		return
-	}
-	if lastinvoiceindex < 10 {
-		res, err := ln.Call("listinvoices")
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to get lastinvoiceindex from listinvoices")
-			return
-		}
-		indexes := res.Get("invoices.#.pay_index").Array()
-		for _, indexr := range indexes {
-			index := indexr.Int()
-			if index > lastinvoiceindex {
-				lastinvoiceindex = index
-			}
-		}
-	}
 
 	// handle QR code requests from telegram
 	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,20 +202,18 @@ func server(p *plugin.Plugin) {
 	// lndhub-compatible routes
 	registerAPIMethods()
 
-	// lnurl routes
+	// register webserver routes
 	serveLNURL()
-
-	// donation webpage
-	registerPages()
-
-	// app-specific initializations
-	servePoker()
-	servePaywallWebhook()
+	servePages()
 	serveGiftsWebhook()
 	serveBitrefillWebhook()
-	go cancelAllLNToRubOrders()
+
+	// routines
+	go startKicking()
+	go sats4adsCleanupRoutine()
 	go initializeBitrefill()
 	go bitcloudsCheckingRoutine()
+	go startListeningToEtleneumContracts()
 
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
@@ -234,7 +221,7 @@ func server(p *plugin.Plugin) {
 	// start http server
 	srv := &http.Server{
 		Handler:      router,
-		Addr:         "0.0.0.0:" + s.Port,
+		Addr:         s.Host + ":" + s.Port,
 		WriteTimeout: 300 * time.Second,
 		ReadTimeout:  300 * time.Second,
 	}
@@ -248,14 +235,12 @@ func server(p *plugin.Plugin) {
 	// pause here until lightningd works
 	s.NodeId = probeLightningd()
 
-	// dispatch kick job for pending users
-	startKicking()
-
 	// bot stuff
 	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
 	if err != nil || lastTelegramUpdate < 10 {
-		log.Fatal().Err(err).Int64("got", lastTelegramUpdate).Msg("failed to get lasttelegramupdate from redis")
-		return
+		log.Error().Err(err).Int64("got", lastTelegramUpdate).
+			Msg("failed to get lasttelegramupdate from redis")
+		lastTelegramUpdate = -1
 	}
 
 	u := tgbotapi.NewUpdate(int(lastTelegramUpdate + 1))
@@ -267,15 +252,7 @@ func server(p *plugin.Plugin) {
 	for update := range updates {
 		lastTelegramUpdate = int64(update.UpdateID)
 		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		func() {
-			defer func() {
-				if err := recover(); err != nil {
-					fmt.Fprint(os.Stderr, string(debug.Stack()))
-					sendMessage(418342569, string(debug.Stack()))
-				}
-			}()
-			handle(update)
-		}()
+		handle(update)
 	}
 }
 
@@ -331,6 +308,32 @@ func createLocalizerBundle() (t.Bundle, error) {
 			return "~"
 		}
 	})
+	bundle.AddFunc("msatToSat", func(imsat interface{}) float64 {
+		switch msat := imsat.(type) {
+		case int64:
+			return float64(msat) / 1000
+		case int:
+			return float64(msat) / 1000
+		case float64:
+			return msat / 1000
+		default:
+			return 0
+		}
+	})
+	bundle.AddFunc("escapehtml", escapeHTML)
+	bundle.AddFunc("nodeLink", nodeLink)
+	bundle.AddFunc("nodeAlias", getNodeAlias)
+	bundle.AddFunc("json", func(v interface{}) string {
+		j, _ := json.MarshalIndent(v, "", "  ")
+		return string(j)
+	})
+	bundle.AddFunc("time", func(t time.Time) string {
+		return t.Format("2 Jan 2006 at 3:04PM")
+	})
+	bundle.AddFunc("timeSmall", func(t time.Time) string {
+		return t.Format("2 Jan 15:04")
+	})
+	bundle.AddFunc("lower", strings.ToLower)
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

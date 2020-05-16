@@ -3,22 +3,23 @@ package main
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	mrand "math/rand"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"git.alhur.es/fiatjaf/lntxbot/t"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/orcaman/concurrent-map"
+	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/jmoiron/sqlx"
 	"github.com/renstrom/fuzzysearch/fuzzy"
 	"github.com/tidwall/gjson"
 )
@@ -29,16 +30,21 @@ var dollarPrice = struct {
 	lastUpdate time.Time
 	rate       float64
 }{time.Now(), 0}
-var nodeAliases = cmap.New()
 
-func makeLabel(userId int, messageId interface{}, preimage, tag string) string {
-	return fmt.Sprintf("%s.%d.%v.%s.%s", s.ServiceId, userId, messageId, preimage, tag)
+func makeLabel(userId int, messageId interface{}, tag string) string {
+	if messageId == nil {
+		// this is a component of the label, so must be unique
+		// if not given we use a random number
+		messageId = mrand.Intn(1000)
+	}
+
+	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, tag)
 }
 
-func parseLabel(label string) (messageId, userId int, preimage, tag string, ok bool) {
+func parseLabel(label string) (messageId, userId int, tag string, ok bool) {
 	ok = false
 	parts := strings.Split(label, ".")
-	if len(parts) > 3 {
+	if len(parts) > 2 {
 		userId, err = strconv.Atoi(parts[1])
 		if err == nil {
 			ok = true
@@ -47,11 +53,10 @@ func parseLabel(label string) (messageId, userId int, preimage, tag string, ok b
 		if err == nil {
 			ok = true
 		}
-		preimage = parts[3]
 	}
 
-	if len(parts) > 4 {
-		tag = parts[4]
+	if len(parts) > 3 {
+		tag = parts[3]
 	}
 
 	return
@@ -72,25 +77,6 @@ func chatOwnerFromTicketLabel(label string) (owner User, err error) {
 	}
 
 	return
-}
-
-func findInvoiceOnNode(hash, preimage string) (gjson.Result, bool) {
-	if hash == "" {
-		preimagehex, _ := hex.DecodeString(preimage)
-		sum := sha256.Sum256(preimagehex)
-		hash = hex.EncodeToString(sum[:])
-	}
-
-	invs, err := ln.Call("listinvoices")
-	if err == nil {
-		for _, inv := range invs.Get("invoices").Array() {
-			if inv.Get("payment_hash").String() == hash {
-				return inv, true
-			}
-		}
-	}
-
-	return gjson.Result{}, false
 }
 
 func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurltext string, ok bool) {
@@ -154,31 +140,11 @@ func getBolt11(text string) (bolt11 string, ok bool) {
 	return results[1], true
 }
 
-func getNodeAlias(id string) string {
-begin:
-	if alias, ok := nodeAliases.Get(id); ok {
-		return alias.(string)
-	}
-
-	if id == "" {
-		return "~"
-	}
-
-	res, err := ln.Call("listnodes", id)
-	if err != nil {
-		return "~"
-	}
-
-	alias := res.Get("nodes.0.alias").String()
-	if alias == "" {
-		alias = "~"
-	}
-
-	nodeAliases.Set(id, alias)
-	goto begin
-}
-
 func nodeLink(nodeId string) string {
+	if nodeId == "" {
+		return "{}"
+	}
+
 	return fmt.Sprintf(`<a href="https://ln.bigsun.xyz/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }
@@ -223,21 +189,6 @@ begin:
 	goto begin
 }
 
-func messageFromError(err error) string {
-	switch terr := err.(type) {
-	case lightning.ErrorTimeout:
-		return fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
-	case lightning.ErrorCommand:
-		return terr.Message
-	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
-		return "Problem connecting to our node. Please try again in a minute."
-	case lightning.ErrorJSONDecode:
-		return "Error reading response from lightningd."
-	default:
-		return err.Error()
-	}
-}
-
 func randomPreimage() (string, error) {
 	hex := []rune("0123456789abcdef")
 	b := make([]rune, 64)
@@ -280,7 +231,7 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	}
 
 	if username == "" && uid == 0 {
-		return
+		return nil, "", errors.New("no user")
 	}
 
 	// check entities for user type
@@ -291,16 +242,22 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 				uid = entity.User.ID
 				display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
 				user, err = ensureTelegramId(uid)
-				u = &user
-				return
+				if err != nil {
+					return nil, "", err
+				}
+
+				return &user, display, nil
 			}
 			if entity.Type == "mention" {
 				// user with username
 				uname := username[1:]
 				display = "@" + uname
 				user, err = ensureUsername(uname)
-				u = &user
-				return
+				if err != nil {
+					return nil, "", err
+				}
+
+				return &user, display, nil
 			}
 		}
 	}
@@ -311,12 +268,14 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 	// more.
 	if uid != 0 {
 		user, err = ensureTelegramId(uid)
-		display = user.AtName()
-		u = &user
-		return
+		if err != nil {
+			return nil, "", err
+		}
+
+		return &user, user.AtName(), nil
 	}
 
-	return
+	return nil, "", errors.New("no user")
 }
 
 func findSimilar(source string, targets []string) (result []string) {
@@ -482,4 +441,40 @@ func resolveWaitingPaymentSuccess(hash string, preimage string) {
 		}
 		waitingPaymentSuccesses.Remove(hash)
 	}
+}
+
+func checkProxyBalance(txn *sqlx.Tx) error {
+	// check proxy balance (should be always zero)
+	var proxybalance int64
+	err = txn.Get(&proxybalance, `
+SELECT (coalesce(sum(amount), 0) - coalesce(sum(fees), 0))::numeric(13) AS balance
+FROM lightning.account_txn
+WHERE account_id = $1
+    `, s.ProxyAccount)
+	if err != nil {
+		return err
+	} else if proxybalance != 0 {
+		return errors.New("proxy balance isn't 0")
+	} else {
+		return nil
+	}
+}
+
+func base64FileFromURL(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return "", errors.New("image returned status " + strconv.Itoa(resp.StatusCode))
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }

@@ -9,6 +9,7 @@ const (
 	CANCELED       = "Canceled"
 	COMPLETED      = "Completed"
 	CONFIRM        = "Confirm"
+	PAYAMOUNT      = "PayAmount"
 	FAILURE        = "Failure"
 	PROCESSING     = "Processing"
 	WITHDRAW       = "Withdraw"
@@ -34,6 +35,7 @@ const (
 	INLINEHIDDENRESULT   = "InlineHiddenResult"
 
 	LNURLUNSUPPORTED = "LnurlUnsupported"
+	LNURLERROR       = "LnurlError"
 	LNURLAUTHSUCCESS = "LnurlAuthSuccess"
 	LNURLPAYPROMPT   = "LnurlPayPrompt"
 	LNURLPAYSUCCESS  = "LnurlPaySuccess"
@@ -41,6 +43,10 @@ const (
 
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"
+
+	RENAMABLEMSG      = "RenamableMsg"
+	RENAMEPROMPT      = "RenamePrompt"
+	GROUPNOTRENAMABLE = "GroupNotRenamable"
 
 	PAYMENTFAILED       = "PaymentFailed"
 	PAIDMESSAGE         = "PaidMessage"
@@ -57,6 +63,8 @@ const (
 	LANGUAGEMSG         = "LanguageMsg"
 	TICKETMSG           = "TicketMsg"
 	FREEJOIN            = "FreeJoin"
+
+	APPBALANCE = "AppBalance"
 
 	HELPINTRO   = "HelpIntro"
 	HELPSIMILAR = "HelpSimilar"
@@ -96,8 +104,8 @@ const (
 	FUNDRAISERECEIVERMSG = "FundraiseReceiverMsg"
 	FUNDRAISEGIVERMSG    = "FundraiseGiverMsg"
 
+	LIGHTNINGATMHELP       = "lightningatmHelp"
 	BLUEWALLETHELP         = "bluewalletHelp"
-	BLUEWALLETCREDENTIALS  = "BluewalletCredentials"
 	APIPASSWORDUPDATEERROR = "APIPasswordUpdateError"
 	APICREDENTIALS         = "APICredentials"
 
@@ -111,11 +119,14 @@ const (
 	HIDDENMSGNOTFOUND    = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       = "HiddenShareBtn"
 
-	BITFLASHHELP         = "bitflashHelp"
-	BITFLASHCONFIRM      = "BitflashConfirm"
-	BITFLASHTXQUEUED     = "BitflashTxQueued"
-	BITFLASHFAILEDTOSAVE = "BitflashFailedToSave"
-	BITFLASHLIST         = "BitflashList"
+	ETLENEUMHELP          = "etleneumHelp"
+	ETLENEUMACCOUNT       = "EtleneumAccount"
+	ETLENEUMCONTRACT      = "EtleneumContract"
+	ETLENEUMCONTRACTSTATE = "EtleneumContractState"
+	ETLENEUMCALL          = "EtleneumCall"
+	ETLENEUMCONTRACTS     = "EtleneumContracts"
+	ETLENEUMSUBSCRIBED    = "EtleneumSubscribed"
+	ETLENEUMCONTRACTEVENT = "EtleneumContractEvent"
 
 	MICROBETHELP                = "microbetHelp"
 	MICROBETBETHEADER           = "MicrobetBetHeader"
@@ -123,7 +134,6 @@ const (
 	MICROBETPLACING             = "MicrobetPlacing"
 	MICROBETPLACED              = "MicrobetPlaced"
 	MICROBETLIST                = "MicrobetList"
-	MICROBETBALANCE             = "MicrobetBalance"
 
 	BITREFILLHELP            = "bitrefillHelp"
 	BITREFILLINVENTORYHEADER = "BitrefillInventoryHeader"
@@ -136,13 +146,8 @@ const (
 	BITREFILLCOUNTRYSET      = "BitrefillCountrySet"
 	BITREFILLINVALIDCOUNTRY  = "BitrefillInvalidCountry"
 
-	SATELLITEHELP              = "satelliteHelp"
-	SATELLITEFAILEDTOSTORE     = "SatelliteFailedToStore"
-	SATELLITEFAILEDTOGET       = "SatelliteFailedToGet"
-	SATELLITEPAID              = "SatellitePaid"
-	SATELLITEFAILEDTOPAY       = "SatelliteFailedToPay"
-	SATELLITETRANSMISSIONERROR = "SatelliteTransmissionError"
-	SATELLITELIST              = "SatelliteList"
+	SATELLITEHELP = "satelliteHelp"
+	SATELLITEPAID = "SatellitePaid"
 
 	FUNDBTCHELP   = "fundbtcHelp"
 	FUNDBTCFAIL   = "fundbtcFail"
@@ -157,15 +162,8 @@ const (
 	BITCLOUDSSTATUS         = "BitcloudsStatus"
 	BITCLOUDSREMINDER       = "BitcloudsReminder"
 
-	QIWIHELP             = "qiwiHelp"
-	YANDEXHELP           = "yandexHelp"
-	LNTORUBCONFIRMATION  = "LNToRubConfirmation"
-	LNTORUBFULFILLED     = "LNToRubFulfilled"
-	LNTORUBCANCELED      = "LNToRubCanceled"
-	LNTORUBMISSINGTARGET = "LNToRubMissingTarget"
-	LNTORUBFIATERROR     = "LNToRubFiatError"
-	LNTORUBORDERLIST     = "LNToRubOrderList"
-	LNTORUBDEFAULTTARGET = "LNToRubDefaultTarget"
+	SKYPEHELP = "skypeHelp"
+	RUBHELP   = "rubHelp"
 
 	GIFTSHELP       = "giftsHelp"
 	GIFTSCREATED    = "GiftsCreated"
@@ -173,27 +171,12 @@ const (
 	GIFTSLIST       = "GiftsList"
 	GIFTSSPENTEVENT = "GiftsSpentEvent"
 
-	POKERHELP         = "pokerHelp"
-	POKERDEPOSITFAIL  = "PokerDepositFail"
-	POKERWITHDRAWFAIL = "PokerWithdrawFail"
-	POKERSTATUS       = "PokerStatus"
-	POKERNOTIFY       = "PokerNotify"
-	POKERNOTIFYFRIEND = "PokerNotifyFriend"
-	POKERSUBSCRIBED   = "PokerSubscribed"
-	POKERSECRETURL    = "PokerSecretURL"
-	POKERBALANCE      = "PokerBalance"
-
 	SATS4ADSHELP       = "sats4adsHelp"
 	SATS4ADSTOGGLE     = "Sats4adsToggle"
 	SATS4ADSBROADCAST  = "Sats4adsBroadcast"
 	SATS4ADSPRICETABLE = "Sats4adsPriceTable"
 	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
-
-	PAYWALLHELP      = "paywallHelp"
-	PAYWALLBALANCE   = "PaywallBalance"
-	PAYWALLCREATED   = "PaywallCreated"
-	PAYWALLLISTLINKS = "PaywallListLinks"
-	PAYWALLPAIDEVENT = "PaywallPaidEvent"
+	SATS4ADSVIEWED     = "Viewed"
 
 	ETLENEUMFAILEDTOPAY = "EtleneumFailedToPay"
 
@@ -203,9 +186,8 @@ const (
 
 	STOPHELP = "stopHelp"
 
-	CONFIRMINVOICE     = "ConfirmInvoice"
+	PAYPROMPT          = "PayPrompt"
 	FAILEDDECODE       = "FailedDecode"
-	NOINVOICE          = "NoInvoice"
 	BALANCEMSG         = "BalanceMsg"
 	TAGGEDBALANCEMSG   = "TaggedBalanceMsg"
 	FAILEDUSER         = "FailedUser"
@@ -223,7 +205,6 @@ const (
 	CANTJOINTWICE      = "CantJoinTwice"
 	CANTCANCEL         = "CantCancel"
 	FAILEDINVOICE      = "FailedInvoice"
-	ZEROAMOUNTINVOICE  = "ZeroAmountInvoice"
 	INVALIDAMT         = "InvalidAmt"
 	STOPNOTIFY         = "StopNotify"
 	WELCOME            = "Welcome"
@@ -234,7 +215,8 @@ const (
 	TXINFO             = "TxInfo"
 	TXLIST             = "TxList"
 
-	TUTORIALWALLET = "TutorialWallet"
-	TUTORIALBLUE   = "TutorialBlue"
-	TUTORIALAPPS   = "TutorialApps"
+	TUTORIALWALLET  = "TutorialWallet"
+	TUTORIALBLUE    = "TutorialBlue"
+	TUTORIALAPPS    = "TutorialApps"
+	TUTORIALTWITTER = "TutorialTwitter"
 )
