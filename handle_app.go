@@ -162,6 +162,54 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				},
 			}, 0)
 		}
+	case opts["paywall"].(bool):
+		if opts["balance"].(bool) {
+			balance, err := getPaywallBalance(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
+				return
+			}
+
+			go u.track("paywall balance", map[string]interface{}{"sats": balance})
+			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Paywall", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+				[][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=paywall-withdraw"),
+					},
+				},
+			}, 0)
+		} else if opts["withdraw"].(bool) {
+			go u.track("paywall withdraw", nil)
+			withdraw, err := getPaywallWithdrawLNURL(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "Paywall", "Err": err.Error()})
+				return
+			}
+		} else {
+			// create paywall
+			sats, err := opts.Int("<satoshis>")
+			if err != nil {
+				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+				return
+			}
+			url := opts["<url>"].(string)
+			memo := getVariadicFieldOrReplyToContent(opts, nil, "<memo>")
+			if memo == "" {
+				handleHelp(u, "paywall")
+				return
+			}
+
+			link, err := createPaywallLink(u, sats, url, memo)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "paywall", "Err": err.Error()})
+				return
+			}
+
+			u.notify(t.PAYWALLCREATED, t.T{"Link": link})
+			sendMessage(u.ChatId, fmt.Sprintf(
+				`<a href="https://paywall.link/to/%s">https://paywall.link/to/%s</a>`,
+				link, link))
+		}
 	case opts["microbet"].(bool):
 		if opts["bets"].(bool) || opts["list"].(bool) {
 			// list my bets
@@ -186,7 +234,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			go u.track("microbet balance", map[string]interface{}{"sats": balance})
-			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Etleneum", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Microbet", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=microbet-withdraw"),
@@ -594,6 +642,17 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return
 			}
 			go u.track("etleneum withdraw", nil)
+			handleLNURL(u, withdraw, handleLNURLOpts{messageId: messageId})
+		}
+	case "paywall":
+		if parts[1] == "withdraw" {
+			defer removeKeyboardButtons(cb)
+			go u.track("paywall withdraw", nil)
+			withdraw, err := getPaywallWithdrawLNURL(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "Paywall", "Err": err.Error()})
+				return
+			}
 			handleLNURL(u, withdraw, handleLNURLOpts{messageId: messageId})
 		}
 	case "microbet":

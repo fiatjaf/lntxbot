@@ -167,7 +167,7 @@ parsed:
 		break
 	case opts["microbet"].(bool), opts["fundbtc"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
-		opts["sats4ads"].(bool),
+		opts["sats4ads"].(bool), opts["paywall"].(bool),
 		opts["rub"].(bool), opts["skype"].(bool),
 		opts["bitrefill"].(bool), opts["bitclouds"].(bool),
 		opts["etleneum"].(bool), opts["etl"].(bool):

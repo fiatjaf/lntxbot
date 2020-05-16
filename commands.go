@@ -106,6 +106,10 @@ var methods = []def{
 		argstr:  "[withdraw | (apps | contracts) | call <id> | <contract> [state [<jqfilter>] | subscribe | unsubscribe | <method> [<satoshi>] [<params>...]]]",
 	},
 	def{
+		aliases: []string{"paywall"},
+		argstr:  "(<url> <satoshis> <memo>... | balance | withdraw)",
+	},
+	def{
 		aliases: []string{"satellite"},
 		argstr:  "<satoshis> [<message>...]",
 	},
