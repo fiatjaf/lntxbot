@@ -231,7 +231,7 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 				}
 			}
 
-			sent, err := bot.Send(chattable)
+			sent, err := tgsend(chattable)
 			if err != nil {
 				log.Warn().Err(err).Msg("error sending lnurl-pay message")
 				return

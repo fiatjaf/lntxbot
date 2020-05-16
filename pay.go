@@ -87,7 +87,7 @@ func handlePay(
 				DisableWebPagePreview: true,
 				Text:                  translateTemplate(t.PAYPROMPT, u.Locale, payTmplParams),
 			}
-			sent, err := bot.Send(chattable)
+			sent, err := tgsend(chattable)
 			if err != nil {
 				log.Warn().Err(err).Msg("error sending pay prompt amountless")
 				return err
