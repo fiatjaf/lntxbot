@@ -43,7 +43,7 @@ lnurl-auth успех!
 
 {{if not .FixedAmount}}<b>Ответьте с неким количеством для подтверждения.</b>{{end}}
     `,
-    	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> ответил:
+	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> ответил:
 
 {{if .DecipherError}}Ошибка расшифровки ({{.DecipherError}}):
 {{end}}<pre>{{.Text}}</pre>
@@ -83,7 +83,7 @@ lnurl-auth успех!
 	LANGUAGEMSG:         "Установлен язык этого чата <code>{{.Language}}</code>.",
 	FREEJOIN:            "К этой группе теперь можно присоединиться свободно.",
 
-	APPBALANCE: "#{{.App | lower}} Баланс: <i>{{printf "%.15g" .Balance}} сат</i>",
+	APPBALANCE: `#{{.App | lower}} Баланс: <i>{{printf "%.15g" .Balance}} сат</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>

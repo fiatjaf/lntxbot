@@ -127,6 +127,8 @@ func handlePay(
 }
 
 func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.CallbackQuery) {
+	defer removeKeyboardButtons(cb)
+
 	hashfirstchars := cb.Data[4:]
 	bolt11, err := rds.Get("payinvoice:" + hashfirstchars).Result()
 	if err != nil {
@@ -150,7 +152,6 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 	} else {
 		appendTextToMessage(cb, err.Error())
 	}
-	removeKeyboardButtons(cb)
 
 	go u.track("pay confirm", map[string]interface{}{"amountless": false})
 }
