@@ -169,7 +169,7 @@ type Hop struct {
 	Delay     int64
 }
 
-func renderLogInfo(hash string) (logInfo string) {
+func renderLogInfo(u User, hash string) (logInfo string) {
 	if len(hash) < 5 {
 		return ""
 	}
@@ -179,41 +179,19 @@ func renderLogInfo(hash string) (logInfo string) {
 		return ""
 	}
 
-	logInfo += "<b>Routes tried:</b>"
-
 	var tries []Try
 	err = json.Unmarshal([]byte(lastCall), &tries)
 	if err != nil {
-		logInfo += " [error fetching]"
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "failed to get log"})
 	}
 
 	if len(tries) == 0 {
-		logInfo += " No routes found."
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no routes attempted"})
 	}
 
-	for j, try := range tries {
-		letter := string([]rune{rune(j) + 97})
-		logInfo += fmt.Sprintf("\n  <b>%s</b>. ", letter)
-		if try.Success {
-			logInfo += "<i>Succeeded.</i>"
-		} else {
-			logInfo += "<i>Failed.</i>"
-		}
-
-		routeStr := ""
-		for l, hop := range try.Route {
-			routeStr += fmt.Sprintf("\n    <code>%s</code>. %s, %dmsat, delay: %d",
-				strings.ToLower(roman(l+1)),
-				nodeLink(hop.Peer), hop.Msatoshi, hop.Delay)
-		}
-		logInfo += routeStr
-
-		if try.Error != "" {
-			logInfo += fmt.Sprintf("\nError: %s. ", try.Error)
-		}
-	}
-
-	return
+	return translateTemplate(t.TXLOG, u.Locale, t.T{
+		"Tries": tries,
+	})
 }
 
 func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
@@ -227,7 +205,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 
 	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(txn.Hash),
+		"LogInfo": renderLogInfo(u, txn.Hash),
 	})
 	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 

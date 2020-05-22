@@ -252,7 +252,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 
     `,
 	ETLENEUMCONTRACT: `{{with .Contract}}
-Контракт <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} вызовы, {{msatToSat .Funds | printf "%.15g"}} сат</i>)
+#etleneum {{.Name}} <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} вызовы, {{msatToSat .Funds | printf "%.15g"}} сат</i>)
 
 <b>Описание</b>
 <i>{{escapehtml .Readme}}
@@ -260,8 +260,8 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 (...)</i>
 
 <b>Методы:</b>
-{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>{{end}}
-
+{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>
+{{end}} 
 <b>Состояние:</b> /etl_{{.Id}}_state
 {{end}}
     `,
@@ -505,12 +505,11 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
 <b>Узел</b>: {{.Hash}}{{if ne .Currency "bc"}}
 <b>Цепь</b>: {{.Currency}}{{end}}
-<b>Узел</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}})
 <b>Создано</b>: {{.Created}}
 <b>Истекает</b>: {{.Expiry}}{{if .Expired}} <b>[ИСТЁК]</b>{{end}}
 {{if .Hints}}<b>Подсказки</b>: {{range .Hints}}
-- {{range .}}{{.PubKey | nodeLink}} {{end}}
-{{end}}{{end}}
+- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}
+{{end}}<b>Узел</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}}){{end}}
 
 {{if .Sats}}Заплатить счёт выше?
 {{else}}<b>Ответьте с желаемым количеством для подтверждения</b>

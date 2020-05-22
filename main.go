@@ -323,6 +323,9 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle.AddFunc("escapehtml", escapeHTML)
 	bundle.AddFunc("nodeLink", nodeLink)
 	bundle.AddFunc("nodeAlias", getNodeAlias)
+	bundle.AddFunc("channelLink", channelLink)
+	bundle.AddFunc("nodeAliasLink", nodeAliasLink)
+	bundle.AddFunc("makeLinks", makeLinks)
 	bundle.AddFunc("json", func(v interface{}) string {
 		j, _ := json.MarshalIndent(v, "", "  ")
 		return string(j)
@@ -334,6 +337,9 @@ func createLocalizerBundle() (t.Bundle, error) {
 		return t.Format("2 Jan 15:04")
 	})
 	bundle.AddFunc("lower", strings.ToLower)
+	bundle.AddFunc("roman", roman)
+	bundle.AddFunc("letter", func(i int) string { return string([]rune{rune(i) + 97}) })
+	bundle.AddFunc("add", func(a, b int) int { return a + b })
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

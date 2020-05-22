@@ -145,12 +145,42 @@ func nodeLink(nodeId string) string {
 		return "{}"
 	}
 
-	return fmt.Sprintf(`<a href="https://ln.bigsun.xyz/node/%s">%s…%s</a>`,
-		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
+	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s…%s</a>`,
+		nodeId[:10], nodeId[:4], nodeId[len(nodeId)-4:])
+}
+
+func nodeAliasLink(nodeId string) string {
+	if nodeId == "" {
+		return "{}"
+	}
+
+	alias := getNodeAlias(nodeId)
+	if alias == "" {
+		alias = fmt.Sprintf("%s…%s", nodeId[:4], nodeId[len(nodeId)-4:])
+	} else if len(alias) > 16 {
+		alias = alias[:15] + "…"
+	}
+
+	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s</a>`,
+		nodeId[:10], alias)
 }
 
 func channelLink(scid string) string {
-	return fmt.Sprintf(`<a href="https://ln.bigsun.xyz/channel/%s">%s</a>`, scid, scid)
+	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s</a>`, scid, scid)
+}
+
+var scidRe = regexp.MustCompile(`\d+x\d+x\d+`)
+var nodeRe = regexp.MustCompile(`[0-9a-f]{66}`)
+
+func makeLinks(e string) string {
+	for _, match := range scidRe.FindAllString(e, -1) {
+		e = strings.ReplaceAll(e, match, channelLink(match))
+	}
+	for _, match := range nodeRe.FindAllString(e, -1) {
+		e = strings.ReplaceAll(e, match, nodeAliasLink(match))
+	}
+
+	return e
 }
 
 func getDollarPrice(msats int64) string {

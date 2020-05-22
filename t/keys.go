@@ -211,9 +211,11 @@ const (
 	WRONGCOMMAND       = "WrongCommand"
 	RETRACTQUESTION    = "RetractQuestion"
 	RECHECKPENDING     = "RecheckPending"
-	TXNOTFOUND         = "TxNotFound"
-	TXINFO             = "TxInfo"
-	TXLIST             = "TxList"
+
+	TXNOTFOUND = "TxNotFound"
+	TXINFO     = "TxInfo"
+	TXLIST     = "TxList"
+	TXLOG      = "TxLog"
 
 	TUTORIALWALLET  = "TutorialWallet"
 	TUTORIALBLUE    = "TutorialBlue"
