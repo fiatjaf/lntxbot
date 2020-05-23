@@ -586,9 +586,8 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 {{end}}
     `,
 	TXLOG: `<b>Routes tried</b>
-{{range $t, $try := .Tries}}<code>{{$t | add 1 | roman | lower}}</code> {{if $try.Success}}✅{{else}}❌{{end}}
-{{range $h, $hop:= $try.Route}}  <code>{{$h | add 1}}</code> {{.Channel | channelLink}}, {{msatToSat .Msatoshi | printf "%.15g"}}sat, {{.Delay}}lt
-{{end}}{{with $try.Error}}  {{. | makeLinks}}.
+{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}} {{.Channel | channelLink}} <code>{{msatToSat .Msatoshi | printf "%.15g"}}</code> {{end}}{{with $try.Error}}{{if $try.Route}}
+{{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}
     `,
 

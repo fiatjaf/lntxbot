@@ -171,18 +171,18 @@ type Hop struct {
 
 func renderLogInfo(u User, hash string) (logInfo string) {
 	if len(hash) < 5 {
-		return ""
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
 	}
 
 	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
 	if err != nil {
-		return ""
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
 	}
 
 	var tries []Try
 	err = json.Unmarshal([]byte(lastCall), &tries)
 	if err != nil {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "failed to get log"})
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "failed to parse log"})
 	}
 
 	if len(tries) == 0 {
