@@ -321,7 +321,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 
 			// acknowledge purchase
 			var resperr BitrefillErrorResponse
-			resp, err := napping.Post("https://api.bitrefill.com/v1/order/"+orderId+"/purchase", struct {
+			resp, err := bitrefill.Post("https://api.bitrefill.com/v1/order/"+orderId+"/purchase", struct {
 				WebhookURL string `json:"webhook_url"`
 			}{s.ServiceURL + "/app/bitrefill/webhook"}, nil, &resperr)
 
