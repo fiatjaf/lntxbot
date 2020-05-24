@@ -798,7 +798,6 @@ WHERE substring(payment_hash from 0 for $2) = $1
 					Err(err).
 					Str("hash", hash).
 					Msg("canceling payment because it is not on listpays")
-				// paymentHasFailed(u, messageId, hash)
 				return
 			}
 

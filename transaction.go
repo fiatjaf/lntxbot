@@ -209,7 +209,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 	})
 	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 
-	if txn.Status == "PENDING" {
+	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
 		// allow people to cancel pending if they're old enough
 		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
 			tgbotapi.NewInlineKeyboardMarkup(
