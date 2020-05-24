@@ -256,7 +256,7 @@ parsed:
 			return
 		}
 		go u.track("view log", nil)
-		go sendMessage(u.ChatId, renderLogInfo(hash))
+		go sendMessage(u.ChatId, renderLogInfo(u, hash))
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
 		var defaultNotify func(t.Key, t.T)

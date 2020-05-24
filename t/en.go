@@ -252,7 +252,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 
     `,
 	ETLENEUMCONTRACT: `{{with .Contract}}
-Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
+#etleneum <b>{{.Name}}</b> <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
 
 <b>Description</b>
 <i>{{escapehtml .Readme}}
@@ -260,8 +260,8 @@ Contract <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NC
 (...)</i>
 
 <b>Methods:</b>
-{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>{{end}}
-
+{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>
+{{end}}
 <b>State:</b> /etl_{{.Id}}_state
 {{end}}
     `,
@@ -505,12 +505,11 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
 <b>Hash</b>: {{.Hash}}{{if ne .Currency "bc"}}
 <b>Chain</b>: {{.Currency}}{{end}}
-<b>Node</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}})
 <b>Created at</b>: {{.Created}}
 <b>Expires at</b>: {{.Expiry}}{{if .Expired}} <b>[EXPIRED]</b>{{end}}
 {{if .Hints}}<b>Hints</b>: {{range .Hints}}
-- {{range .}}{{.PubKey | nodeLink}} {{end}}
-{{end}}{{end}}
+- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}
+{{end}}<b>Payee</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}}){{end}}
 
 {{if .Sats}}Pay the invoice described above?
 {{else}}<b>Reply with the desired amount to confirm.</b>
@@ -585,6 +584,11 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}
+    `,
+	TXLOG: `<b>Routes tried</b>
+{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}} {{.Channel | channelLink}} <code>{{msatToSat .Msatoshi | printf "%.15g"}}</code> {{end}}{{with $try.Error}}{{if $try.Route}}
+{{else}} {{end}}<i>{{. | makeLinks}}</i>
+{{end}}{{end}}
     `,
 
 	TUTORIALWALLET: `

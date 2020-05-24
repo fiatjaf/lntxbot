@@ -83,7 +83,7 @@ lnurl-auth успех!
 	LANGUAGEMSG:         "Установлен язык этого чата <code>{{.Language}}</code>.",
 	FREEJOIN:            "К этой группе теперь можно присоединиться свободно.",
 
-	APPBALANCE: "#{{.App | lower}} Баланс: <i>{{printf "%.15g" .Balance}} сат</i>",
+	APPBALANCE: `#{{.App | lower}} Баланс: <i>{{printf "%.15g" .Balance}} сат</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -252,7 +252,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 
     `,
 	ETLENEUMCONTRACT: `{{with .Contract}}
-Контракт <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} вызовы, {{msatToSat .Funds | printf "%.15g"}} сат</i>)
+#etleneum {{.Name}} <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} вызовы, {{msatToSat .Funds | printf "%.15g"}} сат</i>)
 
 <b>Описание</b>
 <i>{{escapehtml .Readme}}
@@ -260,8 +260,8 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 (...)</i>
 
 <b>Методы:</b>
-{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>{{end}}
-
+{{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>
+{{end}} 
 <b>Состояние:</b> /etl_{{.Id}}_state
 {{end}}
     `,
@@ -505,12 +505,11 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
 <b>Узел</b>: {{.Hash}}{{if ne .Currency "bc"}}
 <b>Цепь</b>: {{.Currency}}{{end}}
-<b>Узел</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}})
 <b>Создано</b>: {{.Created}}
 <b>Истекает</b>: {{.Expiry}}{{if .Expired}} <b>[ИСТЁК]</b>{{end}}
 {{if .Hints}}<b>Подсказки</b>: {{range .Hints}}
-- {{range .}}{{.PubKey | nodeLink}} {{end}}
-{{end}}{{end}}
+- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}
+{{end}}<b>Узел</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}}){{end}}
 
 {{if .Sats}}Заплатить счёт выше?
 {{else}}<b>Ответьте с желаемым количеством для подтверждения</b>
@@ -573,11 +572,11 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 	TXNOTFOUND:      "Не могу найти транзакцию {{.HashFirstChars}}.",
 	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} на {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}(💤 не востребована){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
-{{if .Txn.Payee.Valid}}<b>Получатель</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
+{{if .Txn.Payee.Valid}}<b>Оплатил</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Хэш</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
-<b>Секрет</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Количество</b>: {{.Txn.Amount | printf "%.15g"}} сат ({{dollar .Txn.Amount}})
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия</b>: {{printf "%.15g" .Txn.Fees}}{{end}}
+<b>Секрет(Preimage)</b>: {{.Txn.Preimage.String}}{{end}}
+<b>Количество</b>: {{.Txn.Amount | printf "%.15g"}} сат
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия</b>: {{.Txn.FeeSatoshis}}{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>

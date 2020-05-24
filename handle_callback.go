@@ -790,23 +790,30 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		go func(u User, messageId int, hash string) {
 			sendpays, _ := ln.CallNamed("listsendpays", "payment_hash", hash)
+
 			if sendpays.Get("payments.#").Int() == 0 {
+				log.Print(sendpays.String())
 				// payment was never tried
 				log.Debug().
 					Err(err).
 					Str("hash", hash).
 					Msg("canceling payment because it is not on listpays")
-				paymentHasFailed(u, messageId, hash)
 				return
 			}
 
-			bolt11 := sendpays.Get("payments.0.bolt11").String()
+			sendpay := sendpays.Get("payments.0")
+			bolt11 := sendpay.Get("bolt11").String()
 			if bolt11 == "" {
 				appendTextToMessage(cb, translate(t.UNEXPECTED, locale))
 				return
 			}
-			pays, _ := ln.Call("listpays", bolt11)
-			payment := pays.Get("listpays.0")
+			pays, err := ln.Call("listpays", bolt11)
+			if err != nil {
+				appendTextToMessage(cb, translateTemplate(t.ERROR, locale, t.T{"Err": err.Error()}))
+				return
+			}
+
+			payment := pays.Get("pays.0")
 			if !payment.Exists() || payment.Get("status").String() == "failed" {
 				// payment failed
 				log.Debug().
@@ -824,11 +831,11 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				paymentHasSucceeded(
 					u,
 					messageId,
-					payment.Get("msatoshi").Float(),
-					payment.Get("msatoshi_sent").Float(),
-					payment.Get("payment_preimage").String(),
+					sendpay.Get("msatoshi").Float(),
+					sendpay.Get("msatoshi_sent").Float(),
+					sendpay.Get("payment_preimage").String(),
 					"",
-					payment.Get("payment_hash").String(),
+					sendpay.Get("payment_hash").String(),
 				)
 			}
 		}(u, txn.TriggerMessage, txn.Hash)

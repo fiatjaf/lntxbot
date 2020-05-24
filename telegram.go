@@ -9,6 +9,20 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+func tgsend(chattable tgbotapi.Chattable) (sent tgbotapi.Message, err error) {
+	sent, err = bot.Send(chattable)
+	if err != nil && strings.Index(err.Error(), "reply message not found") != -1 {
+		switch c := chattable.(type) {
+		case tgbotapi.MessageConfig:
+			c.BaseChat.ReplyToMessageID = 0
+			return tgsend(c)
+		}
+	} else if err != nil {
+		return
+	}
+	return sent, nil
+}
+
 func sendMessage(chatId int64, msg string) tgbotapi.Message {
 	return sendMessageAsReply(chatId, msg, 0)
 }
@@ -30,9 +44,9 @@ func sendMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.Inline
 		if strings.Index(err.Error(), "reply message not found") != -1 {
 			chattable.BaseChat.ReplyToMessageID = 0
 			message, err = bot.Send(chattable)
+		} else {
+			log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).Msg("error sending message")
 		}
-
-		log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).Msg("error sending message")
 	}
 	return message
 }

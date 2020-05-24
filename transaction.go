@@ -169,51 +169,29 @@ type Hop struct {
 	Delay     int64
 }
 
-func renderLogInfo(hash string) (logInfo string) {
+func renderLogInfo(u User, hash string) (logInfo string) {
 	if len(hash) < 5 {
-		return ""
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
 	}
 
 	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
 	if err != nil {
-		return ""
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
 	}
-
-	logInfo += "<b>Routes tried:</b>"
 
 	var tries []Try
 	err = json.Unmarshal([]byte(lastCall), &tries)
 	if err != nil {
-		logInfo += " [error fetching]"
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "failed to parse log"})
 	}
 
 	if len(tries) == 0 {
-		logInfo += " No routes found."
+		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no routes attempted"})
 	}
 
-	for j, try := range tries {
-		letter := string([]rune{rune(j) + 97})
-		logInfo += fmt.Sprintf("\n  <b>%s</b>. ", letter)
-		if try.Success {
-			logInfo += "<i>Succeeded.</i>"
-		} else {
-			logInfo += "<i>Failed.</i>"
-		}
-
-		routeStr := ""
-		for l, hop := range try.Route {
-			routeStr += fmt.Sprintf("\n    <code>%s</code>. %s, %dmsat, delay: %d",
-				strings.ToLower(roman(l+1)),
-				nodeLink(hop.Peer), hop.Msatoshi, hop.Delay)
-		}
-		logInfo += routeStr
-
-		if try.Error != "" {
-			logInfo += fmt.Sprintf("\nError: %s. ", try.Error)
-		}
-	}
-
-	return
+	return translateTemplate(t.TXLOG, u.Locale, t.T{
+		"Tries": tries,
+	})
 }
 
 func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
@@ -227,11 +205,11 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 
 	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(txn.Hash),
+		"LogInfo": renderLogInfo(u, txn.Hash),
 	})
 	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 
-	if txn.Status == "PENDING" {
+	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
 		// allow people to cancel pending if they're old enough
 		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
 			tgbotapi.NewInlineKeyboardMarkup(
