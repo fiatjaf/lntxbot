@@ -575,8 +575,8 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 {{if .Txn.Payee.Valid}}<b>Оплатил</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
 <b>Хэш</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
 <b>Секрет(Preimage)</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Количество</b>: {{.Txn.Amount | printf "%.15g"}} сат
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия</b>: {{.Txn.FeeSatoshis}}{{end}}
+<b>Количество</b>: {{.Txn.Amount | printf "%.15g"}} сат ({{dollar .Txn.Amount}})
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия</b>: {{printf "%.15g" .Txn.Fees}}{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>
@@ -584,6 +584,11 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 {{else}}
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
+    `,
+	TXLOG: `<b>Попытки маршрутов</b>
+{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}} {{.Channel | channelLink}} <code>{{msatToSat .Msatoshi | printf "%.15g"}}</code> {{end}}{{with $try.Error}}{{if $try.Route}}
+{{else}} {{end}}<i>{{. | makeLinks}}</i>
+{{end}}{{end}}
     `,
 
 	TUTORIALWALLET: `
