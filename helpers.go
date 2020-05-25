@@ -146,7 +146,7 @@ func nodeLink(nodeId string) string {
 	}
 
 	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s…%s</a>`,
-		nodeId[:10], nodeId[:4], nodeId[len(nodeId)-4:])
+		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }
 
 func nodeAliasLink(nodeId string) string {
@@ -154,15 +154,17 @@ func nodeAliasLink(nodeId string) string {
 		return "{}"
 	}
 
+	nodeIdShortened := nodeId[:10]
 	alias := getNodeAlias(nodeId)
 	if alias == "" {
 		alias = fmt.Sprintf("%s…%s", nodeId[:4], nodeId[len(nodeId)-4:])
+		nodeIdShortened = nodeId
 	} else if len(alias) > 16 {
 		alias = alias[:15] + "…"
 	}
 
 	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s</a>`,
-		nodeId[:10], alias)
+		nodeIdShortened, alias)
 }
 
 func channelLink(scid string) string {

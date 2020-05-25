@@ -147,14 +147,6 @@ func (t Transaction) Icon() string {
 	}
 }
 
-func (t Transaction) PayeeAlias() string {
-	return getNodeAlias(t.Payee.String)
-}
-
-func (t Transaction) PayeeLink() string {
-	return nodeLink(t.Payee.String)
-}
-
 type Try struct {
 	Route   []Hop
 	Error   string

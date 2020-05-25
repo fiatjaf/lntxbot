@@ -909,7 +909,7 @@ SELECT
     SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
   ) AS totalsent,
-  ( 
+  (
     SELECT coalesce(sum(fees), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.from_id
   ) AS fees
@@ -926,6 +926,7 @@ GROUP BY b.account_id, b.balance
 			TotalReceived: 0,
 			TotalFees:     0,
 		}
+		err = nil
 	}
 
 	return

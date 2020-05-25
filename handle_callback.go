@@ -797,7 +797,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				log.Debug().
 					Err(err).
 					Str("hash", hash).
-					Msg("canceling payment because it is not on listpays")
+					Msg("canceling payment because it is not on listsendpays")
 				return
 			}
 
