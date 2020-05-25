@@ -64,10 +64,10 @@ lnurl-auth успех!
 	GROUPNOTRENAMABLE: "Эту группу невозможно переименовать!",
 
 	PAYMENTFAILED: "Платёж не состоялся. /log_{{.ShortHash}}",
-	PAIDMESSAGE: `Оплачено <b>{{printf "%.15g" .Sats}} ({{dollar .Sats}}) сат</b> (+ {{.Fee}} комиссия). 
+	PAIDMESSAGE: `Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}})</b> (+ <i>{{.Fee}}</i> комиссия). 
 
-<b>Hash:</b> {{.Hash}}{{if .Preimage}}
-<b>Proof:</b> {{.Preimage}}{{end}}
+<b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
+<b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
 /tx_{{.ShortHash}} #tx`,
 	OVERQUOTA:           "Вы превысили квоту {{.App}}.",
@@ -501,15 +501,15 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 	STOPHELP: "Бот перестаёт отсылать оповещения.",
 
 	PAYPROMPT: `
-{{if .Sats}}{{.Sats}} сат ({{dollar .Sats}})
+{{if .Sats}}<i>{{.Sats}} сат</i> ({{dollar .Sats}})
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
-<b>Узел</b>: {{.Hash}}{{if ne .Currency "bc"}}
+<b>Узел</b>: <code>{{.Hash}}</code>{{if ne .Currency "bc"}}
 <b>Цепь</b>: {{.Currency}}{{end}}
 <b>Создано</b>: {{.Created}}
 <b>Истекает</b>: {{.Expiry}}{{if .Expired}} <b>[ИСТЁК]</b>{{end}}
 {{if .Hints}}<b>Подсказки</b>: {{range .Hints}}
 - {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}
-{{end}}<b>Узел</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}}){{end}}
+{{end}}<b>Узел</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>){{end}}
 
 {{if .Sats}}Заплатить счёт выше?
 {{else}}<b>Ответьте с желаемым количеством для подтверждения</b>
@@ -569,14 +569,15 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 	WRONGCOMMAND:    "Не могу понять команду. /help",
 	RETRACTQUESTION: "Вернуть не затребованное поощрение?",
 	RECHECKPENDING:  "Перепроверить платёж в обработке?",
-	TXNOTFOUND:      "Не могу найти транзакцию {{.HashFirstChars}}.",
+
+	TXNOTFOUND: "Не могу найти транзакцию {{.HashFirstChars}}.",
 	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} в {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤 не затребовано){{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
-{{if .Txn.Payee.Valid}}<b>Оплатил</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
-<b>Хэш</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
-<b>Секрет(Preimage)</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Количество</b>: {{.Txn.Amount | printf "%.15g"}} сат
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия уплачена</b>: {{.Txn.FeeSatoshis}}{{end}}
+{{if .Txn.Payee.Valid}}<b>Оплатил</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
+<b>Хэш</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
+<b>Секрет (Preimage)</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}
+<b>Количество</b>: <i>{{.Txn.Amount | printf "%.15g"}} сат</i>
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия уплачена</b>: <i>{{printf "%.15g" .Txn.Fees}} sat</i>{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>
@@ -591,7 +592,7 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 
 Вы можете использовать его для игр и получения счетов Lightning, он сохраняет ваш баланс и историю ваших транзакций. Сервис <b>бесплатен</b>!
 
-Он также поддерживает <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">выводы через Lightning-ссылки (lnurl)</a> в/из других мест, обрабатывает текущие и ошибочные транзакции, может платить на lnurl-pay <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-pay">адреса</a> <a href="https://twitter.com/VNumeris/status/1148403575820709890"> сканирование QR кодов</a> (хотя для этого вы должны сделать фото QR кода своим приложением Telegram и операция может провалиться, в зависимости от модели вашего телефона, терпения и удачи) и другие полезные вещи.
+Он также поддерживает <a href="https://github.com/btcontract/lnurl-rfc/blob/master/lnurl-withdraw.md">выводы через Lightning-ссылки (lnurl)</a> в/из других мест, обрабатывает текущие и ошибочные транзакции, может платить на lnurl-pay <a href="https://github.com/btcontract/lnurl-rfc/blob/master/lnurl-pay.md">адреса</a> <a href="https://twitter.com/VNumeris/status/1148403575820709890"> сканирование QR кодов</a> (хотя для этого вы должны сделать фото QR кода своим приложением Telegram и операция может провалиться, в зависимости от модели вашего телефона, терпения и удачи) и другие полезные вещи.
 
 Используя @{{ .BotName }}, вы достаточно хорошо подготовлены для любых взаимодействий с Lightning Network.
     `,

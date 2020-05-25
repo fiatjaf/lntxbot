@@ -64,10 +64,10 @@ lnurl-auth success!
 	GROUPNOTRENAMABLE: "This group is not renamable!",
 
 	PAYMENTFAILED: "Payment failed. /log_{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <b>{{printf "%.15g" .Sats}} ({{dollar .Sats}}) sat</b> (+ {{.Fee}} fee). 
+	PAIDMESSAGE: `Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
 
-<b>Hash:</b> {{.Hash}}{{if .Preimage}}
-<b>Proof:</b> {{.Preimage}}{{end}}
+<b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
+<b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
 /tx_{{.ShortHash}} #tx`,
 	OVERQUOTA:           "You're over your {{.App}} daily quota.",
@@ -501,15 +501,15 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 	STOPHELP: "The bot stops showing you notifications.",
 
 	PAYPROMPT: `
-{{if .Sats}}{{.Sats}} sat ({{dollar .Sats}})
+{{if .Sats}}<i>{{.Sats}} sat</i> ({{dollar .Sats}})
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
-<b>Hash</b>: {{.Hash}}{{if ne .Currency "bc"}}
+<b>Hash</b>: <code>{{.Hash}}</code>{{if ne .Currency "bc"}}
 <b>Chain</b>: {{.Currency}}{{end}}
 <b>Created at</b>: {{.Created}}
 <b>Expires at</b>: {{.Expiry}}{{if .Expired}} <b>[EXPIRED]</b>{{end}}
 {{if .Hints}}<b>Hints</b>: {{range .Hints}}
 - {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}
-{{end}}<b>Payee</b>: {{.Payee | nodeLink}} ({{.Payee | nodeAlias}}){{end}}
+{{end}}<b>Payee</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>){{end}}
 
 {{if .Sats}}Pay the invoice described above?
 {{else}}<b>Reply with the desired amount to confirm.</b>
@@ -569,14 +569,15 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	WRONGCOMMAND:    "Could not understand the command. /help",
 	RETRACTQUESTION: "Retract unclaimed tip?",
 	RECHECKPENDING:  "Recheck pending payment?",
-	TXNOTFOUND:      "Couldn't find transaction {{.HashFirstChars}}.",
-	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}(💤y unclaimed){{end}}
+
+	TXNOTFOUND: "Couldn't find transaction {{.HashFirstChars}}.",
+	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}[💤 UNCLAIMED]{{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
-{{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.PayeeLink}} ({{.Txn.PayeeAlias}}){{end}}
-<b>Hash</b>: {{.Txn.Hash}}{{end}}{{if .Txn.Preimage.String}}
-<b>Preimage</b>: {{.Txn.Preimage.String}}{{end}}
-<b>Amount</b>: {{.Txn.Amount | printf "%.15g"}} sat ({{dollar .Txn.Amount}})
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: {{printf "%.15g" .Txn.Fees}}{{end}}
+{{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
+<b>Hash</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
+<b>Preimage</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}
+<b>Amount</b>: <i>{{.Txn.Amount | printf "%.15g"}} sat</i> ({{dollar .Txn.Amount}})
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: <i>{{printf "%.15g" .Txn.Fees}} sat</i>{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
@@ -585,8 +586,8 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 <i>No transactions made yet.</i>
 {{end}}
     `,
-	TXLOG: `<b>Routes tried</b>
-{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}} {{.Channel | channelLink}} <code>{{msatToSat .Msatoshi | printf "%.15g"}}</code> {{end}}{{with $try.Error}}{{if $try.Route}}
+	TXLOG: `<b>Routes tried</b>:
+{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠<code>{{msatToSat .Msatoshi | printf "%.15g"}}</code>➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
 {{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}
     `,
@@ -596,7 +597,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 
 You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions. Also, it charges <b>zero fees</b>!
 
-It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-withdraw">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, is capable of paying to <a href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#3-lnurl-pay">addresses</a>, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
+It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/lnurl-withdraw.md">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, is capable of paying to <a href="https://github.com/btcontract/lnurl-rfc/blob/master/lnurl-pay.md">addresses</a>, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
 
 With @{{ .BotName }} you're well equipped for doing online stuff on the Lightning Network.
     `,
