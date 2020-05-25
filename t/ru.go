@@ -451,7 +451,7 @@ ssh -p{{.SSHPort}} {{.SSHUser}}@{{.IP}}</pre>{{end}}
 	GIFTSCREATED:    "#gifts Подарок создан. Для получения просто пройдите по ссылке <code>https://lightning.gifts/redeem/{{.OrderId}}</code>.",
 	GIFTSFAILEDSAVE: "#gifts Ошибка сохранения вашего подарка. Пожалуйста, сообщите: {{.Err}}",
 	GIFTSLIST: `#gifts
-{{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}}сат</a> {{if .Spent}}затребовано <i>{{.WithdrawDate}}</i> пользователем {{.RedeemerURL}}{{else}}ещё не затребовано{{end}}
+{{range .Gifts}}- <a href="https://lightning.gifts/redeem/{{.OrderId}}">{{.Amount}} сат</a> {{if .Spent}}затребовано <i>{{.WithdrawDate}}</i> пользователем {{.RedeemerURL}}{{else}}ещё не затребовано{{end}}
 {{else}}
 <i>~ никаких подарков ещё не было сделано. ~</i>
 {{end}}
@@ -571,20 +571,25 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 	RECHECKPENDING:  "Перепроверить платёж в обработке?",
 
 	TXNOTFOUND: "Не могу найти транзакцию {{.HashFirstChars}}.",
-	TXINFO: `<code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} в {{.Txn.TimeFormat}} {{if .Txn.IsUnclaimed}}(💤 не затребовано){{end}}
+	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} на {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}<b>[💤 ВОСТРЕБОВАНА]</b>{{end}}
 <i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Оплатил</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
 <b>Хэш</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
 <b>Секрет (Preimage)</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}
-<b>Количество</b>: <i>{{.Txn.Amount | printf "%.15g"}} сат</i>
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия уплачена</b>: <i>{{printf "%.15g" .Txn.Fees}} sat</i>{{end}}
+<b>Количество</b>: <i>{{.Txn.Amount | printf "%.15g"}} сат</i> ({{dollar .Txn.Amount}})
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Комиссия</b>: <i>{{printf "%.15g" .Txn.Fees}}</i>{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.TimeFormatSmall}}</i> /tx_{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
+    `,
+	TXLOG: `<b>Попытки маршрутов</b>
+{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}} {{.Channel | channelLink}} <code>{{msatToSat .Msatoshi | printf "%.15g"}}</code> {{end}}{{with $try.Error}}{{if $try.Route}}
+{{else}} {{end}}<i>{{. | makeLinks}}</i>
+{{end}}{{end}}
     `,
 
 	TUTORIALWALLET: `
