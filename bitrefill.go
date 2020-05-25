@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -68,6 +69,25 @@ type BitrefillPackage struct {
 	UserPrice    int         `json:"userPrice"`
 }
 
+type BitrefillOrderInfo struct {
+	OrderId         string `json:"orderId"`
+	PaymentReceived bool   `json:"paymentReceived"`
+	Delivered       bool   `json:"delivered"`
+	Value           int    `json:"value"`
+	Number          int64  `json:"number"`
+	PinInfo         *struct {
+		Instructions string `json:"instructions"`
+		Pin          string `json:"pin"`
+		Other        string `json:"other"`
+	} `json:"pinInfo"`
+	LinkInfo *struct {
+		Link  string `json:"link"`
+		Other string `json:"other"`
+	} `json:"linkInfo"`
+	ErrorType    string `json:"errorType"`
+	ErrorMessage string `json:"errorMessage"`
+}
+
 type BitrefillErrorResponse struct {
 	Message string `json:"message"`
 	Status  string `json:"status"`
@@ -111,6 +131,28 @@ func serveBitrefillWebhook() {
 	router.Path("/app/bitrefill/webhook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := ioutil.ReadAll(r.Body)
 		log.Print("BITREFILL WEBHOOK ", string(b))
+
+		var orderinfo BitrefillOrderInfo
+		if err := json.Unmarshal(b, &orderinfo); err != nil {
+			log.Warn().Err(err).Msg("error unmarshaling bitrefill webhook")
+			return
+		}
+
+		var user User
+		err := pg.Get(&user, `
+SELECT `+USERFIELDS+`
+FROM telegram.account
+WHERE appdata->'bitrefill'->'orders' ? $1
+        `, orderinfo.OrderId)
+		if err != nil {
+			log.Warn().Err(err).Msg("couldn't fetch user for bitrefill webhook")
+			return
+		}
+
+		user.notify(t.BITREFILLPURCHASEDONE, t.T{
+			"OrderId": orderinfo.OrderId,
+			"Info":    orderinfo,
+		})
 	})
 }
 
@@ -327,12 +369,11 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 
 			if err != nil {
 				log.Error().Err(err).Msg("error acknowledging bitrefill order")
-				return
 			}
 			if resp.Status() >= 300 {
-				log.Error().Str("err-resp", resperr.Message).Str("status", resperr.Status).
+				log.Error().Str("err-resp", resperr.Message).
+					Str("status", resperr.Status).
 					Msg("error acknowledging bitrefill order")
-				return
 			}
 
 			// start polling the order
@@ -345,23 +386,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 }
 
 func pollBitrefillOrder(user User, orderId string, countdown int) {
-	var orderinfo struct {
-		PaymentReceived bool  `json:"paymentReceived"`
-		Delivered       bool  `json:"delivered"`
-		Value           int   `json:"value"`
-		Number          int64 `json:"number"`
-		PinInfo         *struct {
-			Instructions string `json:"instructions"`
-			Pin          string `json:"pin"`
-			Other        string `json:"other"`
-		} `json:"pinInfo"`
-		LinkInfo *struct {
-			Link  string `json:"link"`
-			Other string `json:"other"`
-		} `json:"linkInfo"`
-		ErrorType    string `json:"errorType"`
-		ErrorMessage string `json:"errorMessage"`
-	}
+	var orderinfo BitrefillOrderInfo
 	var resperr BitrefillErrorResponse
 	resp, err := bitrefill.Get("https://api.bitrefill.com/v1/order/"+orderId, nil, &orderinfo, &resperr)
 	if err != nil {
