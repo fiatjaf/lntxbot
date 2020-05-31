@@ -24,6 +24,18 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type InvoiceSpamLimit struct {
+	EqualOrSmallerThan int64
+	Key                string
+	PerDay             int
+}
+
+var INVOICESPAMLIMITS = []InvoiceSpamLimit{
+	{1000, "<=1", 1},
+	{10000, "<=10", 3},
+	{100000, "<=100", 10},
+}
+
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
 
 var dollarPrice = struct {

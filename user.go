@@ -285,6 +285,32 @@ func (u User) makeInvoice(
 	msatoshi := args.Msatoshi
 	label := args.Label
 
+	// limit number of small invoices people can make every day
+	if msatoshi <= 100000 {
+		invoicespamkey := "invspam:" + strconv.Itoa(u.Id)
+		spam := rds.HGetAll(invoicespamkey).Val()
+		if spam != nil {
+			for _, limit := range INVOICESPAMLIMITS {
+				if msatoshi <= limit.EqualOrSmallerThan {
+					ns, _ := spam[limit.Key]
+					n, _ := strconv.Atoi(ns)
+
+					go rds.HSet(invoicespamkey, limit.Key, n+1)
+
+					// expire this at the end of the day
+					t := time.Now().AddDate(0, 0, 1)
+					t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+					go rds.ExpireAt(invoicespamkey, t)
+
+					if n >= limit.PerDay {
+						return "", "", "",
+							fmt.Errorf("The issuance of invoices smaller than %dmsat is restricted to %d per day.", limit.EqualOrSmallerThan, limit.PerDay)
+					}
+				}
+			}
+		}
+	}
+
 	log.Debug().Str("user", u.Username).Str("desc", args.Desc).Int64("msats", msatoshi).
 		Msg("generating invoice")
 

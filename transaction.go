@@ -163,12 +163,12 @@ type Hop struct {
 
 func renderLogInfo(u User, hash string) (logInfo string) {
 	if len(hash) < 5 {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
+		return ""
 	}
 
 	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
 	if err != nil {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
+		return ""
 	}
 
 	var tries []Try
