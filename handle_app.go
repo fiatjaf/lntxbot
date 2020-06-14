@@ -135,13 +135,20 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 			go u.track("etleneum contracts", nil)
 			u.notify(t.ETLENEUMCONTRACTS, t.T{"Contracts": contracts, "Aliases": aliases})
+		} else if opts["history"].(bool) {
+			history, err := etleneumHistory(u)
+			if err != nil {
+				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				return
+			}
+			go u.track("etleneum history", nil)
+			u.notify(t.ETLENEUMHISTORY, t.T{"History": history})
 		} else if opts["withdraw"].(bool) {
 			_, _, _, withdraw, err := etleneumLogin(u)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
-
 			go u.track("etleneum withdraw", nil)
 			handleLNURL(u, withdraw, handleLNURLOpts{messageId: message.MessageID})
 		} else {

@@ -93,16 +93,6 @@ WHERE tx.payment_hash = $1
 	return unclaimed
 }
 
-func (t Transaction) PaddedSatoshis() string {
-	if t.Amount > 99999 {
-		return fmt.Sprintf("%7.15g", t.Amount)
-	}
-	if t.Amount < -9999 {
-		return fmt.Sprintf("%7.15g", t.Amount)
-	}
-	return fmt.Sprintf("%7.15g", t.Amount)
-}
-
 func (t Transaction) HashReduced() string {
 	return t.Hash[:5]
 }

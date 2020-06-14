@@ -121,6 +121,7 @@ const (
 
 	ETLENEUMHELP          = "etleneumHelp"
 	ETLENEUMACCOUNT       = "EtleneumAccount"
+	ETLENEUMHISTORY       = "EtleneumHistory"
 	ETLENEUMCONTRACT      = "EtleneumContract"
 	ETLENEUMCONTRACTSTATE = "EtleneumContractState"
 	ETLENEUMCALL          = "EtleneumCall"

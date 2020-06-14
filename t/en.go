@@ -248,8 +248,14 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 	ETLENEUMACCOUNT: `#etleneum
 <b>Account id</b>: {{.Account}}
 <b>Balance</b>: <i>{{printf "%.15g" .Balance}} sat</i>
+<b>History</b>: /etl_history
 <b>All available contracts</b>: /etl_apps
-
+    `,
+	ETLENEUMHISTORY: `#etleneum Account History
+{{range .History}}<code>{{.Sats | paddedSatoshis}}</code> {{.Counterparty}} <i>{{.Time | timeSmall}}</i>
+{{else}}
+<i>No account activity yet.</i>
+{{end}}
     `,
 	ETLENEUMCONTRACT: `{{with .Contract}}
 #etleneum <b>{{.Name}}</b> <a href="https://etleneum.com/#/contract/{{.Id}}">{{.Id}}</a> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>)
@@ -581,7 +587,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transactions from {{.From}} to {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.Amount | paddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>No transactions made yet.</i>
 {{end}}

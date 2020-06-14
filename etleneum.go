@@ -31,6 +31,16 @@ type EtleneumAppData struct {
 	Listening map[string]bool `json:"listening"` // list of contract ids to listen
 }
 
+type EtleneumAccountHistoryEntry struct {
+	Msatoshi     int64     `json:"msatoshi"`
+	Time         time.Time `json:"time"`
+	Counterparty string    `json:"counterparty"`
+}
+
+func (eahe EtleneumAccountHistoryEntry) Sats() float64 {
+	return float64(eahe.Msatoshi) / 1000
+}
+
 type EtleneumResponse struct {
 	Ok    bool            `json:"ok"`
 	Error string          `json:"error"`
@@ -138,6 +148,7 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 	if err != nil {
 		return
 	}
+	defer es.Close()
 
 	go func() {
 		for err := range es.Errors {
@@ -189,6 +200,42 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 		go user.setAppData("etleneum", userdata)
 	}
 
+	return
+}
+
+func etleneumHistory(user User) (history []EtleneumAccountHistoryEntry, err error) {
+	es, err := eventsource.Subscribe("https://etleneum.com/~~~/session", "")
+	if err != nil {
+		return
+	}
+	defer es.Close()
+
+	go func() {
+		for err := range es.Errors {
+			log.Debug().Err(err).Msg("eventsource error")
+		}
+	}()
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		es.Close()
+	}()
+
+	for ev := range es.Events {
+		if ev.Event() == "auth" {
+			var data map[string]interface{}
+			json.Unmarshal([]byte(ev.Data()), &data)
+			handleLNURL(user, data["auth"].(string), handleLNURLOpts{
+				loginSilently: true,
+			})
+		} else if ev.Event() == "history" {
+			json.Unmarshal([]byte(ev.Data()), &history)
+			es.Close()
+			return
+		}
+	}
+
+	err = errors.New("etleneum.com history fetching timed out")
 	return
 }
 
@@ -493,10 +540,12 @@ func listenToEtleneumContract(ctid string) {
 
 		iuserIds, ok := etleneumContractListeners.Get(ctid)
 		if !ok {
+			es.Close()
 			break
 		}
 		userIds, _ := iuserIds.(map[int]bool)
 		if len(userIds) == 0 {
+			es.Close()
 			break
 		}
 

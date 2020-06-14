@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -335,6 +336,15 @@ func createLocalizerBundle() (t.Bundle, error) {
 	})
 	bundle.AddFunc("timeSmall", func(t time.Time) string {
 		return t.Format("2 Jan 15:04")
+	})
+	bundle.AddFunc("paddedSatoshis", func(amount float64) string {
+		if amount > 99999 {
+			return fmt.Sprintf("%7.15g", amount)
+		}
+		if amount < -9999 {
+			return fmt.Sprintf("%7.15g", amount)
+		}
+		return fmt.Sprintf("%7.15g", amount)
 	})
 	bundle.AddFunc("lower", strings.ToLower)
 	bundle.AddFunc("roman", roman)

@@ -64,7 +64,7 @@ lnurl-auth успех!
 	GROUPNOTRENAMABLE: "Эту группу невозможно переименовать!",
 
 	PAYMENTFAILED: "Платёж не состоялся. /log_{{.ShortHash}}",
-	PAIDMESSAGE: `Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}})</b> (+ <i>{{.Fee}}</i> комиссия). 
+	PAIDMESSAGE: `Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> комиссия). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
@@ -248,6 +248,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 	ETLENEUMACCOUNT: `#etleneum
 <b>Аккаунт</b>: {{.Account}}
 <b>Баланс</b>: <i>{{printf "%.15g" .Balance}} sat</i>
+<b>Историю</b>: /etl_history
 <b>Все доступные контракты</b>: /etl_apps
 
     `,
@@ -581,7 +582,7 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Транзакция от {{.From}} к {{.To}}{{else}}Последние {{.Limit}} транзакций{{end}}</b>
-{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.PaddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
+{{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.Amount | paddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
