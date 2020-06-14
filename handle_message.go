@@ -336,7 +336,7 @@ parsed:
 			break
 		}
 
-		errMsg, err := u.sendInternally(
+		err = u.sendInternally(
 			message.MessageID,
 			*receiver,
 			anonymous,
@@ -350,7 +350,7 @@ parsed:
 				Str("from", u.Username).
 				Str("to", todisplayname).
 				Msg("failed to send/tip")
-			defaultNotify(t.FAILEDSEND, t.T{"Err": errMsg})
+			defaultNotify(t.FAILEDSEND, t.T{"Err": err.Error()})
 			break
 		}
 

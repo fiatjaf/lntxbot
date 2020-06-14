@@ -118,7 +118,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			return
 		}
 
-		errMsg, err := giver.sendInternally(
+		err = giver.sendInternally(
 			messageId,
 			claimer,
 			false,
@@ -129,7 +129,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
-			claimer.alert(cb, t.ERROR, t.T{"Err": errMsg})
+			claimer.alert(cb, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
@@ -405,7 +405,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			}
 
 			removeKeyboardButtons(cb)
-			errMsg, err := giver.sendInternally(
+			err = giver.sendInternally(
 				messageId,
 				winner,
 				false,
@@ -416,7 +416,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to giveflip")
-				winner.notify(t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": errMsg})
+				winner.notify(t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": err.Error()})
 				goto answerEmpty
 			}
 
@@ -584,14 +584,14 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 		hash := calculateHash(random)
 
-		errMessage, err := u.sendInternally(
+		err = u.sendInternally(
 			0, owner, false, sats*1000,
 			fmt.Sprintf("Rename group %d to '%s'", chatId, name),
 			hash, "rename",
 		)
 		if err != nil {
 			appendTextToMessage(cb, translateTemplate(t.ERROR, locale, t.T{
-				"Err": errMessage,
+				"Err": err.Error(),
 			}))
 			return
 		}

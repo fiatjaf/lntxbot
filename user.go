@@ -546,7 +546,7 @@ func (u User) actuallySendExternalPayment(
 	txn, err := pg.Beginx()
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
-		return errors.New("Database error.")
+		return ErrDatabase
 	}
 	defer txn.Rollback()
 
@@ -569,14 +569,13 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 
 	balance := getBalance(txn, u.Id)
 	if balance < 0 {
-		return fmt.Errorf("Amount too big. Usable balance is %.3f sat.",
-			(float64(balance+msatoshi)+fee_reserve)/1000)
+		return errors.New("Insufficient balance.")
 	}
 
 	err = txn.Commit()
 	if err != nil {
 		log.Debug().Err(err).Msg("database error committing transaction")
-		return errors.New("Database error.")
+		return ErrDatabase
 	}
 
 	// set common params
@@ -722,7 +721,7 @@ func (u User) addInternalPendingInvoice(
 	txn, err := pg.Beginx()
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
-		return errors.New("Database error.")
+		return ErrDatabase
 	}
 	defer txn.Rollback()
 
@@ -738,14 +737,13 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 
 	balance := getBalance(txn, u.Id)
 	if balance < 0 {
-		return fmt.Errorf("Insufficient balance. Needs %.0f sat more.",
-			-float64(balance)/1000)
+		return ErrInsufficientBalance
 	}
 
 	err = txn.Commit()
 	if err != nil {
 		log.Debug().Err(err).Msg("database error committing transaction")
-		return errors.New("Database error.")
+		return ErrDatabase
 	}
 
 	return nil
@@ -759,14 +757,14 @@ func (u User) sendInternally(
 	desc string,
 	hash string,
 	tag string,
-) (string, error) {
+) error {
 	if target.Id == u.Id || target.Username == u.Username || target.TelegramId == u.TelegramId {
-		return "Can't pay yourself.", errors.New("user trying to pay itself")
+		return errors.New("Can't pay yourself.")
 	}
 
 	if msats == 0 {
 		// if nothing was provided, end here
-		return "No amount provided.", errors.New("no amount provided")
+		return ErrInvalidAmount
 	}
 
 	var (
@@ -777,7 +775,7 @@ func (u User) sendInternally(
 
 	txn, err := pg.Beginx()
 	if err != nil {
-		return "Database error.", err
+		return ErrDatabase
 	}
 	defer txn.Rollback()
 
@@ -799,22 +797,20 @@ VALUES (
 )
     `, u.Id, target.Id, anonymous, msats, descn, tagn, hashn, messageId)
 	if err != nil {
-		return "Database error.", err
+		return ErrDatabase
 	}
 
 	balance := getBalance(txn, u.Id)
 	if balance < 0 {
-		return fmt.Sprintf("Insufficient balance. Needs %.3f sat more.",
-				-float64(balance)/1000),
-			errors.New("insufficient balance")
+		return ErrInsufficientBalance
 	}
 
 	err = txn.Commit()
 	if err != nil {
-		return "Unable to pay due to internal database error.", err
+		return ErrDatabase
 	}
 
-	return "", nil
+	return nil
 }
 
 func (u User) sendThroughProxy(
