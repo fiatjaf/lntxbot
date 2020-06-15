@@ -680,13 +680,37 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		// that should be enough for us to be 100% sure
 		listpays, _ := ln.Call("listpays", bolt11)
 		payattempts := listpays.Get("pays.#").Int()
-		if payattempts == 1 && listpays.Get("pays.0.status").String() != "failed" {
-			// not a failure -- but also not a success
-			// we don't know what happened, maybe it's pending,
-			// so don't do anything
-			log.Debug().Str("bolt11", bolt11).
-				Msg("we don't know what happened with this payment")
-			return
+		if payattempts == 1 {
+			status := listpays.Get("pays.0.status").String()
+
+			switch status {
+			case "failed":
+				go u.track("payment failed", map[string]interface{}{
+					"sats":  msatoshi / 1000,
+					"payee": inv.Get("payee").String(),
+				})
+				log.Warn().
+					Str("user", u.Username).
+					Int("user-id", u.Id).
+					Interface("params", params).
+					Interface("tries", tries).
+					Str("bolt11", bolt11).
+					Str("hash", hash).
+					Msg("payment failed according to listpays")
+					// give the money back to the user
+				onFailure(u, messageId, hash)
+			case "success":
+				log.Debug().Str("bolt11", bolt11).
+					Msg("listpays success. we shouldn't reach this code ever.")
+				return
+			default:
+				// not a failure -- but also not a success
+				// we don't know what happened, maybe it's pending,
+				// so don't do anything
+				log.Debug().Str("bolt11", bolt11).
+					Msg("we don't know what happened with this payment")
+				return
+			}
 		}
 
 		// the payment wasn't even tried -- so it's a failure
@@ -701,7 +725,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 				Interface("params", params).
 				Interface("tries", tries).
 				Str("hash", hash).
-				Msg("payment failed")
+				Msg("payment wasn't even tried")
 				// give the money back to the user
 			onFailure(u, messageId, hash)
 		}
