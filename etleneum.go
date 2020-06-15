@@ -144,6 +144,12 @@ func aliasToEtleneumContractId(user User, aliasOrId string) (id string) {
 }
 
 func etleneumLogin(user User) (account, secret string, balance float64, withdraw string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Debug().Interface("r", r).Msg("recovered from panic on etleneumLogin")
+		}
+	}()
+
 	es, err := eventsource.Subscribe("https://etleneum.com/~~~/session", "")
 	if err != nil {
 		return
