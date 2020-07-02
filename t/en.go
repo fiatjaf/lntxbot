@@ -301,7 +301,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
     `,
 	ETLENEUMSUBSCRIBED: `#etleneum You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
 	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
-<code>[{{.Data.kind}} error]</code>{{else if eq .Event "call-run-event"}}
+<code>[error]</code> {{.Data}}{{else if eq .Event "call-run-event"}}
 <code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
 <code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
     `,

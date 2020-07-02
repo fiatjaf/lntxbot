@@ -549,8 +549,12 @@ func listenToEtleneumContract(ctid string) {
 			break
 		}
 
-		var data map[string]interface{}
-		json.Unmarshal([]byte(ev.Data()), &data)
+		var data interface{}
+		if ev.Event() == "call-error" {
+			data = ev.Data()
+		} else {
+			json.Unmarshal([]byte(ev.Data()), &data)
+		}
 
 		for userId, _ := range userIds {
 			user, _ := loadUser(userId, 0)
