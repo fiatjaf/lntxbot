@@ -15,7 +15,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
+	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
@@ -301,18 +301,18 @@ func lnurlpayFetchInvoiceAndPay(
 	log.Debug().Interface("res", res).Msg("got lnurl-pay values")
 
 	// check invoice amount
-	decoded, err := decodepay_gjson.Decodepay(res.PR)
+	inv, err := decodepay.Decodepay(res.PR)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
 		return
 	}
 
-	if decoded.Get("description_hash").String() != calculateHash(metadata) {
+	if inv.DescriptionHash != calculateHash(metadata) {
 		u.notify(t.ERROR, t.T{"Err": "Got invoice with wrong description_hash"})
 		return
 	}
 
-	if decoded.Get("msatoshi").Int() != msats {
+	if int64(inv.MSatoshi) != msats {
 		u.notify(t.ERROR, t.T{"Err": "Got invoice with wrong amount."})
 		return
 	}
@@ -347,8 +347,8 @@ func lnurlpayFetchInvoiceAndPay(
 			file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
 				"Domain":         callbackURL.Host,
 				"LNURL":          encodedLnurl,
-				"Hash":           decoded.Get("payment_hash").String(),
-				"HashFirstChars": decoded.Get("payment_hash").String()[:5],
+				"Hash":           inv.PaymentHash,
+				"HashFirstChars": inv.PaymentHash[:5],
 			})
 			file.ParseMode = "HTML"
 			bot.Send(file)
