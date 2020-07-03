@@ -296,7 +296,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
     `,
 	ETLENEUMSUBSCRIBED: `#etleneum Вы {{if not .Subscribed}}не-{{end}}подписаны {{if .Subscribed}}на{{else}}из{{end}} /etl_{{.Contract}}.`,
 	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> на /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
-<code>[ошибка] {{.Data}}</code>{{else if eq .Event "call-run-event"}}
+<code>[ошибка] {{.Data.message}}</code>{{else if eq .Event "call-run-event"}}
 <code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
 <code>[завершено]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
     `,

@@ -294,7 +294,12 @@ func getEtleneumCall(callId string) (call EtleneumCall, err error) {
 	}
 
 	err = json.Unmarshal(reply.Value, &call)
-	return call, err
+	if err != nil {
+		log.Debug().Err(err).Str("body", string(reply.Value)).
+			Msg("error unmarshaling etleneum call")
+	}
+
+	return call, nil
 }
 
 func buildEtleneumCallLNURL(
@@ -549,9 +554,11 @@ func listenToEtleneumContract(ctid string) {
 			break
 		}
 
-		var data interface{}
+		var data map[string]interface{}
 		if ev.Event() == "call-error" {
-			data = ev.Data()
+			msg := ev.Data()
+			data := make(map[string]interface{})
+			data["message"] = msg
 		} else {
 			json.Unmarshal([]byte(ev.Data()), &data)
 		}
