@@ -158,6 +158,10 @@ var methods = []def{
 		argstr:  "(ticket [<price>] | renamable [<price>] | spammy | language [<lang>] | coinflips)",
 	},
 	def{
+		aliases: []string{"dollar"},
+		argstr:  "<satoshis>",
+	},
+	def{
 		aliases: []string{"help"},
 		argstr:  "[<command>]",
 	},

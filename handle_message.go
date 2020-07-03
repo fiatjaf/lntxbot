@@ -965,6 +965,13 @@ parsed:
 
 			}
 		}()
+		break
+	case opts["dollar"].(bool):
+		sats, err := opts.Int("<satoshis>")
+		if err == nil {
+			sendMessage(u.ChatId, getDollarPrice(int64(sats)*1000))
+		}
+		break
 	}
 }
 
