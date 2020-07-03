@@ -208,6 +208,9 @@ func server(p *plugin.Plugin) {
 	servePages()
 	serveGiftsWebhook()
 	serveBitrefillWebhook()
+	router.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://t.me/lntxbot", http.StatusTemporaryRedirect)
+	})
 
 	// routines
 	go startKicking()
