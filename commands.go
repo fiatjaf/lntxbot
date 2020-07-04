@@ -136,7 +136,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"sats4ads"},
-		argstr:  "(on [<msat_per_character>] | off | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
+		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
 	},
 	def{
 		aliases: []string{"api"},

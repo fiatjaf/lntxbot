@@ -486,6 +486,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		}
 	case opts["sats4ads"].(bool):
 		switch {
+		case opts["rate"].(bool):
+			rate, _ := getSats4AdsRate(u)
+			sendMessage(u.ChatId, strconv.Itoa(rate)+" msatoshi per character.")
+			break
 		case opts["on"].(bool):
 			rate, err := opts.Int("<msat_per_character>")
 			if err != nil {

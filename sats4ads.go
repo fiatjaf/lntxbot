@@ -49,6 +49,15 @@ func turnSats4AdsOff(user User) error {
 	return user.setAppData("sats4ads", data)
 }
 
+func getSats4AdsRate(user User) (rate int, err error) {
+	err = pg.Get(&rate, `
+SELECT (appdata->'sats4ads'->>'rate')::integer
+FROM telegram.account
+WHERE id = $1
+    `, user.Id)
+	return
+}
+
 func getSats4AdsRates() (rates []Sats4AdsRateGroup, err error) {
 	err = pg.Select(&rates, `
 WITH enabled_listeners AS (
