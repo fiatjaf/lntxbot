@@ -509,8 +509,8 @@ Sats4ads это маркетплейс рекламы в Telegram. Платит�
 <b>Создано</b>: {{.Created}}
 <b>Истекает</b>: {{.Expiry}}{{if .Expired}} <b>[ИСТЁК]</b>{{end}}
 {{if .Hints}}<b>Подсказки</b>: {{range .Hints}}
-- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}
-{{end}}<b>Узел</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>){{end}}
+- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}
+<b>Узел</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>){{end}}
 
 {{if .Sats}}Заплатить счёт выше?
 {{else}}<b>Ответьте с желаемым количеством для подтверждения</b>
