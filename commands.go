@@ -103,7 +103,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"etleneum", "etl"},
-		argstr:  "[history | withdraw | (apps | contracts) | call <id> | <contract> [state [<jqfilter>] | subscribe | unsubscribe | <method> [<satoshi>] [<params>...]]]",
+		argstr:  "[history | withdraw | (apps | contracts) | call <id> | <contract> [state [<jqfilter>] | subscribe | unsubscribe | <method> [<satoshis>] [<params>...]]]",
 	},
 	def{
 		aliases: []string{"satellite"},
@@ -136,7 +136,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"sats4ads"},
-		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <spend_satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
+		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>])",
 	},
 	def{
 		aliases: []string{"api"},

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -353,6 +354,16 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle.AddFunc("roman", roman)
 	bundle.AddFunc("letter", func(i int) string { return string([]rune{rune(i) + 97}) })
 	bundle.AddFunc("add", func(a, b int) int { return a + b })
+	bundle.AddFunc("menuItem", func(sats int, rawItem string, showSats bool) string {
+		if _, ok := menuItems[rawItem]; ok {
+			if showSats {
+				return rawItem + " (" + strconv.Itoa(sats) + " sat)"
+			} else {
+				return rawItem
+			}
+		}
+		return strconv.Itoa(sats) + " sat"
+	})
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

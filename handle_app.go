@@ -74,7 +74,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				// make a call
 				params := opts["<params>"].([]string)
 				var sats *int // nil means not specified
-				if satoshi, err := opts.Int("<satoshi>"); err == nil {
+				if satoshi, err := parseSatoshis(opts); err == nil {
 					sats = &satoshi
 				} else {
 					// surprise! supplying <satoshi> is actually optional.
@@ -227,7 +227,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		}
 	case opts["satellite"].(bool):
 		// create an order
-		satoshis, err := opts.Int("<satoshis>")
+		satoshis, err := parseSatoshis(opts)
 		if err != nil {
 			handleHelp(u, "satellite")
 			return
@@ -248,7 +248,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 		go u.track("satellite send", map[string]interface{}{"sats": satoshis})
 	case opts["fundbtc"].(bool):
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err != nil {
 			handleHelp(u, "fundbtc")
 			return
@@ -281,7 +281,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			go u.track("bitclouds create-init", nil)
 		case opts["topup"].(bool):
-			satoshis, err := opts.Int("<satoshis>")
+			satoshis, err := parseSatoshis(opts)
 			if err != nil {
 				u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 				return
@@ -454,7 +454,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		}
 	case opts["gifts"].(bool):
 		// create gift or fallback to list gifts
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err == nil {
 			// create
 			err = createGift(u, sats, messageId)
@@ -541,7 +541,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
-			satoshis, err := opts.Int("<spend_satoshis>")
+			satoshis, err := parseSatoshis(opts)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return

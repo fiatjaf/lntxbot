@@ -278,7 +278,8 @@ parsed:
 		)
 
 		// get quantity
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
+		satsraw := opts["<satoshis>"].(string)
 
 		if err != nil || sats <= 0 {
 			defaultNotify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
@@ -359,8 +360,9 @@ parsed:
 				receiver.notify(t.RECEIVEDSATSANON, t.T{"Sats": sats})
 			} else {
 				receiver.notify(t.USERSENTYOUSATS, t.T{
-					"User": u.AtName(),
-					"Sats": sats,
+					"User":    u.AtName(),
+					"Sats":    sats,
+					"RawSats": satsraw,
 				})
 			}
 		}
@@ -377,6 +379,7 @@ parsed:
 		defaultNotify(t.USERSENTTOUSER, t.T{
 			"User":              todisplayname,
 			"Sats":              sats,
+			"RawSats":           satsraw,
 			"ReceiverHasNoChat": false,
 		})
 
@@ -388,7 +391,7 @@ parsed:
 
 		break
 	case opts["giveaway"].(bool):
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err != nil {
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
@@ -417,7 +420,7 @@ parsed:
 		})
 		break
 	case opts["giveflip"].(bool):
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err != nil {
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
@@ -474,7 +477,7 @@ parsed:
 		}
 
 		// open a lottery between a number of users in a group
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err != nil {
 			u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 			break
@@ -523,7 +526,7 @@ parsed:
 		rds.Set(fmt.Sprintf("recentcoinflip:%d", u.Id), "t", time.Minute*30)
 	case opts["fundraise"].(bool), opts["crowdfund"].(bool):
 		// many people join, we get all the money and transfer to the target
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err != nil {
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
@@ -595,7 +598,7 @@ parsed:
 			return
 		}
 
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err != nil || sats == 0 {
 			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			return
@@ -733,7 +736,7 @@ parsed:
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
 			// generate an lnurl-withdraw so a remote wallet can send an invoice
-			sats, err := opts.Int("<satoshis>")
+			sats, err := parseSatoshis(opts)
 			if err != nil {
 				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 				break
@@ -757,7 +760,7 @@ parsed:
 
 				go u.track("print lnurl", nil)
 			} else {
-				sats, err := opts.Int("<satoshis>")
+				sats, err := parseSatoshis(opts)
 				if err != nil {
 					if opts["any"].(bool) {
 						sats = 0
@@ -967,7 +970,7 @@ parsed:
 		}()
 		break
 	case opts["dollar"].(bool):
-		sats, err := opts.Int("<satoshis>")
+		sats, err := parseSatoshis(opts)
 		if err == nil {
 			sendMessage(u.ChatId, getDollarPrice(int64(sats)*1000))
 		}

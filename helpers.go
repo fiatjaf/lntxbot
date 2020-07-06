@@ -74,6 +74,31 @@ func parseLabel(label string) (messageId, userId int, tag string, ok bool) {
 	return
 }
 
+var menuItems = map[string]int{
+	"popcorn": 27,
+	"banana":  777,
+}
+
+func parseSatoshis(opts docopt.Opts) (sats int, err error) {
+	amt, ok := opts["<satoshis>"].(string)
+	if !ok {
+		return 0, errors.New("<satoshis> missing")
+	}
+
+	sats, err = strconv.Atoi(amt)
+	if err == nil {
+		return sats, nil
+	}
+
+	// a menu of varieties
+	sats, ok = menuItems[amt]
+	if ok {
+		return sats, nil
+	}
+
+	return 0, errors.New("<satoshis> invalid")
+}
+
 func chatOwnerFromTicketLabel(label string) (owner User, err error) {
 	parts := strings.Split(label, ":")
 	chatId, err := strconv.Atoi(parts[2])
