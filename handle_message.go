@@ -371,6 +371,7 @@ parsed:
 			u.notifyAsReply(t.USERSENTTOUSER, t.T{
 				"User":              todisplayname,
 				"Sats":              sats,
+				"RawSats":           satsraw,
 				"ReceiverHasNoChat": receiver.ChatId == 0,
 			}, message.MessageID)
 			break

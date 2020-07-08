@@ -135,14 +135,16 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 
 		removeKeyboardButtons(cb)
 		claimer.notify(t.USERSENTYOUSATS, t.T{
-			"User":  giver.AtName(),
-			"Sats":  sats,
-			"BotOp": "/giveaway",
+			"User":    giver.AtName(),
+			"Sats":    sats,
+			"RawSats": "",
+			"BotOp":   "/giveaway",
 		})
 
 		giver.notify(t.USERSENTTOUSER, t.T{
-			"Sats":              sats,
 			"User":              claimer.AtName(),
+			"Sats":              sats,
+			"RawSats":           "",
 			"ReceiverHasNoChat": false,
 		})
 
