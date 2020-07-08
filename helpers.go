@@ -82,7 +82,7 @@ var menuItems = map[string]int{
 func parseSatoshis(opts docopt.Opts) (sats int, err error) {
 	amt, ok := opts["<satoshis>"].(string)
 	if !ok {
-		return 0, errors.New("<satoshis> missing")
+		return 0, errors.New("'satoshis' param missing")
 	}
 
 	sats, err = strconv.Atoi(amt)
@@ -96,7 +96,7 @@ func parseSatoshis(opts docopt.Opts) (sats int, err error) {
 		return sats, nil
 	}
 
-	return 0, errors.New("<satoshis> invalid")
+	return 0, errors.New("'satoshis' param invalid")
 }
 
 func chatOwnerFromTicketLabel(label string) (owner User, err error) {
