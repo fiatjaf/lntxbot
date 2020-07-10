@@ -149,6 +149,11 @@ func registerBluewalletMethods() {
 			return
 		}
 
+		select {
+		case preimage = <-waitPaymentSuccess(decoded.PaymentHash):
+		case <-time.After(5 * time.Second):
+		}
+
 		tx, _ := user.getTransaction(decoded.PaymentHash)
 
 		w.Header().Set("Content-Type", "application/json")
