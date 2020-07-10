@@ -167,7 +167,7 @@ func registerBluewalletMethods() {
 			Type:            "paid_invoice",
 			Fee:             tx.Fees,
 			Value:           tx.Amount,
-			Timestamp:       tx.Time.Unix(),
+			Timestamp:       tx.Time.UTC().Unix(),
 			Memo:            tx.Description + " " + tx.PeerActionDescription(),
 		})
 	})
@@ -232,7 +232,7 @@ func registerBluewalletMethods() {
 				Type:            "paid_invoice",
 				Fee:             tx.Fees,
 				Value:           tx.Amount,
-				Timestamp:       tx.Time.Unix(),
+				Timestamp:       tx.Time.UTC().Unix(),
 				Memo:            tx.Description + " " + tx.PeerActionDescription(),
 			}
 		}
@@ -290,7 +290,7 @@ func registerBluewalletMethods() {
 				true,
 				tx.Amount,
 				float64(s.InvoiceTimeout.Seconds()),
-				tx.Time.Unix(),
+				tx.Time.UTC().Unix(),
 				"user_invoice",
 			}
 		}
@@ -309,7 +309,7 @@ func registerBluewalletMethods() {
 				false,
 				inv["amount"].(float64),
 				inv["expiry"].(float64),
-				time.Now().Unix(),
+				time.Now().UTC().Unix(),
 				"user_invoice",
 			})
 		}
