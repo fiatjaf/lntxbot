@@ -587,12 +587,17 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		return ErrDatabase
 	}
 
+	exemptfee := 3000
+	if balance > 10000 {
+		exemptfee = 7000
+	}
+
 	// set common params
 	params := map[string]interface{}{
 		"bolt11":        bolt11,
 		"riskfactor":    3,
 		"maxfeepercent": 0.4,
-		"exemptfee":     3000,
+		"exemptfee":     exemptfee,
 		"label":         fmt.Sprintf("user=%d", u.Id),
 		"use_shadow":    false,
 	}
