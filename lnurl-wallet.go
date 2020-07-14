@@ -94,10 +94,11 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 	case lnurl.LNURLWithdrawResponse:
 		// lnurl-withdraw: make an invoice with the highest possible value and send
 		bolt11, _, _, err := u.makeInvoice(makeInvoiceArgs{
-			Msatoshi:  params.MaxWithdrawable,
-			Desc:      params.DefaultDescription,
-			MessageId: opts.messageId,
-			SkipQR:    true,
+			IgnoreInvoiceSizeLimit: true,
+			Msatoshi:               params.MaxWithdrawable,
+			Desc:                   params.DefaultDescription,
+			MessageId:              opts.messageId,
+			SkipQR:                 true,
 		})
 		if err != nil {
 			u.notify(t.ERROR, t.T{"Err": err.Error()})

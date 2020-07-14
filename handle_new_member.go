@@ -70,7 +70,8 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	expiration := time.Minute * 15
 
 	bolt11, hash, qrpath, err := chatOwner.makeInvoice(makeInvoiceArgs{
-		Msatoshi: int64(g.Ticket) * 1000,
+		IgnoreInvoiceSizeLimit: true,
+		Msatoshi:               int64(g.Ticket) * 1000,
 		Desc: fmt.Sprintf(
 			"ticket for %s to join %s (%d).",
 			username, joinMessage.Chat.Title, joinMessage.Chat.ID,

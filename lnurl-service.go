@@ -226,10 +226,11 @@ func serveLNURL() {
 
 		hhash := sha256.Sum256(jmeta)
 		bolt11, _, _, err := receiver.makeInvoice(makeInvoiceArgs{
-			Msatoshi: msatoshi,
-			DescHash: hex.EncodeToString(hhash[:]),
-			Tag:      tag,
-			SkipQR:   true,
+			IgnoreInvoiceSizeLimit: true,
+			Msatoshi:               msatoshi,
+			DescHash:               hex.EncodeToString(hhash[:]),
+			Tag:                    tag,
+			SkipQR:                 true,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
