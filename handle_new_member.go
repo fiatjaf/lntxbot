@@ -58,7 +58,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 
 	chatOwner, err := getChatOwner(joinMessage.Chat.ID)
 	if err != nil {
-		log.Warn().Err(err).Msg("chat has no owner, failed to create a ticket invoice. allowing user.")
+		log.Warn().Err(err).Msg("chat has no owner, can't create ticket. allowing user.")
 		return
 	}
 
@@ -78,6 +78,13 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		Label:  label,
 		Expiry: &expiration,
 	})
+	if err != nil {
+		log.Warn().Err(err).Str("label", label).
+			Str("chat", joinMessage.Chat.Title).
+			Str("username", username).
+			Msg("failed to create a ticket invoice. allowing user.")
+		return
+	}
 
 	invoiceMessage := sendMessageWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 
