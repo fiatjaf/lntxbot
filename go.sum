@@ -15,6 +15,7 @@ github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/andybalholm/cascadia v1.1.0 h1:BuuO6sSfQNFRu1LppgbD25Hr2vLYW25JvxHs5zzsLTo=
 github.com/andybalholm/cascadia v1.1.0/go.mod h1:GsXiBklL0woXo1j/WYWtSYYC4ouU9PqHO0sqidkEA4Y=
+github.com/arschles/assert v2.0.0+incompatible/go.mod h1:m/u69zW43x0h8dTHcv3JJZljINyEYgBuf5fYJP6WikI=
 github.com/arschles/go-bindata-html-template v0.0.0-20170123182818-839a6918b9ff h1:ETIbG/K781mMt/+Da71SjOwIW5dwFqSEMa93obUNlm0=
 github.com/arschles/go-bindata-html-template v0.0.0-20170123182818-839a6918b9ff/go.mod h1:G2RVilyy6tNEfDhlQavPdF90GsPbA8YK6TrPBjfCxAs=
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
@@ -76,6 +77,8 @@ github.com/fiatjaf/eventsource v0.0.0-20200623030538-9845829a8ba8 h1:A9WIo4FMuj7
 github.com/fiatjaf/eventsource v0.0.0-20200623030538-9845829a8ba8/go.mod h1:g0dFKek8VJ2Cn5JBl6Cg1Ci3iRZKU/SoJrdaexb/N6o=
 github.com/fiatjaf/go-lnurl v1.0.0 h1:Y8npNP9AcQNpSJEHWj7TUxCoI2vlggF22RiAthVbVz8=
 github.com/fiatjaf/go-lnurl v1.0.0/go.mod h1:BqA8WXAOzntF7Z3EkVO7DfP4y5rhWUmJ/Bu9KBke+rs=
+github.com/fiatjaf/go-lnurl v1.1.0 h1:WJYMyPuXlmQx8MRZdKFvQJzrakn0Ky/Q7dz82Jr2wsw=
+github.com/fiatjaf/go-lnurl v1.1.0/go.mod h1:BqA8WXAOzntF7Z3EkVO7DfP4y5rhWUmJ/Bu9KBke+rs=
 github.com/fiatjaf/lightningd-gjson-rpc v1.0.1 h1:ERBKSzUyYm1WiFrPNr/TVTOJ8B9iotgG1END4DpelE4=
 github.com/fiatjaf/lightningd-gjson-rpc v1.0.1/go.mod h1:SQGA0qcY2qypaMXDQlE5V5+2MnLZzQ7NzfRsScliFeE=
 github.com/fiatjaf/ln-decodepay v1.0.0 h1:1YUMjvLock+BicMNwoZ/OA3oG2ZYEaJ8AzdS6EGVMTQ=
@@ -119,6 +122,7 @@ github.com/jackpal/go-nat-pmp v0.0.0-20170405195558-28a68d0c24ad/go.mod h1:QPH04
 github.com/jedib0t/go-pretty v4.3.0+incompatible/go.mod h1:XemHduiw8R651AF9Pt4FwCTKeG3oo7hrHJAoznj9nag=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
+github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff/go.mod h1:ddfPX8Z28YMjiqoaJhNBzWHapTHXejnB5cDCUWDwriw=
 github.com/jmoiron/sqlx v1.2.0 h1:41Ip0zITnmWNR/vHV+S4m+VoUivnWY5E4OJfLZjCJMA=
 github.com/jmoiron/sqlx v1.2.0/go.mod h1:1FEQNm3xlJgrMD+FBdI9+xvCksHtbpVBBw5dYhBSsks=
 github.com/joho/godotenv v1.3.0 h1:Zjp+RcGpHhGlrMbJzXTrZZPrWj+1vfm90La1wgB6Bhc=
@@ -232,6 +236,7 @@ github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2 h1:BWVtt2VBY+lmVDu9M
 github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2/go.mod h1:lPnW9HVS0vJdeYyQtOvIvlXgZPNhUAhwz+z5r8AJk0Y=
 github.com/tv42/zbase32 v0.0.0-20160707012821-501572607d02/go.mod h1:tHlrkM198S068ZqfrO6S8HsoJq2bF3ETfTL+kt4tInY=
 github.com/urfave/cli v1.18.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
+github.com/willf/bitset v1.1.10/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPySAYV4=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.mongodb.org/mongo-driver v1.0.3/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
 golang.org/x/crypto v0.0.0-20170930174604-9419663f5a44/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=

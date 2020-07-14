@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -182,7 +181,7 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			}
 
 			var chattable tgbotapi.Chattable
-			tmpldata["Text"] = params.ParsedMetadata["text/plain"]
+			tmpldata["Text"] = params.Metadata.Description()
 			text := translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata)
 
 			chattable = tgbotapi.MessageConfig{
@@ -191,34 +190,16 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 				ParseMode:             "HTML",
 				Text:                  text,
 			}
-			if b64image, ok := params.ParsedMetadata["image/jpeg;base64"]; ok {
-				contents, err := base64.StdEncoding.DecodeString(b64image)
+			if imagebytes := params.Metadata.ImageBytes(); imagebytes != nil {
 				if err == nil {
 					chattable = tgbotapi.PhotoConfig{
 						BaseFile: tgbotapi.BaseFile{
 							BaseChat: baseChat,
 							File: tgbotapi.FileBytes{
 								Name:  "image",
-								Bytes: contents,
+								Bytes: imagebytes,
 							},
-							MimeType: "image/jpeg",
-						},
-						ParseMode: "HTML",
-						Caption:   text,
-					}
-				}
-			}
-			if b64image, ok := params.ParsedMetadata["image/png;base64"]; ok {
-				contents, err := base64.StdEncoding.DecodeString(b64image)
-				if err == nil {
-					chattable = tgbotapi.PhotoConfig{
-						BaseFile: tgbotapi.BaseFile{
-							BaseChat: baseChat,
-							File: tgbotapi.FileBytes{
-								Name:  "image",
-								Bytes: contents,
-							},
-							MimeType: "image/png",
+							MimeType: "image/" + params.Metadata.ImageExtension(),
 						},
 						ParseMode: "HTML",
 						Caption:   text,
