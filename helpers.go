@@ -75,8 +75,9 @@ func parseLabel(label string) (messageId, userId int, tag string, ok bool) {
 }
 
 var menuItems = map[string]int{
-	"popcorn": 27,
-	"banana":  777,
+	"popcorn":  27,
+	"piparote": 88,
+	"banana":   777,
 }
 
 func parseSatoshis(opts docopt.Opts) (sats int, err error) {

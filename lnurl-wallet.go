@@ -221,6 +221,67 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
 			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 		}
+	case lnurl.LNURLAllowanceResponse:
+		tmpldata := t.T{
+			"Domain":      params.SocketURL.Host,
+			"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
+			"Description": params.Description,
+		}
+
+		baseChat := tgbotapi.BaseChat{
+			ChatID:           u.ChatId,
+			ReplyToMessageID: opts.messageId,
+		}
+
+		baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(t.CANCEL, u.Locale),
+					fmt.Sprintf("cancel=%d", u.Id)),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translateTemplate(t.PAYAMOUNT, u.Locale, tmpldata),
+					fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
+			),
+		)
+
+		var chattable tgbotapi.Chattable
+		text := "" // translateTemplate(t.LNURLALLOWANCEPROMPT, u.Locale, tmpldata)
+
+		chattable = tgbotapi.MessageConfig{
+			BaseChat:              baseChat,
+			DisableWebPagePreview: true,
+			ParseMode:             "HTML",
+			Text:                  text,
+		}
+		if imagebytes := params.ImageBytes(); imagebytes != nil {
+			if err == nil {
+				chattable = tgbotapi.PhotoConfig{
+					BaseFile: tgbotapi.BaseFile{
+						BaseChat: baseChat,
+						File: tgbotapi.FileBytes{
+							Name:  "image",
+							Bytes: imagebytes,
+						},
+						MimeType: "image/png",
+					},
+					ParseMode: "HTML",
+					Caption:   text,
+				}
+			}
+		}
+
+		sent, err := tgsend(chattable)
+		if err != nil {
+			log.Warn().Err(err).Msg("error sending lnurl-allowance message")
+			return
+		}
+
+		data, _ := json.Marshal(struct {
+			Type   string `json:"type"`
+			Socket string `json:"socket"`
+			K1     string `json:"k1"`
+		}{"lnurlpay", params.Socket, params.K1})
+		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 	default:
 		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, opts.messageId)
 	}
@@ -357,4 +418,33 @@ func lnurlpayFetchInvoiceAndPay(
 	} else {
 		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, processingMessage.MessageID)
 	}
+}
+
+func handleLNURLAllowanceConfirmation(u User, msats int64, data gjson.Result, messageId int) {
+	// // get data from redis object
+	// socket := data.Get("socket").String()
+	// k1 := data.Get("k1").String()
+
+	// // proceed to establish a session
+	// session, err := allowance_socket.Connect(socket, msats, k1)
+	// if err != nil {
+	// 	u.notify(t.ERROR, t.T{"Err": err.Error()})
+	// 	return
+	// }
+
+	// // continuously send balance
+	// go func () {
+	//     err := session.Send(lnurl.AllowanceBalance{
+
+	// })
+	//     if err != nil{
+	//     return
+	//     }
+	// }()
+
+	// for {
+	//     select {
+	//     case session.
+	//     }
+	// }
 }

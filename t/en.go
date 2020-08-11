@@ -269,6 +269,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 {{range .Methods}}  - <b>{{.Name}}</b>{{if .Auth}} <i>(auth)</i>{{end}}: <code>{{.Params}}</code>
 {{end}}
 <b>State:</b> /etl_{{.Id}}_state
+<b>Subscribe:</b> /etl_{{.Id}}_subscribe
 {{end}}
     `,
 	ETLENEUMCONTRACTSTATE: `#etleneum Contract <code>{{.Id}}</code> state:

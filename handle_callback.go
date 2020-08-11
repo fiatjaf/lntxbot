@@ -74,6 +74,15 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			handleLNURLPayConfirmation(u, msats, data, cb.Message.MessageID)
 		}
 		return
+	case strings.HasPrefix(cb.Data, "lnurlall="):
+		defer removeKeyboardButtons(cb)
+		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
+		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
+		if val, err := rds.Get(key).Result(); err == nil {
+			data := gjson.Parse(val)
+			handleLNURLAllowanceConfirmation(u, msats, data, cb.Message.MessageID)
+		}
+		return
 	case strings.HasPrefix(cb.Data, "give="):
 		params := strings.Split(cb.Data[5:], "-")
 		if len(params) != 3 {

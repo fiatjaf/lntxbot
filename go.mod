@@ -33,3 +33,5 @@ require (
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
 	gopkg.in/redis.v5 v5.2.9
 )
+
+replace github.com/fiatjaf/go-lnurl => /home/fiatjaf/comp/go-lnurl
