@@ -5,6 +5,5 @@ bindata.go: $(shell find templates)
 	go-bindata -ignore=node_modules static/... templates/...
 
 deploy: lntxbot
-	ssh root@taniaaustralis-403 'systemctl stop lightningd'
-	scp lntxbot taniaaustralis-403:lightning/plugins/lntxbot
-	ssh root@taniaaustralis-403 'systemctl start lightningd'
+	scp lntxbot taniaaustralis-403:.lightning/plugins/lntxbot-new
+	ssh taniaaustralis-403 'lightning/cli/lightning-cli plugin stop lntxbot; mv .lightning/plugins/lntxbot-new .lightning/plugins/lntxbot; lightning/cli/lightning-cli plugin start $$HOME/.lightning/plugins/lntxbot'

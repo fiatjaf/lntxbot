@@ -84,9 +84,6 @@ func main() {
 	p := plugin.Plugin{
 		Name:    "lntxbot",
 		Version: "v1.0",
-		Options: []plugin.Option{
-			{"lntxbot-envfile", "string", "", "Path to the file containing everything"},
-		},
 		Dynamic: true,
 		Subscriptions: []plugin.Subscription{
 			{
@@ -132,15 +129,12 @@ func server(p *plugin.Plugin) {
 	ln = p.Client
 
 	// load values from envfile (hack)
-	if envpath, err := p.Args.String("lntxbot-envfile"); err == nil {
-		if !filepath.IsAbs(envpath) {
-			// expand tlspath from lightning dir
-			godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
-		} else {
-			godotenv.Load(envpath)
-		}
+	envpath := "lntxbot.env"
+	if !filepath.IsAbs(envpath) {
+		// expand tlspath from lightning dir
+		godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
 	} else {
-		log.Fatal().Err(err).Msg("couldn't find envfile, specify lntxbot-envfile")
+		godotenv.Load(envpath)
 	}
 	err = envconfig.Process("", &s)
 	if err != nil {
