@@ -76,17 +76,12 @@ func handleLNURLAuth(u User, opts handleLNURLOpts, params lnurl.LNURLAuthParams)
 	pubkey := hex.EncodeToString(pk.SerializeCompressed())
 
 	var sentsigres lnurl.LNURLResponse
-	resp, err := napping.Get(params.Callback, &url.Values{
+	_, err = napping.Get(params.Callback, &url.Values{
 		"sig": {signature},
 		"key": {pubkey},
-	}, &sentsigres, nil)
+	}, &sentsigres, &sentsigres)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-	if resp.Status() >= 300 {
-		u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
-			"Got status %d on callback %s", resp.Status(), params.Callback)})
 		return
 	}
 	if sentsigres.Status == "ERROR" {
@@ -122,17 +117,12 @@ func handleLNURLWithdraw(u User, opts handleLNURLOpts, params lnurl.LNURLWithdra
 	}
 	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Msg("sending invoice to lnurl callback")
 	var sentinvres lnurl.LNURLResponse
-	resp, err := napping.Get(params.Callback, &url.Values{
+	_, err = napping.Get(params.Callback, &url.Values{
 		"k1": {params.K1},
 		"pr": {bolt11},
-	}, &sentinvres, nil)
+	}, &sentinvres, &sentinvres)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-	if resp.Status() >= 300 {
-		u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
-			"Got status %d on callback %s", resp.Status(), params.Callback)})
 		return
 	}
 	if sentinvres.Status == "ERROR" {
@@ -307,14 +297,9 @@ func lnurlpayAskForComment(u User, callback, metadata string, msats int64, messa
 func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, messageId int) {
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
-	resp, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
+	_, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, &res)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-	if resp.Status() >= 300 {
-		u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
-			"Got status %d on callback %s", resp.Status(), callback)})
 		return
 	}
 	if res.Status == "ERROR" {
