@@ -51,7 +51,6 @@ lnurl-auth успех!
     `,
 	LNURLPAYMETADATA: `#lnurlpay метаданные:
 <b>домен</b>: <i>{{.Domain}}</i>
-<b>lnurl</b>: <i>{{.LNURL | lower}}</i>
 <b>транзакция</b>: /tx_{{.HashFirstChars}}
     `,
 

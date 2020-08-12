@@ -43,6 +43,7 @@ lnurl-auth success!
 
 {{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
     `,
+	LNURLPAYPROMPTCOMMENT: `<code>{{.Domain}}</code> expects some text:`,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
 
 {{if .DecipherError}}Failed to decipher ({{.DecipherError}}):
@@ -51,7 +52,6 @@ lnurl-auth success!
     `,
 	LNURLPAYMETADATA: `#lnurlpay metadata :
 <b>domain</b>: <i>{{.Domain}}</i>
-<b>lnurl</b>: <i>{{.LNURL | lower}}</i>
 <b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
 

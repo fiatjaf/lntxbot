@@ -23,12 +23,14 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
 			handlePayVariableAmount(u, int64(sats*1000), data, message.MessageID)
-		case "lnurlpay":
+		case "lnurlpay-amount":
 			sats, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handleLNURLPayConfirmation(u, int64(sats*1000), data, message.MessageID)
+			handleLNURLPayAmount(u, int64(sats*1000), data, message.MessageID)
+		case "lnurlpay-comment":
+			handleLNURLPayComment(u, message.Text, data, message.MessageID)
 		case "bitrefill":
 			value, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {

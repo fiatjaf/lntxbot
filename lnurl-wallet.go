@@ -43,189 +43,148 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 
 	switch params := iparams.(type) {
 	case lnurl.LNURLAuthParams:
-		// lnurl-auth: create a key based on the user id and sign with it
-		seedhash := sha256.Sum256([]byte(fmt.Sprintf("lnurlkeyseed:%s:%d:%s", params.Host, u.Id, s.BotToken)))
-		sk, pk := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
-		k1, err := hex.DecodeString(params.K1)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
-		}
-		sig, err := sk.Sign(k1)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
-		}
-
-		signature := hex.EncodeToString(sig.Serialize())
-		pubkey := hex.EncodeToString(pk.SerializeCompressed())
-
-		var sentsigres lnurl.LNURLResponse
-		resp, err := napping.Get(params.Callback, &url.Values{
-			"sig": {signature},
-			"key": {pubkey},
-		}, &sentsigres, nil)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
-		}
-		if resp.Status() >= 300 {
-			u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
-				"Got status %d on callback %s", resp.Status(), params.Callback)})
-			return
-		}
-		if sentsigres.Status == "ERROR" {
-			u.notify(t.LNURLERROR, t.T{
-				"Host":   params.Host,
-				"Reason": sentsigres.Reason,
-			})
-			return
-		}
-
-		if !opts.loginSilently {
-			u.notify(t.LNURLAUTHSUCCESS, t.T{
-				"Host":      params.Host,
-				"PublicKey": pubkey,
-			})
-
-			go u.track("lnurl-auth", map[string]interface{}{"domain": params.Host})
-		}
+		handleLNURLAuth(u, opts, params)
 	case lnurl.LNURLWithdrawResponse:
-		// lnurl-withdraw: make an invoice with the highest possible value and send
-		bolt11, _, _, err := u.makeInvoice(makeInvoiceArgs{
-			IgnoreInvoiceSizeLimit: false,
-			Msatoshi:               params.MaxWithdrawable,
-			Desc:                   params.DefaultDescription,
-			MessageId:              opts.messageId,
-			SkipQR:                 true,
-		})
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
-		}
-		log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Msg("sending invoice to lnurl callback")
-		var sentinvres lnurl.LNURLResponse
-		resp, err := napping.Get(params.Callback, &url.Values{
-			"k1": {params.K1},
-			"pr": {bolt11},
-		}, &sentinvres, nil)
-		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
-			return
-		}
-		if resp.Status() >= 300 {
-			u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
-				"Got status %d on callback %s", resp.Status(), params.Callback)})
-			return
-		}
-		if sentinvres.Status == "ERROR" {
-			u.notify(t.LNURLERROR, t.T{
-				"Host":   params.CallbackURL.Host,
-				"Reason": sentinvres.Reason,
-			})
-			return
-		}
-		go u.track("lnurl-withdraw", map[string]interface{}{"sats": params.MaxWithdrawable})
+		handleLNURLWithdraw(u, opts, params)
 	case lnurl.LNURLPayResponse1:
-		// display metadata and ask for amount
-		var fixedAmount int64 = 0
-		if params.MaxSendable == params.MinSendable {
-			fixedAmount = params.MaxSendable
-		}
+		handleLNURLPay(u, opts, params)
+	case lnurl.LNURLAllowanceResponse:
+		handleLNURLAllowance(u, opts, params)
+	default:
+		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, opts.messageId)
+	}
 
-		go u.track("lnurl-pay", map[string]interface{}{
-			"domain": params.CallbackURL.Host,
-			"fixed":  float64(fixedAmount) / 1000,
-			"max":    float64(params.MaxSendable) / 1000,
-			"min":    float64(params.MinSendable) / 1000,
+	return
+}
+
+func handleLNURLAuth(u User, opts handleLNURLOpts, params lnurl.LNURLAuthParams) {
+	// lnurl-auth: create a key based on the user id and sign with it
+	seedhash := sha256.Sum256([]byte(fmt.Sprintf("lnurlkeyseed:%s:%d:%s", params.Host, u.Id, s.BotToken)))
+	sk, pk := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
+	k1, err := hex.DecodeString(params.K1)
+	if err != nil {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+	sig, err := sk.Sign(k1)
+	if err != nil {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+
+	signature := hex.EncodeToString(sig.Serialize())
+	pubkey := hex.EncodeToString(pk.SerializeCompressed())
+
+	var sentsigres lnurl.LNURLResponse
+	resp, err := napping.Get(params.Callback, &url.Values{
+		"sig": {signature},
+		"key": {pubkey},
+	}, &sentsigres, nil)
+	if err != nil {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+	if resp.Status() >= 300 {
+		u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
+			"Got status %d on callback %s", resp.Status(), params.Callback)})
+		return
+	}
+	if sentsigres.Status == "ERROR" {
+		u.notify(t.LNURLERROR, t.T{
+			"Host":   params.Host,
+			"Reason": sentsigres.Reason,
+		})
+		return
+	}
+
+	if !opts.loginSilently {
+		u.notify(t.LNURLAUTHSUCCESS, t.T{
+			"Host":      params.Host,
+			"PublicKey": pubkey,
 		})
 
-		if fixedAmount > 0 &&
-			opts.payWithoutPromptIf != nil &&
-			fixedAmount < *opts.payWithoutPromptIf+3000 {
-			lnurlpayFetchInvoiceAndPay(
+		go u.track("lnurl-auth", map[string]interface{}{"domain": params.Host})
+	}
+}
+
+func handleLNURLWithdraw(u User, opts handleLNURLOpts, params lnurl.LNURLWithdrawResponse) {
+	// lnurl-withdraw: make an invoice with the highest possible value and send
+	bolt11, _, _, err := u.makeInvoice(makeInvoiceArgs{
+		IgnoreInvoiceSizeLimit: false,
+		Msatoshi:               params.MaxWithdrawable,
+		Desc:                   params.DefaultDescription,
+		MessageId:              opts.messageId,
+		SkipQR:                 true,
+	})
+	if err != nil {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Msg("sending invoice to lnurl callback")
+	var sentinvres lnurl.LNURLResponse
+	resp, err := napping.Get(params.Callback, &url.Values{
+		"k1": {params.K1},
+		"pr": {bolt11},
+	}, &sentinvres, nil)
+	if err != nil {
+		u.notify(t.ERROR, t.T{"Err": err.Error()})
+		return
+	}
+	if resp.Status() >= 300 {
+		u.notify(t.ERROR, t.T{"Err": fmt.Sprintf(
+			"Got status %d on callback %s", resp.Status(), params.Callback)})
+		return
+	}
+	if sentinvres.Status == "ERROR" {
+		u.notify(t.LNURLERROR, t.T{
+			"Host":   params.CallbackURL.Host,
+			"Reason": sentinvres.Reason,
+		})
+		return
+	}
+	go u.track("lnurl-withdraw", map[string]interface{}{"sats": params.MaxWithdrawable})
+}
+
+func handleLNURLPay(u User, opts handleLNURLOpts, params lnurl.LNURLPayResponse1) {
+	// display metadata and ask for amount
+	var fixedAmount int64 = 0
+	if params.MaxSendable == params.MinSendable {
+		fixedAmount = params.MaxSendable
+	}
+
+	go u.track("lnurl-pay", map[string]interface{}{
+		"domain": params.CallbackURL.Host,
+		"fixed":  float64(fixedAmount) / 1000,
+		"max":    float64(params.MaxSendable) / 1000,
+		"min":    float64(params.MinSendable) / 1000,
+	})
+
+	if fixedAmount > 0 &&
+		opts.payWithoutPromptIf != nil &&
+		fixedAmount < *opts.payWithoutPromptIf+3000 {
+		// we have the amount already
+
+		if params.CommentAllowed > 0 {
+			// need a comment
+			lnurlpayAskForComment(u, params.Callback, params.EncodedMetadata, fixedAmount, opts.messageId)
+		} else {
+			// we have everything, proceed to pay
+			lnurlpayFinish(
 				u,
 				fixedAmount,
+				"",
 				params.Callback,
 				params.EncodedMetadata,
-				lnurltext,
 				opts.messageId,
 			)
-		} else {
-			tmpldata := t.T{
-				"Domain":      params.CallbackURL.Host,
-				"FixedAmount": float64(fixedAmount) / 1000,
-				"Max":         float64(params.MaxSendable) / 1000,
-				"Min":         float64(params.MinSendable) / 1000,
-			}
-
-			baseChat := tgbotapi.BaseChat{
-				ChatID:           u.ChatId,
-				ReplyToMessageID: opts.messageId,
-			}
-
-			if fixedAmount > 0 {
-				baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(
-							translate(t.CANCEL, u.Locale),
-							fmt.Sprintf("cancel=%d", u.Id)),
-						tgbotapi.NewInlineKeyboardButtonData(
-							translateTemplate(t.PAYAMOUNT, u.Locale,
-								t.T{"Sats": float64(fixedAmount) / 1000}),
-							fmt.Sprintf("lnurlpay=%d", fixedAmount)),
-					),
-				)
-			} else {
-				baseChat.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
-			}
-
-			var chattable tgbotapi.Chattable
-			tmpldata["Text"] = params.Metadata.Description()
-			text := translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata)
-
-			chattable = tgbotapi.MessageConfig{
-				BaseChat:              baseChat,
-				DisableWebPagePreview: true,
-				ParseMode:             "HTML",
-				Text:                  text,
-			}
-			if imagebytes := params.Metadata.ImageBytes(); imagebytes != nil {
-				if err == nil {
-					chattable = tgbotapi.PhotoConfig{
-						BaseFile: tgbotapi.BaseFile{
-							BaseChat: baseChat,
-							File: tgbotapi.FileBytes{
-								Name:  "image",
-								Bytes: imagebytes,
-							},
-							MimeType: "image/" + params.Metadata.ImageExtension(),
-						},
-						ParseMode: "HTML",
-						Caption:   text,
-					}
-				}
-			}
-
-			sent, err := tgsend(chattable)
-			if err != nil {
-				log.Warn().Err(err).Msg("error sending lnurl-pay message")
-				return
-			}
-
-			data, _ := json.Marshal(struct {
-				Type     string `json:"type"`
-				Metadata string `json:"metadata"`
-				URL      string `json:"url"`
-				LNURL    string `json:"lnurl"`
-			}{"lnurlpay", params.EncodedMetadata, params.Callback, lnurltext})
-			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 		}
-	case lnurl.LNURLAllowanceResponse:
+	} else {
+		// must ask for amount
 		tmpldata := t.T{
-			"Domain":      params.SocketURL.Host,
-			"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
-			"Description": params.Description,
+			"Domain":      params.CallbackURL.Host,
+			"FixedAmount": float64(fixedAmount) / 1000,
+			"Max":         float64(params.MaxSendable) / 1000,
+			"Min":         float64(params.MinSendable) / 1000,
 		}
 
 		baseChat := tgbotapi.BaseChat{
@@ -233,19 +192,25 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			ReplyToMessageID: opts.messageId,
 		}
 
-		baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, u.Locale),
-					fmt.Sprintf("cancel=%d", u.Id)),
-				tgbotapi.NewInlineKeyboardButtonData(
-					translateTemplate(t.PAYAMOUNT, u.Locale, tmpldata),
-					fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
-			),
-		)
+		if fixedAmount > 0 {
+			baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(
+						translate(t.CANCEL, u.Locale),
+						fmt.Sprintf("cancel=%d", u.Id)),
+					tgbotapi.NewInlineKeyboardButtonData(
+						translateTemplate(t.PAYAMOUNT, u.Locale,
+							t.T{"Sats": float64(fixedAmount) / 1000}),
+						fmt.Sprintf("lnurlpay=%d", fixedAmount)),
+				),
+			)
+		} else {
+			baseChat.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
+		}
 
 		var chattable tgbotapi.Chattable
-		text := "" // translateTemplate(t.LNURLALLOWANCEPROMPT, u.Locale, tmpldata)
+		tmpldata["Text"] = params.Metadata.Description()
+		text := translateTemplate(t.LNURLPAYPROMPT, u.Locale, tmpldata)
 
 		chattable = tgbotapi.MessageConfig{
 			BaseChat:              baseChat,
@@ -253,7 +218,7 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 			ParseMode:             "HTML",
 			Text:                  text,
 		}
-		if imagebytes := params.ImageBytes(); imagebytes != nil {
+		if imagebytes := params.Metadata.ImageBytes(); imagebytes != nil {
 			if err == nil {
 				chattable = tgbotapi.PhotoConfig{
 					BaseFile: tgbotapi.BaseFile{
@@ -262,7 +227,7 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 							Name:  "image",
 							Bytes: imagebytes,
 						},
-						MimeType: "image/png",
+						MimeType: "image/" + params.Metadata.ImageExtension(),
 					},
 					ParseMode: "HTML",
 					Caption:   text,
@@ -272,44 +237,74 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 
 		sent, err := tgsend(chattable)
 		if err != nil {
-			log.Warn().Err(err).Msg("error sending lnurl-allowance message")
+			log.Warn().Err(err).Msg("error sending lnurl-pay message")
 			return
 		}
 
 		data, _ := json.Marshal(struct {
-			Type   string `json:"type"`
-			Socket string `json:"socket"`
-			K1     string `json:"k1"`
-		}{"lnurlpay", params.Socket, params.K1})
+			Type         string `json:"type"`
+			Metadata     string `json:"metadata"`
+			URL          string `json:"url"`
+			NeedsComment bool   `json:"needs_comment"`
+		}{"lnurlpay-amount", params.EncodedMetadata, params.Callback, params.CommentAllowed > 0})
 		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
-	default:
-		u.notifyAsReply(t.LNURLUNSUPPORTED, nil, opts.messageId)
 	}
-
-	return
 }
 
-func handleLNURLPayConfirmation(u User, msats int64, data gjson.Result, messageId int) {
+func handleLNURLPayAmount(u User, msats int64, data gjson.Result, messageId int) {
 	// get data from redis object
 	callback := data.Get("url").String()
 	metadata := data.Get("metadata").String()
-	encodedLnurl := data.Get("lnurl").String()
+	needsComment := data.Get("needs_comment").Bool()
 
-	// proceed to fetch invoice and pay
-	lnurlpayFetchInvoiceAndPay(u, msats, callback, metadata, encodedLnurl, messageId)
+	if needsComment {
+		// ask for comment
+		lnurlpayAskForComment(u, callback, metadata, msats, messageId)
+	} else {
+		// proceed to fetch invoice and pay
+		lnurlpayFinish(u, msats, "", callback, metadata, messageId)
+	}
 }
 
-func lnurlpayFetchInvoiceAndPay(
-	u User,
-	msats int64,
-	callback,
-	metadata,
-	encodedLnurl string,
-	messageId int,
-) {
-	// transform lnurl into bech32ed lnurl if necessary
-	encodedLnurl, _ = lnurl.LNURLEncode(encodedLnurl)
+func handleLNURLPayComment(u User, comment string, data gjson.Result, messageId int) {
+	// get data from redis object
+	callback := data.Get("url").String()
+	metadata := data.Get("metadata").String()
+	msats := data.Get("msats").Int()
 
+	// proceed to fetch invoice and pay
+	lnurlpayFinish(u, msats, comment, callback, metadata, messageId)
+}
+
+func lnurlpayAskForComment(u User, callback, metadata string, msats int64, messageId int) {
+	callbackURL, _ := url.Parse(callback)
+
+	sent, err := tgsend(tgbotapi.MessageConfig{
+		BaseChat: tgbotapi.BaseChat{
+			ChatID:           u.ChatId,
+			ReplyToMessageID: messageId,
+			ReplyMarkup:      tgbotapi.ForceReply{ForceReply: true},
+		},
+		DisableWebPagePreview: true,
+		ParseMode:             "HTML",
+		Text: translateTemplate(t.LNURLPAYPROMPTCOMMENT, u.Locale, t.T{
+			"Domain": callbackURL.Host,
+		}),
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("error sending lnurl-pay message")
+		return
+	}
+
+	data, _ := json.Marshal(struct {
+		Type     string `json:"type"`
+		Metadata string `json:"metadata"`
+		URL      string `json:"url"`
+	}{"lnurlpay-comment", metadata, callback})
+	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
+}
+
+func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, messageId int) {
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
 	resp, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, nil)
@@ -374,7 +369,7 @@ func lnurlpayFetchInvoiceAndPay(
 				BaseFile: tgbotapi.BaseFile{
 					BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
 					File: tgbotapi.FileBytes{
-						Name:  encodedLnurl + ".json",
+						Name:  calculateHash(metadata) + ".json",
 						Bytes: []byte(metadata),
 					},
 					MimeType:    "text/json",
@@ -383,12 +378,11 @@ func lnurlpayFetchInvoiceAndPay(
 			}
 			file.Caption = translateTemplate(t.LNURLPAYMETADATA, u.Locale, t.T{
 				"Domain":         callbackURL.Host,
-				"LNURL":          encodedLnurl,
 				"Hash":           inv.PaymentHash,
 				"HashFirstChars": inv.PaymentHash[:5],
 			})
 			file.ParseMode = "HTML"
-			bot.Send(file)
+			tgsend(file)
 
 			// notify user with success action end applicable
 			if res.SuccessAction != nil {
@@ -418,6 +412,69 @@ func lnurlpayFetchInvoiceAndPay(
 	} else {
 		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, processingMessage.MessageID)
 	}
+}
+
+func handleLNURLAllowance(u User, opts handleLNURLOpts, params lnurl.LNURLAllowanceResponse) {
+	tmpldata := t.T{
+		"Domain":      params.SocketURL.Host,
+		"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
+		"Description": params.Description,
+	}
+
+	baseChat := tgbotapi.BaseChat{
+		ChatID:           u.ChatId,
+		ReplyToMessageID: opts.messageId,
+	}
+
+	baseChat.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				translate(t.CANCEL, u.Locale),
+				fmt.Sprintf("cancel=%d", u.Id)),
+			tgbotapi.NewInlineKeyboardButtonData(
+				translateTemplate(t.PAYAMOUNT, u.Locale, tmpldata),
+				fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
+		),
+	)
+
+	var chattable tgbotapi.Chattable
+	text := "" // translateTemplate(t.LNURLALLOWANCEPROMPT, u.Locale, tmpldata)
+
+	chattable = tgbotapi.MessageConfig{
+		BaseChat:              baseChat,
+		DisableWebPagePreview: true,
+		ParseMode:             "HTML",
+		Text:                  text,
+	}
+	if imagebytes := params.ImageBytes(); imagebytes != nil {
+		if err == nil {
+			chattable = tgbotapi.PhotoConfig{
+				BaseFile: tgbotapi.BaseFile{
+					BaseChat: baseChat,
+					File: tgbotapi.FileBytes{
+						Name:  "image",
+						Bytes: imagebytes,
+					},
+					MimeType: "image/png",
+				},
+				ParseMode: "HTML",
+				Caption:   text,
+			}
+		}
+	}
+
+	sent, err := tgsend(chattable)
+	if err != nil {
+		log.Warn().Err(err).Msg("error sending lnurl-allowance message")
+		return
+	}
+
+	data, _ := json.Marshal(struct {
+		Type   string `json:"type"`
+		Socket string `json:"socket"`
+		K1     string `json:"k1"`
+	}{"lnurlpay", params.Socket, params.K1})
+	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 }
 
 func handleLNURLAllowanceConfirmation(u User, msats int64, data gjson.Result, messageId int) {
