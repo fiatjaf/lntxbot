@@ -260,7 +260,7 @@ func handleLNURLPayComment(u User, comment string, data gjson.Result, messageId 
 	// get data from redis object
 	callback := data.Get("url").String()
 	metadata := data.Get("metadata").String()
-	msats := data.Get("msats").Int()
+	msats := data.Get("msatoshi").Int()
 
 	// proceed to fetch invoice and pay
 	lnurlpayFinish(u, msats, comment, callback, metadata, messageId)
@@ -289,15 +289,23 @@ func lnurlpayAskForComment(u User, callback, metadata string, msats int64, messa
 	data, _ := json.Marshal(struct {
 		Type     string `json:"type"`
 		Metadata string `json:"metadata"`
+		MSatoshi int64  `json:"msatoshi"`
 		URL      string `json:"url"`
-	}{"lnurlpay-comment", metadata, callback})
+	}{"lnurlpay-comment", metadata, msats, callback})
 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*1)
 }
 
 func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, messageId int) {
+	params := &url.Values{
+		"amount": {fmt.Sprintf("%d", msats)},
+	}
+	if comment != "" {
+		params.Set("comment", comment)
+	}
+
 	// call callback with params and get invoice
 	var res lnurl.LNURLPayResponse2
-	_, err := napping.Get(callback, &url.Values{"amount": {fmt.Sprintf("%d", msats)}}, &res, &res)
+	_, err := napping.Get(callback, params, &res, &res)
 	if err != nil {
 		u.notify(t.ERROR, t.T{"Err": err.Error()})
 		return
