@@ -41,6 +41,7 @@ const (
 	LNURLPAYPROMPTCOMMENT = "LnurlPayPromptComment"
 	LNURLPAYSUCCESS       = "LnurlPaySuccess"
 	LNURLPAYMETADATA      = "LnurlPayMetadata"
+	LNURLPAYCOMMENT       = "LnurlPayComment"
 
 	USERALLOWED       = "UserAllowed"
 	SPAMFILTERMESSAGE = "SpamFilterMessage"

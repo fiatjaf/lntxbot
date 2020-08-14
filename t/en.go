@@ -50,10 +50,11 @@ lnurl-auth success!
 {{end}}<pre>{{.Text}}</pre>
 {{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
-	LNURLPAYMETADATA: `#lnurlpay metadata :
+	LNURLPAYMETADATA: `#lnurlpay metadata:
 <b>domain</b>: <i>{{.Domain}}</i>
 <b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
+	LNURLPAYCOMMENT: "Along with /tx_{{.HashFirstChars}} you got a message: \n\n<i>{{.Text}}</i>",
 
 	TICKETMSG:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",

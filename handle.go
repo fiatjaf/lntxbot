@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -77,6 +78,18 @@ func handleInvoicePaid(payindex, msats int64, desc, hash, preimage, label string
 			return
 		}
 	}
+
+	// is there a comment associated with this?
+	go func() {
+		time.Sleep(3 * time.Second)
+		comment := rds.Get("lnurlpay-comment:" + hash).Val()
+		if comment != "" {
+			receiver.notify(t.LNURLPAYCOMMENT, t.T{
+				"Text":           comment,
+				"HashFirstChars": hash[:5],
+			})
+		}
+	}()
 
 	// proceed to compute an incoming payment for this user
 	err = receiver.paymentReceived(
