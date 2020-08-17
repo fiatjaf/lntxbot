@@ -571,8 +571,6 @@ Registered: {{.Registered}}
 	WELCOME: `
 Welcome. Your account is created. You're now able to move Bitcoin into, from and inside Telegram. Please remember that we can't guarantee your funds in case we lose funds due to software bug or malicious hacker attacks. Don't keep a balance here greater than what you're willing to lose.
 
-With that said, this bot is pretty safe.
-
 For any questions or just to say hello you can join us at @lntxbot_dev (warning: there may be an entrance fee payable in satoshis).
     `,
 	WRONGCOMMAND:    "Could not understand the command. /help",
