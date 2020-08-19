@@ -174,6 +174,9 @@ func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
 	} else if chat.Type == "group" {
 		// ok, everybody can toggle
 		return true
+	} else if chat.Type == "channel" {
+		// if you're posting then you're an admin
+		return true
 	} else {
 		return false
 	}

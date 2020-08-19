@@ -20,6 +20,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.7.0
 	github.com/lithammer/fuzzysearch v1.1.0
 	github.com/lucsky/cuid v1.0.2

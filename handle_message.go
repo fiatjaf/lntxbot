@@ -19,19 +19,25 @@ import (
 )
 
 func handleMessage(message *tgbotapi.Message) {
-	u, tcase, err := ensureUser(message.From.ID, message.From.UserName, message.From.LanguageCode)
-	if err != nil {
-		log.Warn().Err(err).Int("case", tcase).
-			Str("username", message.From.UserName).
-			Int("id", message.From.ID).
-			Msg("failed to ensure user")
-		return
-	}
+	var u User
+	if message.Chat.Type == "channel" {
+		u = User{0, 0, "channelposterc", message.Chat.ID, "", "en", ""}
+	} else {
+		user, tcase, err := ensureUser(message.From.ID, message.From.UserName, message.From.LanguageCode)
+		if err != nil {
+			log.Warn().Err(err).Int("case", tcase).
+				Str("username", message.From.UserName).
+				Int("id", message.From.ID).
+				Msg("failed to ensure user")
+			return
+		}
+		u = user
 
-	// stop if temporarily banned
-	if _, ok := s.Banned[u.Id]; ok {
-		log.Debug().Int("id", u.Id).Msg("got request from banned user")
-		return
+		// stop if temporarily banned
+		if _, ok := s.Banned[u.Id]; ok {
+			log.Debug().Int("id", u.Id).Msg("got request from banned user")
+			return
+		}
 	}
 
 	// by default we use the user locale for the group object, because
@@ -821,8 +827,7 @@ parsed:
 					"Sats": price,
 					"Name": name,
 				}),
-				renameKeyboard(message.From.ID,
-					message.Chat.ID, price, name, g.Locale),
+				renameKeyboard(u.TelegramId, message.Chat.ID, price, name, g.Locale),
 				message.MessageID,
 			)
 
@@ -870,7 +875,7 @@ parsed:
 				return
 			}
 
-			g, err := ensureGroup(message.Chat.ID, message.From.LanguageCode)
+			g, err := ensureGroup(message.Chat.ID, u.Locale)
 			if err != nil {
 				log.Warn().Err(err).Str("user", u.Username).Int64("group", message.Chat.ID).Msg("failed to ensure group")
 				return

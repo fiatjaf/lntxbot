@@ -9,7 +9,8 @@ import (
 )
 
 func handle(upd tgbotapi.Update) {
-	if upd.Message != nil {
+	switch {
+	case upd.Message != nil:
 		// people joining
 		if upd.Message.NewChatMembers != nil {
 			for _, newmember := range *upd.Message.NewChatMembers {
@@ -24,7 +25,17 @@ func handle(upd tgbotapi.Update) {
 		} else {
 			go deleteMessage(upd.Message)
 		}
-	} else if upd.CallbackQuery != nil {
+	case upd.ChannelPost != nil:
+		// people joining
+		if upd.Message.NewChatMembers != nil {
+			for _, newmember := range *upd.Message.NewChatMembers {
+				handleNewMember(upd.Message, newmember)
+			}
+		}
+
+		// normal message
+		handleMessage(upd.ChannelPost)
+	case upd.CallbackQuery != nil:
 		// is temporarily s.Banned?
 		if _, ok := s.Banned[upd.CallbackQuery.From.ID]; ok {
 			log.Debug().Int("tgid", upd.CallbackQuery.From.ID).Msg("got request from banned user")
@@ -32,9 +43,9 @@ func handle(upd tgbotapi.Update) {
 		}
 
 		handleCallback(upd.CallbackQuery)
-	} else if upd.InlineQuery != nil {
+	case upd.InlineQuery != nil:
 		go handleInlineQuery(upd.InlineQuery)
-	} else if upd.EditedMessage != nil {
+	case upd.EditedMessage != nil:
 		handleEditedMessage(upd.EditedMessage)
 	}
 }
