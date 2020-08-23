@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -662,46 +661,46 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		})
 
 		revealer := u
+		didReveal := false
 
 		// cache reveal so we know who has paid to reveal this for now
-		revealerIds, totalrevealers, err := func() (revealerIds []int, totalrevealers int, err error) {
-			revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
+		var revealerIds []int
+		var totalrevealers int
 
-			// also don't let users pay twice
-			if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
-				return nil, 0, err
-			} else if alreadypaid {
-				return nil, 0, errors.New("Can't reveal twice.")
-			}
-			if err := rds.SAdd(revealedsetkey, u.Id).Err(); err != nil {
-				return nil, 0, err
-			}
+		revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
 
-			// expire this set after the hidden message has expired
-			if err := rds.Expire(revealedsetkey, s.HiddenMessageTimeout).Err(); err != nil {
-				return nil, 0, err
-			}
-
-			// get the count of people who paid to reveal up to now
-			if revealerIdsStr, err := rds.SMembers(revealedsetkey).Result(); err != nil {
-				return nil, 0, err
-			} else {
-				totalrevealers = len(revealerIdsStr)
-				revealerIds := make([]int, totalrevealers)
-				for i, revealerIdsStr := range revealerIdsStr {
-					revealerId, err := strconv.Atoi(revealerIdsStr)
-					if err != nil {
-						return nil, 0, err
-					}
-					revealerIds[i] = revealerId
-				}
-
-				return revealerIds, totalrevealers, nil
-			}
-		}()
-		if err != nil {
+		// also don't let users pay twice
+		if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
 			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
 			return
+		} else if alreadypaid {
+			u.alert(cb, t.ERROR, t.T{"Err": "can't reveal twice"})
+			return
+		}
+
+		defer func(u User, revealedsetkey string) {
+			if !didReveal {
+				return
+			}
+			rds.SAdd(revealedsetkey, u.Id)
+			rds.Expire(revealedsetkey, s.HiddenMessageTimeout).Err()
+		}(u, revealedsetkey)
+
+		// get the count of people who paid to reveal up to now
+		if revealerIdsStr, err := rds.SMembers(revealedsetkey).Result(); err != nil {
+			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			return
+		} else {
+			totalrevealers = len(revealerIdsStr)
+			revealerIds := make([]int, totalrevealers)
+			for i, revealerIdsStr := range revealerIdsStr {
+				revealerId, err := strconv.Atoi(revealerIdsStr)
+				if err != nil {
+					u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+					return
+				}
+				revealerIds[i] = revealerId
+			}
 		}
 
 		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {

@@ -26,14 +26,6 @@ func handle(upd tgbotapi.Update) {
 			go deleteMessage(upd.Message)
 		}
 	case upd.ChannelPost != nil:
-		// people joining
-		if upd.Message.NewChatMembers != nil {
-			for _, newmember := range *upd.Message.NewChatMembers {
-				handleNewMember(upd.Message, newmember)
-			}
-		}
-
-		// normal message
 		handleMessage(upd.ChannelPost)
 	case upd.CallbackQuery != nil:
 		// is temporarily s.Banned?
