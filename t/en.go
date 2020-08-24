@@ -515,10 +515,10 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 <b>Hash</b>: <code>{{.Hash}}</code>{{if ne .Currency "bc"}}
 <b>Chain</b>: {{.Currency}}{{end}}
 <b>Created at</b>: {{.Created}}
-<b>Expires at</b>: {{.Expiry}}{{if .Expired}} <b>[EXPIRED]</b>{{end}}
-{{if .Hints}}<b>Hints</b>: {{range .Hints}}
-- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}
-<b>Payee</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>){{end}}
+<b>Expires at</b>: {{.Expiry}}{{if .Expired}} <b>[EXPIRED]</b>{{end}}{{if .Hints}}
+<b>Hints</b>: {{range .Hints}}
+- {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}{{end}}
+<b>Payee</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>)
 
 {{if .Sats}}Pay the invoice described above?
 {{else}}<b>Reply with the desired amount to confirm.</b>
