@@ -3,12 +3,12 @@ package main
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/big"
-	mrand "math/rand"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -17,24 +17,14 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/lithammer/fuzzysearch/fuzzy"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
 )
-
-type InvoiceSpamLimit struct {
-	EqualOrSmallerThan int64
-	Key                string
-	PerDay             int
-}
-
-var INVOICESPAMLIMITS = []InvoiceSpamLimit{
-	{1000, "<=1", 1},
-	{10000, "<=10", 3},
-	{100000, "<=100", 10},
-}
 
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
 
@@ -42,37 +32,6 @@ var dollarPrice = struct {
 	lastUpdate time.Time
 	rate       float64
 }{time.Now(), 0}
-
-func makeLabel(userId int, messageId interface{}, tag string) string {
-	if messageId == nil {
-		// this is a component of the label, so must be unique
-		// if not given we use a random number
-		messageId = mrand.Intn(1000)
-	}
-
-	return fmt.Sprintf("%s.%d.%v.%s", s.ServiceId, userId, messageId, tag)
-}
-
-func parseLabel(label string) (messageId, userId int, tag string, ok bool) {
-	ok = false
-	parts := strings.Split(label, ".")
-	if len(parts) > 2 {
-		userId, err = strconv.Atoi(parts[1])
-		if err == nil {
-			ok = true
-		}
-		messageId, err = strconv.Atoi(parts[2])
-		if err == nil {
-			ok = true
-		}
-	}
-
-	if len(parts) > 3 {
-		tag = parts[3]
-	}
-
-	return
-}
 
 var menuItems = map[string]int{
 	"popcorn":  27,
@@ -98,23 +57,6 @@ func parseSatoshis(opts docopt.Opts) (sats int, err error) {
 	}
 
 	return 0, errors.New("'satoshis' param invalid")
-}
-
-func chatOwnerFromTicketLabel(label string) (owner User, err error) {
-	parts := strings.Split(label, ":")
-	chatId, err := strconv.Atoi(parts[2])
-	if err != nil {
-		log.Error().Err(err).Str("label", label).Msg("failed to parse ticket invoice")
-		return
-	}
-
-	owner, err = getChatOwner(int64(chatId))
-	if err != nil {
-		log.Error().Err(err).Str("label", label).Msg("failed to get chat owner in ticket invoice handling")
-		return
-	}
-
-	return
 }
 
 func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurltext string, ok bool) {
@@ -260,16 +202,12 @@ begin:
 }
 
 func randomPreimage() (string, error) {
-	hex := []rune("0123456789abcdef")
-	b := make([]rune, 64)
-	for i := range b {
-		r, err := rand.Int(rand.Reader, big.NewInt(16))
-		if err != nil {
-			return "", err
-		}
-		b[i] = hex[r.Int64()]
+	data := make([]byte, 32)
+	_, err := rand.Read(data)
+	if err != nil {
+		return "", err
 	}
-	return string(b), nil
+	return hex.EncodeToString(data), nil
 }
 
 func calculateHash(data string) string {
@@ -461,32 +399,6 @@ func getVariadicFieldOrReplyToContent(opts docopt.Opts, message *tgbotapi.Messag
 	}
 }
 
-func waitInvoice(hash string) (inv <-chan gjson.Result) {
-	wait := make(chan gjson.Result)
-	waitingInvoices.Upsert(hash, wait,
-		func(exists bool, arr interface{}, v interface{}) interface{} {
-			if exists {
-				return append(arr.([]interface{}), v)
-			} else {
-				return []interface{}{v}
-			}
-		},
-	)
-	return wait
-}
-
-func resolveWaitingInvoice(hash string, inv gjson.Result) {
-	if chans, ok := waitingInvoices.Get(hash); ok {
-		for _, ch := range chans.([]interface{}) {
-			select {
-			case ch.(chan gjson.Result) <- inv:
-			default:
-			}
-		}
-		waitingInvoices.Remove(hash)
-	}
-}
-
 func waitPaymentSuccess(hash string) (preimage <-chan string) {
 	wait := make(chan string)
 	waitingPaymentSuccesses.Upsert(hash, wait,
@@ -547,4 +459,61 @@ func base64FileFromURL(url string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+type BalanceGetter interface {
+	Get(interface{}, string, ...interface{}) error
+}
+
+func getBalance(txn BalanceGetter, userId int) int64 {
+	var balance int64
+	err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", userId)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Warn().Err(err).Int("account", userId).Msg("failed to fetch balance")
+		}
+		return 0
+	}
+	return balance
+}
+
+var nodeAliases = cmap.New()
+
+func getNodeAlias(id string) string {
+begin:
+	if alias, ok := nodeAliases.Get(id); ok {
+		return alias.(string)
+	}
+
+	if id == "" {
+		return "~"
+	}
+
+	res, err := ln.Call("listnodes", id)
+	if err != nil {
+		return "~"
+	}
+
+	alias := res.Get("nodes.0.alias").String()
+	if alias == "" {
+		alias = "~"
+	}
+
+	nodeAliases.Set(id, alias)
+	goto begin
+}
+
+func messageFromError(err error) string {
+	switch terr := err.(type) {
+	case lightning.ErrorTimeout:
+		return fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
+	case lightning.ErrorCommand:
+		return terr.Message
+	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
+		return "Problem connecting to our node. Please try again in a minute."
+	case lightning.ErrorJSONDecode:
+		return "Error reading response from lightningd."
+	default:
+		return err.Error()
+	}
 }

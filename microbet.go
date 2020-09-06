@@ -99,13 +99,12 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 		return
 	}
 
-	inv, err := ln.Call("decodepay", payreq.PaymentRequest)
+	inv, err := decodeInvoice(payreq.PaymentRequest)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
 	err = user.actuallySendExternalPayment(
-		messageId, payreq.PaymentRequest, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.microbet.%s.%d", s.ServiceId, betId, user.Id),
+		messageId, payreq.PaymentRequest, inv, inv.MSatoshi,
 		func(
 			u User,
 			messageId int,

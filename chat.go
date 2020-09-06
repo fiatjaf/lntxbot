@@ -88,16 +88,6 @@ func areCoinflipsEnabled(telegramId int64) (enabled bool) {
 	return
 }
 
-type KickData struct {
-	InvoiceMessage   tgbotapi.Message          `json:"invoice_message"`
-	NotifyMessage    tgbotapi.Message          `json:"notify_message"`
-	JoinMessage      tgbotapi.Message          `json:"join_message"`
-	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
-	NewMember        tgbotapi.User             `json:"new_member"`
-	Hash             string                    `json:"hash"`
-	Sats             int                       `json:"sats"`
-}
-
 func setTicketPrice(telegramId int64, sat int) (err error) {
 	_, err = pg.Exec(`
 UPDATE telegram.chat SET ticket = $2

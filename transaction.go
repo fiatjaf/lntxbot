@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
@@ -22,7 +21,6 @@ type Transaction struct {
 	Fees           float64        `db:"fees"`
 	Hash           string         `db:"payment_hash"`
 	Preimage       sql.NullString `db:"preimage"`
-	Label          sql.NullString `db:"label"`
 	Description    string         `db:"description"`
 	Tag            sql.NullString `db:"tag"`
 	Payee          sql.NullString `db:"payee_node"`
@@ -99,6 +97,8 @@ func (t Transaction) HashReduced() string {
 
 func (t Transaction) Icon() string {
 	switch t.Tag.String {
+	case "ticket":
+		return "🎟️"
 	case "giveaway", "gifts", "giveflip":
 		return "🎁"
 	case "coinflip":
@@ -121,8 +121,6 @@ func (t Transaction) Icon() string {
 		return "💸"
 	default:
 		switch {
-		case strings.HasPrefix(t.Label.String, "newmember:"):
-			return "🎟️"
 		case t.TelegramPeer.Valid:
 			return ""
 		case t.IsPending():

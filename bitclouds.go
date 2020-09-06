@@ -48,13 +48,12 @@ func createBitcloudImage(user User, image string) (err error) {
 		return errors.New("failed to create bitclouds.sh host")
 	}
 
-	inv, err := ln.Call("decodepay", create.PayToStart)
+	inv, err := decodeInvoice(create.PayToStart)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
 	err = user.actuallySendExternalPayment(
-		0, create.PayToStart, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitclouds.%s.%d", s.ServiceId, create.Host, user.Id),
+		0, create.PayToStart, inv, inv.MSatoshi,
 		func(
 			u User,
 			messageId int,
@@ -158,13 +157,12 @@ func topupBitcloud(user User, host string, sats int) error {
 		return errors.New("failed to get invoice to topup")
 	}
 
-	inv, err := ln.Call("decodepay", topup.Invoice)
+	inv, err := decodeInvoice(topup.Invoice)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
 	return user.actuallySendExternalPayment(
-		0, topup.Invoice, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitclouds.%s.%d.%d", s.ServiceId, host, time.Now().Unix(), user.Id),
+		0, topup.Invoice, inv, inv.MSatoshi,
 		func(
 			u User,
 			messageId int,

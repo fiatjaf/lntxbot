@@ -11,8 +11,8 @@ require (
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/fiatjaf/eventsource v0.0.0-20200623030538-9845829a8ba8
 	github.com/fiatjaf/go-lnurl v1.1.0
-	github.com/fiatjaf/lightningd-gjson-rpc v1.0.1
-	github.com/fiatjaf/ln-decodepay v1.0.0
+	github.com/fiatjaf/lightningd-gjson-rpc v1.1.0
+	github.com/fiatjaf/ln-decodepay v1.1.0
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff // indirect
@@ -28,7 +28,7 @@ require (
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/rs/zerolog v1.19.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/tidwall/gjson v1.6.0
+	github.com/tidwall/gjson v1.6.1
 	github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2
 	github.com/willf/bitset v1.1.10 // indirect
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
@@ -36,3 +36,5 @@ require (
 )
 
 replace github.com/fiatjaf/go-lnurl => /home/fiatjaf/comp/go-lnurl
+
+replace github.com/fiatjaf/lightningd-gjson-rpc => /home/fiatjaf/comp/lightningd-gjson-rpc

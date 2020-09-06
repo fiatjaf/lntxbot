@@ -77,7 +77,7 @@ lnurl-auth success!
 	INSUFFICIENTBALANCE: `Insufficient balance for {{.Purpose}}. Needs {{.Sats | printf "%.15g"}} sat more.`,
 
 	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}} #tx",
-	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Label}}</code>, hash: <code>{{.Hash}}</code>",
+	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG: "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
@@ -106,8 +106,6 @@ Can also be called as an <a href="https://core.telegram.org/bots/inline">inline 
 	RECEIVEHELP: `Generates a BOLT11 invoice with given satoshi value. Amounts will be added to your @{{ .BotName }} balance. If you don't provide the amount it will be an open-ended invoice that can be paid with any amount.",
 
 <code>/receive_320_for_something</code> generates an invoice for 320 sat with the description "for something"
-
-<code>/receive 100 for hidden data --preimage="0000000000000000000000000000000000000000000000000000000000000000"</code> generates an invoice with the given preimage (beware, only use if you know what you're doing).
     `,
 
 	PAYHELP: `Decodes a BOLT11 invoice and asks if you want to pay it (unless /paynow). This is the same as just pasting or forwarding an invoice directly in the chat. Taking a picture of QR code containing an invoice works just as well (if the picture is clear).

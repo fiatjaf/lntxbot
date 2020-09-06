@@ -59,7 +59,6 @@ func registerBluewalletMethods() {
 			Amount          string `json:"amt"`
 			Memo            string `json:"memo"`
 			DescriptionHash string `json:"description_hash"`
-			Preimage        string `json:"preimage"`
 		}
 		err = json.NewDecoder(r.Body).Decode(&params)
 		if err != nil {
@@ -80,7 +79,6 @@ func registerBluewalletMethods() {
 			Msatoshi:               1000 * satoshi,
 			Desc:                   params.Memo,
 			DescHash:               params.DescriptionHash,
-			Preimage:               params.Preimage,
 			SkipQR:                 true,
 			BlueWallet:             true,
 		})

@@ -76,7 +76,6 @@ var amp *amplitude.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
-var waitingInvoices = cmap.New()         // make(map[string][]chan gjson.Result)
 var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
 var bundle t.Bundle
 
@@ -85,30 +84,13 @@ func main() {
 		Name:    "lntxbot",
 		Version: "v1.0",
 		Dynamic: true,
-		Subscriptions: []plugin.Subscription{
+		Hooks: []plugin.Hook{
 			{
-				"invoice_payment",
-				func(p *plugin.Plugin, params plugin.Params) {
-					label := params.Get("invoice_payment.label").String()
-					invspaid, err := ln.Call("listinvoices", label)
-					if err != nil {
-						log.Error().Err(err).Str("label", label).
-							Msg("failed to query paid invoice")
-						return
-					}
-
-					inv := invspaid.Get("invoices.0")
-					go handleInvoicePaid(
-						inv.Get("pay_index").Int(),
-						inv.Get("msatoshi_received").Int(),
-						inv.Get("description").String(),
-						inv.Get("payment_hash").String(),
-						inv.Get("payment_preimage").String(),
-						inv.Get("label").String(),
-					)
-					go resolveWaitingInvoice(inv.Get("payment_hash").String(), inv)
-				},
+				"htlc_accepted",
+				htlc_accepted,
 			},
+		},
+		Subscriptions: []plugin.Subscription{
 			{
 				"sendpay_success",
 				func(p *plugin.Plugin, params plugin.Params) {

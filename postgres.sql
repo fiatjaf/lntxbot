@@ -52,11 +52,11 @@ CREATE INDEX ON lightning.transaction (proxied_with);
 CREATE VIEW lightning.account_txn AS
   SELECT
     time, account_id, anonymous, trigger_message, amount, pending,
-    CASE WHEN label IS NULL AND t.username != '@'
+    CASE WHEN t.username != '@'
       THEN coalesce(t.username, t.telegram_id::text)
       ELSE NULL
     END AS telegram_peer,
-    status, fees, payment_hash, label, description, tag, preimage, payee_node
+    status, fees, payment_hash, description, tag, preimage, payee_node
   FROM (
       SELECT time,
         from_id AS account_id,
@@ -65,7 +65,7 @@ CREATE VIEW lightning.account_txn AS
         CASE WHEN pending THEN 'PENDING' ELSE 'SENT' END AS status,
         to_id AS peer,
         -amount AS amount, fees,
-        payment_hash, label, description, tag, preimage,
+        payment_hash, description, tag, preimage,
         remote_node AS payee_node,
         pending
       FROM lightning.transaction
@@ -78,7 +78,7 @@ CREATE VIEW lightning.account_txn AS
         'RECEIVED' AS status,
         from_id AS peer,
         amount, 0 AS fees,
-        payment_hash, label, description, tag, preimage,
+        payment_hash, description, tag, preimage,
         NULL as payee_node,
         pending
       FROM lightning.transaction

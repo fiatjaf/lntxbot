@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
@@ -227,21 +226,21 @@ func serveLNURL() {
 		}
 
 		hhash := sha256.Sum256(jmeta)
-		bolt11, hash, _, err := receiver.makeInvoice(makeInvoiceArgs{
+		bolt11, _, _, err := receiver.makeInvoice(makeInvoiceArgs{
 			IgnoreInvoiceSizeLimit: true,
 			Msatoshi:               msatoshi,
 			DescHash:               hex.EncodeToString(hhash[:]),
 			Tag:                    tag,
-			SkipQR:                 true,
+			Extra: map[string]interface{}{
+				"comment": qs.Get("comment"),
+			},
+			SkipQR: true,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
 			return
 		}
-
-		comment := qs.Get("comment")
-		rds.Set("lnurlpay-comment:"+hash, comment, time.Hour*1)
 
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
 			LNURLResponse: lnurl.OkResponse(),

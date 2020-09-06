@@ -78,6 +78,8 @@ github.com/fiatjaf/lightningd-gjson-rpc v1.0.1 h1:ERBKSzUyYm1WiFrPNr/TVTOJ8B9iot
 github.com/fiatjaf/lightningd-gjson-rpc v1.0.1/go.mod h1:SQGA0qcY2qypaMXDQlE5V5+2MnLZzQ7NzfRsScliFeE=
 github.com/fiatjaf/ln-decodepay v1.0.0 h1:1YUMjvLock+BicMNwoZ/OA3oG2ZYEaJ8AzdS6EGVMTQ=
 github.com/fiatjaf/ln-decodepay v1.0.0/go.mod h1:/LWK+ZUa3i8MqbRjIMAiVQS2+NbhwKWlwib2n446cMQ=
+github.com/fiatjaf/ln-decodepay v1.1.0 h1:HigjqNH+ApiO6gm7RV23jXNFuvwq+zgsWl4BJAfPWwE=
+github.com/fiatjaf/ln-decodepay v1.1.0/go.mod h1:2qdTT95b8Z4dfuxiZxXuJ1M7bQ9CrLieEA1DKC50q6s=
 github.com/frankban/quicktest v1.2.2/go.mod h1:Qh/WofXFeiAFII1aEBu529AtJo6Zg2VHscnEsbBnJ20=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
@@ -222,11 +224,15 @@ github.com/tidwall/buntdb v1.1.2/go.mod h1:xAzi36Hir4FarpSHyfuZ6JzPJdjRZ8QlLZSnt
 github.com/tidwall/gjson v1.3.4/go.mod h1:P256ACg0Mn+j1RXIDXoss50DeIABTYK1PULOJHhxOls=
 github.com/tidwall/gjson v1.6.0 h1:9VEQWz6LLMUsUl6PueE49ir4Ka6CzLymOAZDxpFsTDc=
 github.com/tidwall/gjson v1.6.0/go.mod h1:P256ACg0Mn+j1RXIDXoss50DeIABTYK1PULOJHhxOls=
+github.com/tidwall/gjson v1.6.1 h1:LRbvNuNuvAiISWg6gxLEFuCe72UKy5hDqhxW/8183ws=
+github.com/tidwall/gjson v1.6.1/go.mod h1:BaHyNc5bjzYkPqgLq7mdVzeiRtULKULXLgZFKsxEHI0=
 github.com/tidwall/grect v0.0.0-20161006141115-ba9a043346eb/go.mod h1:lKYYLFIr9OIgdgrtgkZ9zgRxRdvPYsExnYBsEAd8W5M=
 github.com/tidwall/match v1.0.1 h1:PnKP62LPNxHKTwvHHZZzdOAOCtsJTjo6dZLCwpKm5xc=
 github.com/tidwall/match v1.0.1/go.mod h1:LujAq0jyVjBy028G1WhWfIzbpQfMO8bBZ6Tyb0+pL9E=
 github.com/tidwall/pretty v1.0.0 h1:HsD+QiTn7sK6flMKIvNmpqz1qrpP3Ps6jOKIKMooyg4=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
+github.com/tidwall/pretty v1.0.2 h1:Z7S3cePv9Jwm1KwS0513MRaoUe3S01WPbLNV40pwWZU=
+github.com/tidwall/pretty v1.0.2/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tidwall/rtree v0.0.0-20180113144539-6cd427091e0e/go.mod h1:/h+UnNGt0IhNNJLkGikcdcJqm66zGD/uJGMRxK/9+Ao=
 github.com/tidwall/tinyqueue v0.0.0-20180302190814-1e39f5511563/go.mod h1:mLqSmt7Dv/CNneF2wfcChfN1rvapyQr01LGKnKex0DQ=
 github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2 h1:BWVtt2VBY+lmVDu9MGKqLGKl04B+iRHcrW1Ptyi/8tg=

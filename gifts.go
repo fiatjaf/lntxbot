@@ -81,14 +81,12 @@ func createGift(user User, sats int, messageId int) error {
 		}
 	}
 
-	inv, err := ln.Call("decodepay", order.LightningInvoice.PayReq)
+	inv, err := decodeInvoice(order.LightningInvoice.PayReq)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
-
 	return user.actuallySendExternalPayment(
-		messageId, order.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.gifts.%s.%d", s.ServiceId, order.OrderId, user.Id),
+		messageId, order.LightningInvoice.PayReq, inv, inv.MSatoshi,
 		func(
 			u User,
 			messageId int,

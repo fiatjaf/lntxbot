@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -88,13 +87,12 @@ func createSatelliteOrder(user User, messageId int, satoshis int, message string
 }
 
 func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest) error {
-	inv, err := ln.Call("decodepay", orderreq.LightningInvoice.PayReq)
+	inv, err := decodeInvoice(orderreq.LightningInvoice.PayReq)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
 	return user.actuallySendExternalPayment(
-		messageId, orderreq.LightningInvoice.PayReq, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.satellite.%s.%d", s.ServiceId, orderreq.UUID, user.Id),
+		messageId, orderreq.LightningInvoice.PayReq, inv, inv.MSatoshi,
 		func(
 			u User,
 			messageId int,

@@ -1,24 +1,26 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
-	decodepay_gjson "github.com/fiatjaf/ln-decodepay/gjson"
+	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/msingleton/amplitude-go"
 	"github.com/skip2/go-qrcode"
-	"github.com/tidwall/gjson"
 )
 
 type User struct {
@@ -175,7 +177,6 @@ SELECT
   status,
   trigger_message,
   tag,
-  label,
   coalesce(description, '') AS description,
   fees::float/1000 AS fees,
   amount::float/1000 AS amount,
@@ -270,11 +271,10 @@ type makeInvoiceArgs struct {
 	Desc                   string
 	DescHash               string
 	Msatoshi               int64
-	Label                  string
-	Preimage               string
 	Expiry                 *time.Duration
-	MessageId              interface{}
+	MessageId              int
 	Tag                    string
+	Extra                  map[string]interface{}
 	BlueWallet             bool
 	SkipQR                 bool
 	IgnoreInvoiceSizeLimit bool
@@ -284,7 +284,6 @@ func (u User) makeInvoice(
 	args makeInvoiceArgs,
 ) (bolt11 string, hash string, qrpath string, err error) {
 	msatoshi := args.Msatoshi
-	label := args.Label
 
 	// limit number of small invoices people can make every day
 	if !args.IgnoreInvoiceSizeLimit {
@@ -319,66 +318,62 @@ func (u User) makeInvoice(
 	log.Debug().Str("user", u.Username).Str("desc", args.Desc).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
-	if label == "" {
-		label = makeLabel(u.Id, args.MessageId, args.Tag)
-	}
-
-	var exp time.Duration
+	var exp *time.Duration
 	if args.Expiry == nil {
-		exp = s.InvoiceTimeout / time.Second
+		exp = &s.InvoiceTimeout
 	} else {
-		exp = *args.Expiry / time.Second
+		exp = args.Expiry
 	}
 
-	// make normal invoice
+	preimage := make([]byte, 32)
+	_, err = rand.Read(preimage)
+	if err != nil {
+		return "", "", "", fmt.Errorf("can't create random bytes: %w", err)
+	}
+
+	extra := args.Extra
+	if extra == nil {
+		extra = make(map[string]interface{})
+	}
+
+	shadowData := ShadowChannelData{
+		UserId:    u.Id,
+		MessageId: args.MessageId,
+		Tag:       args.Tag,
+		Msatoshi:  msatoshi,
+		// Description: added next
+		Preimage: hex.EncodeToString(preimage),
+		Extra:    extra,
+	}
+
+	var descriptionOrDescriptionHash interface{}
 	if args.DescHash == "" {
-		params := map[string]interface{}{
-			"msatoshi":    msatoshi,
-			"label":       label,
-			"description": args.Desc,
-			"expiry":      int(exp),
-		}
-
-		if msatoshi == 0 {
-			params["msatoshi"] = "any"
-		}
-
-		if args.Preimage != "" {
-			params["preimage"] = args.Preimage
-		}
-
-		var res gjson.Result
-		res, err = ln.CallWithCustomTimeout(time.Second*40, "invoice", params)
-		bolt11 = res.Get("bolt11").String()
-		hash = res.Get("payment_hash").String()
+		descriptionOrDescriptionHash = args.Desc
+		shadowData.Description = args.Desc
 	} else {
-		// make invoice with description_hash
-		var hhash []byte
-		hhash, err = hex.DecodeString(args.DescHash)
+		descriptionOrDescriptionHash, err = hex.DecodeString(args.DescHash)
 		if err != nil {
 			return "", "", "", fmt.Errorf("invalid description_hash: %w", err)
 		}
-
-		var ppreimage *[]byte
-		if args.Preimage != "" {
-			if preimage, err := hex.DecodeString(args.Preimage); err != nil {
-				return "", "", "", fmt.Errorf("invalid preimage: %w", err)
-			} else {
-				ppreimage = &preimage
-			}
-		}
-
-		expiry := time.Duration(exp) * time.Second
-		bolt11, err = ln.InvoiceWithDescriptionHash(
-			label,
-			msatoshi,
-			hhash,
-			ppreimage,
-			&expiry,
-		)
-		res, _ := ln.Call("decodepay", bolt11)
-		hash = res.Get("payment_hash").String()
+		shadowData.DescriptionHash = args.DescHash
 	}
+
+	// derive custom private key for this user
+	seedhash := sha256.Sum256(
+		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.BotToken)))
+	sk, _ := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
+
+	bolt11, hash, err = ln.InvoiceWithShadowRoute(
+		msatoshi,
+		descriptionOrDescriptionHash,
+		&preimage,
+		&sk,
+		exp,
+		0,
+		0,
+		9,
+		makeShadowChannelId(shadowData),
+	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("error making invoice: %w", err)
 	}
@@ -389,16 +384,16 @@ func (u User) makeInvoice(
 			"bolt11": bolt11,
 			"desc":   args.Desc,
 			"amount": msatoshi / 1000,
-			"expiry": int(exp),
+			"expiry": int(*exp),
 		})
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
 	}
 
 	if !args.SkipQR {
 		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256,
-			qrImagePath(label))
+			qrImagePath(hash))
 		if err == nil {
-			qrpath = qrImagePath(label)
+			qrpath = qrImagePath(hash)
 		} else {
 			log.Warn().Err(err).Str("invoice", bolt11).Msg("failed to generate qr.")
 			err = nil
@@ -413,111 +408,74 @@ func (u User) payInvoice(
 	bolt11 string,
 	manuallySpecifiedMsatoshi int64,
 ) (hash string, err error) {
-	inv, err := decodepay_gjson.Decodepay(bolt11)
+	invd, err := decodepay.Decodepay(bolt11)
 	if err != nil {
 		return "", errors.New("Failed to decode invoice: " + err.Error())
 	}
+	inv := Invoice{
+		Bolt11:   invd,
+		Preimage: "",
+	}
 
 	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
-	amount := inv.Get("msatoshi").Int()
-	desc := inv.Get("description").String()
-	hash = inv.Get("payment_hash").String()
+
+	amount := inv.MSatoshi
+	hash = inv.PaymentHash
 
 	if amount == 0 {
 		amount = manuallySpecifiedMsatoshi
 		if amount == 0 {
-			return "", errors.New("Can't send 0.")
+			return hash, errors.New("Can't send 0.")
 		}
 	}
 
-	fakeLabel := fmt.Sprintf("%s.pay.%s", s.ServiceId, hash)
-
-	if inv.Get("payee").String() == s.NodeId {
+	if len(inv.Route) == 1 && inv.Route[0][0].PubKey == s.NodeId {
 		// it's an internal invoice. mark as paid internally.
-
-		// handle ticket invoices
-		if strings.HasPrefix(desc, "ticket for") {
-			for tuple := range pendingApproval.IterBuffered() {
-				label := tuple.Key
-				kickdata := tuple.Val.(KickData)
-				if kickdata.Hash == hash {
-					var target User
-					target, err = chatOwnerFromTicketLabel(label)
-					if err != nil {
-						return
-					}
-
-					err = u.addInternalPendingInvoice(
-						0,
-						target.Id,
-						amount,
-						hash,
-						desc,
-						label,
-					)
-					if err != nil {
-						return
-					}
-
-					ticketPaid(label, kickdata)
-					go handleInvoicePaid(
-						-1,
-						amount,
-						desc,
-						hash,
-						"",
-						label,
-					)
-					go paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
-					break
-				}
-			}
+		bscid, err := decodeShortChannelId(inv.Route[0][0].ShortChannelId)
+		if err != nil {
+			return hash, errors.New("Failed to decode short_channel_id: " + err.Error())
+			log.Debug().Str("hash", hash).
+				Msg("what is this? an internal payment unrecognized")
 		}
-
-		// search the invoices list
-		invoice, ok := findInvoiceOnNode(hash, "")
+		shadowData, ok := extractDataFromShadowChannelId(bscid)
 		if !ok {
-			err = errors.New("Couldn't find internal invoice.")
-			return
+			log.Debug().Str("hash", hash).
+				Msg("what is this? an internal payment unrecognized")
+			return hash, errors.New("Failed to decode short_channel_id: " + err.Error())
 		}
 
-		label := invoice.Get("label").String()
-		messageId, targetId, _, ok := parseLabel(label)
-		if ok {
-			err = u.addInternalPendingInvoice(
-				messageId,
-				targetId,
-				amount,
-				hash,
-				desc,
-				label,
-			)
-			if err != nil {
-				return
-			}
-
-			go handleInvoicePaid(
-				0,
-				amount,
-				desc,
-				hash,
-				"",
-				label,
-			)
-			invs, _ := ln.Call("listinvoices", label)
-			go resolveWaitingInvoice(hash, invs.Get("invoices.0"))
-
-			go paymentHasSucceeded(u, messageId, float64(amount), float64(amount), "", "", hash)
-			ln.Call("delinvoice", label, "unpaid")
-		} else {
-			log.Debug().Str("label", label).Msg("what is this? an internal payment unrecognized")
+		err = u.addInternalPendingInvoice(
+			shadowData.MessageId,
+			shadowData.UserId,
+			shadowData.Msatoshi,
+			hash,
+			shadowData.Description,
+		)
+		if err != nil {
+			return hash, err
 		}
+
+		if shadowData.Msatoshi > amount {
+			return hash,
+				fmt.Errorf("Invoice is for %d, can't pay less.", shadowData.Msatoshi)
+		} else if amount > shadowData.Msatoshi*2 {
+			return hash,
+				fmt.Errorf("Invoice is for %d, can't pay more than the double.",
+					shadowData.Msatoshi)
+		}
+
+		inv.Preimage = shadowData.Preimage
+
+		go handleInvoicePaid(hash, shadowData)
+		go resolveWaitingInvoice(hash, inv)
+		go paymentHasSucceeded(u, messageId, float64(amount), float64(amount),
+			shadowData.Preimage, shadowData.Tag, hash)
 	} else {
 		// it's an invoice from elsewhere, continue and
 		// actually send the lightning payment
 
 		err := u.actuallySendExternalPayment(
-			messageId, bolt11, inv, amount, fakeLabel,
+			messageId, bolt11, inv, amount,
 			paymentHasSucceeded, paymentHasFailed,
 		)
 		if err != nil {
@@ -531,9 +489,8 @@ func (u User) payInvoice(
 func (u User) actuallySendExternalPayment(
 	messageId int,
 	bolt11 string,
-	inv gjson.Result,
+	inv Invoice,
 	msatoshi int64,
-	label string,
 	onSuccess func(
 		u User,
 		messageId int,
@@ -549,7 +506,7 @@ func (u User) actuallySendExternalPayment(
 		hash string,
 	),
 ) (err error) {
-	hash := inv.Get("payment_hash").String()
+	hash := inv.PaymentHash
 
 	// insert payment as pending
 	txn, err := pg.Beginx()
@@ -566,10 +523,10 @@ func (u User) actuallySendExternalPayment(
 
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, fees, description, payment_hash, label, pending, trigger_message, remote_node)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `, u.Id, msatoshi, int64(fee_reserve), inv.Get("description").String(),
-		hash, label, true, messageId, inv.Get("payee").String())
+  (from_id, amount, fees, description, payment_hash, pending, trigger_message, remote_node)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, u.Id, msatoshi, int64(fee_reserve), inv.Description,
+		hash, true, messageId, inv.Payee)
 	if err != nil {
 		log.Debug().Err(err).Int64("msatoshi", msatoshi).
 			Msg("database error inserting transaction")
@@ -602,7 +559,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		"use_shadow":    false,
 	}
 
-	if inv.Get("msatoshi").Int() == 0 {
+	if inv.MSatoshi == 0 {
 		// amountless invoice, so send the number of satoshis previously specified
 		params["msatoshi"] = msatoshi
 	}
@@ -701,7 +658,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			case "failed":
 				go u.track("payment failed", map[string]interface{}{
 					"sats":  msatoshi / 1000,
-					"payee": inv.Get("payee").String(),
+					"payee": inv.Payee,
 				})
 				log.Warn().
 					Str("user", u.Username).
@@ -731,7 +688,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		if payattempts == 0 {
 			go u.track("payment failed", map[string]interface{}{
 				"sats":  msatoshi / 1000,
-				"payee": inv.Get("payee").String(),
+				"payee": inv.Payee,
 			})
 			log.Warn().
 				Str("user", u.Username).
@@ -753,7 +710,7 @@ func (u User) addInternalPendingInvoice(
 	targetId int,
 	msats int64,
 	hash string,
-	desc, label interface{},
+	desc interface{},
 ) (err error) {
 	// insert payment as pending
 	txn, err := pg.Beginx()
@@ -765,9 +722,9 @@ func (u User) addInternalPendingInvoice(
 
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, to_id, amount, description, payment_hash, label, pending, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, u.Id, targetId, msats, desc, hash, label, true, messageId)
+  (from_id, to_id, amount, description, payment_hash, pending, trigger_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, u.Id, targetId, msats, desc, hash, true, messageId)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
@@ -932,20 +889,19 @@ func (u User) paymentReceived(
 	desc string,
 	hash string,
 	preimage string,
-	label string,
 	tag string,
 ) (err error) {
 	tagn := sql.NullString{String: tag, Valid: tag != ""}
 
 	_, err = pg.Exec(`
 INSERT INTO lightning.transaction
-  (to_id, amount, description, payment_hash, preimage, tag, label)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+  (to_id, amount, description, payment_hash, preimage, tag)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
-    `, u.Id, amount, desc, hash, preimage, tagn, label)
+    `, u.Id, amount, desc, hash, preimage, tagn)
 	if err != nil {
 		log.Error().Err(err).
-			Str("user", u.Username).Str("label", label).
+			Str("user", u.Username).Str("hash", hash).
 			Msg("failed to save payment received.")
 	}
 
@@ -1037,7 +993,6 @@ SELECT * FROM (
       ELSE substring(coalesce(description, '') from 0 for ($4 - 1)) || '…'
     END AS description,
     tag,
-    label,
     fees::float/1000 AS fees,
     amount::float/1000 AS amount,
     payment_hash,

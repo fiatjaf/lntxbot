@@ -318,13 +318,12 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 	}
 
 	// pay invoice
-	inv, err := ln.Call("decodepay", bolt11)
+	inv, err := decodeInvoice(bolt11)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
 	err = user.actuallySendExternalPayment(
-		0, bolt11, inv, inv.Get("msatoshi").Int(),
-		fmt.Sprintf("%s.bitrefill.%s.%d", s.ServiceId, orderId, user.Id),
+		0, bolt11, inv, inv.MSatoshi,
 		func(
 			u User,
 			messageId int,

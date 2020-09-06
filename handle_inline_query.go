@@ -56,8 +56,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		}
 
 		bolt11, _, qrpath, err := u.makeInvoice(makeInvoiceArgs{
-			Msatoshi:  int64(sats) * 1000,
-			MessageId: q.ID,
+			Msatoshi: int64(sats) * 1000,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
