@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strconv"
 	"time"
 
@@ -51,6 +53,15 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	// don't accept payments smaller than the requested amount
 	if shadowData.Msatoshi > msatoshi || msatoshi > shadowData.Msatoshi*2 {
 		return failHTLC
+	}
+
+	// ensure our preimage is correct
+	preimage, _ := hex.DecodeString(shadowData.Preimage)
+	derivedHash := sha256.Sum256(preimage)
+	derivedHashHex := hex.EncodeToString(derivedHash[:])
+	if derivedHashHex != hash {
+		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - continue", shadowData.Preimage, derivedHashHex, hash)
+		return continueHTLC
 	}
 
 	// here we know it's a payment for an lntxbot user
