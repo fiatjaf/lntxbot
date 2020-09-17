@@ -13,6 +13,7 @@ import (
 
 var continueHTLC = map[string]interface{}{"result": "continue"}
 var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16392}
+var failUnknown = map[string]interface{}{"result": "fail", "failure_code": 16399}
 
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	amount := params.Get("htlc.amount").String()
@@ -61,7 +62,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	derivedHashHex := hex.EncodeToString(derivedHash[:])
 	if derivedHashHex != hash {
 		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - continue", shadowData.Preimage, derivedHashHex, hash)
-		return continueHTLC
+		return failUnknown
 	}
 
 	// here we know it's a payment for an lntxbot user
