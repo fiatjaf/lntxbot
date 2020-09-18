@@ -154,6 +154,7 @@ OFFSET $3
 		if err != nil {
 			// message wasn't sent
 			// logger.Info().Err(err).Msg("message wasn't sent. skipping.")
+			err = nil
 			continue
 		}
 

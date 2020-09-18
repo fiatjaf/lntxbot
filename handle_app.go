@@ -573,7 +573,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			go func() {
 				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
 				if err != nil {
-					log.Warn().Err(err).Str("user", u.Username).Msg("sats4ads broadcast fail")
+					log.Warn().Err(err).Str("user", u.Username).
+						Msg("sats4ads broadcast fail")
 					u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
 					return
 				}
