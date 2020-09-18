@@ -7,6 +7,7 @@ import (
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/rs/zerolog"
 )
 
 const SATS4ADSUNACTIVITYDATEFORMAT = "20060102"
@@ -134,126 +135,13 @@ OFFSET $3
 		targethash := calculateHash(
 			fmt.Sprintf("%d:%s:%d", contentMessage.MessageID, sourcehash, target.Id),
 		)
-		data := "x=s4a-v-" + targethash[:10]
 
 		// build ad message based on the message that was replied to
-		var nchars int
-		var ad tgbotapi.Chattable
-		var thisCostMsat int = 1000 // fixed 1sat fee for each message
-		var thisCostSatoshis float64
-		baseChat := tgbotapi.BaseChat{
-			ChatID: target.ChatId,
-			ReplyMarkup: tgbotapi.InlineKeyboardMarkup{
-				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.InlineKeyboardButton{
-							Text:         "Viewed",
-							CallbackData: &data,
-						},
-					},
-				},
-			},
-		}
-
-		switch {
-		case contentMessage.Text != "":
-			nchars = len(contentMessage.Text)
-			thisCostMsat += row.Rate * nchars
-			thisCostSatoshis = float64(thisCostMsat) / 1000
-			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-				"Sats": thisCostSatoshis,
-			})
-
-			ad = tgbotapi.MessageConfig{
-				BaseChat:              baseChat,
-				Text:                  contentMessage.Text + footer,
-				DisableWebPagePreview: true,
-			}
-		case contentMessage.Animation != nil:
-			nchars = 300 + len(contentMessage.Caption)
-			thisCostMsat += row.Rate * nchars
-			thisCostSatoshis = float64(thisCostMsat) / 1000
-			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-				"Sats": thisCostSatoshis,
-			})
-
-			ad = tgbotapi.AnimationConfig{
-				Caption: contentMessage.Caption + footer,
-				BaseFile: tgbotapi.BaseFile{
-					BaseChat:    baseChat,
-					FileID:      contentMessage.Animation.FileID,
-					UseExisting: true,
-				},
-			}
-		case contentMessage.Photo != nil:
-			nchars = 300 + len(contentMessage.Caption)
-			thisCostMsat += row.Rate * nchars
-			thisCostSatoshis = float64(thisCostMsat) / 1000
-			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-				"Sats": thisCostSatoshis,
-			})
-			photos := *contentMessage.Photo
-
-			ad = tgbotapi.PhotoConfig{
-				Caption: contentMessage.Caption + footer,
-				BaseFile: tgbotapi.BaseFile{
-					BaseChat:    baseChat,
-					FileID:      photos[0].FileID,
-					UseExisting: true,
-				},
-			}
-		case contentMessage.Video != nil:
-			nchars = 300 + len(contentMessage.Caption)
-			thisCostMsat += row.Rate * nchars
-			thisCostSatoshis = float64(thisCostMsat) / 1000
-			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-				"Sats": thisCostSatoshis,
-			})
-
-			ad = tgbotapi.VideoConfig{
-				Caption: contentMessage.Caption + footer,
-				BaseFile: tgbotapi.BaseFile{
-					BaseChat:    baseChat,
-					FileID:      contentMessage.Video.FileID,
-					UseExisting: true,
-				},
-			}
-		case contentMessage.Document != nil:
-			nchars = 200 + len(contentMessage.Caption)
-			thisCostMsat += row.Rate * nchars
-			thisCostSatoshis = float64(thisCostMsat) / 1000
-			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-				"Sats": thisCostSatoshis,
-			})
-
-			ad = tgbotapi.DocumentConfig{
-				Caption: contentMessage.Caption + footer,
-				BaseFile: tgbotapi.BaseFile{
-					BaseChat:    baseChat,
-					FileID:      contentMessage.Document.FileID,
-					UseExisting: true,
-				},
-			}
-		case contentMessage.Audio != nil:
-			nchars = 150 + len(contentMessage.Caption)
-			thisCostMsat += row.Rate * nchars
-			thisCostSatoshis = float64(thisCostMsat) / 1000
-			footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
-				"Sats": thisCostSatoshis,
-			})
-
-			ad = tgbotapi.AudioConfig{
-				Caption: contentMessage.Caption + footer,
-				BaseFile: tgbotapi.BaseFile{
-					BaseChat:    baseChat,
-					FileID:      contentMessage.Audio.FileID,
-					UseExisting: true,
-				},
-			}
-		default:
-			logger.Info().Msg("invalid message used as ad content")
-			return
-		}
+		ad, nchars, thisCostMsat, thisCostSatoshis := buildAdMessage(
+			logger,
+			contentMessage, target, row.Rate,
+			sourcehash, targethash,
+		)
 
 		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
 			// budget ended, stop queueing messages
@@ -300,6 +188,134 @@ OFFSET $3
 	}
 
 	roundedCostSatoshis = int(costSatoshis)
+	return
+}
+
+func buildAdMessage(
+	logger zerolog.Logger,
+	contentMessage *tgbotapi.Message,
+	target User,
+	rate int,
+	sourcehash,
+	targethash string,
+) (ad tgbotapi.Chattable, nchars int, thisCostMsat int, thisCostSatoshis float64) {
+	thisCostMsat = 1000 // fixed 1sat fee for each message
+
+	data := "x=s4a-v-" + targethash[:10]
+
+	baseChat := tgbotapi.BaseChat{
+		ChatID: target.ChatId,
+		ReplyMarkup: tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				{
+					tgbotapi.InlineKeyboardButton{
+						Text:         "Viewed",
+						CallbackData: &data,
+					},
+				},
+			},
+		},
+	}
+
+	switch {
+	case contentMessage.Text != "":
+		nchars = len(contentMessage.Text)
+		thisCostMsat += rate * nchars
+		thisCostSatoshis = float64(thisCostMsat) / 1000
+		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+			"Sats": thisCostSatoshis,
+		})
+
+		ad = tgbotapi.MessageConfig{
+			BaseChat:              baseChat,
+			Text:                  contentMessage.Text + footer,
+			DisableWebPagePreview: false,
+		}
+	case contentMessage.Animation != nil:
+		nchars = 300 + len(contentMessage.Caption)
+		thisCostMsat += rate * nchars
+		thisCostSatoshis = float64(thisCostMsat) / 1000
+		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+			"Sats": thisCostSatoshis,
+		})
+
+		ad = tgbotapi.AnimationConfig{
+			Caption: contentMessage.Caption + footer,
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat:    baseChat,
+				FileID:      contentMessage.Animation.FileID,
+				UseExisting: true,
+			},
+		}
+	case contentMessage.Photo != nil:
+		nchars = 300 + len(contentMessage.Caption)
+		thisCostMsat += rate * nchars
+		thisCostSatoshis = float64(thisCostMsat) / 1000
+		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+			"Sats": thisCostSatoshis,
+		})
+		photos := *contentMessage.Photo
+
+		ad = tgbotapi.PhotoConfig{
+			Caption: contentMessage.Caption + footer,
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat:    baseChat,
+				FileID:      photos[0].FileID,
+				UseExisting: true,
+			},
+		}
+	case contentMessage.Video != nil:
+		nchars = 300 + len(contentMessage.Caption)
+		thisCostMsat += rate * nchars
+		thisCostSatoshis = float64(thisCostMsat) / 1000
+		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+			"Sats": thisCostSatoshis,
+		})
+
+		ad = tgbotapi.VideoConfig{
+			Caption: contentMessage.Caption + footer,
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat:    baseChat,
+				FileID:      contentMessage.Video.FileID,
+				UseExisting: true,
+			},
+		}
+	case contentMessage.Document != nil:
+		nchars = 200 + len(contentMessage.Caption)
+		thisCostMsat += rate * nchars
+		thisCostSatoshis = float64(thisCostMsat) / 1000
+		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+			"Sats": thisCostSatoshis,
+		})
+
+		ad = tgbotapi.DocumentConfig{
+			Caption: contentMessage.Caption + footer,
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat:    baseChat,
+				FileID:      contentMessage.Document.FileID,
+				UseExisting: true,
+			},
+		}
+	case contentMessage.Audio != nil:
+		nchars = 150 + len(contentMessage.Caption)
+		thisCostMsat += rate * nchars
+		thisCostSatoshis = float64(thisCostMsat) / 1000
+		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+			"Sats": thisCostSatoshis,
+		})
+
+		ad = tgbotapi.AudioConfig{
+			Caption: contentMessage.Caption + footer,
+			BaseFile: tgbotapi.BaseFile{
+				BaseChat:    baseChat,
+				FileID:      contentMessage.Audio.FileID,
+				UseExisting: true,
+			},
+		}
+	default:
+		logger.Info().Msg("invalid message used as ad content")
+	}
+
 	return
 }
 
