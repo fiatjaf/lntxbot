@@ -580,6 +580,17 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 				u.notifyAsReply(t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
 			}()
+		case opts["preview"].(bool):
+			go u.track("sats4ads preview", nil)
+
+			contentMessage := message.ReplyToMessage
+			if contentMessage == nil {
+				handleHelp(u, "sats4ads")
+				return
+			}
+
+			ad, _, _, _ := buildAdMessage(log, contentMessage, u, 0, "", "")
+			bot.Send(ad)
 		}
 	default:
 		handleHelp(u, "apps")
