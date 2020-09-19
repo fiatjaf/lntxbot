@@ -135,12 +135,22 @@ OFFSET $3
 		targethash := calculateHash(
 			fmt.Sprintf("%d:%s:%d", contentMessage.MessageID, sourcehash, target.Id),
 		)
+		data := "x=s4a-v-" + targethash[:10]
 
 		// build ad message based on the message that was replied to
-		ad, nchars, thisCostMsat, thisCostSatoshis := buildAdMessage(
+		ad, nchars, thisCostMsat, thisCostSatoshis := buildSats4AdsMessage(
 			logger,
 			contentMessage, target, row.Rate,
-			sourcehash, targethash,
+			tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.InlineKeyboardButton{
+							Text:         "Viewed",
+							CallbackData: &data,
+						},
+					},
+				},
+			},
 		)
 
 		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
@@ -192,30 +202,18 @@ OFFSET $3
 	return
 }
 
-func buildAdMessage(
+func buildSats4AdsMessage(
 	logger zerolog.Logger,
 	contentMessage *tgbotapi.Message,
 	target User,
 	rate int,
-	sourcehash,
-	targethash string,
+	keyboard interface{},
 ) (ad tgbotapi.Chattable, nchars int, thisCostMsat int, thisCostSatoshis float64) {
 	thisCostMsat = 1000 // fixed 1sat fee for each message
 
-	data := "x=s4a-v-" + targethash[:10]
-
 	baseChat := tgbotapi.BaseChat{
-		ChatID: target.ChatId,
-		ReplyMarkup: tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				{
-					tgbotapi.InlineKeyboardButton{
-						Text:         "Viewed",
-						CallbackData: &data,
-					},
-				},
-			},
-		},
+		ChatID:      target.ChatId,
+		ReplyMarkup: keyboard,
 	}
 
 	switch {

@@ -590,7 +590,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				return
 			}
 
-			ad, _, _, _ := buildAdMessage(log, contentMessage, u, 0, "", "")
+			ad, _, _, _ := buildSats4AdsMessage(log, contentMessage, u, 0, nil)
 			bot.Send(ad)
 		}
 	default:

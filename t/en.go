@@ -489,7 +489,7 @@ To broadcast an ad you must send a message to the bot that will be your ad conte
 /sats4ads_off turns off your account so you won't get any more ads.
 /sats4ads_rates shows a breakdown of how many nodes are at each price level. Useful to plan your ad budget early.
 /sats4ads_rate shows your rate.
-/sats4ads_preview in reply to a message shows a preview of how other users will see it.
+/sats4ads_preview in reply to a message shows a preview of how other users will see it. The satoshi amount shown in the preview message is not meaningful.
 /sats4ads_broadcast_1000 broadcasts an ad. The last number is the maximum number of satoshis that will be spend. Cheaper ad-listeners will be preferred over more expensive ones. Must be called in a reply to another message, the contents of which will be used as the ad text.
     `,
 	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Seeing ads and receiving {{printf "%.15g" .Sats}} sat per character.{{else}}You won't see any more ads.{{end}}`,
