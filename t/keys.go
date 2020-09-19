@@ -177,6 +177,7 @@ const (
 	SATS4ADSHELP       = "sats4adsHelp"
 	SATS4ADSTOGGLE     = "Sats4adsToggle"
 	SATS4ADSBROADCAST  = "Sats4adsBroadcast"
+	SATS4ADSSTART      = "Sats4adsStart"
 	SATS4ADSPRICETABLE = "Sats4adsPriceTable"
 	SATS4ADSADFOOTER   = "Sats4adsAdFooter"
 	SATS4ADSVIEWED     = "Viewed"

@@ -549,7 +549,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			go u.track("sats4ads broadcast", map[string]interface{}{"sats": satoshis})
 
-			// we'll use either a message passed as an argument or the contents of the message being replied to
+			// we'll use either a message passed as an argument
+			// or the contents of the message being replied to
 			contentMessage := message.ReplyToMessage
 			if imessage, ok := opts["<message>"]; ok {
 				text := strings.Join(imessage.([]string), " ")
@@ -569,6 +570,8 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			// optional args
 			maxrate, _ := opts.Int("--max-rate")
 			offset, _ := opts.Int("--skip")
+
+			u.notifyAsReply(t.SATS4ADSSTART, nil, messageId)
 
 			go func() {
 				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
