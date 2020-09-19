@@ -11,6 +11,14 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+type InOut string
+
+const (
+	In   InOut = "i"
+	Out  InOut = "o"
+	Both InOut = ""
+)
+
 type Transaction struct {
 	Time           time.Time      `db:"time"`
 	Status         string         `db:"status"`
@@ -211,7 +219,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 	}
 }
 
-func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.CallbackQuery) {
+func handleTransactionList(u User, page int, tag string, filter InOut, cb *tgbotapi.CallbackQuery) {
 	// show list of transactions
 	if page == 0 {
 		page = 1
@@ -219,7 +227,7 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 	limit := 25
 	offset := limit * (page - 1)
 
-	txns, err := u.listTransactions(limit, offset, 16, filter)
+	txns, err := u.listTransactions(limit, offset, 16, tag, filter)
 	if err != nil {
 		log.Warn().Err(err).Str("user", u.Username).Int("page", page).
 			Msg("failed to list transactions")
@@ -244,7 +252,7 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 		keyboard.InlineKeyboard[0] = append(
 			keyboard.InlineKeyboard[0],
 			tgbotapi.NewInlineKeyboardButtonData(
-				"newer", fmt.Sprintf("txlist=%d-%s", page-1, filter)),
+				"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
 		)
 	}
 
@@ -252,7 +260,7 @@ func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.Callback
 		keyboard.InlineKeyboard[0] = append(
 			keyboard.InlineKeyboard[0],
 			tgbotapi.NewInlineKeyboardButtonData(
-				"older", fmt.Sprintf("txlist=%d-%s", page+1, filter)),
+				"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
 		)
 	}
 

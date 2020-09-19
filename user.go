@@ -960,25 +960,15 @@ GROUP BY tag
 	return
 }
 
-type InOut string
-
-const (
-	In   InOut = "in"
-	Out  InOut = "out"
-	Both InOut = ""
-)
-
-func (u User) listTransactions(limit, offset, descCharLimit int, inOrOut InOut) (txns []Transaction, err error) {
-	filterBy := func(inOrOut InOut) string {
-		switch inOrOut {
-		case In:
-			return " AND amount > 0 "
-		case Out:
-			return " AND amount < 0 "
-		case Both:
-			return ""
-		}
-		return ""
+func (u User) listTransactions(limit, offset, descCharLimit int, tag string, inOrOut InOut) (txns []Transaction, err error) {
+	var filter string
+	switch inOrOut {
+	case In:
+		filter += " AND amount > 0 "
+	case Out:
+		filter += " AND amount < 0 "
+	case Both:
+		filter += ""
 	}
 
 	err = pg.Select(&txns, `
@@ -998,12 +988,12 @@ SELECT * FROM (
     payment_hash,
     preimage
   FROM lightning.account_txn
-  WHERE account_id = $1 `+filterBy(inOrOut)+`
+  WHERE account_id = $1 `+filter+` AND (CASE WHEN $5 != '' THEN tag = $5 ELSE true END)
   ORDER BY time DESC
   LIMIT $2
   OFFSET $3
 ) AS latest ORDER BY time ASC
-    `, u.Id, limit, offset, descCharLimit)
+    `, u.Id, limit, offset, descCharLimit, tag)
 	if err != nil {
 		return
 	}

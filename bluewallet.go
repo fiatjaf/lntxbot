@@ -208,7 +208,7 @@ func registerBluewalletMethods() {
 		}
 
 		limit, offset := getLimitAndOffset(r)
-		txs, err := user.listTransactions(limit, offset, 120, Out)
+		txs, err := user.listTransactions(limit, offset, 120, "", Out)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -257,7 +257,7 @@ func registerBluewalletMethods() {
 		}
 
 		limit, offset := getLimitAndOffset(r)
-		txns, err := user.listTransactions(limit, offset, 120, In)
+		txns, err := user.listTransactions(limit, offset, 120, "", In)
 		if err != nil {
 			errorInternal(w)
 			return

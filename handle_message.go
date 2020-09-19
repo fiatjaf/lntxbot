@@ -704,7 +704,9 @@ parsed:
 			} else if opts["--out"].(bool) {
 				filter = Out
 			}
-			handleTransactionList(u, page, filter, nil)
+
+			tag, _ := opts.String("<tag>")
+			handleTransactionList(u, page, tag, filter, nil)
 
 			go u.track("txlist", nil)
 		}()

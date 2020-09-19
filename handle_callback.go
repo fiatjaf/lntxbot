@@ -46,11 +46,12 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 	switch {
 	case cb.Data == "noop":
 		goto answerEmpty
-	case strings.HasPrefix(cb.Data, "txlist="):
-		parts := strings.Split(cb.Data[7:], "-")
+	case strings.HasPrefix(cb.Data, "txl="):
+		parts := strings.Split(cb.Data[4:], "-")
 		page, _ := strconv.Atoi(parts[0])
 		filter := InOut(parts[1])
-		go handleTransactionList(u, page, filter, cb)
+		tag := parts[2]
+		go handleTransactionList(u, page, tag, filter, cb)
 		go u.track("txlist page", map[string]interface{}{"page": page})
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
