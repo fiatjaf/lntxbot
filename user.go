@@ -439,9 +439,9 @@ func (u User) payInvoice(
 		}
 		shadowData, ok := extractDataFromShadowChannelId(bscid)
 		if !ok {
-			log.Debug().Str("hash", hash).
+			log.Debug().Str("hash", hash).Str("scid", inv.Route[0][0].ShortChannelId).
 				Msg("what is this? an internal payment unrecognized")
-			return hash, errors.New("Failed to decode short_channel_id: " + err.Error())
+			return hash, errors.New("Failed to identity internal invoice.")
 		}
 
 		err = u.addInternalPendingInvoice(

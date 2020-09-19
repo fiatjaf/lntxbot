@@ -153,6 +153,10 @@ OFFSET $3
 			},
 		)
 
+		if ad == nil {
+			break
+		}
+
 		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
 			// budget ended, stop queueing messages
 			logger.Info().Float64("spent", costSatoshis).Float64("next", thisCostSatoshis).Msg("budget ended")

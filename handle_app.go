@@ -594,6 +594,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			ad, _, _, _ := buildSats4AdsMessage(log, contentMessage, u, 0, nil)
+			if ad == nil {
+				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "invalid message used as ad content"})
+				return
+			}
+
 			bot.Send(ad)
 		}
 	default:
