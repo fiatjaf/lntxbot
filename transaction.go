@@ -195,11 +195,11 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 		"Txn":     txn,
 		"LogInfo": renderLogInfo(u, txn.Hash),
 	})
-	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
+	msgId := sendTelegramMessageAsReply(u.TelegramChatId, txstatus, txn.TriggerMessage).MessageID
 
 	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
 		// allow people to cancel pending if they're old enough
-		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
+		editWithKeyboard(u.TelegramChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
 			tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
@@ -209,7 +209,7 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 	}
 
 	if txn.IsUnclaimed() {
-		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
+		editWithKeyboard(u.TelegramChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
 			tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
@@ -268,7 +268,7 @@ func handleTransactionList(u User, page int, tag string, filter InOut, cb *tgbot
 	if cb == nil {
 		chattable = tgbotapi.MessageConfig{
 			BaseChat: tgbotapi.BaseChat{
-				ChatID:      u.ChatId,
+				ChatID:      u.TelegramChatId,
 				ReplyMarkup: &keyboard,
 			},
 			Text:                  text,

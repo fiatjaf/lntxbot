@@ -3,17 +3,20 @@ CREATE SCHEMA lightning;
 
 CREATE TABLE telegram.account (
   id serial PRIMARY KEY,
-  telegram_id int UNIQUE, -- telegram id
-  username text UNIQUE, -- telegram name
-  chat_id int, -- telegram private chat id
+
+  telegram_id int UNIQUE,
+  telegram_username text UNIQUE,
+  telegram_chat_id int, -- telegram private chat id
+
+  discord_id text UNIQUE,
+  discord_username text UNIQUE,
+  discord_channel_id text, -- telegram private chat id
+
   password text NOT NULL DEFAULT md5(random()::text) || md5(random()::text), -- used in lndhub interface
   locale text NOT NULL DEFAULT 'en', -- default language for messages
   manual_locale boolean NOT NULL DEFAULT false,
   appdata jsonb NOT NULL DEFAULT '{}' -- data for all apps this user have, as a map of {"appname": {anything}}
 );
-
-CREATE INDEX ON telegram.account (username);
-CREATE INDEX ON telegram.account (telegram_id);
 
 CREATE TABLE telegram.chat (
   telegram_id bigint PRIMARY KEY,

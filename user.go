@@ -24,12 +24,14 @@ import (
 )
 
 type User struct {
-	Id         int    `db:"id"`
-	TelegramId int    `db:"telegram_id"`
-	Username   string `db:"username"`
-	ChatId     int64  `db:"chat_id"`
-	Password   string `db:"password"`
-	Locale     string `db:"locale"`
+	Id               int    `db:"id"`
+	Username         string `db:"username"`
+	TelegramId       int    `db:"telegram_id"`
+	DiscordId        string `db:"discord_id"`
+	TelegramChatId   int64  `db:"telegram_chat_id"`
+	DiscordChannelId string `db:"discord_channel_id"`
+	Password         string `db:"password"`
+	Locale           string `db:"locale"`
 
 	Extra string `db:"extra"`
 }
@@ -37,22 +39,41 @@ type User struct {
 const USERFIELDS = `
   id,
   coalesce(telegram_id, 0) AS telegram_id,
-  coalesce(username, '') AS username,
-  coalesce(chat_id, 0) AS chat_id,
+  coalesce(telegram_username, coalesce(discord_username, '')) AS username,
+  coalesce(telegram_chat_id, 0) AS telegram_chat_id,
+  coalesce(discord_channel_id, '') AS discord_channel_id,
   password,
   locale
 `
 
-func loadUser(id int, telegramId int) (u User, err error) {
+func loadUser(id int) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+`
 FROM telegram.account
-WHERE id = $1 OR telegram_id = $2
-    `, id, telegramId)
+WHERE id = $1
+    `, id)
 	return
 }
 
-func ensureUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
+func loadTelegramUser(telegramId int) (u User, err error) {
+	err = pg.Get(&u, `
+SELECT `+USERFIELDS+`
+FROM telegram.account
+WHERE telegram_id = $1
+    `, telegramId)
+	return
+}
+
+func loadDiscordUser(discordId string) (u User, err error) {
+	err = pg.Get(&u, `
+SELECT `+USERFIELDS+`
+FROM telegram.account
+WHERE discord_id = $1
+    `, discordId)
+	return
+}
+
+func ensureTelegramUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
 	username = strings.ToLower(username)
 	var vusername sql.NullString
 
@@ -64,11 +85,12 @@ func ensureUser(telegramId int, username string, locale string) (u User, tcase i
 
 	var userRows []User
 
-	// always update locale while selecting user unless it was set manually or isn't available
+	// always update locale while selecting user
+	// unless it was set manually or isn't available
 	err = pg.Select(&userRows, `
 UPDATE telegram.account AS u
 SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
-WHERE u.telegram_id = $1 OR u.username = $2
+WHERE u.telegram_id = $1 OR u.telegram_username = $2
 RETURNING `+USERFIELDS,
 		telegramId, username, locale)
 	if err != nil && err != sql.ErrNoRows {
@@ -80,7 +102,7 @@ RETURNING `+USERFIELDS,
 	case 0:
 		// user not registered
 		err = pg.Get(&u, `
-INSERT INTO telegram.account (telegram_id, username)
+INSERT INTO telegram.account (telegram_id, telegram_username)
 VALUES ($1, $2)
 RETURNING `+USERFIELDS,
 			telegramId, vusername)
@@ -93,13 +115,13 @@ RETURNING `+USERFIELDS,
 		} else if u.Username != username {
 			// update username
 			err = pg.Get(&u, `
-UPDATE telegram.account SET username = $2 WHERE telegram_id = $1
+UPDATE telegram.account SET telegram_username = $2 WHERE telegram_id = $1
 RETURNING `+USERFIELDS,
 				telegramId, vusername)
 		} else if u.TelegramId != telegramId {
 			// update telegram_id
 			err = pg.Get(&u, `
-UPDATE telegram.account SET telegram_id = $1 WHERE username = $2
+UPDATE telegram.account SET telegram_id = $1 WHERE telegram_username = $2
 RETURNING `+USERFIELDS,
 				telegramId, username)
 		}
@@ -139,7 +161,7 @@ RETURNING `+USERFIELDS,
 
 		err = txn.Get(&u, `
 UPDATE telegram.account
-SET telegram_id = $2, username = $3
+SET telegram_id = $2, telegram_username = $3
 WHERE id = $1
 RETURNING `+USERFIELDS,
 			idToRemain, telegramId, vusername)
@@ -157,6 +179,187 @@ RETURNING `+USERFIELDS,
 		err = errors.New("odd error with more than 2 rows for the same user.")
 		return
 	}
+}
+
+func ensureDiscordUser(discordId, username, locale string) (u User, tcase int, err error) {
+	username = strings.ToLower(username)
+	var vusername sql.NullString
+
+	if username == "" {
+		vusername.Valid = false
+	} else {
+		vusername.Scan(username)
+	}
+
+	var userRows []User
+
+	// always update locale while selecting user unless it was set manually or isn't available
+	err = pg.Select(&userRows, `
+UPDATE telegram.account AS u
+SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
+WHERE u.discord_id = $1 OR u.discord_username = $2
+RETURNING `+USERFIELDS,
+		discordId, username, locale)
+	if err != nil && err != sql.ErrNoRows {
+		return
+	}
+
+	tcase = len(userRows)
+	switch tcase {
+	case 0:
+		// user not registered
+		err = pg.Get(&u, `
+INSERT INTO telegram.account (discord_id, discord_username)
+VALUES ($1, $2)
+RETURNING `+USERFIELDS,
+			discordId, vusername)
+		return
+	case 1:
+		// user registered, update if necessary then leave
+		u = userRows[0]
+		if u.Username == username && u.DiscordId == discordId {
+			// all is well, just return
+		} else if u.Username != username {
+			// update username
+			err = pg.Get(&u, `
+UPDATE telegram.account SET discord_username = $2 WHERE discord_id = $1
+RETURNING `+USERFIELDS,
+				discordId, vusername)
+		} else if u.DiscordId != discordId {
+			// update discord_id
+			err = pg.Get(&u, `
+UPDATE telegram.account SET discord_id = $1 WHERE discord_username = $2
+RETURNING `+USERFIELDS,
+				discordId, username)
+		}
+		return
+	case 2:
+		// user has 2 accounts, one with the username, other with the telegram_id
+		var txn *sqlx.Tx
+		txn, err = pg.Beginx()
+		if err != nil {
+			return
+		}
+		defer txn.Rollback()
+
+		idToDelete := userRows[1].Id
+		idToRemain := userRows[0].Id
+
+		_, err = txn.Exec(
+			"UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2",
+			idToRemain, idToDelete)
+		if err != nil {
+			return
+		}
+
+		_, err = txn.Exec(
+			"UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2",
+			idToRemain, idToDelete)
+		if err != nil {
+			return
+		}
+
+		_, err = txn.Exec(
+			"DELETE FROM telegram.account WHERE id = $1",
+			idToDelete)
+		if err != nil {
+			return
+		}
+
+		err = txn.Get(&u, `
+UPDATE telegram.account
+SET discord_id = $2, discord_username = $3
+WHERE id = $1
+RETURNING `+USERFIELDS,
+			idToRemain, discordId, vusername)
+		if err != nil {
+			return
+		}
+
+		err = txn.Commit()
+		if err != nil {
+			return
+		}
+
+		return
+	default:
+		err = errors.New("odd error with more than 2 rows for the same user.")
+		return
+	}
+}
+
+func ensureTelegramId(telegram_id int) (u User, err error) {
+	err = pg.Get(&u, `
+INSERT INTO telegram.account (telegram_id)
+VALUES ($1)
+ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
+RETURNING `+USERFIELDS,
+		telegram_id)
+	return
+}
+
+func ensureTelegramUsername(username string) (u User, err error) {
+	err = pg.Get(&u, `
+INSERT INTO telegram.account (username)
+VALUES ($1)
+ON CONFLICT (username) DO UPDATE SET username = $1
+RETURNING `+USERFIELDS,
+		strings.ToLower(username))
+	return
+}
+
+func (u *User) setChat(id int64) error {
+	u.TelegramChatId = id
+	_, err := pg.Exec(
+		`UPDATE telegram.account SET telegram_chat_id = $1 WHERE id = $2`,
+		id, u.Id)
+	return err
+}
+
+func (u *User) unsetChat() {
+	pg.Exec(`UPDATE telegram.account SET telegram_chat_id = NULL WHERE id = $1`, u.Id)
+}
+
+func (u *User) setChannel(id string) error {
+	u.DiscordChannelId = id
+	_, err := pg.Exec(
+		`UPDATE telegram.account SET discord_channel_id = $1 WHERE id = $2`,
+		id, u.Id)
+	return err
+}
+
+func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
+	if u.TelegramChatId != 0 {
+		return u.notifyWithKeyboard(key, templateData, nil, 0)
+	} else if u.DiscordChannelId != "" {
+		html := translateTemplate(key, u.Locale, templateData)
+		md, _ := mdConverter.ConvertString(html)
+		sendDiscordMessage(u.DiscordChannelId, md)
+	}
+
+	return tgbotapi.Message{} // TODO
+}
+
+func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
+	return u.notifyWithKeyboard(key, templateData, nil, replyToId)
+}
+
+func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
+	if u.TelegramChatId == 0 {
+		log.Info().Str("user", u.Username).Str("key", string(key)).
+			Msg("can't notify user as it hasn't started a chat with the bot.")
+		return tgbotapi.Message{}
+	}
+	log.Debug().Str("user", u.Username).
+		Str("key", string(key)).Interface("data", templateData).
+		Msg("notifying user")
+
+	msg := translateTemplate(key, u.Locale, templateData)
+	return sendTelegramMessageWithKeyboard(u.TelegramChatId, msg, keyboard, replyToId)
+}
+
+func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tgbotapi.APIResponse, error) {
+	return bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translateTemplate(key, u.Locale, templateData)))
 }
 
 func (u User) updatePassword() (newpassword string, err error) {
@@ -208,63 +411,6 @@ func (u User) AtName() string {
 		return "@" + u.Username
 	}
 	return fmt.Sprintf("user:%d", u.TelegramId)
-}
-
-func ensureTelegramId(telegram_id int) (u User, err error) {
-	err = pg.Get(&u, `
-INSERT INTO telegram.account (telegram_id)
-VALUES ($1)
-ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
-RETURNING `+USERFIELDS,
-		telegram_id)
-	return
-}
-
-func ensureUsername(username string) (u User, err error) {
-	err = pg.Get(&u, `
-INSERT INTO telegram.account (username)
-VALUES ($1)
-ON CONFLICT (username) DO UPDATE SET username = $1
-RETURNING `+USERFIELDS,
-		strings.ToLower(username))
-	return
-}
-
-func (u *User) setChat(id int64) error {
-	u.ChatId = id
-	_, err := pg.Exec(
-		`UPDATE telegram.account SET chat_id = $1 WHERE id = $2`,
-		id, u.Id)
-	return err
-}
-
-func (u *User) unsetChat() {
-	pg.Exec(`UPDATE telegram.account SET chat_id = NULL WHERE id = $1`, u.Id)
-}
-
-func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
-	return u.notifyWithKeyboard(key, templateData, nil, 0)
-}
-
-func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
-	return u.notifyWithKeyboard(key, templateData, nil, replyToId)
-}
-
-func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
-	if u.ChatId == 0 {
-		log.Info().Str("user", u.Username).Str("key", string(key)).
-			Msg("can't notify user as it hasn't started a chat with the bot.")
-		return tgbotapi.Message{}
-	}
-	log.Debug().Str("user", u.Username).Str("key", string(key)).Interface("data", templateData).
-		Msg("notifying user")
-
-	msg := translateTemplate(key, u.Locale, templateData)
-	return sendMessageWithKeyboard(u.ChatId, msg, keyboard, replyToId)
-}
-
-func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tgbotapi.APIResponse, error) {
-	return bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translateTemplate(key, u.Locale, templateData)))
 }
 
 type makeInvoiceArgs struct {
@@ -360,7 +506,7 @@ func (u User) makeInvoice(
 
 	// derive custom private key for this user
 	seedhash := sha256.Sum256(
-		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.BotToken)))
+		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.TelegramBotToken)))
 	sk, _ := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
 
 	bolt11, hash, err = ln.InvoiceWithShadowRoute(
@@ -417,7 +563,7 @@ func (u User) payInvoice(
 		Preimage: "",
 	}
 
-	bot.Send(tgbotapi.NewChatAction(u.ChatId, "Sending payment..."))
+	bot.Send(tgbotapi.NewChatAction(u.TelegramChatId, "Sending payment..."))
 
 	amount := inv.MSatoshi
 	hash = inv.PaymentHash

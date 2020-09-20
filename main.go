@@ -13,6 +13,7 @@ import (
 	"time"
 
 	template "github.com/arschles/go-bindata-html-template"
+	"github.com/bwmarrin/discordgo"
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
@@ -30,13 +31,14 @@ import (
 )
 
 type Settings struct {
-	ServiceId   string `envconfig:"SERVICE_ID" default:"lntxbot"`
-	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
-	Host        string `envconfig:"HOST" default:"0.0.0.0"`
-	Port        string `envconfig:"PORT" required:"true"`
-	BotToken    string `envconfig:"BOT_TOKEN" required:"true"`
-	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
-	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
+	ServiceId        string `envconfig:"SERVICE_ID" default:"lntxbot"`
+	ServiceURL       string `envconfig:"SERVICE_URL" required:"true"`
+	Host             string `envconfig:"HOST" default:"0.0.0.0"`
+	Port             string `envconfig:"PORT" required:"true"`
+	TelegramBotToken string `envconfig:"TELEGRAM_BOT_TOKEN" required:"true"`
+	PostgresURL      string `envconfig:"DATABASE_URL" required:"true"`
+	RedisURL         string `envconfig:"REDIS_URL" required:"true"`
+	DiscordBotToken  string `envconfig:"DISCORD_BOT_TOKEN" required:"false"`
 
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
@@ -72,6 +74,7 @@ var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
+var discord *discordgo.Session
 var amp *amplitude.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
@@ -160,8 +163,8 @@ func server(p *plugin.Plugin) {
 		amp = amplitude.New(s.AmplitudeKey)
 	}
 
-	// create bot
-	bot, err = tgbotapi.NewBotAPI(s.BotToken)
+	// create telegram bot
+	bot, err = tgbotapi.NewBotAPI(s.TelegramBotToken)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
@@ -176,6 +179,16 @@ func server(p *plugin.Plugin) {
 			http.Error(w, "not found", 404)
 		}
 	})
+
+	// discord bot session
+	if s.DiscordBotToken != "" {
+		discord, err = discordgo.New("Bot " + s.DiscordBotToken)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to establish discord connection")
+		}
+
+		discord.AddHandler(handleDiscordMessage)
+	}
 
 	// lndhub-compatible routes
 	registerAPIMethods()

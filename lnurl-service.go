@@ -22,7 +22,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 		return
 	}
 
-	challenge := calculateHash(s.BotToken + ":" + strconv.Itoa(messageId) + ":" + maxsats)
+	challenge := calculateHash(s.TelegramBotToken + ":" + strconv.Itoa(messageId) + ":" + maxsats)
 
 	nexturl := fmt.Sprintf("%s/lnurl/withdraw?message=%d&challenge=%s", s.ServiceURL, messageId, challenge)
 	rds.Set("lnurlwithdraw:"+challenge, fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
@@ -41,7 +41,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 		return
 	}
 
-	sendMessageWithPicture(u.ChatId, qrpath, `<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
+	sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, `<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
 	return
 }
 
@@ -81,7 +81,7 @@ func serveLNURL() {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Internal mismatch."))
 			return
 		}
-		u, err := loadUser(chUserId, 0)
+		u, err := loadUser(chUserId)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Couldn't load withdrawee user."))
 			return
@@ -126,14 +126,14 @@ func serveLNURL() {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Internal mismatch."))
 			return
 		}
-		u, err := loadUser(chUserId, 0)
+		u, err := loadUser(chUserId)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Couldn't load withdrawee user."))
 			return
 		}
 
 		// double-check the challenge (it's a hash of the parameters + our secret)
-		if challenge != calculateHash(s.BotToken+":"+messageIdstr+":"+strconv.Itoa(chMax)) {
+		if challenge != calculateHash(s.TelegramBotToken+":"+messageIdstr+":"+strconv.Itoa(chMax)) {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid amount for this lnurl."))
 			return
 		}
@@ -157,7 +157,7 @@ func serveLNURL() {
 		}
 
 		// print the bolt11 just because
-		nextMessageId := sendMessageAsReply(u.ChatId, bolt11, messageId).MessageID
+		nextMessageId := sendTelegramMessageAsReply(u.TelegramChatId, bolt11, messageId).MessageID
 
 		go u.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
 			"sats": inv.Get("msatoshi").Float() / 1000,
@@ -256,10 +256,10 @@ func lnurlPayStuff(userid string, username string) (receiver User, jmeta []byte,
 		var id int
 		id, err = strconv.Atoi(userid)
 		if err == nil {
-			receiver, err = loadUser(id, 0)
+			receiver, err = loadUser(id)
 		}
 	} else if username != "" {
-		receiver, err = ensureUsername(username)
+		receiver, err = ensureTelegramUsername(username)
 	}
 	if err != nil {
 		return

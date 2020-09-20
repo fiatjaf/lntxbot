@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	html_to_markdown "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
@@ -59,10 +61,17 @@ func parseSatoshis(opts docopt.Opts) (sats int, err error) {
 	return 0, errors.New("'satoshis' param invalid")
 }
 
-func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurltext string, ok bool) {
-	text := message.Text
-	if text == "" {
-		text = message.Caption
+func searchForInvoice(u User, message interface{}) (bolt11, lnurltext string, ok bool) {
+	var text string
+
+	switch m := message.(type) {
+	case tgbotapi.Message:
+		text = m.Text
+		if text == "" {
+			text = m.Caption
+		}
+	case discordgo.Message:
+		text = m.Content
 	}
 
 	if bolt11, ok = getBolt11(text); ok {
@@ -74,28 +83,28 @@ func searchForInvoice(u User, message tgbotapi.Message) (bolt11, lnurltext strin
 	}
 
 	// receiving a picture, try to decode the qr code
-	if message.Photo != nil && len(*message.Photo) > 0 {
+	if m, tk := message.(tgbotapi.Message); tk && m.Photo != nil && len(*m.Photo) > 0 {
 		log.Debug().Msg("got photo, looking for qr code.")
 
-		photos := *message.Photo
+		photos := *m.Photo
 		photo := photos[len(photos)-1]
 
 		photourl, err := bot.GetFileDirectURL(photo.FileID)
 		if err != nil {
 			log.Warn().Err(err).Str("fileid", photo.FileID).
 				Msg("failed to get photo URL.")
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, message.MessageID)
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
 			return
 		}
 
 		text, err := decodeQR(photourl)
 		if err != nil {
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, message.MessageID)
+			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
 			return
 		}
 
 		log.Debug().Str("data", text).Msg("got qr code data")
-		sendMessage(u.ChatId, text)
+		sendTelegramMessage(u.TelegramChatId, text)
 
 		if bolt11, ok = getBolt11(text); ok {
 			return
@@ -260,7 +269,7 @@ func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, displ
 				// user with username
 				uname := username[1:]
 				display = "@" + uname
-				user, err = ensureUsername(uname)
+				user, err = ensureTelegramUsername(uname)
 				if err != nil {
 					return nil, "", err
 				}
@@ -517,3 +526,8 @@ func messageFromError(err error) string {
 		return err.Error()
 	}
 }
+
+var mdConverter = html_to_markdown.NewConverter("", false, &html_to_markdown.Options{
+	EmDelimiter:     "__",
+	StrongDelimiter: "**",
+})

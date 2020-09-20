@@ -85,7 +85,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 }
 
 func handleInvoicePaid(hash string, data ShadowChannelData) {
-	receiver, err := loadUser(data.UserId, 0)
+	receiver, err := loadUser(data.UserId)
 	if err != nil {
 		log.Warn().Err(err).
 			Interface("shadow-data", data).

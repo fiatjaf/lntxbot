@@ -170,7 +170,7 @@ func serveGiftsWebhook() {
 		if err != nil {
 			log.Warn().Err(err).Interface("ev", event).Msg("invalid user on gifts webhook")
 		}
-		user, err := loadUser(userId, 0)
+		user, err := loadUser(userId)
 		if err != nil {
 			log.Warn().Err(err).Interface("ev", event).Msg("error loading gifts giver after webhook")
 		}

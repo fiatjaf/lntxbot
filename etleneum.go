@@ -384,7 +384,7 @@ func etleneumHmacCall(secret, ctid, method string, args url.Values, sats *int) s
 }
 
 func translateToEtleneumAccount(username string) (accountId string, err error) {
-	user, err := ensureUsername(username[1:])
+	user, err := ensureTelegramUsername(username[1:])
 	if err != nil {
 		return
 	}
@@ -558,7 +558,7 @@ func listenToEtleneumContract(ctid string) {
 		json.Unmarshal([]byte(ev.Data()), &data)
 
 		for userId, _ := range userIds {
-			user, _ := loadUser(userId, 0)
+			user, _ := loadUser(userId)
 			user.notify(t.ETLENEUMCONTRACTEVENT, t.T{
 				"Event": ev.Event(),
 				"Id":    ctid,

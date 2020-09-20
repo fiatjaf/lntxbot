@@ -283,6 +283,6 @@ func handleHelp(u User, method string) (handled bool) {
 	goto gothelpstring
 
 gothelpstring:
-	sendMessage(u.ChatId, helpString)
+	sendTelegramMessage(u.TelegramChatId, helpString)
 	return true
 }

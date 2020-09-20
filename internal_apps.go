@@ -93,7 +93,7 @@ func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver 
 	}
 	defer txn.Rollback()
 
-	receiver, _ = loadUser(toId, 0)
+	receiver, _ = loadUser(toId)
 	giverNames := make([]string, 0, len(fromIds))
 
 	msats := sats * 1000
@@ -141,7 +141,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 			return
 		}
 
-		giver, _ := loadUser(fromId, 0)
+		giver, _ := loadUser(fromId)
 		giverNames = append(giverNames, giver.AtName())
 
 		giver.notify(t.HIDDENREVEALMSG, t.T{
@@ -339,7 +339,7 @@ func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error
 	}
 	defer txn.Rollback()
 
-	receiver, _ = loadUser(toId, 0)
+	receiver, _ = loadUser(toId)
 	giverNames := make([]string, 0, len(fromIds))
 
 	msats := int64(sats) * 1000
@@ -397,7 +397,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 			return
 		}
 
-		giver, _ := loadUser(fromId, 0)
+		giver, _ := loadUser(fromId)
 		giverNames = append(giverNames, giver.AtName())
 
 		giver.notify(t.COINFLIPGIVERMSG, t.T{
@@ -457,7 +457,7 @@ func settleFundraise(sats int, toId int, fromIds []int) (receiver User, err erro
 	}
 	defer txn.Rollback()
 
-	receiver, _ = loadUser(toId, 0)
+	receiver, _ = loadUser(toId)
 	giverNames := make([]string, 0, len(fromIds))
 
 	msats := sats * 1000
@@ -506,7 +506,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 			return
 		}
 
-		giver, _ := loadUser(fromId, 0)
+		giver, _ := loadUser(fromId)
 		giverNames = append(giverNames, giver.AtName())
 
 		giver.notify(t.FUNDRAISEGIVERMSG, t.T{

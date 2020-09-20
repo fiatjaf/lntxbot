@@ -125,8 +125,8 @@ OFFSET $3
 
 		// fetch the target user
 		var target User
-		target, err = loadUser(row.Id, 0)
-		if err != nil || target.ChatId == 0 {
+		target, err = loadUser(row.Id)
+		if err != nil || target.TelegramChatId == 0 {
 			continue
 		}
 
@@ -216,7 +216,7 @@ func buildSats4AdsMessage(
 	thisCostMsat = 1000 // fixed 1sat fee for each message
 
 	baseChat := tgbotapi.BaseChat{
-		ChatID:      target.ChatId,
+		ChatID:      target.TelegramChatId,
 		ReplyMarkup: keyboard,
 	}
 
@@ -389,7 +389,7 @@ SELECT DISTINCT to_id FROM adsreceivedtxs
 		if val, err := rds.Get(key).Result(); err == nil {
 			if rec, err := time.Parse(SATS4ADSUNACTIVITYDATEFORMAT, val); err == nil {
 				if rec.Before(threedaysago) {
-					if receiver, err := loadUser(receiverId, 0); err == nil {
+					if receiver, err := loadUser(receiverId); err == nil {
 						err = turnSats4AdsOff(receiver)
 						if err != nil {
 							log.Warn().Int("user", receiverId).

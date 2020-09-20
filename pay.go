@@ -79,7 +79,7 @@ func handlePay(
 			// zero-amount invoices, prompt the user to reply with the desired amount
 			chattable := tgbotapi.MessageConfig{
 				BaseChat: tgbotapi.BaseChat{
-					ChatID:           u.ChatId,
+					ChatID:           u.TelegramChatId,
 					ReplyToMessageID: messageId,
 					ReplyMarkup:      tgbotapi.ForceReply{ForceReply: true},
 				},

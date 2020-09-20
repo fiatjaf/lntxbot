@@ -21,9 +21,12 @@ import (
 func handleMessage(message *tgbotapi.Message) {
 	var u User
 	if message.Chat.Type == "channel" {
-		u = User{0, 0, "channelposterc", message.Chat.ID, "", "en", ""}
+		u = User{
+			TelegramChatId: message.Chat.ID,
+			Locale:         "en",
+		}
 	} else {
-		user, tcase, err := ensureUser(message.From.ID, message.From.UserName, message.From.LanguageCode)
+		user, tcase, err := ensureTelegramUser(message.From.ID, message.From.UserName, message.From.LanguageCode)
 		if err != nil {
 			log.Warn().Err(err).Int("case", tcase).
 				Str("username", message.From.UserName).
@@ -197,7 +200,7 @@ parsed:
 			blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
 			qrpath := qrImagePath(fmt.Sprintf("bluewallet-%d", u.Id))
 			qrcode.WriteFile(blueURL, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(u.ChatId, qrpath, "<code>"+blueURL+"</code>")
+			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, "<code>"+blueURL+"</code>")
 		}
 	case opts["api"].(bool):
 		go u.track("api", nil)
@@ -214,19 +217,19 @@ parsed:
 		case opts["full"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "full"))
 			qrcode.WriteFile(tokenFull, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(u.ChatId, qrpath, tokenFull)
+			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, tokenFull)
 		case opts["invoice"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "invoice"))
 			qrcode.WriteFile(tokenInvoice, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(u.ChatId, qrpath, tokenInvoice)
+			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, tokenInvoice)
 		case opts["readonly"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "readonly"))
 			qrcode.WriteFile(tokenReadOnly, qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(u.ChatId, qrpath, tokenReadOnly)
+			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, tokenReadOnly)
 		case opts["url"].(bool):
 			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "url"))
 			qrcode.WriteFile(s.ServiceURL+"/", qrcode.Medium, 256, qrpath)
-			sendMessageWithPicture(u.ChatId, qrpath, s.ServiceURL+"/")
+			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, s.ServiceURL+"/")
 		case opts["refresh"].(bool):
 			opts["bluewallet"] = true
 			goto parsed
@@ -244,7 +247,7 @@ parsed:
 		text := fmt.Sprintf("%s@%s", token, s.ServiceURL)
 		qrpath := qrImagePath(fmt.Sprintf("lightningatm-%d", u.Id))
 		qrcode.WriteFile(text, qrcode.Medium, 256, qrpath)
-		sendMessageWithPicture(u.ChatId, qrpath, text)
+		sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, text)
 	case opts["tx"].(bool):
 		// individual transaction query
 		hash := opts["<hash>"].(string)
@@ -262,7 +265,7 @@ parsed:
 			return
 		}
 		go u.track("view log", nil)
-		go sendMessage(u.ChatId, renderLogInfo(u, hash))
+		go sendTelegramMessage(u.TelegramChatId, renderLogInfo(u, hash))
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
 		var defaultNotify func(t.Key, t.T)
@@ -315,7 +318,7 @@ parsed:
 			reply := message.ReplyToMessage
 
 			var t int
-			rec, t, err := ensureUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
+			rec, t, err := ensureTelegramUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
 			receiver = &rec
 			if err != nil {
 				log.Warn().Err(err).Int("case", t).
@@ -361,7 +364,7 @@ parsed:
 			break
 		}
 
-		if receiver.ChatId != 0 {
+		if receiver.TelegramChatId != 0 {
 			if anonymous {
 				receiver.notify(t.RECEIVEDSATSANON, t.T{"Sats": sats})
 			} else {
@@ -378,7 +381,7 @@ parsed:
 				"User":              todisplayname,
 				"Sats":              sats,
 				"RawSats":           satsraw,
-				"ReceiverHasNoChat": receiver.ChatId == 0,
+				"ReceiverHasNoChat": receiver.TelegramChatId == 0,
 			}, message.MessageID)
 			break
 		}
@@ -411,7 +414,7 @@ parsed:
 			break
 		}
 
-		sendMessageWithKeyboard(
+		sendTelegramMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.GIVEAWAYMSG, g.Locale, t.T{
 				"User": u.AtName(),
@@ -457,7 +460,7 @@ parsed:
 		}
 
 		giveflipid := cuid.Slug()
-		sendMessageWithKeyboard(
+		sendTelegramMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.GIVEFLIPMSG, g.Locale, t.T{
 				"User":         u.AtName(),
@@ -477,7 +480,7 @@ parsed:
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
 		enabled := areCoinflipsEnabled(message.Chat.ID)
 		if !enabled {
-			forwardMessage(message, u.ChatId)
+			forwardMessage(message, u.TelegramChatId)
 			deleteMessage(message)
 			u.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": false})
 			break
@@ -512,7 +515,7 @@ parsed:
 			}
 		}
 
-		sendMessageWithKeyboard(
+		sendTelegramMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
 				"EntrySats":    sats,
@@ -555,7 +558,7 @@ parsed:
 			break
 		}
 
-		sendMessageWithKeyboard(
+		sendTelegramMessageWithKeyboard(
 			message.Chat.ID,
 			translateTemplate(t.FUNDRAISEAD, g.Locale, t.T{
 				"ToUser":       receiverdisplayname,
@@ -652,7 +655,7 @@ parsed:
 		}
 
 		siq := "reveal " + hiddenid
-		sendMessageWithKeyboard(u.ChatId,
+		sendTelegramMessageWithKeyboard(u.TelegramChatId,
 			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{
 				"HiddenId": hiddenid,
 				"Message":  hiddenmessage,
@@ -693,7 +696,7 @@ parsed:
 				return
 			}
 
-			sendMessageWithKeyboard(u.ChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
+			sendTelegramMessageWithKeyboard(u.TelegramChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
 		}()
 	case opts["transactions"].(bool):
 		go func() {
@@ -765,7 +768,7 @@ parsed:
 				lnurl, _ := lnurl.LNURLEncode(fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
 				qrpath := qrImagePath(fmt.Sprintf("lnurlpay-%d", u.Id))
 				qrcode.WriteFile(lnurl, qrcode.Medium, 256, qrpath)
-				sendMessageWithPicture(message.Chat.ID, qrpath, lnurl)
+				sendTelegramMessageWithPicture(message.Chat.ID, qrpath, lnurl)
 
 				go u.track("print lnurl", nil)
 			} else {
@@ -795,7 +798,7 @@ parsed:
 				}
 
 				// send invoice with qr code
-				sendMessageWithPicture(message.Chat.ID, qrpath, bolt11)
+				sendTelegramMessageWithPicture(message.Chat.ID, qrpath, bolt11)
 			}
 		}()
 	case opts["lnurl"].(bool):
@@ -823,13 +826,13 @@ parsed:
 				return
 			}
 
-			sendMessageWithKeyboard(
+			sendTelegramMessageWithKeyboard(
 				message.Chat.ID,
 				translateTemplate(t.RENAMEPROMPT, g.Locale, t.T{
 					"Sats": price,
 					"Name": name,
 				}),
-				renameKeyboard(u.TelegramId, message.Chat.ID, price, name, g.Locale),
+				renameKeyboard(u.Id, message.Chat.ID, price, name, g.Locale),
 				message.MessageID,
 			)
 
@@ -859,7 +862,7 @@ parsed:
 							"personal": true,
 						})
 						log.Info().Str("user", u.Username).Str("language", lang).Msg("toggling language")
-						err := setLanguage(u.ChatId, lang)
+						err := setLanguage(u.TelegramChatId, lang)
 						if err != nil {
 							log.Warn().Err(err).Msg("failed to toggle language")
 							u.notify(t.ERROR, t.T{"Err": err.Error()})
@@ -980,7 +983,7 @@ parsed:
 	case opts["dollar"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err == nil {
-			sendMessage(u.ChatId, getDollarPrice(int64(sats)*1000))
+			sendTelegramMessage(u.TelegramChatId, getDollarPrice(int64(sats)*1000))
 		}
 		break
 	}

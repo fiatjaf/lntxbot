@@ -179,7 +179,7 @@ func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err
 	password := parts[1]
 
 	// load user
-	user, err = loadUser(userId, 0)
+	user, err = loadUser(userId)
 	if err != nil {
 		return
 	}

@@ -32,19 +32,19 @@ func handleTutorial(u User, section string) {
 }
 
 func tutorialWallet(u User) {
-	sendMessageWithAnimationId(u.ChatId, s.TutorialWalletVideoId,
+	sendTelegramMessageWithAnimationId(u.TelegramChatId, s.TutorialWalletVideoId,
 		translateTemplate(t.TUTORIALWALLET, u.Locale, t.T{"BotName": s.ServiceId}))
 }
 
 func tutorialBlueWallet(u User) {
-	sendMessageWithAnimationId(u.ChatId, s.TutorialBlueVideoId,
+	sendTelegramMessageWithAnimationId(u.TelegramChatId, s.TutorialBlueVideoId,
 		translateTemplate(t.TUTORIALBLUE, u.Locale, t.T{"BotName": s.ServiceId}))
 }
 
 func tutorialApps(u User) {
-	sendMessage(u.ChatId, translateTemplate(t.TUTORIALAPPS, u.Locale, t.T{"BotName": s.ServiceId}))
+	sendTelegramMessage(u.TelegramChatId, translateTemplate(t.TUTORIALAPPS, u.Locale, t.T{"BotName": s.ServiceId}))
 }
 
 func tutorialTwitter(u User) {
-	sendMessage(u.ChatId, translateTemplate(t.TUTORIALTWITTER, u.Locale, t.T{"BotName": s.ServiceId}))
+	sendTelegramMessage(u.TelegramChatId, translateTemplate(t.TUTORIALTWITTER, u.Locale, t.T{"BotName": s.ServiceId}))
 }

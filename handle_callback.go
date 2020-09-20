@@ -12,7 +12,7 @@ import (
 )
 
 func handleCallback(cb *tgbotapi.CallbackQuery) {
-	u, tcase, err := ensureUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
+	u, tcase, err := ensureTelegramUser(cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
 	if err != nil {
 		log.Warn().Err(err).Int("case", tcase).
 			Str("username", cb.From.UserName).
@@ -110,7 +110,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		giver, err := loadUser(fromid, 0)
+		giver, err := loadUser(fromid)
 		if err != nil {
 			log.Warn().Err(err).
 				Int("id", fromid).
@@ -162,7 +162,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				"From":             giver.AtName(),
 				"To":               claimer.AtName(),
 				"Sats":             sats,
-				"ClaimerHasNoChat": claimer.ChatId == 0,
+				"ClaimerHasNoChat": claimer.TelegramChatId == 0,
 				"BotName":          s.ServiceId,
 			}),
 		)
@@ -285,7 +285,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			if messageId != 0 {
 				appendTextToMessage(cb, joiner.AtName()+"\n"+
 					translateTemplate(t.CALLBACKWINNER, locale, t.T{"Winner": winner.AtName()}))
-				sendMessageAsReply(
+				sendTelegramMessageAsReply(
 					cb.Message.Chat.ID,
 					translateTemplate(
 						t.CALLBACKCOINFLIPWINNER,
@@ -386,7 +386,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				appendTextToMessage(cb, translateTemplate(t.CALLBACKERROR, locale, t.T{"BotOp": "Giveflip"}))
 				goto answerEmpty
 			}
-			winner, err := loadUser(winnerId, 0)
+			winner, err := loadUser(winnerId)
 			if err != nil {
 				log.Warn().Err(err).Int("winnerId", winnerId).Msg("failed to load winner on giveflip")
 				removeKeyboardButtons(cb)
@@ -395,7 +395,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			}
 
 			// giver
-			giver, err := loadUser(giverId, 0)
+			giver, err := loadUser(giverId)
 			if err != nil {
 				log.Warn().Err(err).Int("giverId", giverId).Msg("failed to load giver on giveflip")
 				removeKeyboardButtons(cb)
@@ -411,7 +411,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 					continue
 				}
 
-				loser, _ := loadUser(partId, 0)
+				loser, _ := loadUser(partId)
 				loserNames = append(loserNames, loser.AtName())
 			}
 
@@ -440,7 +440,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 					"Sats":              sats,
 					"Sender":            giver.AtName(),
 					"Losers":            strings.Join(loserNames, " "),
-					"ReceiverHasNoChat": winner.ChatId == 0,
+					"ReceiverHasNoChat": winner.TelegramChatId == 0,
 					"BotName":           s.ServiceId,
 				}),
 			})
@@ -543,7 +543,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 			removeKeyboardButtons(cb)
 			if messageId != 0 {
 				appendTextToMessage(cb, joiner.AtName()+"\n"+translate(t.COMPLETED, locale))
-				sendMessageAsReply(
+				sendTelegramMessageAsReply(
 					cb.Message.Chat.ID,
 					translateTemplate(t.FUNDRAISECOMPLETE, locale, t.T{"Receiver": receiver.AtName()}),
 					messageId,
@@ -746,7 +746,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				})
 			} else {
 				// reveal message privately
-				sendMessageAsText(revealer.ChatId, hiddenmessage.revealed())
+				sendTelegramMessageAsText(revealer.TelegramChatId,
+					hiddenmessage.revealed())
 				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated
@@ -773,7 +774,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		} else {
 			// called in the bot's chat
 			removeKeyboardButtons(cb)
-			sendMessageAsReply(revealer.ChatId, hiddenmessage.Content, messageId)
+			sendTelegramMessageAsReply(revealer.TelegramChatId, hiddenmessage.Content, messageId)
 		}
 
 		go u.track("reveal", map[string]interface{}{

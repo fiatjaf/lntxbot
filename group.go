@@ -131,5 +131,5 @@ func (g GroupChat) notify(key t.Key, templateData t.T) tgbotapi.Message {
 func (g GroupChat) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
 	log.Debug().Int64("chat", g.TelegramId).Str("key", string(key)).Interface("data", templateData).Msg("posting to group")
 	msg := translateTemplate(key, g.Locale, templateData)
-	return sendMessageAsReply(-g.TelegramId, msg, replyToId)
+	return sendTelegramMessageAsReply(-g.TelegramId, msg, replyToId)
 }

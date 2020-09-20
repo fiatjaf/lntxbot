@@ -23,15 +23,15 @@ func tgsend(chattable tgbotapi.Chattable) (sent tgbotapi.Message, err error) {
 	return sent, nil
 }
 
-func sendMessage(chatId int64, msg string) tgbotapi.Message {
-	return sendMessageAsReply(chatId, msg, 0)
+func sendTelegramMessage(chatId int64, msg string) tgbotapi.Message {
+	return sendTelegramMessageAsReply(chatId, msg, 0)
 }
 
-func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
-	return sendMessageWithKeyboard(chatId, msg, nil, replyToId)
+func sendTelegramMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
+	return sendTelegramMessageWithKeyboard(chatId, msg, nil, replyToId)
 }
 
-func sendMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
+func sendTelegramMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
 	chattable.ParseMode = "HTML"
@@ -51,7 +51,7 @@ func sendMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.Inline
 	return message
 }
 
-func sendMessageAsText(chatId int64, msg string) tgbotapi.Message {
+func sendTelegramMessageAsText(chatId int64, msg string) tgbotapi.Message {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.DisableWebPagePreview = true
 	c, err := bot.Send(chattable)
@@ -61,9 +61,9 @@ func sendMessageAsText(chatId int64, msg string) tgbotapi.Message {
 	return c
 }
 
-func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
+func sendTelegramMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
 	if picturepath == "" {
-		return sendMessage(chatId, message)
+		return sendTelegramMessage(chatId, message)
 	} else {
 		defer os.Remove(picturepath)
 		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
@@ -73,14 +73,14 @@ func sendMessageWithPicture(chatId int64, picturepath string, message string) tg
 		if err != nil {
 			log.Warn().Str("path", picturepath).Str("message", message).Err(err).
 				Msg("error sending photo")
-			return sendMessage(chatId, message)
+			return sendTelegramMessage(chatId, message)
 		} else {
 			return c
 		}
 	}
 }
 
-func sendMessageWithAnimationId(chatId int64, fileId string, message string) tgbotapi.Message {
+func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message string) tgbotapi.Message {
 	video := tgbotapi.NewAnimationShare(chatId, fileId)
 	video.Caption = message
 	video.ParseMode = "HTML"
@@ -203,7 +203,7 @@ func getChatOwner(chatId int64) (User, error) {
 
 	for _, admin := range admins {
 		if admin.Status == "creator" {
-			user, tcase, err := ensureUser(admin.User.ID, admin.User.UserName, admin.User.LanguageCode)
+			user, tcase, err := ensureTelegramUser(admin.User.ID, admin.User.UserName, admin.User.LanguageCode)
 			if err != nil {
 				log.Warn().Err(err).Int("case", tcase).
 					Str("username", admin.User.UserName).

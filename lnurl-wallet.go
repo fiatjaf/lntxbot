@@ -59,7 +59,7 @@ func handleLNURL(u User, lnurltext string, opts handleLNURLOpts) {
 
 func handleLNURLAuth(u User, opts handleLNURLOpts, params lnurl.LNURLAuthParams) {
 	// lnurl-auth: create a key based on the user id and sign with it
-	seedhash := sha256.Sum256([]byte(fmt.Sprintf("lnurlkeyseed:%s:%d:%s", params.Host, u.Id, s.BotToken)))
+	seedhash := sha256.Sum256([]byte(fmt.Sprintf("lnurlkeyseed:%s:%d:%s", params.Host, u.Id, s.TelegramBotToken)))
 	sk, pk := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
 	k1, err := hex.DecodeString(params.K1)
 	if err != nil {
@@ -178,7 +178,7 @@ func handleLNURLPay(u User, opts handleLNURLOpts, params lnurl.LNURLPayResponse1
 		}
 
 		baseChat := tgbotapi.BaseChat{
-			ChatID:           u.ChatId,
+			ChatID:           u.TelegramChatId,
 			ReplyToMessageID: opts.messageId,
 		}
 
@@ -271,7 +271,7 @@ func lnurlpayAskForComment(u User, callback, metadata string, msats int64, messa
 
 	sent, err := tgsend(tgbotapi.MessageConfig{
 		BaseChat: tgbotapi.BaseChat{
-			ChatID:           u.ChatId,
+			ChatID:           u.TelegramChatId,
 			ReplyToMessageID: messageId,
 			ReplyMarkup:      tgbotapi.ForceReply{ForceReply: true},
 		},
@@ -342,7 +342,7 @@ func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, mes
 		return
 	}
 
-	processingMessage := sendMessage(u.ChatId,
+	processingMessage := sendTelegramMessage(u.TelegramChatId,
 		res.PR+"\n\n"+translate(t.PROCESSING, u.Locale),
 	)
 
@@ -360,7 +360,7 @@ func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, mes
 			// send raw metadata, for later checking with the description_hash
 			file := tgbotapi.DocumentConfig{
 				BaseFile: tgbotapi.BaseFile{
-					BaseChat: tgbotapi.BaseChat{ChatID: u.ChatId},
+					BaseChat: tgbotapi.BaseChat{ChatID: u.TelegramChatId},
 					File: tgbotapi.FileBytes{
 						Name:  calculateHash(metadata) + ".json",
 						Bytes: []byte(metadata),
@@ -415,7 +415,7 @@ func handleLNURLAllowance(u User, opts handleLNURLOpts, params lnurl.LNURLAllowa
 	}
 
 	baseChat := tgbotapi.BaseChat{
-		ChatID:           u.ChatId,
+		ChatID:           u.TelegramChatId,
 		ReplyToMessageID: opts.messageId,
 	}
 

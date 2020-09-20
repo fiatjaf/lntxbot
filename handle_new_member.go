@@ -94,7 +94,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
-	invoiceMessage := sendMessageWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
+	invoiceMessage := sendTelegramMessageWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
 
 	kickdata := KickData{
 		invoiceMessage,
@@ -158,7 +158,7 @@ func ticketPaid(joinKey string, kickdata KickData) {
 	// delete the invoice message
 	deleteMessage(&kickdata.InvoiceMessage)
 
-	user, _, _ := ensureUser(
+	user, _, _ := ensureTelegramUser(
 		kickdata.NewMember.ID,
 		kickdata.NewMember.UserName,
 		kickdata.NewMember.LanguageCode,

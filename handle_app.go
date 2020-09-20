@@ -263,7 +263,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		qrpath := qrImagePath(order.Address)
 		err = qrcode.WriteFile("bitcoin:"+order.Address+"?amount="+order.Price, qrcode.Medium, 256, qrpath)
 		if err == nil {
-			sendMessageWithPicture(message.Chat.ID, qrpath,
+			sendTelegramMessageWithPicture(message.Chat.ID, qrpath,
 				translateTemplate(t.FUNDBTCFINISH, u.Locale, t.T{"Order": order}))
 		} else {
 			u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
@@ -488,7 +488,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		switch {
 		case opts["rate"].(bool):
 			rate, _ := getSats4AdsRate(u)
-			sendMessage(u.ChatId, strconv.Itoa(rate)+" msatoshi per character.")
+			sendTelegramMessage(u.TelegramChatId, strconv.Itoa(rate)+" msatoshi per character.")
 			break
 		case opts["on"].(bool):
 			rate, err := opts.Int("<msat_per_character>")

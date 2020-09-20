@@ -23,7 +23,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		command string
 	)
 
-	u, err = loadUser(0, int(q.From.ID))
+	u, err = loadTelegramUser(int(q.From.ID))
 	if err != nil {
 		log.Debug().Err(err).
 			Str("username", q.From.UserName).
