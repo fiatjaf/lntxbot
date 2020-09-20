@@ -268,7 +268,7 @@ func bitcloudsCheckingRoutine() {
 		var users []User
 		err := pg.Select(&users, `
 SELECT `+USERFIELDS+`, jsonb_object_keys(appdata->'bitclouds') AS extra
-FROM telegram.account
+FROM account
     `)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to query hosts on bitclouds checking routine")
@@ -287,7 +287,7 @@ FROM telegram.account
 			case status.HoursLeft <= 0 || status.IP == "":
 				// it's gone
 				_, err := pg.Exec(`
-UPDATE telegram.account
+UPDATE account
 SET appdata =
   jsonb_set(appdata, '{bitclouds}',
     jsonb_strip_nulls(

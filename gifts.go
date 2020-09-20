@@ -186,7 +186,7 @@ func serveGiftsWebhook() {
 func loadUserFromGiftId(giftId string) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+` 
-FROM telegram.account
+FROM account
 WHERE appdata->'gifts' ?| array[$1]
     `, giftId)
 	return

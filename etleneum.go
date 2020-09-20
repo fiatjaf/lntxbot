@@ -413,7 +413,7 @@ var etleneumContractListeners = cmap.New()
 func subscribeEtleneum(user User, ctid string, temp bool) error {
 	if !temp {
 		_, err := pg.Exec(`
-UPDATE telegram.account
+UPDATE account
 SET appdata = jsonb_set(
   appdata,
   '{etleneum,listening}',
@@ -457,12 +457,12 @@ func unsubscribeEtleneum(user User, ctid string, temp bool) error {
 	if temp {
 		pg.Get(&permanentSubscription, `
 SELECT appdata->'etleneum'->'listening'->>$2
-FROM telegram.account
+FROM account
 WHERE id = $1
         `, user.Id, ctid)
 	} else {
 		_, err := pg.Exec(`
-UPDATE telegram.account
+UPDATE account
 SET appdata = jsonb_set(
   appdata,
   '{etleneum,listening}',
@@ -499,7 +499,7 @@ func startListeningToEtleneumContracts() {
 	err := pg.Select(&ctListeners, `
 WITH contracts_per_user AS (
   SELECT id AS user_id, jsonb_object_keys(appdata->'etleneum'->'listening') AS ctid
-  FROM telegram.account
+  FROM account
   WHERE appdata->'etleneum'->>'listening' IS NOT NULL
 )
 SELECT ctid, array_agg(user_id) AS users

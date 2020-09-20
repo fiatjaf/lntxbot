@@ -109,7 +109,7 @@ func setLanguage(chatId int64, lang string) (err error) {
 		return errors.New("language not available.")
 	}
 
-	table := "telegram.account"
+	table := "account"
 	field := "chat_id"
 	id := chatId
 	taint := ", manual_locale = true"

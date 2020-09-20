@@ -49,7 +49,7 @@ const USERFIELDS = `
 func loadUser(id int) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+`
-FROM telegram.account
+FROM account
 WHERE id = $1
     `, id)
 	return
@@ -58,7 +58,7 @@ WHERE id = $1
 func loadTelegramUser(telegramId int) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+`
-FROM telegram.account
+FROM account
 WHERE telegram_id = $1
     `, telegramId)
 	return
@@ -67,7 +67,7 @@ WHERE telegram_id = $1
 func loadDiscordUser(discordId string) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+`
-FROM telegram.account
+FROM account
 WHERE discord_id = $1
     `, discordId)
 	return
@@ -88,7 +88,7 @@ func ensureTelegramUser(telegramId int, username string, locale string) (u User,
 	// always update locale while selecting user
 	// unless it was set manually or isn't available
 	err = pg.Select(&userRows, `
-UPDATE telegram.account AS u
+UPDATE account AS u
 SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
 WHERE u.telegram_id = $1 OR u.telegram_username = $2
 RETURNING `+USERFIELDS,
@@ -102,7 +102,7 @@ RETURNING `+USERFIELDS,
 	case 0:
 		// user not registered
 		err = pg.Get(&u, `
-INSERT INTO telegram.account (telegram_id, telegram_username)
+INSERT INTO account (telegram_id, telegram_username)
 VALUES ($1, $2)
 RETURNING `+USERFIELDS,
 			telegramId, vusername)
@@ -115,13 +115,13 @@ RETURNING `+USERFIELDS,
 		} else if u.Username != username {
 			// update username
 			err = pg.Get(&u, `
-UPDATE telegram.account SET telegram_username = $2 WHERE telegram_id = $1
+UPDATE account SET telegram_username = $2 WHERE telegram_id = $1
 RETURNING `+USERFIELDS,
 				telegramId, vusername)
 		} else if u.TelegramId != telegramId {
 			// update telegram_id
 			err = pg.Get(&u, `
-UPDATE telegram.account SET telegram_id = $1 WHERE telegram_username = $2
+UPDATE account SET telegram_id = $1 WHERE telegram_username = $2
 RETURNING `+USERFIELDS,
 				telegramId, username)
 		}
@@ -153,14 +153,14 @@ RETURNING `+USERFIELDS,
 		}
 
 		_, err = txn.Exec(
-			"DELETE FROM telegram.account WHERE id = $1",
+			"DELETE FROM account WHERE id = $1",
 			idToDelete)
 		if err != nil {
 			return
 		}
 
 		err = txn.Get(&u, `
-UPDATE telegram.account
+UPDATE account
 SET telegram_id = $2, telegram_username = $3
 WHERE id = $1
 RETURNING `+USERFIELDS,
@@ -195,7 +195,7 @@ func ensureDiscordUser(discordId, username, locale string) (u User, tcase int, e
 
 	// always update locale while selecting user unless it was set manually or isn't available
 	err = pg.Select(&userRows, `
-UPDATE telegram.account AS u
+UPDATE account AS u
 SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
 WHERE u.discord_id = $1 OR u.discord_username = $2
 RETURNING `+USERFIELDS,
@@ -209,7 +209,7 @@ RETURNING `+USERFIELDS,
 	case 0:
 		// user not registered
 		err = pg.Get(&u, `
-INSERT INTO telegram.account (discord_id, discord_username)
+INSERT INTO account (discord_id, discord_username)
 VALUES ($1, $2)
 RETURNING `+USERFIELDS,
 			discordId, vusername)
@@ -222,13 +222,13 @@ RETURNING `+USERFIELDS,
 		} else if u.Username != username {
 			// update username
 			err = pg.Get(&u, `
-UPDATE telegram.account SET discord_username = $2 WHERE discord_id = $1
+UPDATE account SET discord_username = $2 WHERE discord_id = $1
 RETURNING `+USERFIELDS,
 				discordId, vusername)
 		} else if u.DiscordId != discordId {
 			// update discord_id
 			err = pg.Get(&u, `
-UPDATE telegram.account SET discord_id = $1 WHERE discord_username = $2
+UPDATE account SET discord_id = $1 WHERE discord_username = $2
 RETURNING `+USERFIELDS,
 				discordId, username)
 		}
@@ -260,14 +260,14 @@ RETURNING `+USERFIELDS,
 		}
 
 		_, err = txn.Exec(
-			"DELETE FROM telegram.account WHERE id = $1",
+			"DELETE FROM account WHERE id = $1",
 			idToDelete)
 		if err != nil {
 			return
 		}
 
 		err = txn.Get(&u, `
-UPDATE telegram.account
+UPDATE account
 SET discord_id = $2, discord_username = $3
 WHERE id = $1
 RETURNING `+USERFIELDS,
@@ -290,7 +290,7 @@ RETURNING `+USERFIELDS,
 
 func ensureTelegramId(telegram_id int) (u User, err error) {
 	err = pg.Get(&u, `
-INSERT INTO telegram.account (telegram_id)
+INSERT INTO account (telegram_id)
 VALUES ($1)
 ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
 RETURNING `+USERFIELDS,
@@ -300,7 +300,7 @@ RETURNING `+USERFIELDS,
 
 func ensureTelegramUsername(username string) (u User, err error) {
 	err = pg.Get(&u, `
-INSERT INTO telegram.account (username)
+INSERT INTO account (username)
 VALUES ($1)
 ON CONFLICT (username) DO UPDATE SET username = $1
 RETURNING `+USERFIELDS,
@@ -311,19 +311,19 @@ RETURNING `+USERFIELDS,
 func (u *User) setChat(id int64) error {
 	u.TelegramChatId = id
 	_, err := pg.Exec(
-		`UPDATE telegram.account SET telegram_chat_id = $1 WHERE id = $2`,
+		`UPDATE account SET telegram_chat_id = $1 WHERE id = $2`,
 		id, u.Id)
 	return err
 }
 
 func (u *User) unsetChat() {
-	pg.Exec(`UPDATE telegram.account SET telegram_chat_id = NULL WHERE id = $1`, u.Id)
+	pg.Exec(`UPDATE account SET telegram_chat_id = NULL WHERE id = $1`, u.Id)
 }
 
 func (u *User) setChannel(id string) error {
 	u.DiscordChannelId = id
 	_, err := pg.Exec(
-		`UPDATE telegram.account SET discord_channel_id = $1 WHERE id = $2`,
+		`UPDATE account SET discord_channel_id = $1 WHERE id = $2`,
 		id, u.Id)
 	return err
 }
@@ -364,7 +364,7 @@ func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tg
 
 func (u User) updatePassword() (newpassword string, err error) {
 	err = pg.Get(&newpassword, `
-UPDATE telegram.account
+UPDATE account
 SET password = DEFAULT WHERE id = $1
 RETURNING password;                            
     `, u.Id)
@@ -1177,7 +1177,7 @@ func (u User) setAppData(appname string, data interface{}) (err error) {
 	}
 
 	_, err = pg.Exec(`
-UPDATE telegram.account AS u
+UPDATE account AS u
 SET appdata = jsonb_set(u.appdata, ARRAY[$2], $3, true)
 WHERE id = $1
     `, u.Id, appname, types.JSONText(j))
@@ -1188,7 +1188,7 @@ func (u User) getAppData(appname string, data interface{}) (err error) {
 	var j types.JSONText
 	err = pg.Get(&j, `
 SELECT coalesce(appdata -> $2, '{}'::jsonb)
-FROM telegram.account
+FROM account
 WHERE id = $1
     `, u.Id, appname)
 	if err != nil {

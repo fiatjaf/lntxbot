@@ -53,7 +53,7 @@ func turnSats4AdsOff(user User) error {
 func getSats4AdsRate(user User) (rate int, err error) {
 	err = pg.Get(&rate, `
 SELECT (appdata->'sats4ads'->>'rate')::integer
-FROM telegram.account
+FROM account
 WHERE id = $1
     `, user.Id)
 	return
@@ -63,7 +63,7 @@ func getSats4AdsRates() (rates []Sats4AdsRateGroup, err error) {
 	err = pg.Select(&rates, `
 WITH enabled_listeners AS (
   SELECT (appdata->'sats4ads'->>'rate')::integer AS rate
-  FROM telegram.account
+  FROM account
   WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
 ), rategroups AS (
   SELECT generate_series ^ 3 AS uptorate FROM generate_series(1, 10)
@@ -100,7 +100,7 @@ func broadcastSats4Ads(
 
 	rows, err := pg.Queryx(`
 SELECT id, (appdata->'sats4ads'->>'rate')::int AS rate
-FROM telegram.account
+FROM account
 WHERE appdata->'sats4ads'->'on' = 'true'::jsonb
   AND id != $1
   AND (appdata->'sats4ads'->>'rate')::integer <= $2

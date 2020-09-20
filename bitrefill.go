@@ -141,7 +141,7 @@ func serveBitrefillWebhook() {
 		var user User
 		err := pg.Get(&user, `
 SELECT `+USERFIELDS+`
-FROM telegram.account
+FROM account
 WHERE appdata->'bitrefill'->'orders' ? $1
         `, orderinfo.OrderId)
 		if err != nil {

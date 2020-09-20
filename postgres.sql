@@ -1,7 +1,7 @@
 CREATE SCHEMA telegram;
 CREATE SCHEMA lightning;
 
-CREATE TABLE telegram.account (
+CREATE TABLE account (
   id serial PRIMARY KEY,
 
   telegram_id int UNIQUE,
@@ -29,8 +29,8 @@ CREATE TABLE telegram.chat (
 
 CREATE TABLE lightning.transaction (
   time timestamp NOT NULL DEFAULT now(),
-  from_id int REFERENCES telegram.account (id),
-  to_id int REFERENCES telegram.account (id),
+  from_id int REFERENCES account (id),
+  to_id int REFERENCES account (id),
   amount numeric(13) NOT NULL, -- in msatoshis
   fees int NOT NULL DEFAULT 0, -- in msatoshis
   description text,
@@ -87,7 +87,7 @@ CREATE VIEW lightning.account_txn AS
       FROM lightning.transaction
       WHERE to_id IS NOT NULL
   ) AS x
-  LEFT OUTER JOIN telegram.account AS t ON x.peer = t.id;
+  LEFT OUTER JOIN account AS t ON x.peer = t.id;
 
 CREATE VIEW lightning.balance AS
     SELECT
@@ -97,7 +97,7 @@ CREATE VIEW lightning.balance AS
         coalesce(sum(fees), 0)
       )::numeric(13) AS balance
     FROM lightning.account_txn
-    RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
+    RIGHT OUTER JOIN account AS account ON account_id = account.id
     WHERE amount <= 0 OR (amount > 0 AND pending = false)
     GROUP BY account.id;
 
@@ -106,7 +106,7 @@ CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
   -- a user is only _truly_ inactive if it haven't made any outgoing transactions.
   WITH potentially_inactive_user AS (
     SELECT *
-    FROM telegram.account AS acct
+    FROM account AS acct
     WHERE acct.id = tx.to_id
   )
   SELECT CASE
@@ -121,12 +121,12 @@ CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
   END FROM potentially_inactive_user
 $$ LANGUAGE SQL;
 
-table telegram.account;
+table account;
 table telegram.chat;
 table lightning.transaction;
 table lightning.account_txn;
 table lightning.balance;
 select * from lightning.transaction where pending;
-select * from telegram.account inner join lightning.balance on id = account_id where chat_id is not null order by id;
-select count(*) as active_users from telegram.account inner join lightning.balance as b on account_id = id where chat_id is not null and b.balance > 1000000;
+select * from account inner join lightning.balance on id = account_id where chat_id is not null order by id;
+select count(*) as active_users from account inner join lightning.balance as b on account_id = id where chat_id is not null and b.balance > 1000000;
 select sum(balance) from lightning.balance;
