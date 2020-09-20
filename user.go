@@ -300,9 +300,9 @@ RETURNING `+USERFIELDS,
 
 func ensureTelegramUsername(username string) (u User, err error) {
 	err = pg.Get(&u, `
-INSERT INTO account (username)
+INSERT INTO account (telegram_username)
 VALUES ($1)
-ON CONFLICT (username) DO UPDATE SET username = $1
+ON CONFLICT (telegram_username) DO UPDATE SET telegram_username = $1
 RETURNING `+USERFIELDS,
 		strings.ToLower(username))
 	return

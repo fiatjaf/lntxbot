@@ -302,7 +302,7 @@ parsed:
 			anonymous = true
 		}
 
-		receiver, todisplayname, _ = parseUsername(message, usernameval)
+		receiver, todisplayname, err = parseUsername(message, usernameval)
 		if receiver != nil {
 			goto ensured
 		}
@@ -317,11 +317,12 @@ parsed:
 			log.Debug().Str("extra", extra).Msg("it's a reply-tip")
 			reply := message.ReplyToMessage
 
-			var t int
-			rec, t, err := ensureTelegramUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
+			var cas int
+			rec, cas, err := ensureTelegramUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
 			receiver = &rec
 			if err != nil {
-				log.Warn().Err(err).Int("case", t).
+				defaultNotify(t.SAVERECEIVERFAIL, nil)
+				log.Warn().Err(err).Int("case", cas).
 					Str("username", reply.From.UserName).
 					Int("id", reply.From.ID).
 					Msg("failed to ensure user on reply-tip")
@@ -336,16 +337,15 @@ parsed:
 			}
 		} else {
 			// if we ever reach this point then it's because the receiver is missing.
+			if err != nil {
+				log.Warn().Err(err).Interface("val", usernameval).
+					Msg("error parsing username")
+			}
 			defaultNotify(t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
 			break
 		}
-	ensured:
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to ensure target user on send/tip.")
-			defaultNotify(t.SAVERECEIVERFAIL, nil)
-			break
-		}
 
+	ensured:
 		err = u.sendInternally(
 			message.MessageID,
 			*receiver,
