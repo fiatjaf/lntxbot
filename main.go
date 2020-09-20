@@ -184,10 +184,15 @@ func server(p *plugin.Plugin) {
 	if s.DiscordBotToken != "" {
 		discord, err = discordgo.New("Bot " + s.DiscordBotToken)
 		if err != nil {
+			log.Fatal().Err(err).Msg("failed to create discord session")
+		}
+		discord.AddHandler(handleDiscordMessage)
+		err = discord.Open()
+		if err != nil {
 			log.Fatal().Err(err).Msg("failed to establish discord connection")
 		}
-
-		discord.AddHandler(handleDiscordMessage)
+		log.Info().Msg("discord connection initialized")
+		defer discord.Close()
 	}
 
 	// lndhub-compatible routes

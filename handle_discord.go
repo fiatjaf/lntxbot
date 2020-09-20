@@ -122,7 +122,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// save the fact that we didn't understand this so it can be edited
 		// and reevaluated
-		rds.Set(fmt.Sprintf("parseerror:%d", m.Message.ID), "1", time.Minute*5)
+		rds.Set(fmt.Sprintf("parseerror:%s", m.Message.ID), "1", time.Minute*5)
 
 		return
 	}
@@ -134,7 +134,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 
 parsed:
 	// if we reached this point we should make sure the command won't be editable again
-	rds.Del(fmt.Sprintf("parseerror:%d", m.Message.ID))
+	rds.Del(fmt.Sprintf("parseerror:%s", m.Message.ID))
 
 	if opts["paynow"].(bool) {
 		opts["pay"] = true
