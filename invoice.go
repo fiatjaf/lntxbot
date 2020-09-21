@@ -89,21 +89,25 @@ func extractDataFromShadowChannelId(channelId uint64) (data ShadowChannelData, o
 	binary.BigEndian.PutUint64(bin, channelId)
 
 	key := hex.EncodeToString(bin)
-	j, err := rds.Eval(`
-local value = redis.call("get", KEYS[1])
-redis.call("del", KEYS[1])
-return value
-    `, []string{key}).Result()
+	j, err := rds.Get(key).Result()
 	if err != nil {
 		return
 	}
 
-	err = json.Unmarshal([]byte(j.(string)), &data)
+	err = json.Unmarshal([]byte(j), &data)
 	if err != nil {
 		return
 	}
 
 	return data, true
+}
+
+func deleteDataAssociatedWithShadowChannelId(channelId uint64) error {
+	bin := make([]byte, 8)
+	binary.BigEndian.PutUint64(bin, channelId)
+
+	key := hex.EncodeToString(bin)
+	return rds.Del(key).Err()
 }
 
 func decodeShortChannelId(scid string) (uint64, error) {

@@ -66,6 +66,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	}
 
 	// here we know it's a payment for an lntxbot user
+	go deleteDataAssociatedWithShadowChannelId(bscid)
 	go handleInvoicePaid(hash, shadowData)
 	go resolveWaitingInvoice(hash, Invoice{
 		Bolt11: decodepay.Bolt11{
