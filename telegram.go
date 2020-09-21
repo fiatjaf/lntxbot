@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"os"
+	"net/url"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -45,7 +45,8 @@ func sendTelegramMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotap
 			chattable.BaseChat.ReplyToMessageID = 0
 			message, err = bot.Send(chattable)
 		} else {
-			log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).Msg("error sending message")
+			log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).
+				Msg("sending telegram keyboard message")
 		}
 	}
 	return message
@@ -56,27 +57,27 @@ func sendTelegramMessageAsText(chatId int64, msg string) tgbotapi.Message {
 	chattable.DisableWebPagePreview = true
 	c, err := bot.Send(chattable)
 	if err != nil {
-		log.Warn().Str("message", msg).Err(err).Msg("error sending text message")
+		log.Warn().Str("message", msg).Err(err).Msg("sending telegram text message")
 	}
 	return c
 }
 
-func sendTelegramMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
-	if picturepath == "" {
+func sendTelegramMessageWithPicture(
+	chatId int64,
+	pictureURL *url.URL,
+	message string,
+) tgbotapi.Message {
+	photo := tgbotapi.NewPhotoUpload(chatId, *pictureURL)
+	photo.Caption = message
+	photo.ParseMode = "HTML"
+	c, err := bot.Send(photo)
+	if err != nil {
+		log.Warn().Str("path", pictureURL.String()).
+			Str("message", message).Err(err).
+			Msg("sending telegram photo")
 		return sendTelegramMessage(chatId, message)
 	} else {
-		defer os.Remove(picturepath)
-		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
-		photo.Caption = message
-		photo.ParseMode = "HTML"
-		c, err := bot.Send(photo)
-		if err != nil {
-			log.Warn().Str("path", picturepath).Str("message", message).Err(err).
-				Msg("error sending photo")
-			return sendTelegramMessage(chatId, message)
-		} else {
-			return c
-		}
+		return c
 	}
 }
 
@@ -86,7 +87,8 @@ func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message str
 	video.ParseMode = "HTML"
 	c, err := bot.Send(video)
 	if err != nil {
-		log.Warn().Str("id", fileId).Str("message", message).Err(err).Msg("error sending video")
+		log.Warn().Str("id", fileId).Str("message", message).Err(err).
+			Msg("sending telegram video")
 	}
 	return c
 }

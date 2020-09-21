@@ -4,9 +4,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/lntxbot/t"
 )
 
 func registerBluewalletMethods() {
@@ -74,12 +78,11 @@ func registerBluewalletMethods() {
 		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).
 			Msg("bluewallet /addinvoice")
 
-		bolt11, hash, _, err := user.makeInvoice(makeInvoiceArgs{
+		bolt11, hash, err := user.makeInvoice(makeInvoiceArgs{
 			IgnoreInvoiceSizeLimit: true,
 			Msatoshi:               1000 * satoshi,
 			Desc:                   params.Memo,
 			DescHash:               params.DescriptionHash,
-			SkipQR:                 true,
 			BlueWallet:             true,
 		})
 		if err != nil {
@@ -404,4 +407,23 @@ func getLimitAndOffset(r *http.Request) (limit int, offset int) {
 	offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
 
 	return
+}
+
+func handleBlueWallet(u User, opts docopt.Opts) {
+	go u.track("bluewallet", map[string]interface{}{
+		"refresh": opts["refresh"].(bool),
+	})
+
+	password := u.Password
+	if opts["refresh"].(bool) {
+		password, err = u.updatePassword()
+		if err != nil {
+			log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
+			u.notify(t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+			return
+		}
+		u.notify(t.COMPLETED, nil)
+	}
+	blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
+	u.sendMessageWithPicture(qrURL(blueURL), "<pre>"+blueURL+"</pre>")
 }

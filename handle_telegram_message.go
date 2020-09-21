@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -11,11 +10,9 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
-	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
-	"github.com/skip2/go-qrcode"
 )
 
 func handleMessage(message *tgbotapi.Message) {
@@ -156,8 +153,6 @@ parsed:
 	switch {
 	case opts["start"].(bool), opts["tutorial"].(bool):
 		if message.Chat.Type == "private" {
-			u.setChat(message.Chat.ID)
-
 			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
 				handleTutorial(u, tutorial)
 			} else {
@@ -182,90 +177,16 @@ parsed:
 		opts["etleneum"].(bool), opts["etl"].(bool):
 		handleExternalApp(u, opts, message)
 		break
-	case opts["bluewallet"].(bool), opts["lndhub"].(bool):
-		go u.track("bluewallet", map[string]interface{}{
-			"refresh": opts["refresh"].(bool),
-		})
-
-		password := u.Password
-		if opts["refresh"].(bool) {
-			password, err = u.updatePassword()
-			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
-				u.notify(t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
-				return
-			}
-			u.notify(t.COMPLETED, nil)
-		} else {
-			blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
-			qrpath := qrImagePath(fmt.Sprintf("bluewallet-%d", u.Id))
-			qrcode.WriteFile(blueURL, qrcode.Medium, 256, qrpath)
-			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, "<code>"+blueURL+"</code>")
-		}
+	case opts["bluewallet"].(bool), opts["zeus"].(bool), opts["lndhub"].(bool):
+		go handleBlueWallet(u, opts)
 	case opts["api"].(bool):
-		go u.track("api", nil)
-
-		passwordFull := u.Password
-		passwordInvoice := calculateHash(passwordFull)
-		passwordReadOnly := calculateHash(passwordInvoice)
-
-		tokenFull := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordFull)))
-		tokenInvoice := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordInvoice)))
-		tokenReadOnly := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordReadOnly)))
-
-		switch {
-		case opts["full"].(bool):
-			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "full"))
-			qrcode.WriteFile(tokenFull, qrcode.Medium, 256, qrpath)
-			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, tokenFull)
-		case opts["invoice"].(bool):
-			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "invoice"))
-			qrcode.WriteFile(tokenInvoice, qrcode.Medium, 256, qrpath)
-			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, tokenInvoice)
-		case opts["readonly"].(bool):
-			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "readonly"))
-			qrcode.WriteFile(tokenReadOnly, qrcode.Medium, 256, qrpath)
-			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, tokenReadOnly)
-		case opts["url"].(bool):
-			qrpath := qrImagePath(fmt.Sprintf("api-%d-%s", u.Id, "url"))
-			qrcode.WriteFile(s.ServiceURL+"/", qrcode.Medium, 256, qrpath)
-			sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, s.ServiceURL+"/")
-		case opts["refresh"].(bool):
-			opts["bluewallet"] = true
-			goto parsed
-		default:
-			u.notify(t.APICREDENTIALS, t.T{
-				"Full":       tokenFull,
-				"Invoice":    tokenInvoice,
-				"ReadOnly":   tokenReadOnly,
-				"ServiceURL": s.ServiceURL,
-			})
-		}
+		go handleAPI(u, opts)
 	case opts["lightningatm"].(bool):
-		token := base64.StdEncoding.EncodeToString(
-			[]byte(fmt.Sprintf("%d:%s", u.Id, u.Password)))
-		text := fmt.Sprintf("%s@%s", token, s.ServiceURL)
-		qrpath := qrImagePath(fmt.Sprintf("lightningatm-%d", u.Id))
-		qrcode.WriteFile(text, qrcode.Medium, 256, qrpath)
-		sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, text)
+		go handleLightningATM(u)
 	case opts["tx"].(bool):
-		// individual transaction query
-		hash := opts["<hash>"].(string)
-		if len(hash) < 5 {
-			u.notify(t.ERROR, t.T{"Err": "hash too small."})
-			return
-		}
-		go u.track("view tx", nil)
-		go handleSingleTransaction(u, hash, message.MessageID)
+		go handleSingleTransaction(u, opts, message.MessageID)
 	case opts["log"].(bool):
-		// query failed transactions (only available in the first 24h after the failure)
-		hash := opts["<hash>"].(string)
-		if len(hash) < 5 {
-			u.notify(t.ERROR, t.T{"Err": "hash too small."})
-			return
-		}
-		go u.track("view log", nil)
-		go sendTelegramMessage(u.TelegramChatId, renderLogInfo(u, hash))
+		go handleLogView(u, opts)
 	case opts["send"].(bool), opts["tip"].(bool):
 		// default notify function to use depending on many things
 		var defaultNotify func(t.Key, t.T)
@@ -762,45 +683,9 @@ parsed:
 		}
 		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		go func() {
-			if opts["lnurl"].(bool) {
-				// print static lnurl-pay for this user
-				lnurl, _ := lnurl.LNURLEncode(fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
-				qrpath := qrImagePath(fmt.Sprintf("lnurlpay-%d", u.Id))
-				qrcode.WriteFile(lnurl, qrcode.Medium, 256, qrpath)
-				sendTelegramMessageWithPicture(message.Chat.ID, qrpath, lnurl)
-
-				go u.track("print lnurl", nil)
-			} else {
-				sats, err := parseSatoshis(opts)
-				if err != nil {
-					if opts["any"].(bool) {
-						sats = 0
-					} else {
-						handleHelp(u, "receive")
-						return
-					}
-				}
-
-				go u.track("make invoice", map[string]interface{}{"sats": sats})
-
-				desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
-
-				bolt11, _, qrpath, err := u.makeInvoice(makeInvoiceArgs{
-					Msatoshi:  int64(sats) * 1000,
-					Desc:      desc,
-					MessageId: message.MessageID,
-				})
-				if err != nil {
-					log.Warn().Err(err).Msg("failed to generate invoice")
-					u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
-					return
-				}
-
-				// send invoice with qr code
-				sendTelegramMessageWithPicture(message.Chat.ID, qrpath, bolt11)
-			}
-		}()
+		messageId := message.MessageID
+		desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
+		go handleInvoice(u, opts, desc, messageId)
 	case opts["lnurl"].(bool):
 		go handleLNURL(u, opts["<lnurl>"].(string), handleLNURLOpts{
 			messageId: message.MessageID,

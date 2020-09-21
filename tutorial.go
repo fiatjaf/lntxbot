@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/fiatjaf/lntxbot/t"
 )
 
@@ -12,8 +13,6 @@ func handleTutorial(u User, section string) {
 	switch section {
 	case "wallet":
 		tutorialWallet(u)
-	case "bluewallet":
-		tutorialBlueWallet(u)
 	case "apps":
 		tutorialApps(u)
 	case "":
@@ -21,8 +20,6 @@ func handleTutorial(u User, section string) {
 		go func() {
 			time.Sleep(15 * time.Second)
 			tutorialWallet(u)
-			time.Sleep(120 * time.Second)
-			tutorialBlueWallet(u)
 			time.Sleep(120 * time.Second)
 			tutorialApps(u)
 			time.Sleep(240 * time.Second)
@@ -32,19 +29,29 @@ func handleTutorial(u User, section string) {
 }
 
 func tutorialWallet(u User) {
-	sendTelegramMessageWithAnimationId(u.TelegramChatId, s.TutorialWalletVideoId,
-		translateTemplate(t.TUTORIALWALLET, u.Locale, t.T{"BotName": s.ServiceId}))
-}
+	text := translateTemplate(t.TUTORIALWALLET, u.Locale, t.T{"BotName": s.ServiceId})
 
-func tutorialBlueWallet(u User) {
-	sendTelegramMessageWithAnimationId(u.TelegramChatId, s.TutorialBlueVideoId,
-		translateTemplate(t.TUTORIALBLUE, u.Locale, t.T{"BotName": s.ServiceId}))
+	if u.isTelegram() {
+		sendTelegramMessageWithAnimationId(
+			u.TelegramChatId,
+			s.TutorialWalletVideoId,
+			text,
+		)
+	} else if u.isDiscord() {
+		md, _ := mdConverter.ConvertString(text)
+		discord.ChannelMessageSendEmbed(u.DiscordChannelId, &discordgo.MessageEmbed{
+			Description: md,
+			Video: &discordgo.MessageEmbedVideo{
+				URL: s.ServiceURL + "/static/wallet-demo.mp4",
+			},
+		})
+	}
 }
 
 func tutorialApps(u User) {
-	sendTelegramMessage(u.TelegramChatId, translateTemplate(t.TUTORIALAPPS, u.Locale, t.T{"BotName": s.ServiceId}))
+	u.notify(t.TUTORIALAPPS, t.T{"BotName": s.ServiceId})
 }
 
 func tutorialTwitter(u User) {
-	sendTelegramMessage(u.TelegramChatId, translateTemplate(t.TUTORIALTWITTER, u.Locale, t.T{"BotName": s.ServiceId}))
+	u.notify(t.TUTORIALTWITTER, t.T{"BotName": s.ServiceId})
 }

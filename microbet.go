@@ -210,11 +210,10 @@ func withdrawMicrobet(user User, sats int) (err error) {
 		},
 	}
 
-	bolt11, _, _, err := user.makeInvoice(makeInvoiceArgs{
+	bolt11, _, err := user.makeInvoice(makeInvoiceArgs{
 		Msatoshi: int64(sats) * 1000,
 		Desc:     "withdraw from microbet.fun",
 		Tag:      "microbet",
-		SkipQR:   true,
 	})
 	if err != nil {
 		return

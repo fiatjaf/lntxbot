@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/msingleton/amplitude-go"
-	"github.com/skip2/go-qrcode"
 )
 
 type User struct {
@@ -328,20 +328,63 @@ func (u *User) setChannel(id string) error {
 	return err
 }
 
-func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
-	if u.TelegramChatId != 0 {
-		return u.notifyWithKeyboard(key, templateData, nil, 0)
-	} else if u.DiscordChannelId != "" {
-		html := translateTemplate(key, u.Locale, templateData)
-		md, _ := mdConverter.ConvertString(html)
-		sendDiscordMessage(u.DiscordChannelId, md)
-	}
+func (u *User) unsetChannel() {
+	pg.Exec(`UPDATE account SET discord_channel_id = NULL WHERE id = $1`, u.Id)
+}
 
-	return tgbotapi.Message{} // TODO
+func (u User) isTelegram() bool { return u.TelegramChatId != 0 }
+func (u User) isDiscord() bool  { return u.DiscordChannelId != "" }
+
+func (u User) sendMessage(text string) (id interface{}) {
+	if u.isTelegram() {
+		return sendTelegramMessage(u.TelegramChatId, text).MessageID
+	} else if u.isDiscord() {
+		return sendDiscordMessage(u.DiscordChannelId, text)
+	} else {
+		log.Warn().Interface("user", u).
+			Msg("can't message user without chat or channel")
+		return nil
+	}
+}
+
+func (u User) sendMessageAsReply(text string, replyToId int) (id interface{}) {
+	if u.isTelegram() {
+		return sendTelegramMessageAsReply(u.TelegramChatId, text, replyToId).MessageID
+	} else if u.isDiscord() {
+		return sendDiscordMessage(u.DiscordChannelId, text)
+	} else {
+		log.Warn().Interface("user", u).
+			Msg("can't message user without chat or channel")
+		return nil
+	}
+}
+
+func (u User) sendMessageWithPicture(pictureURL *url.URL, text string) (id interface{}) {
+	if u.isTelegram() {
+		return sendTelegramMessageWithPicture(u.TelegramChatId, pictureURL, text).
+			MessageID
+	} else if u.isDiscord() {
+		return sendDiscordMessageWithPicture(u.DiscordChannelId, pictureURL, text)
+	} else {
+		log.Warn().Interface("user", u).
+			Msg("can't message user without chat or channel")
+		return
+	}
+}
+
+func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
+	return u.notifyWithKeyboard(key, templateData, nil, 0)
 }
 
 func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
-	return u.notifyWithKeyboard(key, templateData, nil, replyToId)
+	if u.isTelegram() {
+		return u.notifyWithKeyboard(key, templateData, nil, replyToId)
+	} else if u.isDiscord() {
+		html := translateTemplate(key, u.Locale, templateData)
+		sendDiscordMessage(u.DiscordChannelId, html)
+	}
+
+	return tgbotapi.Message{} // TODO return an id here maybe, so discord can work
 }
 
 func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
@@ -422,13 +465,12 @@ type makeInvoiceArgs struct {
 	Tag                    string
 	Extra                  map[string]interface{}
 	BlueWallet             bool
-	SkipQR                 bool
 	IgnoreInvoiceSizeLimit bool
 }
 
 func (u User) makeInvoice(
 	args makeInvoiceArgs,
-) (bolt11 string, hash string, qrpath string, err error) {
+) (bolt11 string, hash string, err error) {
 	msatoshi := args.Msatoshi
 
 	// limit number of small invoices people can make every day
@@ -451,8 +493,7 @@ func (u User) makeInvoice(
 							go rds.ExpireAt(invoicespamkey, t)
 
 							if n >= limit.PerDay {
-								return "", "", "",
-									fmt.Errorf("The issuance of invoices smaller than %dmsat is restricted to %d per day.", limit.EqualOrSmallerThan, limit.PerDay)
+								return "", "", fmt.Errorf("The issuance of invoices smaller than %dmsat is restricted to %d per day.", limit.EqualOrSmallerThan, limit.PerDay)
 							}
 						}
 					}
@@ -474,7 +515,7 @@ func (u User) makeInvoice(
 	preimage := make([]byte, 32)
 	_, err = rand.Read(preimage)
 	if err != nil {
-		return "", "", "", fmt.Errorf("can't create random bytes: %w", err)
+		return "", "", fmt.Errorf("can't create random bytes: %w", err)
 	}
 
 	extra := args.Extra
@@ -499,7 +540,7 @@ func (u User) makeInvoice(
 	} else {
 		descriptionOrDescriptionHash, err = hex.DecodeString(args.DescHash)
 		if err != nil {
-			return "", "", "", fmt.Errorf("invalid description_hash: %w", err)
+			return "", "", fmt.Errorf("invalid description_hash: %w", err)
 		}
 		shadowData.DescriptionHash = args.DescHash
 	}
@@ -521,7 +562,7 @@ func (u User) makeInvoice(
 		makeShadowChannelId(shadowData),
 	)
 	if err != nil {
-		return "", "", "", fmt.Errorf("error making invoice: %w", err)
+		return "", "", fmt.Errorf("error making invoice: %w", err)
 	}
 
 	if args.BlueWallet {
@@ -535,18 +576,7 @@ func (u User) makeInvoice(
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
 	}
 
-	if !args.SkipQR {
-		err = qrcode.WriteFile(strings.ToUpper(bolt11), qrcode.Medium, 256,
-			qrImagePath(hash))
-		if err == nil {
-			qrpath = qrImagePath(hash)
-		} else {
-			log.Warn().Err(err).Str("invoice", bolt11).Msg("failed to generate qr.")
-			err = nil
-		}
-	}
-
-	return bolt11, hash, qrpath, nil
+	return bolt11, hash, nil
 }
 
 func (u User) payInvoice(

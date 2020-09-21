@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -55,20 +54,17 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		bolt11, _, qrpath, err := u.makeInvoice(makeInvoiceArgs{
-			Msatoshi: int64(sats) * 1000,
-		})
+		bolt11, _, err := u.makeInvoice(makeInvoiceArgs{Msatoshi: int64(sats) * 1000})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty
 		}
 
-		qrurl := s.ServiceURL + "/qr/" + qrpath
-
-		resultphoto := tgbotapi.NewInlineQueryResultPhoto("inv-"+argv[1]+"-photo", qrurl)
+		resultphoto := tgbotapi.NewInlineQueryResultPhoto(
+			"inv-"+argv[1]+"-photo", bolt11)
 		resultphoto.Title = argv[1] + " sat"
 		resultphoto.Description = translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]})
-		resultphoto.ThumbURL = qrurl
+		resultphoto.ThumbURL = qrURL(bolt11).String()
 		resultphoto.Caption = bolt11
 
 		resultnophoto := tgbotapi.NewInlineQueryResultArticleHTML(
@@ -87,11 +83,6 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			"sats":   sats,
 			"inline": true,
 		})
-
-		go func(qrpath string) {
-			time.Sleep(30 * time.Second)
-			os.Remove(qrpath)
-		}(qrpath)
 		goto responded
 	case "giveaway":
 		if len(argv) != 2 {

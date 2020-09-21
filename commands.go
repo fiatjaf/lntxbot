@@ -146,7 +146,7 @@ var methods = []def{
 		aliases: []string{"lightningatm"},
 	},
 	def{
-		aliases: []string{"bluewallet", "lndhub"},
+		aliases: []string{"bluewallet", "zeus", "lndhub"},
 		argstr:  "[refresh]",
 	},
 	def{
@@ -174,7 +174,7 @@ var commandList []string
 var commandIndex = make(map[string]def)
 
 func setupCommands() {
-	s.Usage = docoptFromMethodDefinitions()
+	s.Usage = docoptFromMethodDefinitions(true)
 
 	for _, def := range methods {
 		for _, alias := range def.aliases {
@@ -184,12 +184,16 @@ func setupCommands() {
 	}
 }
 
-func docoptFromMethodDefinitions() string {
+func docoptFromMethodDefinitions(withAliases bool) string {
 	var lines []string
 
 	for _, def := range methods {
-		for _, alias := range def.aliases {
-			lines = append(lines, "  c "+alias+" "+def.argstr)
+		if withAliases {
+			for _, alias := range def.aliases {
+				lines = append(lines, "  c "+alias+" "+def.argstr)
+			}
+		} else {
+			lines = append(lines, "  c "+def.aliases[0]+" "+def.argstr)
 		}
 	}
 
@@ -233,15 +237,20 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 }
 
 func handleHelp(u User, method string) (handled bool) {
-	var def def
-	var mainName string
-	var aliases []map[string]string
-	var helpString string
-	var ok bool
+	var (
+		def        def
+		mainName   string
+		aliases    []map[string]string
+		params     t.T
+		helpString string
+		ok         bool
+	)
+
 	method = strings.ToLower(strings.TrimSpace(method))
 	if method == "" {
+		briefUsage := docoptFromMethodDefinitions(false)
 		helpString = translateTemplate(t.HELPINTRO, u.Locale, t.T{
-			"Help": escapeHTML(strings.Replace(s.Usage, "  c ", "  /", -1)),
+			"Help": escapeHTML(strings.Replace(briefUsage, "  c ", "  /", -1)),
 		})
 		goto gothelpstring
 	}
@@ -270,7 +279,7 @@ func handleHelp(u User, method string) (handled bool) {
 	}
 
 	// here we have a working method definition
-	helpString = translateTemplate(t.HELPMETHOD, u.Locale, t.T{
+	params = t.T{
 		"MainName":      mainName,
 		"Argstr":        escapeHTML(def.argstr),
 		"Help":          def.help(u.Locale),
@@ -278,11 +287,17 @@ func handleHelp(u User, method string) (handled bool) {
 		"InlineExample": escapeHTML(def.inline_example),
 		"Aliases":       aliases,
 		"ServiceId":     s.ServiceId,
-	})
+	}
+
+	if u.isDiscord() {
+		params["HasInline"] = false
+	}
+
+	helpString = translateTemplate(t.HELPMETHOD, u.Locale, params)
 
 	goto gothelpstring
 
 gothelpstring:
-	sendTelegramMessage(u.TelegramChatId, helpString)
+	u.sendMessage(helpString)
 	return true
 }

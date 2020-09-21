@@ -4,12 +4,16 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/go-lnurl"
 	decodepay "github.com/fiatjaf/ln-decodepay"
+	"github.com/fiatjaf/lntxbot/t"
 	cmap "github.com/orcaman/concurrent-map"
 )
 
@@ -142,4 +146,41 @@ var INVOICESPAMLIMITS = []InvoiceSpamLimit{
 	{1000, "<=1", 1},
 	{10000, "<=10", 3},
 	{100000, "<=100", 10},
+}
+
+func handleInvoice(u User, opts docopt.Opts, desc string, tgMessageId int) {
+	if opts["lnurl"].(bool) {
+		// print static lnurl-pay for this user
+		lnurl, _ := lnurl.LNURLEncode(
+			fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
+		u.sendMessageWithPicture(qrURL(lnurl), lnurl)
+
+		go u.track("print lnurl", nil)
+	} else {
+		sats, err := parseSatoshis(opts)
+		if err != nil {
+			if opts["any"].(bool) {
+				sats = 0
+			} else {
+				handleHelp(u, "receive")
+				return
+			}
+		}
+
+		go u.track("make invoice", map[string]interface{}{"sats": sats})
+
+		bolt11, _, err := u.makeInvoice(makeInvoiceArgs{
+			Msatoshi:  int64(sats) * 1000,
+			Desc:      desc,
+			MessageId: tgMessageId,
+		})
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to generate invoice")
+			u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+			return
+		}
+
+		// send invoice with qr code
+		u.sendMessageWithPicture(qrURL(bolt11), bolt11)
+	}
 }

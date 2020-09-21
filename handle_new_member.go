@@ -72,7 +72,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 
 	expiration := time.Minute * 15
 
-	bolt11, hash, qrpath, err := chatOwner.makeInvoice(makeInvoiceArgs{
+	bolt11, hash, err := chatOwner.makeInvoice(makeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: true,
 		Msatoshi:               int64(g.Ticket) * 1000,
 		Desc: fmt.Sprintf(
@@ -94,7 +94,8 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
-	invoiceMessage := sendTelegramMessageWithPicture(joinMessage.Chat.ID, qrpath, bolt11)
+	invoiceMessage := sendTelegramMessageWithPicture(joinMessage.Chat.ID,
+		qrURL(bolt11), bolt11)
 
 	kickdata := KickData{
 		invoiceMessage,

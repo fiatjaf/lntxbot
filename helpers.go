@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	html_to_markdown "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
@@ -526,8 +525,3 @@ func messageFromError(err error) string {
 		return err.Error()
 	}
 }
-
-var mdConverter = html_to_markdown.NewConverter("", false, &html_to_markdown.Options{
-	EmDelimiter:     "__",
-	StrongDelimiter: "**",
-})

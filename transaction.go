@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -182,7 +183,15 @@ func renderLogInfo(u User, hash string) (logInfo string) {
 	})
 }
 
-func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
+func handleSingleTransaction(u User, opts docopt.Opts, messageId int) {
+	// individual transaction query
+	hashfirstchars := opts["<hash>"].(string)
+	if len(hashfirstchars) < 5 {
+		u.notify(t.ERROR, t.T{"Err": "hash too small."})
+		return
+	}
+	go u.track("view tx", nil)
+
 	txn, err := u.getTransaction(hashfirstchars)
 	if err != nil {
 		log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
@@ -195,27 +204,31 @@ func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
 		"Txn":     txn,
 		"LogInfo": renderLogInfo(u, txn.Hash),
 	})
-	msgId := sendTelegramMessageAsReply(u.TelegramChatId, txstatus, txn.TriggerMessage).MessageID
 
-	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
-		// allow people to cancel pending if they're old enough
-		editWithKeyboard(u.TelegramChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
-			tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
-				),
-			),
-		)
-	}
+	msgId := u.sendMessageAsReply(txstatus, txn.TriggerMessage)
+	if u.isTelegram() {
+		mid, _ := msgId.(int)
 
-	if txn.IsUnclaimed() {
-		editWithKeyboard(u.TelegramChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
-			tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
+		if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
+			// allow people to cancel pending if they're old enough
+			editWithKeyboard(u.TelegramChatId, mid, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
+				tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
+					),
 				),
-			),
-		)
+			)
+		}
+
+		if txn.IsUnclaimed() {
+			editWithKeyboard(u.TelegramChatId, mid, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
+				tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
+					),
+				),
+			)
+		}
 	}
 }
 
@@ -287,4 +300,15 @@ func handleTransactionList(u User, page int, tag string, filter InOut, cb *tgbot
 	}
 
 	bot.Send(chattable)
+}
+
+func handleLogView(u User, opts docopt.Opts) {
+	// query failed transactions (only available in the first 24h after the failure)
+	hash := opts["<hash>"].(string)
+	if len(hash) < 5 {
+		u.notify(t.ERROR, t.T{"Err": "hash too small."})
+		return
+	}
+	go u.track("view log", nil)
+	u.sendMessage(renderLogInfo(u, hash))
 }

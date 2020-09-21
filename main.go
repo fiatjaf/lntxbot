@@ -170,23 +170,15 @@ func server(p *plugin.Plugin) {
 	}
 	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
 
-	// handle QR code requests from telegram
-	router.Path("/qr/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path[3:]
-		if strings.HasPrefix(path, "/tmp/") && strings.HasSuffix(path, ".png") {
-			http.ServeFile(w, r, path)
-		} else {
-			http.Error(w, "not found", 404)
-		}
-	})
-
 	// discord bot session
 	if s.DiscordBotToken != "" {
 		discord, err = discordgo.New("Bot " + s.DiscordBotToken)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to create discord session")
 		}
-		discord.AddHandler(handleDiscordMessage)
+
+		addDiscordHandlers()
+
 		err = discord.Open()
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to establish discord connection")
@@ -199,6 +191,7 @@ func server(p *plugin.Plugin) {
 	registerAPIMethods()
 
 	// register webserver routes
+	serveQRCode()
 	serveLNURL()
 	servePages()
 	serveGiftsWebhook()

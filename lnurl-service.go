@@ -12,7 +12,6 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
-	"github.com/skip2/go-qrcode"
 )
 
 func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded string) {
@@ -33,15 +32,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 		return
 	}
 
-	qrpath := qrImagePath(challenge)
-	err = qrcode.WriteFile(strings.ToUpper(lnurlEncoded), qrcode.Medium, 256, qrpath)
-	if err != nil {
-		log.Error().Err(err).Str("user", u.Username).Str("lnurl", lnurlEncoded).
-			Msg("failed to generate lnurl qr. failing.")
-		return
-	}
-
-	sendTelegramMessageWithPicture(u.TelegramChatId, qrpath, `<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
+	u.sendMessageWithPicture(qrURL(lnurlEncoded), `<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
 	return
 }
 
@@ -226,7 +217,7 @@ func serveLNURL() {
 		}
 
 		hhash := sha256.Sum256(jmeta)
-		bolt11, _, _, err := receiver.makeInvoice(makeInvoiceArgs{
+		bolt11, _, err := receiver.makeInvoice(makeInvoiceArgs{
 			IgnoreInvoiceSizeLimit: true,
 			Msatoshi:               msatoshi,
 			DescHash:               hex.EncodeToString(hhash[:]),
@@ -234,7 +225,6 @@ func serveLNURL() {
 			Extra: map[string]interface{}{
 				"comment": qs.Get("comment"),
 			},
-			SkipQR: true,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")

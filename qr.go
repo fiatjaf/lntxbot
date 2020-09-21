@@ -6,14 +6,43 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/lucsky/cuid"
-	"github.com/tuotoo/qrcode"
-
+	"github.com/skip2/go-qrcode"
+	chqr "github.com/tuotoo/qrcode"
 	"gopkg.in/jmcvetta/napping.v3"
 )
+
+func serveQRCode() {
+	router.PathPrefix("/qr/").HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			value := r.URL.Path[3:]
+			value = strings.ToUpper(value)
+
+			qr, err := qrcode.New(value, qrcode.Medium)
+			if err != nil {
+				log.Warn().Err(err).Str("value", value).Msg("failed to encode qr")
+				http.Error(w, "failed to encode "+value+" as a QR code.", 400)
+				return
+			}
+
+			w.Header().Set("Content-Type", "image/png")
+			err = qr.Write(256, w)
+			if err != nil {
+				log.Warn().Err(err).Str("value", value).Msg("failed to write qr")
+				http.Error(w, "failed to write "+value+" as a QR code.", 400)
+				return
+			}
+		},
+	)
+}
+
+func qrURL(value string) *url.URL {
+	u, _ := url.Parse(s.ServiceURL + "/qr/" + value)
+	return u
+}
 
 func decodeQR(fileurl string) (data string, err error) {
 	chineselibrary := make(chan string)
@@ -28,7 +57,7 @@ func decodeQR(fileurl string) (data string, err error) {
 		}
 		defer resp.Body.Close()
 
-		path := qrImagePath(cuid.Slug())
+		path := "/tmp/qr/" + cuid.Slug()
 		file, err := os.Create(path)
 		if err != nil {
 			log.Warn().Err(err).Str("method", "chineselibrary").Str("url", fileurl).Msg("failed to create file")
@@ -45,12 +74,13 @@ func decodeQR(fileurl string) (data string, err error) {
 
 		file, err = os.Open(path)
 		if err != nil {
-			log.Warn().Err(err).Str("method", "chineselibrary").Str("url", fileurl).Msg("failed to open for reading")
+			log.Warn().Err(err).Str("method", "chineselibrary").Str("url", fileurl).
+				Msg("failed to open for reading")
 			return
 		}
 		defer file.Close()
 
-		qrmatrix, err := qrcode.Decode(file)
+		qrmatrix, err := chqr.Decode(file)
 		if err != nil {
 			log.Warn().Err(err).Str("method", "chineselibrary").Str("url", fileurl).Msg("failed to decode")
 			return
@@ -121,8 +151,4 @@ func decodeQR(fileurl string) (data string, err error) {
 	case <-time.After(6 * time.Second):
 		return "", errors.New("unable to decode.")
 	}
-}
-
-func qrImagePath(identifier string) string {
-	return filepath.Join(os.TempDir(), s.ServiceId+".qr."+identifier+".png")
 }

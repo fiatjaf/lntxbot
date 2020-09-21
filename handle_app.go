@@ -12,7 +12,6 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/skip2/go-qrcode"
 )
 
 func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
@@ -260,14 +259,10 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			return
 		}
 
-		qrpath := qrImagePath(order.Address)
-		err = qrcode.WriteFile("bitcoin:"+order.Address+"?amount="+order.Price, qrcode.Medium, 256, qrpath)
-		if err == nil {
-			sendTelegramMessageWithPicture(message.Chat.ID, qrpath,
-				translateTemplate(t.FUNDBTCFINISH, u.Locale, t.T{"Order": order}))
-		} else {
-			u.notify(t.FUNDBTCFINISH, t.T{"Order": order})
-		}
+		u.sendMessageWithPicture(qrURL(
+			order.Address),
+			translateTemplate(t.FUNDBTCFINISH, u.Locale, t.T{"Order": order}),
+		)
 		go u.track("fundbtc start", map[string]interface{}{"sats": sats})
 	case opts["bitclouds"].(bool):
 		switch {

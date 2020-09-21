@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/gorilla/mux"
 )
 
@@ -256,4 +259,44 @@ func errorInternal(w http.ResponseWriter) {
       "code": 7,
       "message": "Internal failure"
     }`))
+}
+
+func handleAPI(u User, opts docopt.Opts) {
+	go u.track("api", nil)
+
+	passwordFull := u.Password
+	passwordInvoice := calculateHash(passwordFull)
+	passwordReadOnly := calculateHash(passwordInvoice)
+
+	tokenFull := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordFull)))
+	tokenInvoice := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordInvoice)))
+	tokenReadOnly := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordReadOnly)))
+
+	switch {
+	case opts["full"].(bool):
+		u.sendMessageWithPicture(qrURL(tokenFull), tokenFull)
+	case opts["invoice"].(bool):
+		u.sendMessageWithPicture(qrURL(tokenInvoice), tokenInvoice)
+	case opts["readonly"].(bool):
+		u.sendMessageWithPicture(qrURL(tokenReadOnly), tokenReadOnly)
+	case opts["url"].(bool):
+		u.sendMessageWithPicture(qrURL(s.ServiceURL+"/"), s.ServiceURL+"/")
+	case opts["refresh"].(bool):
+		opts["bluewallet"] = true
+		u.notify(t.COMPLETED, nil)
+	default:
+		u.notify(t.APICREDENTIALS, t.T{
+			"Full":       tokenFull,
+			"Invoice":    tokenInvoice,
+			"ReadOnly":   tokenReadOnly,
+			"ServiceURL": s.ServiceURL,
+		})
+	}
+}
+
+func handleLightningATM(u User) {
+	token := base64.StdEncoding.EncodeToString(
+		[]byte(fmt.Sprintf("%d:%s", u.Id, u.Password)))
+	text := fmt.Sprintf("%s@%s", token, s.ServiceURL)
+	u.sendMessageWithPicture(qrURL(text), "<pre>"+text+"</pre>")
 }
