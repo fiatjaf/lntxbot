@@ -8,9 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -18,401 +16,8 @@ import (
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/types"
-	"github.com/msingleton/amplitude-go"
 )
-
-type User struct {
-	Id               int    `db:"id"`
-	Username         string `db:"username"`
-	TelegramId       int    `db:"telegram_id"`
-	DiscordId        string `db:"discord_id"`
-	TelegramChatId   int64  `db:"telegram_chat_id"`
-	DiscordChannelId string `db:"discord_channel_id"`
-	Password         string `db:"password"`
-	Locale           string `db:"locale"`
-
-	Extra string `db:"extra"`
-}
-
-const USERFIELDS = `
-  id,
-  coalesce(telegram_id, 0) AS telegram_id,
-  coalesce(telegram_username, coalesce(discord_username, '')) AS username,
-  coalesce(telegram_chat_id, 0) AS telegram_chat_id,
-  coalesce(discord_channel_id, '') AS discord_channel_id,
-  password,
-  locale
-`
-
-func loadUser(id int) (u User, err error) {
-	err = pg.Get(&u, `
-SELECT `+USERFIELDS+`
-FROM account
-WHERE id = $1
-    `, id)
-	return
-}
-
-func loadTelegramUser(telegramId int) (u User, err error) {
-	err = pg.Get(&u, `
-SELECT `+USERFIELDS+`
-FROM account
-WHERE telegram_id = $1
-    `, telegramId)
-	return
-}
-
-func loadDiscordUser(discordId string) (u User, err error) {
-	err = pg.Get(&u, `
-SELECT `+USERFIELDS+`
-FROM account
-WHERE discord_id = $1
-    `, discordId)
-	return
-}
-
-func ensureTelegramUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
-	username = strings.ToLower(username)
-	var vusername sql.NullString
-
-	if username == "" {
-		vusername.Valid = false
-	} else {
-		vusername.Scan(username)
-	}
-
-	var userRows []User
-
-	// always update locale while selecting user
-	// unless it was set manually or isn't available
-	err = pg.Select(&userRows, `
-UPDATE account AS u
-SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
-WHERE u.telegram_id = $1 OR u.telegram_username = $2
-RETURNING `+USERFIELDS,
-		telegramId, username, locale)
-	if err != nil && err != sql.ErrNoRows {
-		return
-	}
-
-	tcase = len(userRows)
-	switch tcase {
-	case 0:
-		// user not registered
-		err = pg.Get(&u, `
-INSERT INTO account (telegram_id, telegram_username)
-VALUES ($1, $2)
-RETURNING `+USERFIELDS,
-			telegramId, vusername)
-		return
-	case 1:
-		// user registered, update if necessary then leave
-		u = userRows[0]
-		if u.Username == username && u.TelegramId == telegramId {
-			// all is well, just return
-		} else if u.Username != username {
-			// update username
-			err = pg.Get(&u, `
-UPDATE account SET telegram_username = $2 WHERE telegram_id = $1
-RETURNING `+USERFIELDS,
-				telegramId, vusername)
-		} else if u.TelegramId != telegramId {
-			// update telegram_id
-			err = pg.Get(&u, `
-UPDATE account SET telegram_id = $1 WHERE telegram_username = $2
-RETURNING `+USERFIELDS,
-				telegramId, username)
-		}
-		return
-	case 2:
-		// user has 2 accounts, one with the username, other with the telegram_id
-		var txn *sqlx.Tx
-		txn, err = pg.Beginx()
-		if err != nil {
-			return
-		}
-		defer txn.Rollback()
-
-		idToDelete := userRows[1].Id
-		idToRemain := userRows[0].Id
-
-		_, err = txn.Exec(
-			"UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2",
-			idToRemain, idToDelete)
-		if err != nil {
-			return
-		}
-
-		_, err = txn.Exec(
-			"UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2",
-			idToRemain, idToDelete)
-		if err != nil {
-			return
-		}
-
-		_, err = txn.Exec(
-			"DELETE FROM account WHERE id = $1",
-			idToDelete)
-		if err != nil {
-			return
-		}
-
-		err = txn.Get(&u, `
-UPDATE account
-SET telegram_id = $2, telegram_username = $3
-WHERE id = $1
-RETURNING `+USERFIELDS,
-			idToRemain, telegramId, vusername)
-		if err != nil {
-			return
-		}
-
-		err = txn.Commit()
-		if err != nil {
-			return
-		}
-
-		return
-	default:
-		err = errors.New("odd error with more than 2 rows for the same user.")
-		return
-	}
-}
-
-func ensureDiscordUser(discordId, username, locale string) (u User, tcase int, err error) {
-	username = strings.ToLower(username)
-	var vusername sql.NullString
-
-	if username == "" {
-		vusername.Valid = false
-	} else {
-		vusername.Scan(username)
-	}
-
-	var userRows []User
-
-	// always update locale while selecting user unless it was set manually or isn't available
-	err = pg.Select(&userRows, `
-UPDATE account AS u
-SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
-WHERE u.discord_id = $1 OR u.discord_username = $2
-RETURNING `+USERFIELDS,
-		discordId, username, locale)
-	if err != nil && err != sql.ErrNoRows {
-		return
-	}
-
-	tcase = len(userRows)
-	switch tcase {
-	case 0:
-		// user not registered
-		err = pg.Get(&u, `
-INSERT INTO account (discord_id, discord_username)
-VALUES ($1, $2)
-RETURNING `+USERFIELDS,
-			discordId, vusername)
-		return
-	case 1:
-		// user registered, update if necessary then leave
-		u = userRows[0]
-		if u.Username == username && u.DiscordId == discordId {
-			// all is well, just return
-		} else if u.Username != username {
-			// update username
-			err = pg.Get(&u, `
-UPDATE account SET discord_username = $2 WHERE discord_id = $1
-RETURNING `+USERFIELDS,
-				discordId, vusername)
-		} else if u.DiscordId != discordId {
-			// update discord_id
-			err = pg.Get(&u, `
-UPDATE account SET discord_id = $1 WHERE discord_username = $2
-RETURNING `+USERFIELDS,
-				discordId, username)
-		}
-		return
-	case 2:
-		// user has 2 accounts, one with the username, other with the telegram_id
-		var txn *sqlx.Tx
-		txn, err = pg.Beginx()
-		if err != nil {
-			return
-		}
-		defer txn.Rollback()
-
-		idToDelete := userRows[1].Id
-		idToRemain := userRows[0].Id
-
-		_, err = txn.Exec(
-			"UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2",
-			idToRemain, idToDelete)
-		if err != nil {
-			return
-		}
-
-		_, err = txn.Exec(
-			"UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2",
-			idToRemain, idToDelete)
-		if err != nil {
-			return
-		}
-
-		_, err = txn.Exec(
-			"DELETE FROM account WHERE id = $1",
-			idToDelete)
-		if err != nil {
-			return
-		}
-
-		err = txn.Get(&u, `
-UPDATE account
-SET discord_id = $2, discord_username = $3
-WHERE id = $1
-RETURNING `+USERFIELDS,
-			idToRemain, discordId, vusername)
-		if err != nil {
-			return
-		}
-
-		err = txn.Commit()
-		if err != nil {
-			return
-		}
-
-		return
-	default:
-		err = errors.New("odd error with more than 2 rows for the same user.")
-		return
-	}
-}
-
-func ensureTelegramId(telegram_id int) (u User, err error) {
-	err = pg.Get(&u, `
-INSERT INTO account (telegram_id)
-VALUES ($1)
-ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
-RETURNING `+USERFIELDS,
-		telegram_id)
-	return
-}
-
-func ensureTelegramUsername(username string) (u User, err error) {
-	err = pg.Get(&u, `
-INSERT INTO account (telegram_username)
-VALUES ($1)
-ON CONFLICT (telegram_username) DO UPDATE SET telegram_username = $1
-RETURNING `+USERFIELDS,
-		strings.ToLower(username))
-	return
-}
-
-func (u *User) setChat(id int64) error {
-	u.TelegramChatId = id
-	_, err := pg.Exec(
-		`UPDATE account SET telegram_chat_id = $1 WHERE id = $2`,
-		id, u.Id)
-	return err
-}
-
-func (u *User) unsetChat() {
-	pg.Exec(`UPDATE account SET telegram_chat_id = NULL WHERE id = $1`, u.Id)
-}
-
-func (u *User) setChannel(id string) error {
-	u.DiscordChannelId = id
-	_, err := pg.Exec(
-		`UPDATE account SET discord_channel_id = $1 WHERE id = $2`,
-		id, u.Id)
-	return err
-}
-
-func (u *User) unsetChannel() {
-	pg.Exec(`UPDATE account SET discord_channel_id = NULL WHERE id = $1`, u.Id)
-}
-
-func (u User) isTelegram() bool { return u.TelegramChatId != 0 }
-func (u User) isDiscord() bool  { return u.DiscordChannelId != "" }
-
-func (u User) sendMessage(text string) (id interface{}) {
-	if u.isTelegram() {
-		return sendTelegramMessage(u.TelegramChatId, text).MessageID
-	} else if u.isDiscord() {
-		return sendDiscordMessage(u.DiscordChannelId, text)
-	} else {
-		log.Warn().Interface("user", u).
-			Msg("can't message user without chat or channel")
-		return nil
-	}
-}
-
-func (u User) sendMessageAsReply(text string, replyToId int) (id interface{}) {
-	if u.isTelegram() {
-		return sendTelegramMessageAsReply(u.TelegramChatId, text, replyToId).MessageID
-	} else if u.isDiscord() {
-		return sendDiscordMessage(u.DiscordChannelId, text)
-	} else {
-		log.Warn().Interface("user", u).
-			Msg("can't message user without chat or channel")
-		return nil
-	}
-}
-
-func (u User) sendMessageWithPicture(pictureURL *url.URL, text string) (id interface{}) {
-	if u.isTelegram() {
-		return sendTelegramMessageWithPicture(u.TelegramChatId, pictureURL, text).
-			MessageID
-	} else if u.isDiscord() {
-		return sendDiscordMessageWithPicture(u.DiscordChannelId, pictureURL, text)
-	} else {
-		log.Warn().Interface("user", u).
-			Msg("can't message user without chat or channel")
-		return
-	}
-}
-
-func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
-	return u.notifyWithKeyboard(key, templateData, nil, 0)
-}
-
-func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
-	if u.isTelegram() {
-		return u.notifyWithKeyboard(key, templateData, nil, replyToId)
-	} else if u.isDiscord() {
-		html := translateTemplate(key, u.Locale, templateData)
-		sendDiscordMessage(u.DiscordChannelId, html)
-	}
-
-	return tgbotapi.Message{} // TODO return an id here maybe, so discord can work
-}
-
-func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
-	if u.TelegramChatId == 0 {
-		log.Info().Str("user", u.Username).Str("key", string(key)).
-			Msg("can't notify user as it hasn't started a chat with the bot.")
-		return tgbotapi.Message{}
-	}
-	log.Debug().Str("user", u.Username).
-		Str("key", string(key)).Interface("data", templateData).
-		Msg("notifying user")
-
-	msg := translateTemplate(key, u.Locale, templateData)
-	return sendTelegramMessageWithKeyboard(u.TelegramChatId, msg, keyboard, replyToId)
-}
-
-func (u User) alert(cb *tgbotapi.CallbackQuery, key t.Key, templateData t.T) (tgbotapi.APIResponse, error) {
-	return bot.AnswerCallbackQuery(tgbotapi.NewCallbackWithAlert(cb.ID, translateTemplate(key, u.Locale, templateData)))
-}
-
-func (u User) updatePassword() (newpassword string, err error) {
-	err = pg.Get(&newpassword, `
-UPDATE account
-SET password = DEFAULT WHERE id = $1
-RETURNING password;                            
-    `, u.Id)
-	return
-}
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {
 	err = pg.Get(&txn, `
@@ -449,19 +54,12 @@ LIMIT 1
 	return
 }
 
-func (u User) AtName() string {
-	if u.Username != "" {
-		return "@" + u.Username
-	}
-	return fmt.Sprintf("user:%d", u.TelegramId)
-}
-
 type makeInvoiceArgs struct {
 	Desc                   string
 	DescHash               string
 	Msatoshi               int64
 	Expiry                 *time.Duration
-	MessageId              int
+	MessageId              interface{}
 	Tag                    string
 	Extra                  map[string]interface{}
 	BlueWallet             bool
@@ -525,6 +123,7 @@ func (u User) makeInvoice(
 
 	shadowData := ShadowChannelData{
 		UserId:    u.Id,
+		Origin:    u.origin(),
 		MessageId: args.MessageId,
 		Tag:       args.Tag,
 		Msatoshi:  msatoshi,
@@ -620,8 +219,9 @@ func (u User) payInvoice(
 			return hash, errors.New("Failed to identity internal invoice.")
 		}
 
+		tgMessageId, _ := shadowData.MessageId.(int)
 		err = u.addInternalPendingInvoice(
-			shadowData.MessageId,
+			tgMessageId,
 			shadowData.UserId,
 			shadowData.Msatoshi,
 			hash,
@@ -642,7 +242,7 @@ func (u User) payInvoice(
 
 		inv.Preimage = shadowData.Preimage
 
-		go handleInvoicePaid(hash, shadowData)
+		go onInvoicePaid(hash, shadowData)
 		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(u, messageId, float64(amount), float64(amount),
 			shadowData.Preimage, shadowData.Tag, hash)
@@ -1084,122 +684,6 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 	return
 }
 
-func (u User) getInfo() (info Info, err error) {
-	err = pg.Get(&info, `
-SELECT
-  b.account_id,
-  b.balance/1000 AS balance,
-  CASE
-    WHEN b.balance > 5000000 THEN b.balance * 0.99009 / 1000
-    ELSE b.balance/1000
-  END AS usable,
-  (
-    SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
-    WHERE b.account_id = t.to_id
-  ) AS totalrecv,
-  (
-    SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
-    WHERE b.account_id = t.from_id
-  ) AS totalsent,
-  (
-    SELECT coalesce(sum(fees), 0)::float/1000 FROM lightning.transaction AS t
-    WHERE b.account_id = t.from_id
-  ) AS fees
-FROM lightning.balance AS b
-WHERE b.account_id = $1
-GROUP BY b.account_id, b.balance
-    `, u.Id)
-	if err == sql.ErrNoRows {
-		info = Info{
-			AccountId:     strconv.Itoa(u.Id),
-			Balance:       0,
-			UsableBalance: 0,
-			TotalSent:     0,
-			TotalReceived: 0,
-			TotalFees:     0,
-		}
-		err = nil
-	}
-
-	return
-}
-
-func (u User) getTaggedBalances() (balances []TaggedBalance, err error) {
-	err = pg.Select(&balances, `
-SELECT
-  tag,
-  sum(amount)::float/1000 AS balance
-FROM lightning.account_txn
-WHERE account_id = $1 AND tag IS NOT NULL
-GROUP BY tag
-    `, u.Id)
-	return
-}
-
-func (u User) listTransactions(limit, offset, descCharLimit int, tag string, inOrOut InOut) (txns []Transaction, err error) {
-	var filter string
-	switch inOrOut {
-	case In:
-		filter += " AND amount > 0 "
-	case Out:
-		filter += " AND amount < 0 "
-	case Both:
-		filter += ""
-	}
-
-	err = pg.Select(&txns, `
-SELECT * FROM (
-  SELECT
-    time,
-    telegram_peer,
-    anonymous,
-    status,
-    CASE WHEN char_length(coalesce(description, '')) <= $4
-      THEN coalesce(description, '')
-      ELSE substring(coalesce(description, '') from 0 for ($4 - 1)) || '…'
-    END AS description,
-    tag,
-    fees::float/1000 AS fees,
-    amount::float/1000 AS amount,
-    payment_hash,
-    preimage
-  FROM lightning.account_txn
-  WHERE account_id = $1 `+filter+` AND (CASE WHEN $5 != '' THEN tag = $5 ELSE true END)
-  ORDER BY time DESC
-  LIMIT $2
-  OFFSET $3
-) AS latest ORDER BY time ASC
-    `, u.Id, limit, offset, descCharLimit, tag)
-	if err != nil {
-		return
-	}
-
-	for i := range txns {
-		txns[i].Description = escapeHTML(txns[i].Description)
-	}
-
-	return
-}
-
-func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQuery) bool {
-	notify := func(key t.Key, templateData t.T) {
-		if cb == nil {
-			u.notify(key, templateData)
-		} else {
-			u.alert(cb, key, templateData)
-		}
-	}
-
-	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
-		notify(t.INSUFFICIENTBALANCE, t.T{
-			"Purpose": purpose,
-			"Sats":    float64(sats) - info.Balance,
-		})
-		return false
-	}
-	return true
-}
-
 func (u User) setAppData(appname string, data interface{}) (err error) {
 	j, err := json.Marshal(data)
 	if err != nil {
@@ -1227,14 +711,6 @@ WHERE id = $1
 
 	err = j.Unmarshal(data)
 	return
-}
-
-func (u User) track(event string, eventProperties map[string]interface{}) {
-	amp.Event(amplitude.Event{
-		UserId:          strconv.Itoa(u.Id),
-		EventType:       event,
-		EventProperties: eventProperties,
-	})
 }
 
 func paymentHasSucceeded(
@@ -1285,18 +761,4 @@ func paymentHasFailed(u User, messageId int, hash string) {
 		log.Error().Err(err).Str("hash", hash).
 			Msg("failed to cancel transaction after routing failure")
 	}
-}
-
-type Info struct {
-	AccountId     string  `db:"account_id"`
-	Balance       float64 `db:"balance"`
-	UsableBalance float64 `db:"usable"`
-	TotalSent     float64 `db:"totalsent"`
-	TotalReceived float64 `db:"totalrecv"`
-	TotalFees     float64 `db:"fees"`
-}
-
-type TaggedBalance struct {
-	Tag     string  `db:"tag"`
-	Balance float64 `db:"balance"`
 }

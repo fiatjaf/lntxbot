@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -65,18 +67,21 @@ func sendTelegramMessageAsText(chatId int64, msg string) tgbotapi.Message {
 func sendTelegramMessageWithPicture(
 	chatId int64,
 	pictureURL *url.URL,
-	message string,
+	text string,
 ) tgbotapi.Message {
-	photo := tgbotapi.NewPhotoUpload(chatId, *pictureURL)
-	photo.Caption = message
-	photo.ParseMode = "HTML"
-	c, err := bot.Send(photo)
-	if err != nil {
-		log.Warn().Str("path", pictureURL.String()).
-			Str("message", message).Err(err).
+	resp, err := bot.MakeRequest("sendPhoto", url.Values{
+		"chat_id":    {strconv.FormatInt(chatId, 10)},
+		"photo":      {pictureURL.String()},
+		"caption":    {text},
+		"parse_mode": {"HTML"},
+	})
+	if err != nil || !resp.Ok {
+		log.Warn().Str("path", pictureURL.String()).Str("text", text).Err(err).
 			Msg("sending telegram photo")
-		return sendTelegramMessage(chatId, message)
+		return sendTelegramMessage(chatId, text)
 	} else {
+		var c tgbotapi.Message
+		json.Unmarshal(resp.Result, &c)
 		return c
 	}
 }

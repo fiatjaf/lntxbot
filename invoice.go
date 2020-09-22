@@ -68,7 +68,8 @@ func resolveWaitingInvoice(hash string, inv Invoice) {
 // preimage.
 type ShadowChannelData struct {
 	UserId          int
-	MessageId       int
+	Origin          string // "telegram" or "discord"
+	MessageId       interface{}
 	Tag             string
 	Msatoshi        int64
 	Description     string
@@ -148,13 +149,75 @@ var INVOICESPAMLIMITS = []InvoiceSpamLimit{
 	{100000, "<=100", 10},
 }
 
+func onInvoicePaid(hash string, data ShadowChannelData) {
+	log.Print("invoice paid ", data)
+	receiver, err := loadUser(data.UserId)
+	if err != nil {
+		log.Warn().Err(err).
+			Interface("shadow-data", data).
+			Msg("failed to load on onInvoicePaid")
+		return
+	}
+
+	receiver.track("got payment", map[string]interface{}{
+		"sats": float64(data.Msatoshi) / 1000,
+	})
+
+	// is there a comment associated with this?
+	go func() {
+		time.Sleep(3 * time.Second)
+		if comment, ok := data.Extra["comment"]; ok && comment != "" {
+			receiver.notify(t.LNURLPAYCOMMENT, t.T{
+				"Text":           comment,
+				"HashFirstChars": hash[:5],
+			})
+		}
+	}()
+
+	// proceed to compute an incoming payment for this user
+	err = receiver.paymentReceived(
+		int(data.Msatoshi),
+		data.Description,
+		hash,
+		data.Preimage,
+		data.Tag,
+	)
+	if err != nil {
+		switch data.Origin {
+		case "telegram":
+			mid, _ := data.MessageId.(int)
+			receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, mid)
+		case "discord":
+			receiver.notify(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash})
+			mid, _ := data.MessageId.(string)
+			discord.MessageReactionAdd(receiver.DiscordChannelId, mid, ":headphones:")
+		}
+		return
+	}
+
+	switch data.Origin {
+	case "telegram":
+		mid, _ := data.MessageId.(int)
+		receiver.notifyAsReply(t.PAYMENTRECEIVED, t.T{
+			"Sats": data.Msatoshi / 1000,
+			"Hash": hash[:5],
+		}, mid)
+	case "discord":
+		receiver.notify(t.PAYMENTRECEIVED, t.T{
+			"Sats": data.Msatoshi / 1000,
+			"Hash": hash[:5],
+		})
+		mid, _ := data.MessageId.(string)
+		discord.MessageReactionAdd(receiver.DiscordChannelId, mid, ":heart:")
+	}
+}
+
 func handleInvoice(u User, opts docopt.Opts, desc string, tgMessageId int) {
 	if opts["lnurl"].(bool) {
 		// print static lnurl-pay for this user
 		lnurl, _ := lnurl.LNURLEncode(
 			fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
 		u.sendMessageWithPicture(qrURL(lnurl), lnurl)
-
 		go u.track("print lnurl", nil)
 	} else {
 		sats, err := parseSatoshis(opts)

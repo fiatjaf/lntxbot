@@ -8,7 +8,6 @@ import (
 
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
 	decodepay "github.com/fiatjaf/ln-decodepay"
-	"github.com/fiatjaf/lntxbot/t"
 )
 
 var continueHTLC = map[string]interface{}{"result": "continue"}
@@ -67,7 +66,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 
 	// here we know it's a payment for an lntxbot user
 	go deleteDataAssociatedWithShadowChannelId(bscid)
-	go handleInvoicePaid(hash, shadowData)
+	go onInvoicePaid(hash, shadowData)
 	go resolveWaitingInvoice(hash, Invoice{
 		Bolt11: decodepay.Bolt11{
 			MSatoshi:        shadowData.Msatoshi,
@@ -83,47 +82,4 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		"result":      "resolve",
 		"payment_key": shadowData.Preimage,
 	}
-}
-
-func handleInvoicePaid(hash string, data ShadowChannelData) {
-	receiver, err := loadUser(data.UserId)
-	if err != nil {
-		log.Warn().Err(err).
-			Interface("shadow-data", data).
-			Msg("failed to load on handleInvoicePaid")
-		return
-	}
-
-	receiver.track("got payment", map[string]interface{}{
-		"sats": float64(data.Msatoshi) / 1000,
-	})
-
-	// is there a comment associated with this?
-	go func() {
-		time.Sleep(3 * time.Second)
-		if comment, ok := data.Extra["comment"]; ok && comment != "" {
-			receiver.notify(t.LNURLPAYCOMMENT, t.T{
-				"Text":           comment,
-				"HashFirstChars": hash[:5],
-			})
-		}
-	}()
-
-	// proceed to compute an incoming payment for this user
-	err = receiver.paymentReceived(
-		int(data.Msatoshi),
-		data.Description,
-		hash,
-		data.Preimage,
-		data.Tag,
-	)
-	if err != nil {
-		receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
-		return
-	}
-
-	receiver.notifyAsReply(t.PAYMENTRECEIVED, t.T{
-		"Sats": data.Msatoshi / 1000,
-		"Hash": hash[:5],
-	}, data.MessageId)
 }

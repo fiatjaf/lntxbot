@@ -40,7 +40,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
-		argstr:  "(lnurl <satoshis> | [now] [<invoice>])",
+		argstr:  "(lnurl <satoshis> | [now] [<invoice>] [<satoshis>])",
 	},
 	def{
 		aliases: []string{"send", "tip", "sendanonymously"},
@@ -174,7 +174,7 @@ var commandList []string
 var commandIndex = make(map[string]def)
 
 func setupCommands() {
-	s.Usage = docoptFromMethodDefinitions(true)
+	s.Usage = docoptFromMethodDefinitions()
 
 	for _, def := range methods {
 		for _, alias := range def.aliases {
@@ -184,20 +184,26 @@ func setupCommands() {
 	}
 }
 
-func docoptFromMethodDefinitions(withAliases bool) string {
+func docoptFromMethodDefinitions() string {
 	var lines []string
 
 	for _, def := range methods {
-		if withAliases {
-			for _, alias := range def.aliases {
-				lines = append(lines, "  c "+alias+" "+def.argstr)
-			}
-		} else {
-			lines = append(lines, "  c "+def.aliases[0]+" "+def.argstr)
+		for _, alias := range def.aliases {
+			lines = append(lines, "  c "+alias+" "+def.argstr)
 		}
 	}
 
 	return s.ServiceId + "\n\nUsage:\n" + strings.Join(lines, "\n")
+}
+
+func commandsListFromDefinitions() string {
+	var lines []string
+
+	for _, def := range methods {
+		lines = append(lines, "/"+def.aliases[0]+" "+def.argstr)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 var parser = docopt.Parser{
@@ -248,11 +254,12 @@ func handleHelp(u User, method string) (handled bool) {
 
 	method = strings.ToLower(strings.TrimSpace(method))
 	if method == "" {
-		briefUsage := docoptFromMethodDefinitions(false)
+		briefUsage := commandsListFromDefinitions()
 		helpString = translateTemplate(t.HELPINTRO, u.Locale, t.T{
-			"Help": escapeHTML(strings.Replace(briefUsage, "  c ", "  /", -1)),
+			"Help": escapeHTML(briefUsage),
 		})
-		goto gothelpstring
+		u.sendMessage(helpString)
+		return true
 	}
 
 	// render specific help instructions for the given method
@@ -294,10 +301,6 @@ func handleHelp(u User, method string) (handled bool) {
 	}
 
 	helpString = translateTemplate(t.HELPMETHOD, u.Locale, params)
-
-	goto gothelpstring
-
-gothelpstring:
 	u.sendMessage(helpString)
 	return true
 }

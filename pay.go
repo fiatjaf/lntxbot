@@ -71,8 +71,19 @@ func handlePay(
 				Format("Mon Jan 2 15:04"),
 			"Expired": time.Unix(int64(inv.CreatedAt+inv.Expiry), 0).
 				Before(time.Now()),
-			"Currency": inv.Currency,
-			"Hints":    inv.Route,
+			"Currency":  inv.Currency,
+			"Hints":     inv.Route,
+			"IsDiscord": u.isDiscord(),
+		}
+
+		if u.isDiscord() {
+			if amount == 0 {
+				u.notify(t.ERROR, t.T{"Err": "Amountless invoice, use `/paynow &lt;invoice&gt; &lt;amount&gt;`"})
+				return errors.New("paying amountless on discord")
+			}
+
+			u.notify(t.PAYPROMPT, payTmplParams)
+			return nil
 		}
 
 		if amount == 0 {
@@ -115,15 +126,16 @@ func handlePay(
 		)
 
 		u.notifyWithKeyboard(t.PAYPROMPT, payTmplParams, &keyboard, 0)
-		return nil
 	} else {
-		_, err := u.payInvoice(messageId, bolt11, 0)
+		amountToPay, _ := opts.Int("<satoshis>")
+		_, err := u.payInvoice(messageId, bolt11, int64(amountToPay)*1000)
 		if err != nil {
 			u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
 			return err
 		}
-		return nil
 	}
+
+	return nil
 }
 
 func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.CallbackQuery) {

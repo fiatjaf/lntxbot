@@ -232,11 +232,31 @@ func handleSingleTransaction(u User, opts docopt.Opts, messageId int) {
 	}
 }
 
-func handleTransactionList(u User, page int, tag string, filter InOut, cb *tgbotapi.CallbackQuery) {
+func handleTransactionList(u User, opts docopt.Opts) {
+	page, _ := opts.Int("--page")
+	filter := Both
+	if opts["--in"].(bool) {
+		filter = In
+	} else if opts["--out"].(bool) {
+		filter = Out
+	}
+	tag, _ := opts.String("<tag>")
+
+	displayTransactionList(u, page, tag, filter, nil)
+}
+
+func displayTransactionList(u User, page int, tag string, filter InOut, cb *tgbotapi.CallbackQuery) {
 	// show list of transactions
 	if page == 0 {
 		page = 1
 	}
+
+	go u.track("txlist", map[string]interface{}{
+		"filter": filter,
+		"tag":    tag,
+		"page":   page,
+	})
+
 	limit := 25
 	offset := limit * (page - 1)
 

@@ -11,10 +11,19 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
+	"github.com/fiatjaf/lntxbot/t"
 	"github.com/gorilla/mux"
 )
 
-func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded string) {
+func handleCreateLNURLWithdraw(u User, opts docopt.Opts, messageId int) (lnurlEncoded string) {
+	sats, err := parseSatoshis(opts)
+	if err != nil {
+		u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+		return
+	}
+
+	go u.track("lnurl generate", map[string]interface{}{"sats": sats})
+
 	maxsats := strconv.Itoa(sats)
 	ok := u.checkBalanceFor(sats, "lnurl-withdraw", nil)
 	if !ok {
@@ -26,7 +35,7 @@ func handleLNCreateLNURLWithdraw(u User, sats int, messageId int) (lnurlEncoded 
 	nexturl := fmt.Sprintf("%s/lnurl/withdraw?message=%d&challenge=%s", s.ServiceURL, messageId, challenge)
 	rds.Set("lnurlwithdraw:"+challenge, fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
 
-	lnurlEncoded, err := lnurl.LNURLEncode(nexturl)
+	lnurlEncoded, err = lnurl.LNURLEncode(nexturl)
 	if err != nil {
 		log.Error().Err(err).Msg("error encoding lnurl on withdraw")
 		return
@@ -148,7 +157,7 @@ func serveLNURL() {
 		}
 
 		// print the bolt11 just because
-		nextMessageId := sendTelegramMessageAsReply(u.TelegramChatId, bolt11, messageId).MessageID
+		nextMessageId, _ := u.sendMessageAsReply(bolt11, messageId).(int)
 
 		go u.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
 			"sats": inv.Get("msatoshi").Float() / 1000,
@@ -161,7 +170,6 @@ func serveLNURL() {
 			"now":       true,
 		}
 		handlePay(u, opts, nextMessageId, nil)
-
 		json.NewEncoder(w).Encode(lnurl.OkResponse())
 	})
 

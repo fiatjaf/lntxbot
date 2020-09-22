@@ -133,6 +133,12 @@ func nodeLink(nodeId string) string {
 		return "{}"
 	}
 
+	if getNodeAlias(nodeId) == "~" {
+		// if there's no node alias we assume this isn't a public node
+		// and thus show its id fully and no links
+		return `<code>` + nodeId + `</code>`
+	}
+
 	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }

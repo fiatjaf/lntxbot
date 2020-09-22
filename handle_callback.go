@@ -51,8 +51,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 		page, _ := strconv.Atoi(parts[0])
 		filter := InOut(parts[1])
 		tag := parts[2]
-		go handleTransactionList(u, page, tag, filter, cb)
-		go u.track("txlist page", map[string]interface{}{"page": page})
+		go displayTransactionList(u, page, tag, filter, cb)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {

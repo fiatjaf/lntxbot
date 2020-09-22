@@ -88,7 +88,7 @@ func handleMessage(message *tgbotapi.Message) {
 		)
 	)
 
-	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got message")
+	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got telegram message")
 
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
@@ -620,68 +620,17 @@ parsed:
 			sendTelegramMessageWithKeyboard(u.TelegramChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
 		}()
 	case opts["transactions"].(bool):
-		go func() {
-			page, _ := opts.Int("--page")
-			filter := Both
-			if opts["--in"].(bool) {
-				filter = In
-			} else if opts["--out"].(bool) {
-				filter = Out
-			}
-
-			tag, _ := opts.String("<tag>")
-			handleTransactionList(u, page, tag, filter, nil)
-
-			go u.track("txlist", nil)
-		}()
+		go handleTransactionList(u, opts)
 	case opts["balance"].(bool):
-		go func() {
-			go u.track("balance", map[string]interface{}{"apps": opts["apps"].(bool)})
-
-			if opts["apps"].(bool) {
-				// balance of apps
-				taggedbalances, err := u.getTaggedBalances()
-				if err != nil {
-					log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-					u.notify(t.ERROR, t.T{"Err": err.Error()})
-					return
-				}
-
-				u.notify(t.TAGGEDBALANCEMSG, t.T{"Balances": taggedbalances})
-			} else {
-				// normal balance
-				info, err := u.getInfo()
-				if err != nil {
-					log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-					u.notify(t.ERROR, t.T{"Err": err.Error()})
-					return
-				}
-
-				u.notify(t.BALANCEMSG, t.T{
-					"Sats":     info.Balance,
-					"Usable":   info.UsableBalance,
-					"Received": info.TotalReceived,
-					"Sent":     info.TotalSent,
-					"Fees":     info.TotalFees,
-				})
-			}
-		}()
+		go handleBalance(u, opts)
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
-			// generate an lnurl-withdraw so a remote wallet can send an invoice
-			sats, err := parseSatoshis(opts)
-			if err != nil {
-				u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
-				break
-			}
-			handleLNCreateLNURLWithdraw(u, sats, message.MessageID)
-
-			go u.track("lnurl generate", map[string]interface{}{"sats": sats})
+			// create an lnurl-withdraw voucher
+			handleCreateLNURLWithdraw(u, opts, message.MessageID)
 		} else {
 			// normal payment flow
 			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
 		}
-		break
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		messageId := message.MessageID
 		desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")

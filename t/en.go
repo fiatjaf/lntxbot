@@ -520,7 +520,8 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 - {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}{{end}}
 <b>Payee</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>)
 
-{{if .Sats}}Pay the invoice described above?
+{{if .Sats}}Pay the invoice described above?{{if .IsDiscord}}
+React with a :zap: to confirm.{{end}}
 {{else}}<b>Reply with the desired amount to confirm.</b>
 {{end}}
     `,

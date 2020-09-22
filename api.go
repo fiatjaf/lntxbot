@@ -56,7 +56,9 @@ func registerAPIMethods() {
 			return
 		}
 
-		lnurlEncoded := handleLNCreateLNURLWithdraw(user, sats, -rand.Int())
+		lnurlEncoded := handleCreateLNURLWithdraw(user, docopt.Opts{
+			"<satoshis>": sats,
+		}, -rand.Int())
 		if lnurlEncoded == "" {
 			errorInvalidParams(w)
 			return

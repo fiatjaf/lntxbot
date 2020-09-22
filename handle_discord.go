@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -50,7 +52,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 
 	messageText = "/" + message.Content[1:]
 
-	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got message")
+	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got discord message")
 
 	opts, isCommand, err = parse(messageText)
 	if !isCommand {
@@ -183,6 +185,18 @@ parsed:
 		go handleSingleTransaction(u, opts, 0)
 	case opts["log"].(bool):
 		go handleLogView(u, opts)
+	case opts["transactions"].(bool):
+		go handleTransactionList(u, opts)
+	case opts["balance"].(bool):
+		go handleBalance(u, opts)
+	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
+		if opts["lnurl"].(bool) {
+			// create an lnurl-withdraw voucher
+			handleCreateLNURLWithdraw(u, opts, -rand.Int())
+		} else {
+			// normal payment flow
+			handlePay(u, opts, 0, nil)
+		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		desc, _ := opts.String("<description>")
 		go handleInvoice(u, opts, desc, 0)
@@ -200,5 +214,6 @@ parsed:
 
 func handleDiscordReaction(dgs *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	reaction := m.MessageReaction
-	log.Print(reaction)
+	j, _ := json.Marshal(reaction.Emoji)
+	log.Print("reaction from ", reaction.UserID, " to ", reaction.MessageID, " with ", string(j))
 }
