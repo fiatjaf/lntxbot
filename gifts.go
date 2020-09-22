@@ -63,7 +63,7 @@ func (g GiftsGift) RedeemerURL() string {
 	return nodeLink(inv.Get("payee").String())
 }
 
-func createGift(user User, sats int, messageId int) error {
+func createGift(user User, sats int, messageId interface{}) error {
 	var order GiftsOrder
 	var gerr GiftsError
 	resp, err := napping.Post("https://api.lightning.gifts/create", struct {
@@ -89,7 +89,7 @@ func createGift(user User, sats int, messageId int) error {
 		messageId, order.LightningInvoice.PayReq, inv, inv.MSatoshi,
 		func(
 			u User,
-			messageId int,
+			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -132,14 +132,7 @@ func createGift(user User, sats int, messageId int) error {
 				return
 			}
 		},
-		func(
-			u User,
-			messageId int,
-			hash string,
-		) {
-			// on failure
-			paymentHasFailed(u, messageId, hash)
-		},
+		paymentHasFailed,
 	)
 }
 

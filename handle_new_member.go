@@ -54,7 +54,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		username = newmember.FirstName
 	}
 
-	notifyMessage := g.notify(t.SPAMFILTERMESSAGE, t.T{
+	notifyMessageId := g.notify(t.SPAMFILTERMESSAGE, t.T{
 		"User": username,
 		"Sats": g.Ticket,
 	})
@@ -94,12 +94,18 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		return
 	}
 
-	invoiceMessage := sendTelegramMessageWithPicture(joinMessage.Chat.ID,
+	invoiceMessageId := sendTelegramMessageWithPicture(joinMessage.Chat.ID,
 		qrURL(bolt11), bolt11)
 
 	kickdata := KickData{
-		invoiceMessage,
-		notifyMessage,
+		tgbotapi.Message{
+			Chat:      &tgbotapi.Chat{ID: joinMessage.Chat.ID},
+			MessageID: invoiceMessageId.(int),
+		},
+		tgbotapi.Message{
+			Chat:      &tgbotapi.Chat{ID: joinMessage.Chat.ID},
+			MessageID: notifyMessageId.(int),
+		},
 		*joinMessage,
 		tgbotapi.ChatMemberConfig{
 			UserID: newmember.ID,

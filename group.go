@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/fiatjaf/lntxbot/t"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	cmap "github.com/orcaman/concurrent-map"
 )
 
@@ -124,11 +123,11 @@ func setLanguage(chatId int64, lang string) (err error) {
 	return
 }
 
-func (g GroupChat) notify(key t.Key, templateData t.T) tgbotapi.Message {
+func (g GroupChat) notify(key t.Key, templateData t.T) (id interface{}) {
 	return g.notifyAsReply(key, templateData, 0)
 }
 
-func (g GroupChat) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
+func (g GroupChat) notifyAsReply(key t.Key, templateData t.T, replyToId int) (id interface{}) {
 	log.Debug().Int64("chat", g.TelegramId).Str("key", string(key)).Interface("data", templateData).Msg("posting to group")
 	msg := translateTemplate(key, g.Locale, templateData)
 	return sendTelegramMessageAsReply(-g.TelegramId, msg, replyToId)

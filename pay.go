@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
@@ -82,7 +83,17 @@ func handlePay(
 				return errors.New("paying amountless on discord")
 			}
 
-			u.notify(t.PAYPROMPT, payTmplParams)
+			var messageId string
+			switch v := u.notify(t.PAYPROMPT, payTmplParams).(type) {
+			case DiscordMessage:
+				messageId = v.MessageID
+			case string:
+				messageId = v
+			}
+
+			rds.Set(
+				fmt.Sprintf("reaction-confirm:%s:%s", u.DiscordId, messageId),
+				bolt11, time.Minute*15)
 			return nil
 		}
 
@@ -107,7 +118,7 @@ func handlePay(
 				Type   string `json:"type"`
 				Bolt11 string `json:"bolt11"`
 			}{"pay", bolt11})
-			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Hour*24)
+			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Minute*15)
 			return nil
 		}
 
@@ -138,6 +149,37 @@ func handlePay(
 	return nil
 }
 
+func handlePayReactionConfirm(reaction *discordgo.MessageReaction) {
+	key := fmt.Sprintf("reaction-confirm:%s:%s", reaction.UserID, reaction.MessageID)
+	bolt11, err := rds.Get(key).Result()
+	if err != nil {
+		return
+	}
+
+	// there is a bolt11 invoice, therefore this is actually a confirmation
+	// and it comes from the correct user
+	u, err := loadDiscordUser(reaction.UserID)
+	if err != nil {
+		log.Warn().Err(err).Str("id", reaction.UserID).Msg("failed to load discord user")
+		return
+	}
+
+	_, err = u.payInvoice(reaction.MessageID, bolt11, 0)
+	if err == nil {
+		inv, _ := decodepay.Decodepay(bolt11)
+		hashfirstchars := inv.PaymentHash[0:5]
+
+		appendToDiscordMessage(reaction.ChannelID, reaction.MessageID,
+			translateTemplate(t.CALLBACKATTEMPT, u.Locale, t.T{
+				"Hash": hashfirstchars,
+			}))
+		discord.MessageReactionAdd(reaction.ChannelID, reaction.MessageID, "✅")
+	} else {
+		appendToDiscordMessage(reaction.ChannelID, reaction.MessageID, err.Error())
+		discord.MessageReactionAdd(reaction.ChannelID, reaction.MessageID, "❌")
+	}
+}
+
 func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.CallbackQuery) {
 	defer removeKeyboardButtons(cb)
 
@@ -158,11 +200,11 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 
 	_, err = u.payInvoice(messageId, bolt11, 0)
 	if err == nil {
-		appendTextToMessage(cb, translateTemplate(t.CALLBACKATTEMPT, locale, t.T{
+		appendToTelegramMessage(cb, translateTemplate(t.CALLBACKATTEMPT, locale, t.T{
 			"Hash": hashfirstchars,
 		}))
 	} else {
-		appendTextToMessage(cb, err.Error())
+		appendToTelegramMessage(cb, err.Error())
 	}
 
 	go u.track("pay confirm", map[string]interface{}{"amountless": false})

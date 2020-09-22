@@ -54,7 +54,7 @@ type SatelliteData struct {
 	Orders [][]string `json:"orders"`
 }
 
-func createSatelliteOrder(user User, messageId int, satoshis int, message string) (err error) {
+func createSatelliteOrder(user User, messageId interface{}, satoshis int, message string) (err error) {
 	resp, err := http.PostForm("https://api.blockstream.space/order", url.Values{
 		"bid":     {strconv.Itoa(satoshis * 1000)},
 		"message": {message},
@@ -86,7 +86,7 @@ func createSatelliteOrder(user User, messageId int, satoshis int, message string
 	return paySatelliteOrder(user, messageId, orderreq)
 }
 
-func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest) error {
+func paySatelliteOrder(user User, messageId interface{}, orderreq SatelliteOrderRequest) error {
 	inv, err := decodeInvoice(orderreq.LightningInvoice.PayReq)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
@@ -95,7 +95,7 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 		messageId, orderreq.LightningInvoice.PayReq, inv, inv.MSatoshi,
 		func(
 			u User,
-			messageId int,
+			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -108,14 +108,7 @@ func paySatelliteOrder(user User, messageId int, orderreq SatelliteOrderRequest)
 			// done
 			u.notifyAsReply(t.SATELLITEPAID, t.T{"UUID": orderreq.UUID}, messageId)
 		},
-		func(
-			u User,
-			messageId int,
-			hash string,
-		) {
-			// on failure
-			paymentHasFailed(u, messageId, hash)
-		},
+		paymentHasFailed,
 	)
 }
 

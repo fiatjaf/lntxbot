@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -214,6 +213,13 @@ parsed:
 
 func handleDiscordReaction(dgs *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	reaction := m.MessageReaction
-	j, _ := json.Marshal(reaction.Emoji)
-	log.Print("reaction from ", reaction.UserID, " to ", reaction.MessageID, " with ", string(j))
+
+	log.Print("got emoji ", reaction.Emoji.Name)
+
+	switch reaction.Emoji.Name {
+	case "⚡":
+		log.Print("lightning emoji!")
+		// potentially an user confirming a $pay command
+		handlePayReactionConfirm(reaction)
+	}
 }

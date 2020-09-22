@@ -341,14 +341,17 @@ func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, mes
 		return
 	}
 
-	processingMessage := sendTelegramMessage(u.TelegramChatId,
+	processingMessageId := sendTelegramMessage(u.TelegramChatId,
 		res.PR+"\n\n"+translate(t.PROCESSING, u.Locale),
 	)
 
 	// pay it
 	hash, err := u.payInvoice(messageId, res.PR, 0)
 	if err == nil {
-		deleteMessage(&processingMessage)
+		deleteMessage(&tgbotapi.Message{
+			Chat:      &tgbotapi.Chat{ID: u.TelegramChatId},
+			MessageID: processingMessageId.(int),
+		})
 
 		// wait until lnurl-pay is paid successfully.
 		go func() {
@@ -402,7 +405,7 @@ func lnurlpayFinish(u User, msats int64, comment, callback, metadata string, mes
 			}
 		}()
 	} else {
-		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, processingMessage.MessageID)
+		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, processingMessageId.(int))
 	}
 }
 

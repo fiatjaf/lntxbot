@@ -32,12 +32,13 @@ type User struct {
 
 const USERFIELDS = `
   id,
-  coalesce(telegram_id, 0) AS telegram_id,
   coalesce(telegram_username, coalesce(discord_username, '')) AS username,
-  coalesce(telegram_chat_id, 0) AS telegram_chat_id,
-  coalesce(discord_channel_id, '') AS discord_channel_id,
+  locale,
   password,
-  locale
+  coalesce(telegram_id, 0) AS telegram_id,
+  coalesce(telegram_chat_id, 0) AS telegram_chat_id,
+  coalesce(discord_id, '') AS discord_id,
+  coalesce(discord_channel_id, '') AS discord_channel_id
 `
 
 func loadUser(id int) (u User, err error) {
@@ -350,7 +351,7 @@ func (u User) AtName() string {
 			return "@" + u.Username
 		}
 		return fmt.Sprintf("user:%d", u.TelegramId)
-	} else if u.IsDiscord() {
+	} else if u.isDiscord() {
 		return fmt.Sprintf("<@!%s>", u.DiscordId)
 	} else {
 		return "<unknown_user?err>"

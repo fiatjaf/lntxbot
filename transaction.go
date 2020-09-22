@@ -275,51 +275,55 @@ func displayTransactionList(u User, page int, tag string, filter InOut, cb *tgbo
 		"Transactions": txns,
 	})
 
-	keyboard := tgbotapi.InlineKeyboardMarkup{
-		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
-		},
-	}
-
-	if page > 1 {
-		keyboard.InlineKeyboard[0] = append(
-			keyboard.InlineKeyboard[0],
-			tgbotapi.NewInlineKeyboardButtonData(
-				"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
-		)
-	}
-
-	if len(txns) > 0 {
-		keyboard.InlineKeyboard[0] = append(
-			keyboard.InlineKeyboard[0],
-			tgbotapi.NewInlineKeyboardButtonData(
-				"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
-		)
-	}
-
-	var chattable tgbotapi.Chattable
-	if cb == nil {
-		chattable = tgbotapi.MessageConfig{
-			BaseChat: tgbotapi.BaseChat{
-				ChatID:      u.TelegramChatId,
-				ReplyMarkup: &keyboard,
+	if u.isDiscord() {
+		sendDiscordMessage(u.DiscordChannelId, text)
+	} else if u.isTelegram() {
+		keyboard := tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				[]tgbotapi.InlineKeyboardButton{},
 			},
-			Text:                  text,
-			DisableWebPagePreview: true,
-			ParseMode:             "HTML",
 		}
-	} else {
-		baseEdit := getBaseEdit(cb)
-		baseEdit.ReplyMarkup = &keyboard
-		chattable = tgbotapi.EditMessageTextConfig{
-			BaseEdit:              baseEdit,
-			Text:                  text,
-			DisableWebPagePreview: true,
-			ParseMode:             "HTML",
-		}
-	}
 
-	bot.Send(chattable)
+		if page > 1 {
+			keyboard.InlineKeyboard[0] = append(
+				keyboard.InlineKeyboard[0],
+				tgbotapi.NewInlineKeyboardButtonData(
+					"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
+			)
+		}
+
+		if len(txns) > 0 {
+			keyboard.InlineKeyboard[0] = append(
+				keyboard.InlineKeyboard[0],
+				tgbotapi.NewInlineKeyboardButtonData(
+					"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
+			)
+		}
+
+		var chattable tgbotapi.Chattable
+		if cb == nil {
+			chattable = tgbotapi.MessageConfig{
+				BaseChat: tgbotapi.BaseChat{
+					ChatID:      u.TelegramChatId,
+					ReplyMarkup: &keyboard,
+				},
+				Text:                  text,
+				DisableWebPagePreview: true,
+				ParseMode:             "HTML",
+			}
+		} else {
+			baseEdit := getBaseEdit(cb)
+			baseEdit.ReplyMarkup = &keyboard
+			chattable = tgbotapi.EditMessageTextConfig{
+				BaseEdit:              baseEdit,
+				Text:                  text,
+				DisableWebPagePreview: true,
+				ParseMode:             "HTML",
+			}
+		}
+
+		bot.Send(chattable)
+	}
 }
 
 func handleLogView(u User, opts docopt.Opts) {

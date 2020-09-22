@@ -25,15 +25,16 @@ func tgsend(chattable tgbotapi.Chattable) (sent tgbotapi.Message, err error) {
 	return sent, nil
 }
 
-func sendTelegramMessage(chatId int64, msg string) tgbotapi.Message {
+func sendTelegramMessage(chatId int64, msg string) (id interface{}) {
 	return sendTelegramMessageAsReply(chatId, msg, 0)
 }
 
-func sendTelegramMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
-	return sendTelegramMessageWithKeyboard(chatId, msg, nil, replyToId)
+func sendTelegramMessageAsReply(chatId int64, msg string, replyToId interface{}) (id interface{}) {
+	tgReplyToId, _ := replyToId.(int)
+	return sendTelegramMessageWithKeyboard(chatId, msg, nil, tgReplyToId)
 }
 
-func sendTelegramMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
+func sendTelegramMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) (id interface{}) {
 	chattable := tgbotapi.NewMessage(chatId, msg)
 	chattable.BaseChat.ReplyToMessageID = replyToId
 	chattable.ParseMode = "HTML"
@@ -46,12 +47,18 @@ func sendTelegramMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotap
 		if strings.Index(err.Error(), "reply message not found") != -1 {
 			chattable.BaseChat.ReplyToMessageID = 0
 			message, err = bot.Send(chattable)
+			if err != nil {
+				return 0
+			}
+			return message.MessageID
 		} else {
 			log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).
 				Msg("sending telegram keyboard message")
+			return 0
 		}
 	}
-	return message
+
+	return message.MessageID
 }
 
 func sendTelegramMessageAsText(chatId int64, msg string) tgbotapi.Message {
@@ -68,7 +75,7 @@ func sendTelegramMessageWithPicture(
 	chatId int64,
 	pictureURL *url.URL,
 	text string,
-) tgbotapi.Message {
+) (id interface{}) {
 	resp, err := bot.MakeRequest("sendPhoto", url.Values{
 		"chat_id":    {strconv.FormatInt(chatId, 10)},
 		"photo":      {pictureURL.String()},
@@ -82,11 +89,11 @@ func sendTelegramMessageWithPicture(
 	} else {
 		var c tgbotapi.Message
 		json.Unmarshal(resp.Result, &c)
-		return c
+		return c.MessageID
 	}
 }
 
-func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message string) tgbotapi.Message {
+func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message string) (id interface{}) {
 	video := tgbotapi.NewAnimationShare(chatId, fileId)
 	video.Caption = message
 	video.ParseMode = "HTML"
@@ -95,7 +102,7 @@ func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message str
 		log.Warn().Str("id", fileId).Str("message", message).Err(err).
 			Msg("sending telegram video")
 	}
-	return c
+	return c.MessageID
 }
 
 func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
@@ -125,7 +132,7 @@ func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
 	})
 }
 
-func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
+func appendToTelegramMessage(cb *tgbotapi.CallbackQuery, text string) {
 	if cb.Message != nil {
 		text = cb.Message.Text + " " + text
 	}

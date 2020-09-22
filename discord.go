@@ -28,7 +28,7 @@ func convertToDiscord(v string) string {
 	return v
 }
 
-func sendDiscordMessage(channelId, html string) (id string) {
+func sendDiscordMessage(channelId, html string) (id interface{}) {
 	message, err := discord.ChannelMessageSendEmbed(channelId, &discordgo.MessageEmbed{
 		Description: convertToDiscord(html),
 	})
@@ -37,14 +37,18 @@ func sendDiscordMessage(channelId, html string) (id string) {
 		return ""
 	}
 
-	return message.ID
+	return DiscordMessage{
+		GuildID:   message.GuildID,
+		ChannelID: message.ChannelID,
+		MessageID: message.ID,
+	}
 }
 
 func sendDiscordMessageWithPicture(
 	channelId string,
 	pictureURL *url.URL,
 	html string,
-) (id string) {
+) (id interface{}) {
 	var message *discordgo.Message
 
 	// at this point we have all we need to send an embed
@@ -58,5 +62,36 @@ func sendDiscordMessageWithPicture(
 		log.Warn().Str("message", html).Err(err).Msg("sending discord text message")
 		return ""
 	}
-	return message.ID
+
+	return DiscordMessage{
+		GuildID:   message.GuildID,
+		ChannelID: message.ChannelID,
+		MessageID: message.ID,
+	}
+}
+
+func appendToDiscordMessage(channelId, messageId, text string) {
+	message, err := discord.ChannelMessage(channelId, messageId)
+	if err != nil || len(message.Embeds) < 1 {
+		return
+	}
+
+	embed := message.Embeds[0]
+	embed.Description += " " + text
+	discord.ChannelMessageEditEmbed(channelId, messageId, embed)
+}
+
+type DiscordMessage struct {
+	GuildID   string
+	ChannelID string
+	MessageID string
+}
+
+func (dmi DiscordMessage) URL() string {
+	guild := dmi.GuildID
+	if guild == "" {
+		guild = "@me"
+	}
+	return "https://discord.com/channels/" + guild + "/" +
+		dmi.ChannelID + "/" + dmi.MessageID
 }

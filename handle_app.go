@@ -650,9 +650,9 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 
 			// post a notification message to identify this bet attempt
-			message := u.notify(t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
+			messageId := u.notify(t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
 
-			err = placeMicrobetBet(u, message.MessageID, betId, back)
+			err = placeMicrobetBet(u, messageId.(int), betId, back)
 			if err != nil {
 				u.notify(t.ERROR, t.T{"Err": err.Error()})
 				return translate(t.FAILURE, u.Locale)
@@ -675,7 +675,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			phone := parts[3]
 
-			appendTextToMessage(cb, item.Name)
+			appendToTelegramMessage(cb, item.Name)
 			handleBitrefillItem(u, item, phone)
 		case "pl":
 			removeKeyboardButtons(cb)
@@ -695,7 +695,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return
 			}
 			pack = packages[idx]
-			appendTextToMessage(cb, fmt.Sprintf("%v %s", pack.Value, item.Currency))
+			appendToTelegramMessage(cb, fmt.Sprintf("%v %s", pack.Value, item.Currency))
 
 			phone := parts[4]
 			handleProcessBitrefillOrder(u, item, pack, &phone)
@@ -721,10 +721,10 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			go u.track("bitclouds create-finish", map[string]interface{}{"image": image})
 
-			appendTextToMessage(cb, image)
+			appendToTelegramMessage(cb, image)
 		case "status":
 			host := unescapeBitcloudsHost(parts[2])
-			appendTextToMessage(cb, host)
+			appendToTelegramMessage(cb, host)
 			showBitcloudStatus(u, host)
 		default: // sats to topup
 			sats, err := strconv.Atoi(parts[1])
@@ -733,7 +733,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
-			appendTextToMessage(cb, host)
+			appendToTelegramMessage(cb, host)
 			topupBitcloud(u, host, sats)
 
 			go u.track("bitclouds topup", map[string]interface{}{"host": host})

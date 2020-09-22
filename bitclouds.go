@@ -56,7 +56,7 @@ func createBitcloudImage(user User, image string) (err error) {
 		0, create.PayToStart, inv, inv.MSatoshi,
 		func(
 			u User,
-			messageId int,
+			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -165,7 +165,7 @@ func topupBitcloud(user User, host string, sats int) error {
 		0, topup.Invoice, inv, inv.MSatoshi,
 		func(
 			u User,
-			messageId int,
+			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,

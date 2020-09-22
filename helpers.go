@@ -64,12 +64,12 @@ func searchForInvoice(u User, message interface{}) (bolt11, lnurltext string, ok
 	var text string
 
 	switch m := message.(type) {
-	case tgbotapi.Message:
+	case *tgbotapi.Message:
 		text = m.Text
 		if text == "" {
 			text = m.Caption
 		}
-	case discordgo.Message:
+	case *discordgo.Message:
 		text = m.Content
 	}
 

@@ -107,7 +107,7 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 		messageId, payreq.PaymentRequest, inv, inv.MSatoshi,
 		func(
 			u User,
-			messageId int,
+			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,

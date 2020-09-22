@@ -243,14 +243,14 @@ func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
 		replyCustom = true
 	}
 
-	sent := user.notifyWithKeyboard(t.BITREFILLPACKAGESHEADER, t.T{
+	sentId := user.notifyWithKeyboard(t.BITREFILLPACKAGESHEADER, t.T{
 		"Item":        item.Name,
 		"ReplyCustom": replyCustom,
 	}, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
 
 	if replyCustom {
 		rds.Set(
-			fmt.Sprintf("reply:%d:%d", user.Id, sent.MessageID),
+			fmt.Sprintf("reply:%d:%d", user.Id, sentId.(int)),
 			fmt.Sprintf(`{"type": "bitrefill", "item": "%s", "phone": "%s"}`,
 				item.Slug, phone),
 			time.Hour*1,
@@ -326,7 +326,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 		0, bolt11, inv, inv.MSatoshi,
 		func(
 			u User,
-			messageId int,
+			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,

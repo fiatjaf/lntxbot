@@ -93,7 +93,7 @@ func handleMessage(message *tgbotapi.Message) {
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(messageText, "/") {
-		if bolt11, lnurltext, ok := searchForInvoice(u, *message); ok {
+		if bolt11, lnurltext, ok := searchForInvoice(u, message); ok {
 			if bolt11 != "" {
 				opts, _, _ = parse("/pay " + bolt11)
 				goto parsed

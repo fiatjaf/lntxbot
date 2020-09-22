@@ -179,7 +179,7 @@ func (u User) makeInvoice(
 }
 
 func (u User) payInvoice(
-	messageId int,
+	messageId interface{},
 	bolt11 string,
 	manuallySpecifiedMsatoshi int64,
 ) (hash string, err error) {
@@ -263,13 +263,13 @@ func (u User) payInvoice(
 }
 
 func (u User) actuallySendExternalPayment(
-	messageId int,
+	messageId interface{},
 	bolt11 string,
 	inv Invoice,
 	msatoshi int64,
 	onSuccess func(
 		u User,
-		messageId int,
+		messageId interface{},
 		msatoshi float64,
 		msatoshi_sent float64,
 		preimage string,
@@ -278,7 +278,7 @@ func (u User) actuallySendExternalPayment(
 	),
 	onFailure func(
 		u User,
-		messageId int,
+		messageId interface{},
 		hash string,
 	),
 ) (err error) {
@@ -297,12 +297,16 @@ func (u User) actuallySendExternalPayment(
 		fee_reserve = 0
 	}
 
+	// if not tg this will just be ignored
+	// TODO maybe remove trigger_message from the database
+	tgMessageId, _ := messageId.(int)
+
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, amount, fees, description, payment_hash, pending, trigger_message, remote_node)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, u.Id, msatoshi, int64(fee_reserve), inv.Description,
-		hash, true, messageId, inv.Payee)
+		hash, true, tgMessageId, inv.Payee)
 	if err != nil {
 		log.Debug().Err(err).Int64("msatoshi", msatoshi).
 			Msg("database error inserting transaction")
@@ -715,7 +719,7 @@ WHERE id = $1
 
 func paymentHasSucceeded(
 	u User,
-	messageId int,
+	messageId interface{},
 	msatoshi float64,
 	msatoshi_sent float64,
 	preimage string,
@@ -728,6 +732,8 @@ func paymentHasSucceeded(
 
 	// if there's a tag we save that too, otherwise leave it null
 	tagn := sql.NullString{String: tag, Valid: tag != ""}
+
+	// TODO some fancy reaction for discord
 
 	_, err = pg.Exec(`
 UPDATE lightning.transaction
@@ -752,7 +758,7 @@ WHERE payment_hash = $3
 	}, messageId)
 }
 
-func paymentHasFailed(u User, messageId int, hash string) {
+func paymentHasFailed(u User, messageId interface{}, hash string) {
 	u.notifyAsReply(t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, messageId)
 
 	_, err := pg.Exec(

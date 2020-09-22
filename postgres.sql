@@ -101,7 +101,7 @@ CREATE VIEW lightning.balance AS
     WHERE amount <= 0 OR (amount > 0 AND pending = false)
     GROUP BY account.id;
 
-CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
+CREATE OR REPLACE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
   -- a user is potentially inactive if it doesn't have an active chat or has called /stop
   -- a user is only _truly_ inactive if it haven't made any outgoing transactions.
   WITH potentially_inactive_user AS (
@@ -110,7 +110,7 @@ CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
     WHERE acct.id = tx.to_id
   )
   SELECT CASE
-    WHEN id IS NOT NULL AND chat_id IS NULL THEN CASE
+    WHEN id IS NOT NULL AND telegram_chat_id IS NULL AND discord_channel_id IS NULL THEN CASE
       WHEN (
         SELECT count(*) AS total FROM lightning.transaction
         WHERE from_id = (SELECT id FROM potentially_inactive_user)
@@ -120,13 +120,3 @@ CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
     ELSE false
   END FROM potentially_inactive_user
 $$ LANGUAGE SQL;
-
-table account;
-table telegram.chat;
-table lightning.transaction;
-table lightning.account_txn;
-table lightning.balance;
-select * from lightning.transaction where pending;
-select * from account inner join lightning.balance on id = account_id where chat_id is not null order by id;
-select count(*) as active_users from account inner join lightning.balance as b on account_id = id where chat_id is not null and b.balance > 1000000;
-select sum(balance) from lightning.balance;

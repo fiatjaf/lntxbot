@@ -189,8 +189,19 @@ func onInvoicePaid(hash string, data ShadowChannelData) {
 			receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, mid)
 		case "discord":
 			receiver.notify(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash})
-			mid, _ := data.MessageId.(string)
-			discord.MessageReactionAdd(receiver.DiscordChannelId, mid, ":headphones:")
+			var (
+				channelId string
+				messageId string
+			)
+			switch v := data.MessageId.(type) {
+			case string:
+				channelId = receiver.DiscordChannelId
+				messageId = v
+			case DiscordMessage:
+				channelId = v.ChannelID
+				messageId = v.MessageID
+			}
+			discord.MessageReactionAdd(channelId, messageId, "✅")
 		}
 		return
 	}
@@ -207,8 +218,20 @@ func onInvoicePaid(hash string, data ShadowChannelData) {
 			"Sats": data.Msatoshi / 1000,
 			"Hash": hash[:5],
 		})
-		mid, _ := data.MessageId.(string)
-		discord.MessageReactionAdd(receiver.DiscordChannelId, mid, ":heart:")
+
+		var (
+			channelId string
+			messageId string
+		)
+		switch v := data.MessageId.(type) {
+		case string:
+			channelId = receiver.DiscordChannelId
+			messageId = v
+		case DiscordMessage:
+			channelId = v.ChannelID
+			messageId = v.MessageID
+		}
+		discord.MessageReactionAdd(channelId, messageId, "⚠️")
 	}
 }
 

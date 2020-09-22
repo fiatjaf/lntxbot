@@ -9,7 +9,7 @@ import (
 
 func (u User) sendMessage(text string) (id interface{}) {
 	if u.isTelegram() {
-		return sendTelegramMessage(u.TelegramChatId, text).MessageID
+		return sendTelegramMessage(u.TelegramChatId, text)
 	} else if u.isDiscord() {
 		return sendDiscordMessage(u.DiscordChannelId, text)
 	} else {
@@ -19,11 +19,15 @@ func (u User) sendMessage(text string) (id interface{}) {
 	}
 }
 
-func (u User) sendMessageAsReply(text string, replyToId int) (id interface{}) {
+func (u User) sendMessageAsReply(text string, replyToId interface{}) (id interface{}) {
 	if u.isTelegram() {
-		return sendTelegramMessageAsReply(u.TelegramChatId, text, replyToId).MessageID
+		return sendTelegramMessageAsReply(u.TelegramChatId, text, replyToId)
 	} else if u.isDiscord() {
-		return sendDiscordMessage(u.DiscordChannelId, text)
+		var link string
+		if fullDiscordId, ok := replyToId.(DiscordMessage); ok {
+			link = "\n" + fullDiscordId.URL()
+		}
+		return sendDiscordMessage(u.DiscordChannelId, text+link)
 	} else {
 		log.Warn().Interface("user", u).
 			Msg("can't message user without chat or channel")
@@ -33,8 +37,7 @@ func (u User) sendMessageAsReply(text string, replyToId int) (id interface{}) {
 
 func (u User) sendMessageWithPicture(pictureURL *url.URL, text string) (id interface{}) {
 	if u.isTelegram() {
-		return sendTelegramMessageWithPicture(u.TelegramChatId, pictureURL, text).
-			MessageID
+		return sendTelegramMessageWithPicture(u.TelegramChatId, pictureURL, text)
 	} else if u.isDiscord() {
 		return sendDiscordMessageWithPicture(u.DiscordChannelId, pictureURL, text)
 	} else {
@@ -44,22 +47,23 @@ func (u User) sendMessageWithPicture(pictureURL *url.URL, text string) (id inter
 	}
 }
 
-func (u User) notify(key t.Key, templateData t.T) tgbotapi.Message {
+func (u User) notify(key t.Key, templateData t.T) (id interface{}) {
 	return u.notifyAsReply(key, templateData, 0)
 }
 
-func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId int) tgbotapi.Message {
+func (u User) notifyAsReply(key t.Key, templateData t.T, replyToId interface{}) (id interface{}) {
 	if u.isTelegram() {
-		return u.notifyWithKeyboard(key, templateData, nil, replyToId)
+		tgReplyToId, _ := replyToId.(int)
+		return u.notifyWithKeyboard(key, templateData, nil, tgReplyToId)
 	} else if u.isDiscord() {
 		html := translateTemplate(key, u.Locale, templateData)
-		sendDiscordMessage(u.DiscordChannelId, html)
+		return sendDiscordMessage(u.DiscordChannelId, html)
 	}
 
-	return tgbotapi.Message{} // TODO return an id here maybe, so discord can work
+	return nil
 }
 
-func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
+func (u User) notifyWithKeyboard(key t.Key, templateData t.T, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) (id interface{}) {
 	if u.TelegramChatId == 0 {
 		log.Info().Str("user", u.Username).Str("key", string(key)).
 			Msg("can't notify user as it hasn't started a chat with the bot.")
