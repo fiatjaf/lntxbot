@@ -430,7 +430,7 @@ func handleCallback(cb *tgbotapi.CallbackQuery) {
 				goto answerEmpty
 			}
 
-			winner.notify(t.USERSENTYOUSATS, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip"})
+			winner.notify(t.USERSENTYOUSATS, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip", "RawSats": ""})
 
 			bot.Send(tgbotapi.EditMessageTextConfig{
 				BaseEdit: getBaseEdit(cb),
