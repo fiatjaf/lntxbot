@@ -1,13 +1,33 @@
 package main
 
 import (
-	"net/url"
 	"regexp"
 	"strings"
 
 	html_to_markdown "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/bwmarrin/discordgo"
 )
+
+type DiscordMessageID string // a string in the format "guild/channel/message"
+
+func discordMessageID(guildId, channelId, messageId string) DiscordMessageID {
+	if guildId == "" {
+		guildId = "@me"
+	}
+	return DiscordMessageID(guildId + "/" + channelId + "/" + messageId)
+}
+
+func discordIDFromMessage(message *discordgo.Message) DiscordMessageID {
+	return discordMessageID(message.GuildID, message.ChannelID, message.ID)
+}
+
+func (d DiscordMessageID) Guild() string   { return strings.Split(string(d), "/")[0] }
+func (d DiscordMessageID) Channel() string { return strings.Split(string(d), "/")[1] }
+func (d DiscordMessageID) Message() string { return strings.Split(string(d), "/")[2] }
+
+func (d DiscordMessageID) URL() string {
+	return "https://discord.com/channels/" + string(d)
+}
 
 var slashToDollarSignReplacer = regexp.MustCompile(`([^\w\/]|^)/(\w)`)
 var mdConverter = html_to_markdown.NewConverter("", true, &html_to_markdown.Options{
@@ -28,48 +48,6 @@ func convertToDiscord(v string) string {
 	return v
 }
 
-func sendDiscordMessage(channelId, html string) (id interface{}) {
-	message, err := discord.ChannelMessageSendEmbed(channelId, &discordgo.MessageEmbed{
-		Description: convertToDiscord(html),
-	})
-	if err != nil {
-		log.Warn().Str("message", html).Err(err).Msg("sending discord text message")
-		return ""
-	}
-
-	return DiscordMessage{
-		GuildID:   message.GuildID,
-		ChannelID: message.ChannelID,
-		MessageID: message.ID,
-	}
-}
-
-func sendDiscordMessageWithPicture(
-	channelId string,
-	pictureURL *url.URL,
-	html string,
-) (id interface{}) {
-	var message *discordgo.Message
-
-	// at this point we have all we need to send an embed
-	message, err := discord.ChannelMessageSendEmbed(channelId, &discordgo.MessageEmbed{
-		Description: convertToDiscord(html),
-		Image: &discordgo.MessageEmbedImage{
-			URL: pictureURL.String(),
-		},
-	})
-	if err != nil {
-		log.Warn().Str("message", html).Err(err).Msg("sending discord text message")
-		return ""
-	}
-
-	return DiscordMessage{
-		GuildID:   message.GuildID,
-		ChannelID: message.ChannelID,
-		MessageID: message.ID,
-	}
-}
-
 func appendToDiscordMessage(channelId, messageId, text string) {
 	message, err := discord.ChannelMessage(channelId, messageId)
 	if err != nil || len(message.Embeds) < 1 {
@@ -79,19 +57,4 @@ func appendToDiscordMessage(channelId, messageId, text string) {
 	embed := message.Embeds[0]
 	embed.Description += " " + text
 	discord.ChannelMessageEditEmbed(channelId, messageId, embed)
-}
-
-type DiscordMessage struct {
-	GuildID   string
-	ChannelID string
-	MessageID string
-}
-
-func (dmi DiscordMessage) URL() string {
-	guild := dmi.GuildID
-	if guild == "" {
-		guild = "@me"
-	}
-	return "https://discord.com/channels/" + guild + "/" +
-		dmi.ChannelID + "/" + dmi.MessageID
 }

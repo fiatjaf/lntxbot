@@ -1,97 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
-	"net/url"
-	"strconv"
-	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
-
-func tgsend(chattable tgbotapi.Chattable) (sent tgbotapi.Message, err error) {
-	sent, err = bot.Send(chattable)
-	if err != nil && strings.Index(err.Error(), "reply message not found") != -1 {
-		switch c := chattable.(type) {
-		case tgbotapi.MessageConfig:
-			c.BaseChat.ReplyToMessageID = 0
-			return tgsend(c)
-		}
-	} else if err != nil {
-		return
-	}
-	return sent, nil
-}
-
-func sendTelegramMessage(chatId int64, msg string) (id interface{}) {
-	return sendTelegramMessageAsReply(chatId, msg, 0)
-}
-
-func sendTelegramMessageAsReply(chatId int64, msg string, replyToId interface{}) (id interface{}) {
-	tgReplyToId, _ := replyToId.(int)
-	return sendTelegramMessageWithKeyboard(chatId, msg, nil, tgReplyToId)
-}
-
-func sendTelegramMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) (id interface{}) {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.BaseChat.ReplyToMessageID = replyToId
-	chattable.ParseMode = "HTML"
-	chattable.DisableWebPagePreview = true
-	if keyboard != nil {
-		chattable.BaseChat.ReplyMarkup = *keyboard
-	}
-	message, err := bot.Send(chattable)
-	if err != nil {
-		if strings.Index(err.Error(), "reply message not found") != -1 {
-			chattable.BaseChat.ReplyToMessageID = 0
-			message, err = bot.Send(chattable)
-			if err != nil {
-				return 0
-			}
-			return message.MessageID
-		} else {
-			log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).
-				Msg("sending telegram keyboard message")
-			return 0
-		}
-	}
-
-	return message.MessageID
-}
-
-func sendTelegramMessageAsText(chatId int64, msg string) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.DisableWebPagePreview = true
-	c, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Str("message", msg).Err(err).Msg("sending telegram text message")
-	}
-	return c
-}
-
-func sendTelegramMessageWithPicture(
-	chatId int64,
-	pictureURL *url.URL,
-	text string,
-) (id interface{}) {
-	resp, err := bot.MakeRequest("sendPhoto", url.Values{
-		"chat_id":    {strconv.FormatInt(chatId, 10)},
-		"photo":      {pictureURL.String()},
-		"caption":    {text},
-		"parse_mode": {"HTML"},
-	})
-	if err != nil || !resp.Ok {
-		log.Warn().Str("path", pictureURL.String()).Str("text", text).Err(err).
-			Msg("sending telegram photo")
-		return sendTelegramMessage(chatId, text)
-	} else {
-		var c tgbotapi.Message
-		json.Unmarshal(resp.Result, &c)
-		return c.MessageID
-	}
-}
 
 func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message string) (id interface{}) {
 	video := tgbotapi.NewAnimationShare(chatId, fileId)
