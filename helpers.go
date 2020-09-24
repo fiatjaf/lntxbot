@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
@@ -92,13 +93,13 @@ func searchForInvoice(u User, message interface{}) (bolt11, lnurltext string, ok
 		if err != nil {
 			log.Warn().Err(err).Str("fileid", photo.FileID).
 				Msg("failed to get photo URL.")
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
+			send(ctx, u, t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
 			return
 		}
 
 		text, err := decodeQR(photourl)
 		if err != nil {
-			u.notifyAsReply(t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
+			send(ctx, u, t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
 			return
 		}
 
@@ -367,11 +368,17 @@ func roman(number int) string {
 	return roman
 }
 
-func translate(key t.Key, locale string) string {
-	return translateTemplate(key, locale, nil)
+func translate(ctx context.Context, key t.Key) string {
+	return translateTemplate(ctx, key, nil)
 }
 
-func translateTemplate(key t.Key, locale string, data t.T) string {
+func translateTemplate(ctx context.Context, key t.Key, data t.T) string {
+	iloc := ctx.Value("locale")
+	var locale string
+	if iloc != nil {
+		locale, _ = iloc.(string)
+	}
+
 	msg, err := bundle.Render(locale, key, data)
 
 	if err != nil {

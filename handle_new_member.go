@@ -23,7 +23,7 @@ type KickData struct {
 	Sats             int                       `json:"sats"`
 }
 
-func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
+func handleNewMember(ctx ctx.Context, joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	g, err := loadGroup(joinMessage.Chat.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -54,7 +54,7 @@ func handleNewMember(joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 		username = newmember.FirstName
 	}
 
-	notifyMessageId := g.notify(t.SPAMFILTERMESSAGE, t.T{
+	notifyMessageId := send(ctx, g, t.SPAMFILTERMESSAGE, t.T{
 		"User": username,
 		"Sats": g.Ticket,
 	})

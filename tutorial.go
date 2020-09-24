@@ -29,15 +29,15 @@ func handleTutorial(u User, section string) {
 }
 
 func tutorialWallet(u User) {
-	text := translateTemplate(t.TUTORIALWALLET, u.Locale, t.T{"BotName": s.ServiceId})
+	text := translateTemplate(ctx, t.TUTORIALWALLET, t.T{"BotName": s.ServiceId})
 
-	if u.isTelegram() {
+	if u.TelegramChatId != 0 {
 		sendTelegramMessageWithAnimationId(
 			u.TelegramChatId,
 			s.TutorialWalletVideoId,
 			text,
 		)
-	} else if u.isDiscord() {
+	} else {
 		md, _ := mdConverter.ConvertString(text)
 		discord.ChannelMessageSendEmbed(u.DiscordChannelId, &discordgo.MessageEmbed{
 			Description: md,
@@ -49,9 +49,9 @@ func tutorialWallet(u User) {
 }
 
 func tutorialApps(u User) {
-	u.notify(t.TUTORIALAPPS, t.T{"BotName": s.ServiceId})
+	send(ctx, u, t.TUTORIALAPPS, t.T{"BotName": s.ServiceId})
 }
 
 func tutorialTwitter(u User) {
-	u.notify(t.TUTORIALTWITTER, t.T{"BotName": s.ServiceId})
+	send(ctx, u, t.TUTORIALTWITTER, t.T{"BotName": s.ServiceId})
 }

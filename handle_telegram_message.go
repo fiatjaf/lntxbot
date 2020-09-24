@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -15,15 +16,17 @@ import (
 	"github.com/lucsky/cuid"
 )
 
-func handleMessage(message *tgbotapi.Message) {
-	var u User
+func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
+	ctx = context.WithValue(ctx, "message", message)
+
 	if message.Chat.Type == "channel" {
 		u = User{
 			TelegramChatId: message.Chat.ID,
 			Locale:         "en",
 		}
 	} else {
-		user, tcase, err := ensureTelegramUser(message.From.ID, message.From.UserName, message.From.LanguageCode)
+		user, tcase, err := ensureTelegramUser(
+			message.From.ID, message.From.UserName, message.From.LanguageCode)
 		if err != nil {
 			log.Warn().Err(err).Int("case", tcase).
 				Str("username", message.From.UserName).
@@ -31,13 +34,14 @@ func handleMessage(message *tgbotapi.Message) {
 				Msg("failed to ensure user")
 			return
 		}
-		u = user
 
 		// stop if temporarily banned
 		if _, ok := s.Banned[u.Id]; ok {
 			log.Debug().Int("id", u.Id).Msg("got request from banned user")
 			return
 		}
+
+		ctx = context.WithValue(ctx, "initiator", u)
 	}
 
 	// by default we use the user locale for the group object, because
@@ -108,9 +112,10 @@ func handleMessage(message *tgbotapi.Message) {
 	// otherwise parse the slash command
 	opts, isCommand, err = parse(messageText)
 	if !isCommand {
-		if message.ReplyToMessage != nil && message.ReplyToMessage.From.ID == bot.Self.ID {
+		if message.ReplyToMessage != nil &&
+			message.ReplyToMessage.From.ID == bot.Self.ID {
 			// may be a written reply to a specific bot prompt
-			handleReply(u, message, message.ReplyToMessage.MessageID)
+			handleReply(ctx)
 		}
 
 		return
@@ -124,15 +129,11 @@ func handleMessage(message *tgbotapi.Message) {
 				Msg("failed to parse command")
 
 			method := strings.Split(messageText, " ")[0][1:]
-			handled := handleHelp(u, method)
+			handled := handleHelp(ctx, method)
 			if !handled {
-				u.notify(t.WRONGCOMMAND, nil)
+				send(ctx, u, t.WRONGCOMMAND)
 			}
 		}
-
-		// save the fact that we didn't understand this so it can be edited and reevaluated
-		rds.Set(fmt.Sprintf("parseerror:%d", message.MessageID), "1", time.Minute*5)
-
 		return
 	}
 
@@ -142,9 +143,6 @@ func handleMessage(message *tgbotapi.Message) {
 	})
 
 parsed:
-	// if we reached this point we should make sure the command won't be editable again
-	rds.Del(fmt.Sprintf("parseerror:%d", message.MessageID))
-
 	if opts["paynow"].(bool) {
 		opts["pay"] = true
 		opts["now"] = true
@@ -156,7 +154,7 @@ parsed:
 			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
 				handleTutorial(u, tutorial)
 			} else {
-				u.notify(t.WELCOME, nil)
+				send(ctx, u, t.WELCOME)
 				handleTutorial(u, "")
 			}
 			go u.track("start", nil)
@@ -165,7 +163,7 @@ parsed:
 	case opts["stop"].(bool):
 		if message.Chat.Type == "private" {
 			u.unsetChat()
-			u.notify(t.STOPNOTIFY, nil)
+			send(ctx, u, t.STOPNOTIFY)
 			go u.track("stop", nil)
 		}
 		break
@@ -175,28 +173,20 @@ parsed:
 		opts["rub"].(bool), opts["skype"].(bool),
 		opts["bitrefill"].(bool), opts["bitclouds"].(bool),
 		opts["etleneum"].(bool), opts["etl"].(bool):
-		handleExternalApp(u, opts, message)
+		handleExternalApp(ctx, opts, message)
 		break
 	case opts["bluewallet"].(bool), opts["zeus"].(bool), opts["lndhub"].(bool):
-		go handleBlueWallet(u, opts)
+		go handleBlueWallet(ctx, opts)
 	case opts["api"].(bool):
-		go handleAPI(u, opts)
+		go handleAPI(ctx, opts)
 	case opts["lightningatm"].(bool):
-		go handleLightningATM(u)
+		go handleLightningATM(ctx)
 	case opts["tx"].(bool):
-		go handleSingleTransaction(u, opts, message.MessageID)
+		go handleSingleTransaction(ctx, opts)
 	case opts["log"].(bool):
-		go handleLogView(u, opts)
+		go handleLogView(ctx, opts)
 	case opts["send"].(bool), opts["tip"].(bool):
-		// default notify function to use depending on many things
-		var defaultNotify func(t.Key, t.T)
-		if message.Chat.Type == "private" {
-			defaultNotify = func(key t.Key, data t.T) { u.notifyAsReply(key, data, message.MessageID) }
-		} else if isSpammy(message.Chat.ID) {
-			defaultNotify = func(key t.Key, data t.T) { g.notifyAsReply(key, data, message.MessageID) }
-		} else {
-			defaultNotify = func(key t.Key, data t.T) { u.notify(key, data) }
-		}
+		ctx = context.WithValue(ctx, "spammy", isSpammy(g.TelegramId))
 
 		// sending money to others
 		var (
@@ -212,7 +202,7 @@ parsed:
 		satsraw := opts["<satoshis>"].(string)
 
 		if err != nil || sats <= 0 {
-			defaultNotify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		} else {
 			usernameval = opts["<receiver>"]
@@ -242,7 +232,7 @@ parsed:
 			rec, cas, err := ensureTelegramUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
 			receiver = &rec
 			if err != nil {
-				defaultNotify(t.SAVERECEIVERFAIL, nil)
+				send(ctx, u, t.SAVERECEIVERFAIL)
 				log.Warn().Err(err).Int("case", cas).
 					Str("username", reply.From.UserName).
 					Int("id", reply.From.ID).
@@ -262,7 +252,7 @@ parsed:
 				log.Warn().Err(err).Interface("val", usernameval).
 					Msg("error parsing username")
 			}
-			defaultNotify(t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
+			send(ctx, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
 			break
 		}
 
@@ -281,15 +271,15 @@ parsed:
 				Str("from", u.Username).
 				Str("to", todisplayname).
 				Msg("failed to send/tip")
-			defaultNotify(t.FAILEDSEND, t.T{"Err": err.Error()})
+			send(ctx, u, t.FAILEDSEND, t.T{"Err": err.Error()})
 			break
 		}
 
 		if receiver.TelegramChatId != 0 {
 			if anonymous {
-				receiver.notify(t.RECEIVEDSATSANON, t.T{"Sats": sats})
+				send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
 			} else {
-				receiver.notify(t.USERSENTYOUSATS, t.T{
+				send(ctx, receiver, t.USERSENTYOUSATS, t.T{
 					"User":    u.AtName(),
 					"Sats":    sats,
 					"RawSats": satsraw,
@@ -297,22 +287,16 @@ parsed:
 			}
 		}
 
-		if message.Chat.Type == "private" {
-			u.notifyAsReply(t.USERSENTTOUSER, t.T{
-				"User":              todisplayname,
-				"Sats":              sats,
-				"RawSats":           satsraw,
-				"ReceiverHasNoChat": receiver.TelegramChatId == 0,
-			}, message.MessageID)
-			break
+		var maybeForceSpammy interface{}
+		if receiver.TelegramChatId == 0 {
+			maybeForceSpammy = FORCESPAMMY
 		}
 
-		defaultNotify(t.USERSENTTOUSER, t.T{
-			"User":              todisplayname,
-			"Sats":              sats,
-			"RawSats":           satsraw,
-			"ReceiverHasNoChat": false,
-		})
+		send(ctx, u, t.USERSENTTOUSER, t.T{
+			"User":    todisplayname,
+			"Sats":    sats,
+			"RawSats": satsraw,
+		}, message.MessageID, maybeForceSpammy)
 
 		go u.track("send", map[string]interface{}{
 			"group":     group,
@@ -324,11 +308,11 @@ parsed:
 	case opts["giveaway"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err != nil {
-			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !canJoinGiveaway(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "giveaway"})
+			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveaway"})
 			return
 		}
 		if !u.checkBalanceFor(sats, "giveaway", nil) {
@@ -353,15 +337,15 @@ parsed:
 	case opts["giveflip"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err != nil {
-			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !canCreateGiveflip(u.Id) {
-			u.notify(t.RATELIMIT, nil)
+			send(ctx, u, t.RATELIMIT)
 			return
 		}
 		if !canJoinGiveflip(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
+			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
 			return
 		}
 		if !u.checkBalanceFor(sats, "giveflip", nil) {
@@ -371,7 +355,7 @@ parsed:
 		var nparticipants int
 		if n, err := opts.Int("<num_participants>"); err == nil {
 			if n < 2 || n > 100 {
-				u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
+				send(ctx, u, t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
 				break
 			} else {
 				nparticipants = n
@@ -403,23 +387,23 @@ parsed:
 		if !enabled {
 			forwardMessage(message, u.TelegramChatId)
 			deleteMessage(message)
-			u.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": false})
+			send(ctx, u, t.COINFLIPSENABLEDMSG, t.T{"Enabled": false})
 			break
 		}
 
 		// open a lottery between a number of users in a group
 		sats, err := parseSatoshis(opts)
 		if err != nil {
-			u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 
 		if !canCreateCoinflip(u.Id) {
-			u.notify(t.RATELIMIT, nil)
+			send(ctx, u, t.RATELIMIT)
 			return
 		}
 		if !canJoinCoinflip(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "coinflip"})
+			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
 		if !u.checkBalanceFor(sats, "coinflip", nil) {
@@ -429,7 +413,7 @@ parsed:
 		nparticipants := 2
 		if n, err := opts.Int("<num_participants>"); err == nil {
 			if n < 2 || n > 100 {
-				u.notify(t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
+				send(ctx, u, t.INVALIDPARTNUMBER, t.T{"Number": strconv.Itoa(n)})
 				break
 			} else {
 				nparticipants = n
@@ -459,7 +443,7 @@ parsed:
 		// many people join, we get all the money and transfer to the target
 		sats, err := parseSatoshis(opts)
 		if err != nil {
-			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
 		if !u.checkBalanceFor(sats, "fundraise", nil) {
@@ -468,14 +452,14 @@ parsed:
 
 		nparticipants, err := opts.Int("<num_participants>")
 		if err != nil || nparticipants < 2 || nparticipants > 100 {
-			u.notify(t.INVALIDPARTNUMBER, t.T{"Number": nparticipants})
+			send(ctx, u, t.INVALIDPARTNUMBER, t.T{"Number": nparticipants})
 			break
 		}
 
 		receiver, receiverdisplayname, err := parseUsername(message, opts["<receiver>"])
 		if err != nil {
 			log.Warn().Err(err).Msg("parsing fundraise receiver")
-			u.notify(t.FAILEDUSER, nil)
+			send(ctx, u, t.FAILEDUSER)
 			break
 		}
 
@@ -525,13 +509,13 @@ parsed:
 			}
 		} else if message.ReplyToMessage == nil {
 			// no content found
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
 		sats, err := parseSatoshis(opts)
 		if err != nil || sats == 0 {
-			u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			return
 		}
 
@@ -565,19 +549,19 @@ parsed:
 		}
 		hiddenmessagejson, err := json.Marshal(hiddenmessage)
 		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
 		err = rds.Set(fmt.Sprintf("hidden:%d:%s", u.Id, hiddenid), string(hiddenmessagejson), s.HiddenMessageTimeout).Err()
 		if err != nil {
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
 		siq := "reveal " + hiddenid
 		sendTelegramMessageWithKeyboard(u.TelegramChatId,
-			translateTemplate(t.HIDDENWITHID, u.Locale, t.T{
+			translateTemplate(ctx, t.HIDDENWITHID, t.T{
 				"HiddenId": hiddenid,
 				"Message":  hiddenmessage,
 			}),
@@ -585,7 +569,7 @@ parsed:
 				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.InlineKeyboardButton{
-							Text:              translate(t.HIDDENSHAREBTN, u.Locale),
+							Text:              translate(ctx, t.HIDDENSHAREBTN),
 							SwitchInlineQuery: &siq,
 						},
 					},
@@ -607,38 +591,35 @@ parsed:
 
 			redisKey, ok := findHiddenKey(hiddenid)
 			if !ok {
-				u.notifyAsReply(t.HIDDENMSGNOTFOUND, nil, message.MessageID)
+				send(ctx, u, t.HIDDENMSGNOTFOUND, nil, message.MessageID)
 				return
 			}
 
 			_, _, hidden, err := getHiddenMessage(redisKey, g.Locale)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 				return
 			}
 
 			sendTelegramMessageWithKeyboard(u.TelegramChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
 		}()
 	case opts["transactions"].(bool):
-		go handleTransactionList(u, opts)
+		go handleTransactionList(ctx, opts)
 	case opts["balance"].(bool):
-		go handleBalance(u, opts)
+		go handleBalance(ctx, opts)
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
 			// create an lnurl-withdraw voucher
-			handleCreateLNURLWithdraw(u, opts, message.MessageID)
+			handleCreateLNURLWithdraw(ctx, opts)
 		} else {
 			// normal payment flow
-			handlePay(u, opts, message.MessageID, message.ReplyToMessage)
+			handlePay(ctx, opts)
 		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		messageId := message.MessageID
 		desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
-		go handleInvoice(u, opts, desc, messageId)
+		go handleInvoice(ctx, opts, desc)
 	case opts["lnurl"].(bool):
-		go handleLNURL(u, opts["<lnurl>"].(string), handleLNURLOpts{
-			messageId: message.MessageID,
-		})
+		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
 	case opts["rename"].(bool):
 		go func() {
 			if message.Chat.Type == "private" {
@@ -652,11 +633,11 @@ parsed:
 				"SELECT renamable FROM telegram.chat WHERE telegram_id = $1",
 				-message.Chat.ID)
 			if price == 0 {
-				g.notify(t.GROUPNOTRENAMABLE, nil)
+				send(ctx, g, t.GROUPNOTRENAMABLE)
 				return
 			}
 			if !isAdmin(message.Chat, &bot.Self) {
-				g.notify(t.GROUPNOTRENAMABLE, nil)
+				send(ctx, g, t.GROUPNOTRENAMABLE)
 				return
 			}
 
@@ -699,12 +680,12 @@ parsed:
 						err := setLanguage(u.TelegramChatId, lang)
 						if err != nil {
 							log.Warn().Err(err).Msg("failed to toggle language")
-							u.notify(t.ERROR, t.T{"Err": err.Error()})
+							send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 							break
 						}
-						u.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+						send(ctx, u, t.LANGUAGEMSG, t.T{"Language": lang})
 					} else {
-						u.notify(t.LANGUAGEMSG, t.T{"Language": u.Locale})
+						send(ctx, u, t.LANGUAGEMSG, t.T{"Language": u.Locale})
 					}
 				}
 
@@ -726,7 +707,7 @@ parsed:
 				price, err := opts.Int("<price>")
 				if err != nil {
 					setTicketPrice(message.Chat.ID, 0)
-					g.notify(t.FREEJOIN, nil)
+					send(ctx, g, t.FREEJOIN)
 				}
 
 				go u.track("toggle ticket", map[string]interface{}{
@@ -736,7 +717,7 @@ parsed:
 
 				setTicketPrice(message.Chat.ID, price)
 				if price > 0 {
-					g.notify(t.TICKETMSG, t.T{
+					send(ctx, g, t.TICKETMSG, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})
@@ -746,7 +727,7 @@ parsed:
 				price, err := opts.Int("<price>")
 				if err != nil {
 					setTicketPrice(message.Chat.ID, 0)
-					g.notify(t.FREEJOIN, nil)
+					send(ctx, g, t.FREEJOIN)
 				}
 
 				go u.track("toggle renamable", map[string]interface{}{
@@ -756,7 +737,7 @@ parsed:
 
 				setRenamablePrice(message.Chat.ID, price)
 				if price > 0 {
-					g.notify(t.RENAMABLEMSG, t.T{
+					send(ctx, g, t.RENAMABLEMSG, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})
@@ -766,7 +747,7 @@ parsed:
 				spammy, err := toggleSpammy(message.Chat.ID)
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to toggle spammy")
-					g.notify(t.ERROR, t.T{"Err": err.Error()})
+					send(ctx, g, t.ERROR, t.T{"Err": err.Error()})
 					break
 				}
 
@@ -775,13 +756,13 @@ parsed:
 					"spammy": spammy,
 				})
 
-				g.notify(t.SPAMMYMSG, t.T{"Spammy": spammy})
+				send(ctx, g, t.SPAMMYMSG, t.T{"Spammy": spammy})
 			case opts["coinflips"].(bool):
 				log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
 				enabled, err := toggleCoinflips(message.Chat.ID)
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to toggle coinflips")
-					g.notify(t.ERROR, t.T{"Err": err.Error()})
+					send(ctx, g, t.ERROR, t.T{"Err": err.Error()})
 					break
 				}
 
@@ -790,14 +771,14 @@ parsed:
 					"enabled": enabled,
 				})
 
-				g.notify(t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
+				send(ctx, g, t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
 			case opts["language"].(bool):
 				if lang, err := opts.String("<lang>"); err == nil {
 					log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
 					err := setLanguage(message.Chat.ID, lang)
 					if err != nil {
 						log.Warn().Err(err).Msg("failed to toggle language")
-						u.notify(t.ERROR, t.T{"Err": err.Error()})
+						send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 						break
 					}
 
@@ -806,9 +787,9 @@ parsed:
 						"lang":  lang,
 					})
 
-					g.notify(t.LANGUAGEMSG, t.T{"Language": lang})
+					send(ctx, g, t.LANGUAGEMSG, t.T{"Language": lang})
 				} else {
-					g.notify(t.LANGUAGEMSG, t.T{"Language": g.Locale})
+					send(ctx, g, t.LANGUAGEMSG, t.T{"Language": g.Locale})
 				}
 
 			}
@@ -821,26 +802,4 @@ parsed:
 		}
 		break
 	}
-}
-
-func handleEditedMessage(message *tgbotapi.Message) {
-	// is this a hidden message?
-	_, ok := findHiddenKey(getHiddenId(message))
-	if ok {
-		// yes, so we'll process it again even though it wasn't wrong at the first try
-		handleMessage(message)
-		return
-	}
-
-	// proceed
-	res, err := rds.Get(fmt.Sprintf("parseerror:%d", message.MessageID)).Result()
-	if err != nil {
-		return
-	}
-
-	if res != "1" {
-		return
-	}
-
-	handleMessage(message)
 }

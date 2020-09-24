@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/fiatjaf/lntxbot/t"
 	cmap "github.com/orcaman/concurrent-map"
 )
 
@@ -66,7 +65,6 @@ func isSpammy(telegramId int64) (spammy bool) {
 	}
 
 	spammy_cache.Set(strconv.FormatInt(-telegramId, 10), spammy)
-
 	return
 }
 
@@ -121,14 +119,4 @@ func setLanguage(chatId int64, lang string) (err error) {
 
 	_, err = pg.Exec("UPDATE "+table+" SET locale = $2"+taint+" WHERE "+field+" = $1", id, lang)
 	return
-}
-
-func (g GroupChat) notify(key t.Key, templateData t.T) (id interface{}) {
-	return g.notifyAsReply(key, templateData, 0)
-}
-
-func (g GroupChat) notifyAsReply(key t.Key, templateData t.T, replyToId int) (id interface{}) {
-	log.Debug().Int64("chat", g.TelegramId).Str("key", string(key)).Interface("data", templateData).Msg("posting to group")
-	msg := translateTemplate(key, g.Locale, templateData)
-	return sendTelegramMessageAsReply(-g.TelegramId, msg, replyToId)
 }

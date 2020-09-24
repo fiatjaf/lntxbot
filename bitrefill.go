@@ -149,7 +149,7 @@ WHERE appdata->'bitrefill'->'orders' ? $1
 			return
 		}
 
-		user.notify(t.BITREFILLPURCHASEDONE, t.T{
+		send(ctx, user, t.BITREFILLPURCHASEDONE, t.T{
 			"OrderId": orderinfo.OrderId,
 			"Info":    orderinfo,
 		})
@@ -243,7 +243,7 @@ func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
 		replyCustom = true
 	}
 
-	sentId := user.notifyWithKeyboard(t.BITREFILLPACKAGESHEADER, t.T{
+	sentId := send(ctx, usert.BITREFILLPACKAGESHEADER, t.T{
 		"Item":        item.Name,
 		"ReplyCustom": replyCustom,
 	}, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
@@ -340,7 +340,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 			var data BitrefillData
 			err := user.getAppData("bitrefill", &data)
 			if err != nil {
-				u.notify(t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
+				send(ctx, u, t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
 				return
 			}
 			data.PaidOrders = append(data.PaidOrders, orderId)
@@ -352,7 +352,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 
 			err = user.setAppData("bitrefill", data)
 			if err != nil {
-				u.notify(t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
+				send(ctx, u, t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
 				return
 			}
 
@@ -403,11 +403,11 @@ func pollBitrefillOrder(user User, orderId string, countdown int) {
 		// but it can still contain an error
 		log.Warn().Str("type", orderinfo.ErrorType).Str("id", orderId).Str("message", orderinfo.ErrorMessage).
 			Msg("bitrefill purchase failed")
-		user.notify(t.BITREFILLPURCHASEFAILED, t.T{"ErrorMessage": orderinfo.ErrorMessage})
+		send(ctx, user, t.BITREFILLPURCHASEFAILED, t.T{"ErrorMessage": orderinfo.ErrorMessage})
 		return
 	} else if orderinfo.Delivered {
 		// no, it's a success!
-		user.notify(t.BITREFILLPURCHASEDONE, t.T{"OrderId": orderId, "Info": orderinfo})
+		send(ctx, user, t.BITREFILLPURCHASEDONE, t.T{"OrderId": orderId, "Info": orderinfo})
 		return
 	} else if orderinfo.PaymentReceived == false {
 		// should never happen
@@ -463,18 +463,18 @@ func handleProcessBitrefillOrder(
 	// create order
 	orderId, invoice, err := placeBitrefillOrder(user, item, pack, phone)
 	if err != nil {
-		user.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
+		send(ctx, user, t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
 		return
 	}
 
 	// parse invoice
 	inv, err := ln.Call("decodepay", invoice)
 	if err != nil {
-		user.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
+		send(ctx, user, t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
 		return
 	}
 
-	user.notifyWithKeyboard(t.BITREFILLCONFIRMATION, t.T{
+	send(ctx, usert.BITREFILLCONFIRMATION, t.T{
 		"Item":    item,
 		"Package": pack,
 		"Sats":    inv.Get("msatoshi").Float() / 1000,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,7 +13,7 @@ import (
 	"github.com/lucsky/cuid"
 )
 
-func handleInlineQuery(q *tgbotapi.InlineQuery) {
+func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 	var (
 		u       User
 		err     error
@@ -63,13 +64,13 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		resultphoto := tgbotapi.NewInlineQueryResultPhoto(
 			"inv-"+argv[1]+"-photo", bolt11)
 		resultphoto.Title = argv[1] + " sat"
-		resultphoto.Description = translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]})
+		resultphoto.Description = translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]})
 		resultphoto.ThumbURL = qrURL(bolt11).String()
 		resultphoto.Caption = bolt11
 
 		resultnophoto := tgbotapi.NewInlineQueryResultArticleHTML(
 			"inv-"+argv[1]+"-nophoto",
-			translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]}),
+			translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]}),
 			bolt11,
 		)
 
@@ -104,8 +105,8 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("give-%d-%d", u.Id, sats),
-			translateTemplate(t.INLINEGIVEAWAYRESULT, u.Locale, t.T{"Sats": sats}),
-			translateTemplate(t.GIVEAWAYMSG, u.Locale, t.T{"User": u.AtName(), "Sats": sats}),
+			translateTemplate(ctx, t.INLINEGIVEAWAYRESULT, t.T{"Sats": sats}),
+			translateTemplate(ctx, t.GIVEAWAYMSG, t.T{"User": u.AtName(), "Sats": sats}),
 		)
 		result.ReplyMarkup = giveawayKeyboard(u.Id, sats, u.Locale)
 
@@ -125,11 +126,11 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		}
 
 		if !canCreateCoinflip(u.Id) {
-			u.notify(t.RATELIMIT, nil)
+			send(ctx, u, t.RATELIMIT)
 			return
 		}
 		if !canJoinCoinflip(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "coinflip"})
+			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
 		if !u.checkBalanceFor(sats, "coinflip", nil) {
@@ -151,11 +152,11 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
-			translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
+			translateTemplate(ctx, t.INLINECOINFLIPRESULT, t.T{
 				"Sats":       sats,
 				"MaxPlayers": nparticipants,
 			}),
-			translateTemplate(t.COINFLIPAD, u.Locale, t.T{
+			translateTemplate(ctx, t.COINFLIPAD, t.T{
 				"Sats":       sats,
 				"Prize":      sats * nparticipants,
 				"SpotsLeft":  nparticipants - 1,
@@ -187,11 +188,11 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		}
 
 		if !canCreateGiveflip(u.Id) {
-			u.notify(t.RATELIMIT, nil)
+			send(ctx, u, t.RATELIMIT)
 			return
 		}
 		if !canJoinGiveflip(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
+			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
 			return
 		}
 		if !u.checkBalanceFor(sats, "giveflip", nil) {
@@ -210,11 +211,11 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("gifl-%d-%d-%d", u.Id, sats, nparticipants),
-			translateTemplate(t.INLINEGIVEFLIPRESULT, u.Locale, t.T{
+			translateTemplate(ctx, t.INLINEGIVEFLIPRESULT, t.T{
 				"Sats":       sats,
 				"MaxPlayers": nparticipants,
 			}),
-			translateTemplate(t.GIVEFLIPAD, u.Locale, t.T{
+			translateTemplate(ctx, t.GIVEFLIPAD, t.T{
 				"Sats":       sats,
 				"SpotsLeft":  nparticipants,
 				"MaxPlayers": nparticipants,
@@ -247,7 +248,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 			result := tgbotapi.NewInlineQueryResultArticleHTML(
 				fmt.Sprintf("reveal-%s", hiddenkey),
-				translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{
+				translateTemplate(ctx, t.INLINEHIDDENRESULT, t.T{
 					"HiddenId": hiddenid,
 					"Message":  hiddenmessage,
 				}),

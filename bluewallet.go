@@ -419,10 +419,10 @@ func handleBlueWallet(u User, opts docopt.Opts) {
 		password, err = u.updatePassword()
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
-			u.notify(t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
 			return
 		}
-		u.notify(t.COMPLETED, nil)
+		send(ctx, u, t.COMPLETED)
 	}
 	blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
 	u.sendMessageWithPicture(qrURL(blueURL), "<pre>"+blueURL+"</pre>")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/bwmarrin/discordgo"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
@@ -59,7 +61,6 @@ type makeInvoiceArgs struct {
 	DescHash               string
 	Msatoshi               int64
 	Expiry                 *time.Duration
-	MessageId              interface{}
 	Tag                    string
 	Extra                  map[string]interface{}
 	BlueWallet             bool
@@ -67,6 +68,7 @@ type makeInvoiceArgs struct {
 }
 
 func (u User) makeInvoice(
+	ctx context.Context,
 	args makeInvoiceArgs,
 ) (bolt11 string, hash string, err error) {
 	msatoshi := args.Msatoshi
@@ -121,10 +123,20 @@ func (u User) makeInvoice(
 		extra = make(map[string]interface{})
 	}
 
+	var messageId interface{}
+	if message := ctx.Value("message"); message != nil {
+		switch m := message.(type) {
+		case *tgbotapi.Message:
+			messageId = m.MessageID
+		case *discordgo.Message:
+			messageId = m.ID
+		}
+	}
+
 	shadowData := ShadowChannelData{
 		UserId:    u.Id,
-		Origin:    u.origin(),
-		MessageId: args.MessageId,
+		Origin:    ctx.Value("origin").(string),
+		MessageId: messageId,
 		Tag:       args.Tag,
 		Msatoshi:  msatoshi,
 		// Description: added next
@@ -179,7 +191,7 @@ func (u User) makeInvoice(
 }
 
 func (u User) payInvoice(
-	messageId interface{},
+	ctx context.Context,
 	bolt11 string,
 	manuallySpecifiedMsatoshi int64,
 ) (hash string, err error) {
@@ -244,14 +256,14 @@ func (u User) payInvoice(
 
 		go onInvoicePaid(hash, shadowData)
 		go resolveWaitingInvoice(hash, inv)
-		go paymentHasSucceeded(u, messageId, float64(amount), float64(amount),
+		go paymentHasSucceeded(ctx, u, float64(amount), float64(amount),
 			shadowData.Preimage, shadowData.Tag, hash)
 	} else {
 		// it's an invoice from elsewhere, continue and
 		// actually send the lightning payment
 
 		err := u.actuallySendExternalPayment(
-			messageId, bolt11, inv, amount,
+			ctx, bolt11, inv, amount,
 			paymentHasSucceeded, paymentHasFailed,
 		)
 		if err != nil {
@@ -263,13 +275,13 @@ func (u User) payInvoice(
 }
 
 func (u User) actuallySendExternalPayment(
-	messageId interface{},
+	ctx context.Context,
 	bolt11 string,
 	inv Invoice,
 	msatoshi int64,
 	onSuccess func(
+		ctx context.Context,
 		u User,
-		messageId interface{},
 		msatoshi float64,
 		msatoshi_sent float64,
 		preimage string,
@@ -277,8 +289,8 @@ func (u User) actuallySendExternalPayment(
 		hash string,
 	),
 	onFailure func(
+		ctx context.Context,
 		u User,
-		messageId interface{},
 		hash string,
 	),
 ) (err error) {
@@ -299,7 +311,12 @@ func (u User) actuallySendExternalPayment(
 
 	// if not tg this will just be ignored
 	// TODO maybe remove trigger_message from the database
-	tgMessageId, _ := messageId.(int)
+	var tgMessageId int
+	if message := ctx.Value("message"); message != nil {
+		if m, ok := message.(*tgbotapi.Message); ok {
+			tgMessageId = m.MessageID
+		}
+	}
 
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
@@ -416,8 +433,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 				"sats": msatoshi / 1000,
 			})
 			onSuccess(
+				ctx,
 				u,
-				messageId,
 				payment.Get("msatoshi").Float(),
 				payment.Get("msatoshi_sent").Float(),
 				payment.Get("payment_preimage").String(),
@@ -449,7 +466,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 					Str("hash", hash).
 					Msg("payment failed according to listpays")
 					// give the money back to the user
-				onFailure(u, messageId, hash)
+				onFailure(ctx, u, hash)
 			case "success":
 				log.Debug().Str("bolt11", bolt11).
 					Msg("listpays success. we shouldn't reach this code ever.")
@@ -478,7 +495,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 				Str("hash", hash).
 				Msg("payment wasn't even tried")
 				// give the money back to the user
-			onFailure(u, messageId, hash)
+			onFailure(ctx, u, hash)
 		}
 	}()
 
@@ -486,7 +503,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 }
 
 func (u User) addInternalPendingInvoice(
-	messageId int,
+	ctx context.Context,
 	targetId int,
 	msats int64,
 	hash string,
@@ -500,11 +517,20 @@ func (u User) addInternalPendingInvoice(
 	}
 	defer txn.Rollback()
 
+	// if not tg this will just be ignored
+	// TODO maybe remove trigger_message from the database
+	var tgMessageId int
+	if message := ctx.Value("message"); message != nil {
+		if m, ok := message.(*tgbotapi.Message); ok {
+			tgMessageId = m.MessageID
+		}
+	}
+
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, to_id, amount, description, payment_hash, pending, trigger_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, targetId, msats, desc, hash, true, messageId)
+    `, u.Id, targetId, msats, desc, hash, true, tgMessageId)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
@@ -525,7 +551,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 }
 
 func (u User) sendInternally(
-	messageId int,
+	ctx context.Context,
 	target User,
 	anonymous bool,
 	msats int,
@@ -554,6 +580,15 @@ func (u User) sendInternally(
 	}
 	defer txn.Rollback()
 
+	// if not tg this will just be ignored
+	// TODO maybe remove trigger_message from the database
+	var tgMessageId int
+	if message := ctx.Value("message"); message != nil {
+		if m, ok := message.(*tgbotapi.Message); ok {
+			tgMessageId = m.MessageID
+		}
+	}
+
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, to_id, anonymous, amount, description, tag, payment_hash, trigger_message)
@@ -570,7 +605,7 @@ VALUES (
   END,
   $8
 )
-    `, u.Id, target.Id, anonymous, msats, descn, tagn, hashn, messageId)
+    `, u.Id, target.Id, anonymous, msats, descn, tagn, hashn, tgMessageId)
 	if err != nil {
 		return ErrDatabase
 	}
@@ -718,8 +753,8 @@ WHERE id = $1
 }
 
 func paymentHasSucceeded(
+	ctx context.Context,
 	u User,
-	messageId interface{},
 	msatoshi float64,
 	msatoshi_sent float64,
 	preimage string,
@@ -746,20 +781,20 @@ WHERE payment_hash = $3
 			Str("hash", hash).
 			Float64("fees", fees).
 			Msg("failed to update transaction fees.")
-		u.notifyAsReply(t.DBERROR, nil, messageId)
+		send(ctx, u, t.DBERROR, nil, ctx.Value("message"))
 	}
 
-	u.notifyAsReply(t.PAIDMESSAGE, t.T{
+	send(ctx, u, t.PAIDMESSAGE, t.T{
 		"Sats":      float64(msatoshi) / 1000,
 		"Fee":       fees / 1000,
 		"Hash":      hash,
 		"Preimage":  preimage,
 		"ShortHash": hash[:5],
-	}, messageId)
+	}, ctx.Value("message"))
 }
 
-func paymentHasFailed(u User, messageId interface{}, hash string) {
-	u.notifyAsReply(t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, messageId)
+func paymentHasFailed(ctx context.Context, u User, hash string) {
+	send(ctx, u, t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
 
 	_, err := pg.Exec(
 		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)

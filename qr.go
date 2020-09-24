@@ -15,7 +15,7 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
-func serveQRCode() {
+func serveQRCodes() {
 	router.PathPrefix("/qr/").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			value := r.URL.Path[3:]

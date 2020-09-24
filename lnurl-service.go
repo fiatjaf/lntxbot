@@ -13,12 +13,15 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	"github.com/gorilla/mux"
+	"github.com/lucsky/cuid"
 )
 
-func handleCreateLNURLWithdraw(u User, opts docopt.Opts, messageId int) (lnurlEncoded string) {
+func handleCreateLNURLWithdraw(ctx, opts docopt.Opts) (lnurlEncoded string) {
+	u := ctx.Value("initiator").(User)
+
 	sats, err := parseSatoshis(opts)
 	if err != nil {
-		u.notify(t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+		send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 		return
 	}
 
@@ -30,10 +33,11 @@ func handleCreateLNURLWithdraw(u User, opts docopt.Opts, messageId int) (lnurlEn
 		return
 	}
 
-	challenge := calculateHash(s.TelegramBotToken + ":" + strconv.Itoa(messageId) + ":" + maxsats)
-
-	nexturl := fmt.Sprintf("%s/lnurl/withdraw?message=%d&challenge=%s", s.ServiceURL, messageId, challenge)
-	rds.Set("lnurlwithdraw:"+challenge, fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
+	challenge := calculateHash(s.TelegramBotToken + ":" + cuid.New() + ":" + maxsats)
+	nexturl := fmt.Sprintf("%s/lnurl/withdraw?message=%d&challenge=%s",
+		s.ServiceURL, messageId, challenge)
+	rds.Set("lnurlwithdraw:"+challenge,
+		fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
 
 	lnurlEncoded, err = lnurl.LNURLEncode(nexturl)
 	if err != nil {
@@ -41,7 +45,8 @@ func handleCreateLNURLWithdraw(u User, opts docopt.Opts, messageId int) (lnurlEn
 		return
 	}
 
-	u.sendMessageWithPicture(qrURL(lnurlEncoded), `<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
+	send(ctx, u, qrURL(lnurlEncoded),
+		`<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
 	return
 }
 
@@ -225,7 +230,7 @@ func serveLNURL() {
 		}
 
 		hhash := sha256.Sum256(jmeta)
-		bolt11, _, err := receiver.makeInvoice(makeInvoiceArgs{
+		bolt11, _, err := receiver.makeInvoice(ctx, makeInvoiceArgs{
 			IgnoreInvoiceSizeLimit: true,
 			Msatoshi:               msatoshi,
 			DescHash:               hex.EncodeToString(hhash[:]),

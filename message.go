@@ -15,10 +15,15 @@ import (
 type MessageModifier string
 
 const (
-	WithAlert MessageModifier = "WithAlert"
+	EDIT        MessageModifier = "EDIT"
+	JUSTAPPEND  MessageModifier = "JUSTAPPEND"
+	WITHALERT   MessageModifier = "WITHALERT"
+	FORCESPAMMY MessageModifier = "FORCESPAMMY"
 )
 
 func send(ctx context.Context, things ...interface{}) (id interface{}) {
+	var edit bool
+	var justAppend bool
 	var template t.Key
 	var templateData t.T
 	var text string
@@ -28,16 +33,27 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// defaults from ctx
 	var target = ctx.Value("initiator").(User)
 	var origin = ctx.Value("origin").(string)
+	var group GroupChat
+	var spammy bool
+	if igroup := ctx.Value("group"); igroup != nil {
+		group = igroup.(GroupChat)
+	}
+	if ispammy := ctx.Value("spammy"); ispammy != nil {
+		spammy = ispammy.(bool)
+	}
 
 	// only telegram
 	var keyboard *tgbotapi.InlineKeyboardMarkup
-	var replyToId int
+	var forceReply tgbotapi.ForceReply
+	var replyToId int                     // will be sent in reply to this -- or if editing will edit this
+	var telegramMessage *tgbotapi.Message // unless this is provided, this has precedence in edition priotiry
 	var method string = "sendMessage"
 	var callbackQuery *tgbotapi.CallbackQuery
 	var alert bool
 
 	// only discord
 	var linkTo DiscordMessageID
+	var discordMessage *discordgo.Message
 
 	for ithing := range things {
 		switch thing := ithing.(type) {
@@ -63,14 +79,29 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			method = "sendPhoto"
 		case *tgbotapi.InlineKeyboardMarkup:
 			keyboard = thing
+		case tgbotapi.ForceReply:
+			forceReply = tgbotapi.ForceReply
 		case DiscordMessageID:
 			linkTo = thing
 		case int:
 			replyTo = thing
+		case *tgbotapi.Message:
+			telegramMessage = thing
+		case *discordgo.Message:
+			discordMessage = thing
 		case MessageModifier:
 			switch thing {
-			case WithAlert:
+			case WITHALERT:
 				alert = true
+			case FORCESPAMMY:
+				spammy = true
+			case EDIT:
+				edit = true
+				if edit {
+					method = "editMessageText"
+				}
+			case JUSTAPPEND:
+				justAppend = true
 			}
 		}
 	}
@@ -80,17 +111,10 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		text = translateTemplate(ctx, key, templateData)
 	}
 
-	// determine if we're going to send to the group or in private
-	group := ctx.Value("group")
-	spammy := ctx.Value("spammy")
-	if spammy != nil && group != nil {
-		// send to group instead of the the user
-	}
-
 	// build the message to send
 	switch origin {
 	case "telegram":
-		if callbackQuery != nil {
+		if callbackQuery != nil || !edit {
 			// it's a reply to a callbackQuery
 			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
 				CallbackQueryID: callbackQuery.ID,
@@ -99,23 +123,66 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			})
 			return nil
 		} else {
-			// it's a message
+			// it's a message (or a call to edit a message)
 			values := url.Values{
 				"parse_mode":               {"HTML"},
 				"disable_web_page_preview": {"true"},
 			}
-			if replyToId != 0 {
-				values.Set("reply_to_message_id", strconv.Itoa(replyToId))
-			}
 			if keyboard != nil {
 				jkeyboard, _ := json.Marshal(keyboard)
 				values.Set("keyboard", string(jkeyboard))
+			} else if forceReply.ForceReply {
+				jforceReply, _ := json.Marshal(forceReply)
+				values.Set("forceReply", string(jforceReply))
 			}
-			if picture == "" {
-				values.Set("text", text)
+
+			// determine if we're going to send to the group or in private
+			if spammy != nil && group != nil {
+				// send to group instead of the the user
+				values.Set("chat_id", strconv.Itoa(-group.(GroupChat).TelegramId))
 			} else {
-				values.Set("photo", picture)
-				values.Set("caption", text)
+				// send to user
+				values.Set("chat_id", strconv.Itoa(target.TelegramChatId))
+			}
+
+			// editing
+			canEdit := (callbackQuery != nil && callbackQuery.InlineMessageID != "") ||
+				telegramMessage != nil || replyToId != 0
+
+			if edit && canEdit {
+				if callbackQuery != nil && callbackQuery.InlineMessageID != "" {
+					values.Set("inline_message_id", callbackQuery.InlineMessageID)
+					if callbackQuery.Message && justAppend {
+						text = callbackQuery.Message.Text + " " + text
+					}
+				} else if telegramMessage != nil {
+					values.Set("chat_id", strconv.Itoa(telegramMessage.Chat.ID))
+					values.Set("message_id", strconv.Itoa(telegramMessage.MessageID))
+					if justAppend {
+						text = telegramMessage.Text + " " + text
+					}
+				} else if replyToId != 0 {
+					values.Set("message_id", strconv.Itoa(replyToId))
+					if justAppend {
+						log.Error().Str("text", text).
+							Msg("can't append to a message if we only have its id")
+						return
+					}
+				}
+			} else {
+				// not editing, can add pictures and reply_to targets
+				if replyToId != 0 {
+					values.Set("reply_to_message_id", strconv.Itoa(replyToId))
+				} else if telegramMessage != nil {
+					values.Set("reply_to_message_id", strconv.Itoa(
+						telegramMessage.MessageID))
+				}
+				if picture == "" && !edit /* when editing we can't send pictures */ {
+					values.Set("text", text)
+				} else {
+					values.Set("photo", picture)
+					values.Set("caption", text)
+				}
 			}
 
 			// send message
@@ -126,7 +193,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				return
 			}
 			if !resp.Ok {
-				// if it failed because of the reply-to-id let's just try again without it
+				// if it failed because of the reply-to-id just try again without it
 				if resp.Description == "Bad Request: reply message not found" {
 					values.Del("reply_to_message_id")
 					resp, err := bot.MakeRequest(method, values)
@@ -162,7 +229,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			}
 			return linkTo
 		} else {
-			// it's a message
+			// it's a message TODO(edit)
 			text = convertToDiscord(text)
 			if linkTo != "" {
 				text += "\n" + linkTo.URL()
@@ -178,6 +245,15 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 			if commandName := ctx.Value("command"); commandName != nil {
 				embed.Title = commandName.(string)
+			}
+
+			var channelId string
+			if spammy != nil && group != nil {
+				// send to group instead of the the user
+				// TODO(group)
+			} else {
+				// send to user
+				channelId = target.DiscordChannelId
 			}
 
 			// send message

@@ -78,7 +78,7 @@ GROUP BY tag
 func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQuery) bool {
 	notify := func(key t.Key, templateData t.T) {
 		if cb == nil {
-			u.notify(key, templateData)
+			send(ctx, u, key, templateData)
 		} else {
 			u.alert(cb, key, templateData)
 		}
@@ -147,21 +147,21 @@ func handleBalance(u User, opts docopt.Opts) {
 		taggedbalances, err := u.getTaggedBalances()
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
-		u.notify(t.TAGGEDBALANCEMSG, t.T{"Balances": taggedbalances})
+		send(ctx, u, t.TAGGEDBALANCEMSG, t.T{"Balances": taggedbalances})
 	} else {
 		// normal balance
 		info, err := u.getInfo()
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
-			u.notify(t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
-		u.notify(t.BALANCEMSG, t.T{
+		send(ctx, u, t.BALANCEMSG, t.T{
 			"Sats":     info.Balance,
 			"Usable":   info.UsableBalance,
 			"Received": info.TotalReceived,

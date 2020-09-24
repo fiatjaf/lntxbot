@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -14,8 +15,8 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
-	messageId := message.MessageID
+func handleExternalApp(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
 
 	switch {
 	case opts["etleneum"].(bool), opts["etl"].(bool):
@@ -30,11 +31,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				jqfilter, _ := opts.String("<jqfilter>")
 				state, err := getEtleneumContractState(contract, jqfilter)
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
 				statestr, _ := json.MarshalIndent(state, "", "  ")
-				u.notify(t.ETLENEUMCONTRACTSTATE, t.T{
+				send(ctx, u, t.ETLENEUMCONTRACTSTATE, t.T{
 					"Id":    contract,
 					"State": string(statestr),
 				})
@@ -43,31 +44,31 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				// subscribe to a contract
 				err = subscribeEtleneum(u, contract, false)
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
-				u.notify(t.ETLENEUMSUBSCRIBED, t.T{"Contract": contract, "Subscribed": true})
+				send(ctx, u, t.ETLENEUMSUBSCRIBED, t.T{"Contract": contract, "Subscribed": true})
 				go u.track("etleneum subscribe", map[string]interface{}{"contract": contract})
 			} else if opts["unsubscribe"].(bool) {
 				// unsubscribe from a contract
 				err = unsubscribeEtleneum(u, contract, false)
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
-				u.notify(t.ETLENEUMSUBSCRIBED, t.T{"Contract": contract, "Subscribed": false})
+				send(ctx, u, t.ETLENEUMSUBSCRIBED, t.T{"Contract": contract, "Subscribed": false})
 				go u.track("etleneum unsubscribe", map[string]interface{}{"contract": contract})
 			} else if method == "" {
 				// contract metadata
 				ct, err := getEtleneumContract(contract)
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
 
 				ct.Readme = strings.Split(strings.TrimSpace(ct.Readme), "\n")[0]
 
-				u.notify(t.ETLENEUMCONTRACT, t.T{"Contract": ct})
+				send(ctx, u, t.ETLENEUMCONTRACT, t.T{"Contract": ct})
 				go u.track("etleneum metadata", map[string]interface{}{"contract": contract})
 			} else {
 				// make a call
@@ -96,7 +97,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 				etlurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
 				}
 				log.Debug().Str("url", etlurl).Msg("etleneum call lnurl")
@@ -107,8 +108,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					msatsAcceptable = &msatsAcceptableV
 				}
 
-				handleLNURL(u, etlurl, handleLNURLOpts{
-					messageId:          message.MessageID,
+				handleLNURL(ctx, etlurl, handleLNURLOpts{
 					payWithoutPromptIf: msatsAcceptable,
 				})
 
@@ -121,49 +121,49 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		} else if opts["call"].(bool) {
 			call, err := getEtleneumCall(opts["<id>"].(string))
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
-			u.notify(t.ETLENEUMCALL, t.T{"Call": call})
+			send(ctx, u, t.ETLENEUMCALL, t.T{"Call": call})
 			go u.track("etleneum view call", nil)
 		} else if opts["contracts"].(bool) || opts["apps"].(bool) {
 			contracts, aliases, err := listEtleneumContracts(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
 			go u.track("etleneum contracts", nil)
-			u.notify(t.ETLENEUMCONTRACTS, t.T{"Contracts": contracts, "Aliases": aliases})
+			send(ctx, u, t.ETLENEUMCONTRACTS, t.T{"Contracts": contracts, "Aliases": aliases})
 		} else if opts["history"].(bool) {
 			history, err := etleneumHistory(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
 			go u.track("etleneum history", nil)
-			u.notify(t.ETLENEUMHISTORY, t.T{"History": history})
+			send(ctx, u, t.ETLENEUMHISTORY, t.T{"History": history})
 		} else if opts["withdraw"].(bool) {
 			_, _, _, withdraw, err := etleneumLogin(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
 			go u.track("etleneum withdraw", nil)
-			handleLNURL(u, withdraw, handleLNURLOpts{messageId: message.MessageID})
+			handleLNURL(ctx, withdraw, handleLNURLOpts{})
 		} else {
 			account, _, balance, _, err := etleneumLogin(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
 			go u.track("etleneum account", map[string]interface{}{"sats": balance})
-			u.notifyWithKeyboard(t.ETLENEUMACCOUNT, t.T{
+			send(ctx, ut.ETLENEUMACCOUNT, t.T{
 				"Account": account,
 				"Balance": balance,
 			}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=etleneum-withdraw"),
+						tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.WITHDRAW), "x=etleneum-withdraw"),
 					},
 				},
 			}, 0)
@@ -173,7 +173,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			// list my bets
 			bets, err := getMyMicrobetBets(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
@@ -183,44 +183,44 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			go u.track("microbet list", nil)
-			u.notify(t.MICROBETLIST, t.T{"Bets": bets})
+			send(ctx, u, t.MICROBETLIST, t.T{"Bets": bets})
 		} else if opts["balance"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
 			go u.track("microbet balance", map[string]interface{}{"sats": balance})
-			u.notifyWithKeyboard(t.APPBALANCE, t.T{"App": "Microbet", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
+			send(ctx, ut.APPBALANCE, t.T{"App": "Microbet", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
 				[][]tgbotapi.InlineKeyboardButton{
 					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.WITHDRAW, u.Locale), "x=microbet-withdraw"),
+						tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.WITHDRAW), "x=microbet-withdraw"),
 					},
 				},
 			}, 0)
 		} else if opts["withdraw"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
 
 			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
-			err = withdrawMicrobet(u, int(float64(balance)*0.99))
+			err = withdrawMicrobet(ctx, int(float64(balance)*0.99))
 			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, u.Value("message"))
 				return
 			}
 		} else {
 			// list available bets as actionable buttons
 			inlineKeyboard, err := microbetKeyboard()
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
-			u.notifyWithKeyboard(t.MICROBETBETHEADER, nil,
-				&tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+			send(ctx, ut.MICROBETBETHEADER,
+				&tgbotapi.InlineKeyboardMarkup{inlineKeyboard})
 
 			go u.track("microbet show-bets", nil)
 		}
@@ -240,7 +240,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 		err = createSatelliteOrder(u, messageId, satoshis, message)
 		if err != nil {
-			u.notifyAsReply(t.ERROR,
+			send(ctx, u, t.ERROR,
 				t.T{"App": "satellite", "Err": err.Error()}, messageId)
 			return
 		}
@@ -255,13 +255,13 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 		order, err := prepareGoLightningTransaction(u, messageId, sats-99)
 		if err != nil {
-			u.notify(t.ERROR, t.T{"App": "fundbtc", "Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"App": "fundbtc", "Err": err.Error()})
 			return
 		}
 
 		u.sendMessageWithPicture(qrURL(
 			order.Address),
-			translateTemplate(t.FUNDBTCFINISH, u.Locale, t.T{"Order": order}),
+			translateTemplate(ctx, t.FUNDBTCFINISH, t.T{"Order": order}),
 		)
 		go u.track("fundbtc start", map[string]interface{}{"sats": sats})
 	case opts["bitclouds"].(bool):
@@ -269,16 +269,16 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 		case opts["create"].(bool):
 			inlinekeyboard, err := bitcloudsImagesKeyboard()
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
-			u.notifyWithKeyboard(t.BITCLOUDSCREATEHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+			send(ctx, ut.BITCLOUDSCREATEHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
 
 			go u.track("bitclouds create-init", nil)
 		case opts["topup"].(bool):
 			satoshis, err := parseSatoshis(opts)
 			if err != nil {
-				u.notify(t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+				send(ctx, u, t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 				return
 			}
 
@@ -293,11 +293,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				noHosts, singleHost,
 					inlineKeyboard, err := bitcloudsHostsKeyboard(u, strconv.Itoa(satoshis))
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 					return
 				}
 				if noHosts {
-					u.notify(t.BITCLOUDSNOHOSTS, nil)
+					send(ctx, u, t.BITCLOUDSNOHOSTS)
 					return
 				}
 				if singleHost != "" {
@@ -305,14 +305,14 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 
-				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+				send(ctx, ut.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 			}
 		case opts["adopt"].(bool), opts["abandon"].(bool):
 			host := unescapeBitcloudsHost(opts["<host>"].(string))
 			var data BitcloudsData
 			err := u.getAppData("bitclouds", &data)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
 			if opts["adopt"].(bool) {
@@ -324,7 +324,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 			err = u.setAppData("bitclouds", data)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
 			if opts["adopt"].(bool) {
@@ -333,7 +333,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				opts["status"] = true
 				handleExternalApp(u, opts, message)
 			} else {
-				u.notify(t.COMPLETED, nil)
+				send(ctx, u, t.COMPLETED)
 			}
 		default: // "status"
 			go u.track("bitclouds status", nil)
@@ -348,11 +348,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				noHosts, singleHost,
 					inlineKeyboard, err := bitcloudsHostsKeyboard(u, "status")
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 					return
 				}
 				if noHosts {
-					u.notify(t.BITCLOUDSNOHOSTS, nil)
+					send(ctx, u, t.BITCLOUDSNOHOSTS)
 					return
 				}
 				if singleHost != "" {
@@ -360,7 +360,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 					return
 				}
 
-				u.notifyWithKeyboard(t.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+				send(ctx, ut.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 			}
 		}
 	case opts["skype"].(bool):
@@ -373,8 +373,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			qs.Set("usd", usd)
 		}
 		lntorublnurl.RawQuery = qs.Encode()
-		handleLNURL(u, lntorublnurl.String(),
-			handleLNURLOpts{messageId: message.MessageID})
+		handleLNURL(ctx, lntorublnurl.String(), handleLNURLOpts{})
 	case opts["rub"].(bool):
 		lntorublnurl, _ := url.Parse("https://vds.sw4me.com/lnpay")
 		qs := lntorublnurl.Query()
@@ -385,8 +384,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			qs.Set("rub", rub)
 		}
 		lntorublnurl.RawQuery = qs.Encode()
-		handleLNURL(u, lntorublnurl.String(),
-			handleLNURLOpts{messageId: message.MessageID})
+		handleLNURL(ctx, lntorublnurl.String(), handleLNURLOpts{})
 	case opts["bitrefill"].(bool):
 		switch {
 		case opts["country"].(bool):
@@ -396,11 +394,11 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			if isValidBitrefillCountry(countryCode) {
 				err := setBitrefillCountry(u, countryCode)
 				if err != nil {
-					u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
+					send(ctx, u, t.ERROR, t.T{"App": "Bitrefill", "Err": err.Error()})
 				}
-				u.notify(t.BITREFILLCOUNTRYSET, t.T{"CountryCode": countryCode})
+				send(ctx, u, t.BITREFILLCOUNTRYSET, t.T{"CountryCode": countryCode})
 			} else {
-				u.notify(t.BITREFILLINVALIDCOUNTRY, t.T{"CountryCode": countryCode, "Available": BITREFILLCOUNTRIES})
+				send(ctx, u, t.BITREFILLINVALIDCOUNTRY, t.T{"CountryCode": countryCode, "Available": BITREFILLCOUNTRIES})
 			}
 
 			go u.track("bitrefill set-country", map[string]interface{}{
@@ -425,7 +423,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			}
 
 			if nitems == 0 {
-				u.notify(t.BITREFILLNOPROVIDERS, nil)
+				send(ctx, u, t.BITREFILLNOPROVIDERS)
 				return
 			}
 
@@ -445,7 +443,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				"query": query,
 			})
 
-			u.notifyWithKeyboard(t.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+			send(ctx, ut.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
 		}
 	case opts["gifts"].(bool):
 		// create gift or fallback to list gifts
@@ -454,7 +452,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			// create
 			err = createGift(u, sats, messageId)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
 			}
 
 			go u.track("gifts create", map[string]interface{}{"sats": sats})
@@ -465,7 +463,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			var data GiftsData
 			err = u.getAppData("gifts", &data)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
 				return
 			}
 
@@ -477,13 +475,13 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			go u.track("gifts list", nil)
 
-			u.notify(t.GIFTSLIST, t.T{"Gifts": gifts})
+			send(ctx, u, t.GIFTSLIST, t.T{"Gifts": gifts})
 		}
 	case opts["sats4ads"].(bool):
 		switch {
 		case opts["rate"].(bool):
 			rate, _ := getSats4AdsRate(u)
-			sendTelegramMessage(u.TelegramChatId, strconv.Itoa(rate)+" msatoshi per character.")
+			send(ctx, u, strconv.Itoa(rate)+" msatoshi per character.")
 			break
 		case opts["on"].(bool):
 			rate, err := opts.Int("<msat_per_character>")
@@ -491,7 +489,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 				rate = 1
 			}
 			if rate > 1000 {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "max = 1000 msatoshi"})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": "max = 1000, msatoshi"})
 				return
 			}
 
@@ -499,46 +497,46 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			err = turnSats4AdsOn(u, rate)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
-			u.notify(t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(rate) / 1000})
+			send(ctx, u, t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(rate) / 1000})
 		case opts["off"].(bool):
 			err := turnSats4AdsOff(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
 
 			go u.track("sats4ads off", nil)
 
-			u.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
+			send(ctx, u, t.SATS4ADSTOGGLE, t.T{"On": false})
 		case opts["rates"].(bool):
 			rates, err := getSats4AdsRates()
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
 
 			go u.track("sats4ads rates", nil)
 
-			u.notify(t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
+			send(ctx, u, t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
 		case opts["broadcast"].(bool):
 			// check user banned
 			var data Sats4AdsData
 			err := u.getAppData("sats4ads", &data)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
 			if data.Banned {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "user banned"})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": "user, banned"})
 				return
 			}
 
 			satoshis, err := parseSatoshis(opts)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
 
@@ -566,18 +564,18 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 			maxrate, _ := opts.Int("--max-rate")
 			offset, _ := opts.Int("--skip")
 
-			u.notifyAsReply(t.SATS4ADSSTART, nil, messageId)
+			send(ctx, u, t.SATS4ADSSTART, nil, messageId)
 
 			go func() {
 				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
 				if err != nil {
 					log.Warn().Err(err).Str("user", u.Username).
 						Msg("sats4ads broadcast fail")
-					u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
+					send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
 					return
 				}
 
-				u.notifyAsReply(t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
+				send(ctx, u, t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
 			}()
 		case opts["preview"].(bool):
 			go u.track("sats4ads preview", nil)
@@ -590,7 +588,7 @@ func handleExternalApp(u User, opts docopt.Opts, message *tgbotapi.Message) {
 
 			ad, _, _, _ := buildSats4AdsMessage(log, contentMessage, u, 0, nil)
 			if ad == nil {
-				u.notify(t.ERROR, t.T{"App": "sats4ads", "Err": "invalid message used as ad content"})
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": "invalid message used as ad content"})
 				return
 			}
 
@@ -616,29 +614,29 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			defer removeKeyboardButtons(cb)
 			_, _, _, withdraw, err := etleneumLogin(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
 			go u.track("etleneum withdraw", nil)
-			handleLNURL(u, withdraw, handleLNURLOpts{messageId: messageId})
+			handleLNURL(ctx, withdraw, handleLNURLOpts{})
 		}
 	case "microbet":
 		if parts[1] == "withdraw" {
 			defer removeKeyboardButtons(cb)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
+				return translate(ctx, t.FAILURE)
 			}
 
 			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
 			err = withdrawMicrobet(u, int(float64(balance)*0.99))
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+				return translate(ctx, t.FAILURE)
 			}
 
-			return translate(t.PROCESSING, u.Locale)
+			return translate(ctx, t.PROCESSING)
 		} else {
 			// bet on something
 			betId := parts[1]
@@ -646,21 +644,21 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			bet, err := getMicrobetBet(betId)
 			if err != nil {
 				log.Warn().Err(err).Str("betId", betId).Msg("bet not available")
-				return translate(t.ERROR, u.Locale)
+				return translate(ctx, t.ERROR)
 			}
 
 			// post a notification message to identify this bet attempt
-			messageId := u.notify(t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
+			messageId := send(ctx, u, t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
 
 			err = placeMicrobetBet(u, messageId.(int), betId, back)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": err.Error()})
-				return translate(t.FAILURE, u.Locale)
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+				return translate(ctx, t.FAILURE)
 			}
 
 			go u.track("microbet place-bet", nil)
 
-			return translate(t.PROCESSING, u.Locale)
+			return translate(ctx, t.PROCESSING)
 		}
 	case "bitrefill":
 		switch parts[1] {
@@ -669,7 +667,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			item, ok := bitrefillInventory[strings.Replace(parts[2], "~", "-", -1)]
 			if !ok {
-				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
+				send(ctx, u, t.ERROR, t.T{"App": "Bitrefill", "Err": "not, found"})
 				return
 			}
 
@@ -683,7 +681,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			// get item and package info
 			item, ok := bitrefillInventory[strings.Replace(parts[2], "~", "-", -1)]
 			if !ok {
-				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
+				send(ctx, u, t.ERROR, t.T{"App": "Bitrefill", "Err": "not, found"})
 				return
 			}
 
@@ -691,7 +689,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			idx, _ := strconv.Atoi(parts[3])
 			packages := item.Packages
 			if len(packages) <= idx {
-				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
+				send(ctx, u, t.ERROR, t.T{"App": "Bitrefill", "Err": "not, found"})
 				return
 			}
 			pack = packages[idx]
@@ -704,7 +702,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			orderId := parts[2]
 			err := purchaseBitrefillOrder(u, orderId)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "bitrefill", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "bitrefill", "Err": err.Error()})
 				return
 			}
 		}
@@ -715,7 +713,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			image := parts[2]
 			err := createBitcloudImage(u, image)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
 
@@ -730,7 +728,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			sats, err := strconv.Atoi(parts[1])
 			host := unescapeBitcloudsHost(parts[2])
 			if err != nil {
-				u.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
 			appendToTelegramMessage(cb, host)

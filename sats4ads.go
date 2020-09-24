@@ -397,7 +397,7 @@ SELECT DISTINCT to_id FROM adsreceivedtxs
 							continue
 						}
 
-						receiver.notify(t.SATS4ADSTOGGLE, t.T{"On": false})
+						send(ctx, receiver, t.SATS4ADSTOGGLE, t.T{"On": false})
 						rds.Del(key)
 					}
 				}

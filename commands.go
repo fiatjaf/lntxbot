@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 
 	"github.com/docopt/docopt-go"
@@ -242,7 +243,9 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 	return
 }
 
-func handleHelp(u User, method string) (handled bool) {
+func handleHelp(ctx context.Context, method string) (handled bool) {
+	u := ctx.Value("initiator").(User)
+
 	var (
 		def        def
 		mainName   string
@@ -255,7 +258,7 @@ func handleHelp(u User, method string) (handled bool) {
 	method = strings.ToLower(strings.TrimSpace(method))
 	if method == "" {
 		briefUsage := commandsListFromDefinitions()
-		helpString = translateTemplate(t.HELPINTRO, u.Locale, t.T{
+		helpString = translateTemplate(ctx, t.HELPINTRO, t.T{
 			"Help": escapeHTML(briefUsage),
 		})
 		u.sendMessage(helpString)
@@ -275,7 +278,7 @@ func handleHelp(u User, method string) (handled bool) {
 	} else {
 		similar := findSimilar(method, commandList)
 		if len(similar) > 0 {
-			u.notify(t.HELPSIMILAR, t.T{
+			send(ctx, u, t.HELPSIMILAR, t.T{
 				"Method":  method,
 				"Similar": similar,
 			})
@@ -296,11 +299,11 @@ func handleHelp(u User, method string) (handled bool) {
 		"ServiceId":     s.ServiceId,
 	}
 
-	if u.isDiscord() {
+	if ctx.Value("origin").(string) == "discord" {
 		params["HasInline"] = false
 	}
 
-	helpString = translateTemplate(t.HELPMETHOD, u.Locale, params)
+	helpString = translateTemplate(ctx, t.HELPMETHOD, params)
 	u.sendMessage(helpString)
 	return true
 }

@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
 	"github.com/fiatjaf/lntxbot/t"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
 )
 
-func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
+func handleReply(ctx context.Context) {
+	u := ctx.Value("initiator").(User)
+	message := ctx.Value("message").(*tgbot.Message)
+	inreplyto := message.ReplyToMessage.MessageID
+
 	key := fmt.Sprintf("reply:%d:%d", u.Id, inreplyto)
 	if val, err := rds.Get(key).Result(); err != nil {
 		log.Debug().Int("userId", u.Id).Int("message", inreplyto).
@@ -20,13 +24,13 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 		case "pay":
 			sats, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
+				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
 			handlePayVariableAmount(u, int64(sats*1000), data, message.MessageID)
 		case "lnurlpay-amount":
 			sats, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
+				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
 			handleLNURLPayAmount(u, int64(sats*1000), data, message.MessageID)
 		case "lnurlpay-comment":
@@ -34,13 +38,13 @@ func handleReply(u User, message *tgbotapi.Message, inreplyto int) {
 		case "bitrefill":
 			value, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {
-				u.notify(t.ERROR, t.T{"Err": "Invalid satoshi amount."})
+				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
 
 			// get item and package info
 			item, ok := bitrefillInventory[data.Get("item").String()]
 			if !ok {
-				u.notify(t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
+				send(ctx, u, t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
 				return
 			}
 

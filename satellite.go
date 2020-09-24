@@ -106,7 +106,7 @@ func paySatelliteOrder(user User, messageId interface{}, orderreq SatelliteOrder
 			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "satellite", hash)
 
 			// done
-			u.notifyAsReply(t.SATELLITEPAID, t.T{"UUID": orderreq.UUID}, messageId)
+			send(ctx, u, t.SATELLITEPAID, t.T{"UUID": orderreq.UUID}, messageId)
 		},
 		paymentHasFailed,
 	)

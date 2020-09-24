@@ -26,8 +26,6 @@ type User struct {
 	// it can be used to other similar things in the future
 	// if no other better solution is found
 	Extra string `db:"extra"`
-
-	ctx context.Context
 }
 
 const USERFIELDS = `
@@ -47,7 +45,6 @@ SELECT `+USERFIELDS+`
 FROM account
 WHERE id = $1
     `, id)
-	u.ctx = context.Background()
 	return
 }
 
@@ -57,7 +54,6 @@ SELECT `+USERFIELDS+`
 FROM account
 WHERE telegram_id = $1
     `, telegramId)
-	u.ctx = context.WithValue(context.Background(), "origin", "telegram")
 	return
 }
 
@@ -67,20 +63,11 @@ SELECT `+USERFIELDS+`
 FROM account
 WHERE discord_id = $1
     `, discordId)
-	u.ctx = context.WithValue(context.Background(), "origin", "discord")
 	return
 }
 
 func ensureTelegramUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
-	username = strings.ToLower(username)
-	var vusername sql.NullString
-
-	if username == "" {
-		vusername.Valid = false
-	} else {
-		vusername.Scan(username)
-	}
-
+	vusername := sql.NullString{String: strings.ToLower(username), Valid: username != ""}
 	var userRows []User
 
 	// always update locale while selecting user
@@ -173,113 +160,39 @@ RETURNING `+USERFIELDS,
 		err = errors.New("odd error with more than 2 rows for the same user.")
 	}
 
-	u.ctx = context.WithValue(context.Background(), "origin", "telegram")
 	return
 }
 
-func ensureDiscordUser(discordId, username, locale string) (u User, tcase int, err error) {
+func ensureDiscordUser(discordId, username, locale string) (u User, err error) {
 	username = strings.ToLower(username)
-	var vusername sql.NullString
 
-	if username == "" {
-		vusername.Valid = false
-	} else {
-		vusername.Scan(username)
-	}
-
-	var userRows []User
-
-	// always update locale while selecting user unless it was set manually or isn't available
-	err = pg.Select(&userRows, `
+	// always update locale while selecting user
+	// unless it was set manually or isn't available
+	// also update the username
+	err = pg.Get(&u, `
 UPDATE account AS u
 SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
-WHERE u.discord_id = $1 OR u.discord_username = $2
+SET username = $3
+WHERE u.discord_id = $1
 RETURNING `+USERFIELDS,
 		discordId, username, locale)
 	if err != nil && err != sql.ErrNoRows {
 		return
 	}
 
-	tcase = len(userRows)
-	switch tcase {
-	case 0:
+	if err == sql.ErrNoRows {
 		// user not registered
 		err = pg.Get(&u, `
 INSERT INTO account (discord_id, discord_username)
 VALUES ($1, $2)
-RETURNING `+USERFIELDS,
-			discordId, vusername)
-	case 1:
-		// user registered, update if necessary then leave
-		u = userRows[0]
-		if u.Username == username && u.DiscordId == discordId {
-			// all is well, just return
-		} else if u.Username != username {
-			// update username
-			err = pg.Get(&u, `
-UPDATE account SET discord_username = $2 WHERE discord_id = $1
-RETURNING `+USERFIELDS,
-				discordId, vusername)
-		} else if u.DiscordId != discordId {
-			// update discord_id
-			err = pg.Get(&u, `
-UPDATE account SET discord_id = $1 WHERE discord_username = $2
-RETURNING `+USERFIELDS,
-				discordId, username)
-		}
-	case 2:
-		// user has 2 accounts, one with the username, other with the telegram_id
-		var txn *sqlx.Tx
-		txn, err = pg.Beginx()
-		if err != nil {
-			return
-		}
-		defer txn.Rollback()
-
-		idToDelete := userRows[1].Id
-		idToRemain := userRows[0].Id
-
-		_, err = txn.Exec(
-			"UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2",
-			idToRemain, idToDelete)
-		if err != nil {
-			return
-		}
-
-		_, err = txn.Exec(
-			"UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2",
-			idToRemain, idToDelete)
-		if err != nil {
-			return
-		}
-
-		_, err = txn.Exec(
-			"DELETE FROM account WHERE id = $1",
-			idToDelete)
-		if err != nil {
-			return
-		}
-
-		err = txn.Get(&u, `
-UPDATE account
-SET discord_id = $2, discord_username = $3
-WHERE id = $1
-RETURNING `+USERFIELDS,
-			idToRemain, discordId, vusername)
-		if err != nil {
-			return
-		}
-
-		err = txn.Commit()
-		if err != nil {
-			return
-		}
-	default:
-		err = errors.New("odd error with more than 2 rows for the same user.")
+RETURNING `+USERFIELDS, discordId, username)
 	}
 
-	u.ctx = context.WithValue(context.Background(), "origin", "discord")
-	return
+	// corner cases won't happen because on discord we always deal with ids,
+	// never usernames. even when people send tips like "$tip @someone" we
+	// will have access to the id of that person directly.
+
+	return u, nil
 }
 
 func ensureTelegramId(telegram_id int) (u User, err error) {
@@ -289,7 +202,6 @@ VALUES ($1)
 ON CONFLICT (telegram_id) DO UPDATE SET telegram_id = $1
 RETURNING `+USERFIELDS,
 		telegram_id)
-	u.ctx = context.WithValue(context.Background(), "origin", "telegram")
 	return
 }
 
@@ -300,7 +212,6 @@ VALUES ($1)
 ON CONFLICT (telegram_username) DO UPDATE SET telegram_username = $1
 RETURNING `+USERFIELDS,
 		strings.ToLower(username))
-	u.ctx = context.WithValue(context.Background(), "origin", "telegram")
 	return
 }
 
@@ -345,41 +256,24 @@ func (u User) track(event string, eventProperties map[string]interface{}) {
 	})
 }
 
-func (u User) AtName() string {
-	if u.isTelegram() {
+func (u User) AtName(ctx context.Context) string {
+	origin := ctx.Value("origin")
+	if origin == nil ||
+		(origin.(string) == "telegram" && u.TelegramId == 0) ||
+		(origin.(string) == "discord" && u.DiscordId == "") {
+		if u.DiscordId != "" {
+			return u.Username + "@discord"
+		} else {
+			return u.Username + "@telegram"
+		}
+	} else if origin.(string) == "telegram" {
 		if u.Username != "" {
 			return "@" + u.Username
 		}
-		return fmt.Sprintf("user:%d", u.TelegramId)
-	} else if u.isDiscord() {
+		return fmt.Sprintf("[user %d](tg://user?id=%d)", u.TelegramId, u.TelegramId)
+	} else if origin.(string) == "discord" {
 		return fmt.Sprintf("<@!%s>", u.DiscordId)
 	} else {
-		return "<unknown_user?err>"
-	}
-}
-
-func (u User) origin() string {
-	val := u.ctx.Value("origin")
-	if val == nil {
-		return ""
-	}
-	return val.(string)
-}
-
-func (u User) isTelegram() bool {
-	origin := u.origin()
-	if origin == "" {
-		return u.TelegramChatId != 0
-	} else {
-		return origin == "telegram"
-	}
-}
-
-func (u User) isDiscord() bool {
-	origin := u.origin()
-	if origin == "" {
-		return u.DiscordChannelId != ""
-	} else {
-		return origin == "discord"
+		return "unknown_user?err"
 	}
 }

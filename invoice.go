@@ -167,7 +167,7 @@ func onInvoicePaid(hash string, data ShadowChannelData) {
 	go func() {
 		time.Sleep(3 * time.Second)
 		if comment, ok := data.Extra["comment"]; ok && comment != "" {
-			receiver.notify(t.LNURLPAYCOMMENT, t.T{
+			send(ctx, receiver, t.LNURLPAYCOMMENT, t.T{
 				"Text":           comment,
 				"HashFirstChars": hash[:5],
 			})
@@ -186,22 +186,12 @@ func onInvoicePaid(hash string, data ShadowChannelData) {
 		switch data.Origin {
 		case "telegram":
 			mid, _ := data.MessageId.(int)
-			receiver.notifyAsReply(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, mid)
+			send(ctx, receiver, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, mid)
 		case "discord":
-			receiver.notify(t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash})
-			var (
-				channelId string
-				messageId string
-			)
-			switch v := data.MessageId.(type) {
-			case string:
-				channelId = receiver.DiscordChannelId
-				messageId = v
-			case DiscordMessage:
-				channelId = v.ChannelID
-				messageId = v.MessageID
+			send(ctx, receiver, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash})
+			if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+				discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
 			}
-			discord.MessageReactionAdd(channelId, messageId, "✅")
 		}
 		return
 	}
@@ -209,29 +199,19 @@ func onInvoicePaid(hash string, data ShadowChannelData) {
 	switch data.Origin {
 	case "telegram":
 		mid, _ := data.MessageId.(int)
-		receiver.notifyAsReply(t.PAYMENTRECEIVED, t.T{
+		send(ctx, receiver, t.PAYMENTRECEIVED, t.T{
 			"Sats": data.Msatoshi / 1000,
 			"Hash": hash[:5],
 		}, mid)
 	case "discord":
-		receiver.notify(t.PAYMENTRECEIVED, t.T{
+		send(ctx, receiver, t.PAYMENTRECEIVED, t.T{
 			"Sats": data.Msatoshi / 1000,
 			"Hash": hash[:5],
 		})
 
-		var (
-			channelId string
-			messageId string
-		)
-		switch v := data.MessageId.(type) {
-		case string:
-			channelId = receiver.DiscordChannelId
-			messageId = v
-		case DiscordMessage:
-			channelId = v.ChannelID
-			messageId = v.MessageID
+		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
 		}
-		discord.MessageReactionAdd(channelId, messageId, "⚠️")
 	}
 }
 
@@ -262,7 +242,7 @@ func handleInvoice(u User, opts docopt.Opts, desc string, tgMessageId int) {
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
-			u.notify(t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+			send(ctx, u, t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
 			return
 		}
 

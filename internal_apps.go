@@ -61,7 +61,7 @@ func getHiddenMessage(redisKey, locale string) (sourceuser int, id string, hidde
 	}
 
 	if hiddenmessage.Preview == "" {
-		hiddenmessage.Preview = translateTemplate(t.HIDDENDEFAULTPREVIEW, locale, t.T{"Sats": hiddenmessage.Satoshis})
+		hiddenmessage.Preview = translateTemplate(ctx, t.HIDDENDEFAULTPREVIEW, t.T{"Sats": hiddenmessage.Satoshis})
 	}
 
 	return
@@ -72,7 +72,7 @@ func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid i
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{
+					fmt.Sprintf(translateTemplate(ctx, t.HIDDENREVEALBUTTON, t.T{
 						"Sats":      hiddenmessage.Satoshis,
 						"Public":    hiddenmessage.Public,
 						"Crowdfund": hiddenmessage.Crowdfund,
@@ -144,7 +144,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		giver, _ := loadUser(fromId)
 		giverNames = append(giverNames, giver.AtName())
 
-		giver.notify(t.HIDDENREVEALMSG, t.T{
+		send(ctx, giver, t.HIDDENREVEALMSG, t.T{
 			"Sats": sats,
 			"Id":   hiddenid,
 		})
@@ -155,7 +155,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		return
 	}
 
-	receiver.notify(t.HIDDENSOURCEMSG, t.T{
+	send(ctx, receiver, t.HIDDENSOURCEMSG, t.T{
 		"Sats":      sats * len(fromIds),
 		"Revealers": strings.Join(giverNames, " "),
 		"Id":        hiddenid,
@@ -174,11 +174,11 @@ func giveawayKeyboard(giverId, sats int, locale string) *tgbotapi.InlineKeyboard
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", giverId),
 				),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.GIVEAWAYCLAIM, locale),
+					translate(ctx, t.GIVEAWAYCLAIM),
 					buttonData,
 				),
 			},
@@ -216,11 +216,11 @@ func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, local
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", giverId),
 				),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.GIVEFLIPJOIN, locale),
+					translate(ctx, t.GIVEFLIPJOIN),
 					fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
 				),
 			},
@@ -287,7 +287,7 @@ func coinflipKeyboard(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.COINFLIPJOIN, locale),
+					translate(ctx, t.COINFLIPJOIN),
 					fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
 				),
 			},
@@ -400,7 +400,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		giver, _ := loadUser(fromId)
 		giverNames = append(giverNames, giver.AtName())
 
-		giver.notify(t.COINFLIPGIVERMSG, t.T{
+		send(ctx, giver, t.COINFLIPGIVERMSG, t.T{
 			"IndividualSats": sats,
 			"Receiver":       receiver.AtName(),
 		})
@@ -411,7 +411,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		return
 	}
 
-	receiver.notify(t.COINFLIPWINNERMSG, t.T{
+	send(ctx, receiver, t.COINFLIPWINNERMSG, t.T{
 		"TotalSats": sats * len(fromIds),
 		"Senders":   strings.Join(giverNames, " "),
 	})
@@ -442,7 +442,7 @@ func fundraiseKeyboard(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.FUNDRAISEJOIN, locale),
+					translate(ctx, t.FUNDRAISEJOIN),
 					fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
 				),
 			},
@@ -509,7 +509,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		giver, _ := loadUser(fromId)
 		giverNames = append(giverNames, giver.AtName())
 
-		giver.notify(t.FUNDRAISEGIVERMSG, t.T{
+		send(ctx, giver, t.FUNDRAISEGIVERMSG, t.T{
 			"IndividualSats": sats,
 			"Receiver":       receiver.AtName(),
 		})
@@ -520,7 +520,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		return
 	}
 
-	receiver.notify(t.FUNDRAISERECEIVERMSG, t.T{
+	send(ctx, receiver, t.FUNDRAISERECEIVERMSG, t.T{
 		"TotalSats": sats * len(fromIds),
 		"Senders":   strings.Join(giverNames, " "),
 	})
@@ -548,11 +548,11 @@ func renameKeyboard(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", renamerId),
 				),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.YES, locale),
+					translate(ctx, t.YES),
 					fmt.Sprintf("rnm=%s", renameId),
 				),
 			},

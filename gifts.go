@@ -110,13 +110,13 @@ func createGift(user User, sats int, messageId interface{}) error {
 			}
 
 			// we already have the order id which is the gift url
-			u.notifyAsReply(t.GIFTSCREATED, t.T{"OrderId": order.OrderId}, messageId)
+			send(ctx, u, t.GIFTSCREATED, t.T{"OrderId": order.OrderId}, messageId)
 
 			// save gift info as user data
 			var data GiftsData
 			err := user.getAppData("gifts", &data)
 			if err != nil {
-				u.notify(t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
+				send(ctx, u, t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
 				return
 			}
 			data.Gifts = append(data.Gifts, order.OrderId)
@@ -128,7 +128,7 @@ func createGift(user User, sats int, messageId interface{}) error {
 
 			err = user.setAppData("gifts", data)
 			if err != nil {
-				u.notify(t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
+				send(ctx, u, t.GIFTSFAILEDSAVE, t.T{"Err": err.Error()})
 				return
 			}
 		},
@@ -168,7 +168,7 @@ func serveGiftsWebhook() {
 			log.Warn().Err(err).Interface("ev", event).Msg("error loading gifts giver after webhook")
 		}
 
-		user.notify(t.GIFTSSPENTEVENT, t.T{
+		send(ctx, user, t.GIFTSSPENTEVENT, t.T{
 			"Id":          gift.OrderId,
 			"Description": gift.WithdrawalInfo.Reference,
 			"Amount":      gift.Amount,

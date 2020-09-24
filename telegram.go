@@ -19,69 +19,6 @@ func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message str
 	return c.MessageID
 }
 
-func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
-	baseedit := tgbotapi.BaseEdit{
-		InlineMessageID: cb.InlineMessageID,
-	}
-
-	if cb.Message != nil {
-		baseedit.MessageID = cb.Message.MessageID
-		baseedit.ChatID = cb.Message.Chat.ID
-	}
-
-	return baseedit
-}
-
-func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
-	baseEdit := getBaseEdit(cb)
-
-	baseEdit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
-		},
-	}
-
-	bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
-		BaseEdit: baseEdit,
-	})
-}
-
-func appendToTelegramMessage(cb *tgbotapi.CallbackQuery, text string) {
-	if cb.Message != nil {
-		text = cb.Message.Text + " " + text
-	}
-
-	baseEdit := getBaseEdit(cb)
-	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit:              baseEdit,
-		Text:                  text,
-		DisableWebPagePreview: true,
-	})
-}
-
-func edit(message *tgbotapi.Message, newText string) {
-	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit: tgbotapi.BaseEdit{
-			ChatID:    message.Chat.ID,
-			MessageID: message.MessageID,
-		},
-		Text:                  newText,
-		DisableWebPagePreview: true,
-	})
-}
-
-func editAppend(message *tgbotapi.Message, textToAppend string) {
-	edit(message, message.Text+textToAppend)
-}
-
-func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
-	edit := tgbotapi.NewEditMessageText(chat, msg, text)
-	edit.ParseMode = "HTML"
-	edit.DisableWebPagePreview = true
-	edit.BaseEdit.ReplyMarkup = &keyboard
-	bot.Send(edit)
-}
-
 func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
 	if chat.Type == "supergroup" {
 		chatmember, err := bot.GetChatMember(tgbotapi.ChatConfigWithUser{

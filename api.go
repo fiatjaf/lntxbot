@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -263,7 +264,8 @@ func errorInternal(w http.ResponseWriter) {
     }`))
 }
 
-func handleAPI(u User, opts docopt.Opts) {
+func handleAPI(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
 	go u.track("api", nil)
 
 	passwordFull := u.Password
@@ -276,18 +278,18 @@ func handleAPI(u User, opts docopt.Opts) {
 
 	switch {
 	case opts["full"].(bool):
-		u.sendMessageWithPicture(qrURL(tokenFull), tokenFull)
+		send(ctx, qrURL(tokenFull), tokenFull)
 	case opts["invoice"].(bool):
-		u.sendMessageWithPicture(qrURL(tokenInvoice), tokenInvoice)
+		send(ctx, qrURL(tokenInvoice), tokenInvoice)
 	case opts["readonly"].(bool):
-		u.sendMessageWithPicture(qrURL(tokenReadOnly), tokenReadOnly)
+		send(ctx, qrURL(tokenReadOnly), tokenReadOnly)
 	case opts["url"].(bool):
-		u.sendMessageWithPicture(qrURL(s.ServiceURL+"/"), s.ServiceURL+"/")
+		send(ctx, qrURL(s.ServiceURL+"/"), s.ServiceURL+"/")
 	case opts["refresh"].(bool):
 		opts["bluewallet"] = true
-		u.notify(t.COMPLETED, nil)
+		send(ctx, u, t.COMPLETED)
 	default:
-		u.notify(t.APICREDENTIALS, t.T{
+		send(ctx, u, t.APICREDENTIALS, t.T{
 			"Full":       tokenFull,
 			"Invoice":    tokenInvoice,
 			"ReadOnly":   tokenReadOnly,
@@ -296,9 +298,10 @@ func handleAPI(u User, opts docopt.Opts) {
 	}
 }
 
-func handleLightningATM(u User) {
+func handleLightningATM(ctx context.Context) {
+	u := ctx.Value("initiator").(User)
 	token := base64.StdEncoding.EncodeToString(
 		[]byte(fmt.Sprintf("%d:%s", u.Id, u.Password)))
 	text := fmt.Sprintf("%s@%s", token, s.ServiceURL)
-	u.sendMessageWithPicture(qrURL(text), "<pre>"+text+"</pre>")
+	send(ctx, qrURL(text), "<pre>"+text+"</pre>")
 }

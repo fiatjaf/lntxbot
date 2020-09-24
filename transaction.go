@@ -171,23 +171,23 @@ func renderLogInfo(u User, hash string) (logInfo string) {
 	var tries []Try
 	err = json.Unmarshal([]byte(lastCall), &tries)
 	if err != nil {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "failed to parse log"})
+		return translateTemplate(ctx, t.ERROR, t.T{"Err": "failed to parse log"})
 	}
 
 	if len(tries) == 0 {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no routes attempted"})
+		return translateTemplate(ctx, t.ERROR, t.T{"Err": "no routes attempted"})
 	}
 
-	return translateTemplate(t.TXLOG, u.Locale, t.T{
+	return translateTemplate(ctx, t.TXLOG, t.T{
 		"Tries": tries,
 	})
 }
 
-func handleSingleTransaction(u User, opts docopt.Opts, messageId int) {
+func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 	// individual transaction query
 	hashfirstchars := opts["<hash>"].(string)
 	if len(hashfirstchars) < 5 {
-		u.notify(t.ERROR, t.T{"Err": "hash too small."})
+		send(ctx, u, t.ERROR, t.T{"Err": "hash too small."})
 		return
 	}
 	go u.track("view tx", nil)
@@ -196,43 +196,38 @@ func handleSingleTransaction(u User, opts docopt.Opts, messageId int) {
 	if err != nil {
 		log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
 			Msg("failed to get transaction")
-		u.notifyAsReply(t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars}, messageId)
+		send(ctx, u, t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars},
+			ctx.Value("message"))
 		return
 	}
 
-	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
+	text := translateTemplate(ctx, t.TXINFO, t.T{
 		"Txn":     txn,
 		"LogInfo": renderLogInfo(u, txn.Hash),
 	})
 
-	msgId := u.sendMessageAsReply(txstatus, txn.TriggerMessage)
-	if u.isTelegram() {
-		mid, _ := msgId.(int)
+	var actionPrompt interface{}
+	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
+		// allow people to cancel pending if they're old enough
+		text = text + "\n\n" + translate(ctx, t.RECHECKPENDING)
 
-		if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
-			// allow people to cancel pending if they're old enough
-			editWithKeyboard(u.TelegramChatId, mid, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
-				tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
-					),
-				),
-			)
-		}
-
-		if txn.IsUnclaimed() {
-			editWithKeyboard(u.TelegramChatId, mid, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
-				tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
-					),
-				),
-			)
-		}
+		actionPrompt = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.YES), "check="+hashfirstchars),
+			),
+		)
+	} else if txn.IsUnclaimed() {
+		text = text + "\n\n" + translate(ctx, t.RETRACTQUESTION)
+		actionPrompt = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.YES), "remunc="+hashfirstchars),
+			),
+		)
 	}
+	send(ctx, u, txstatus, txn.TriggerMessage)
 }
 
-func handleTransactionList(u User, opts docopt.Opts) {
+func handleTransactionList(ctx context.Context, opts docopt.Opts) {
 	page, _ := opts.Int("--page")
 	filter := Both
 	if opts["--in"].(bool) {
@@ -242,10 +237,11 @@ func handleTransactionList(u User, opts docopt.Opts) {
 	}
 	tag, _ := opts.String("<tag>")
 
-	displayTransactionList(u, page, tag, filter, nil)
+	displayTransactionList(ctx, page, tag, filter, nil)
 }
 
-func displayTransactionList(u User, page int, tag string, filter InOut, cb *tgbotapi.CallbackQuery) {
+func displayTransactionList(ctx, page int, tag string, filter InOut) {
+
 	// show list of transactions
 	if page == 0 {
 		page = 1
@@ -267,72 +263,43 @@ func displayTransactionList(u User, page int, tag string, filter InOut, cb *tgbo
 		return
 	}
 
-	text := translateTemplate(t.TXLIST, u.Locale, t.T{
+	keyboard := tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			[]tgbotapi.InlineKeyboardButton{},
+		},
+	}
+	if page > 1 {
+		keyboard.InlineKeyboard[0] = append(
+			keyboard.InlineKeyboard[0],
+			tgbotapi.NewInlineKeyboardButtonData(
+				"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
+		)
+	}
+	if len(txns) > 0 {
+		keyboard.InlineKeyboard[0] = append(
+			keyboard.InlineKeyboard[0],
+			tgbotapi.NewInlineKeyboardButtonData(
+				"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
+		)
+	}
+
+	send(ctx, ctx.Value("callbackQuery"), EDIT, u, text, &keyboard, t.TXLIST, t.T{
 		"Offset":       offset,
 		"Limit":        limit,
 		"From":         offset + 1,
 		"To":           offset + limit,
 		"Transactions": txns,
 	})
-
-	if u.isDiscord() {
-		sendDiscordMessage(u.DiscordChannelId, text)
-	} else if u.isTelegram() {
-		keyboard := tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				[]tgbotapi.InlineKeyboardButton{},
-			},
-		}
-
-		if page > 1 {
-			keyboard.InlineKeyboard[0] = append(
-				keyboard.InlineKeyboard[0],
-				tgbotapi.NewInlineKeyboardButtonData(
-					"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
-			)
-		}
-
-		if len(txns) > 0 {
-			keyboard.InlineKeyboard[0] = append(
-				keyboard.InlineKeyboard[0],
-				tgbotapi.NewInlineKeyboardButtonData(
-					"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
-			)
-		}
-
-		var chattable tgbotapi.Chattable
-		if cb == nil {
-			chattable = tgbotapi.MessageConfig{
-				BaseChat: tgbotapi.BaseChat{
-					ChatID:      u.TelegramChatId,
-					ReplyMarkup: &keyboard,
-				},
-				Text:                  text,
-				DisableWebPagePreview: true,
-				ParseMode:             "HTML",
-			}
-		} else {
-			baseEdit := getBaseEdit(cb)
-			baseEdit.ReplyMarkup = &keyboard
-			chattable = tgbotapi.EditMessageTextConfig{
-				BaseEdit:              baseEdit,
-				Text:                  text,
-				DisableWebPagePreview: true,
-				ParseMode:             "HTML",
-			}
-		}
-
-		bot.Send(chattable)
-	}
 }
 
-func handleLogView(u User, opts docopt.Opts) {
+func handleLogView(ctx context.Context, opts docopt.Opts) {
 	// query failed transactions (only available in the first 24h after the failure)
+	u := ctx.Value("initiator").(User)
 	hash := opts["<hash>"].(string)
 	if len(hash) < 5 {
-		u.notify(t.ERROR, t.T{"Err": "hash too small."})
+		send(ctx, u, t.ERROR, t.T{"Err": "hash too small."})
 		return
 	}
 	go u.track("view log", nil)
-	u.sendMessage(renderLogInfo(u, hash))
+	send(ctx, u, renderLogInfo(u, hash))
 }

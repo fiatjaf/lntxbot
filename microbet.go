@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -76,7 +77,9 @@ func getMicrobetBet(betId string) (_ MicrobetBet, err error) {
 	return
 }
 
-func placeMicrobetBet(user User, messageId int, betId string, back bool) (err error) {
+func placeMicrobetBet(ctx context.Context, betId string, back bool) (err error) {
+	user := ctx.Value("initiator").(User)
+
 	session := &napping.Session{
 		Client: &http.Client{
 			Jar: &microbetCookiejar{user},
@@ -104,10 +107,10 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 		return errors.New("Failed to decode invoice.")
 	}
 	err = user.actuallySendExternalPayment(
-		messageId, payreq.PaymentRequest, inv, inv.MSatoshi,
+		ctx, payreq.PaymentRequest, inv, inv.MSatoshi,
 		func(
+			ctx context.Context,
 			u User,
-			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -115,7 +118,7 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "microbet", hash)
+			paymentHasSucceeded(ctx, u, msatoshi, msatoshi_sent, preimage, "microbet", hash)
 
 			// acknowledge bet on microbet.fun
 			var paidreq struct {
@@ -127,18 +130,19 @@ func placeMicrobetBet(user User, messageId int, betId string, back bool) (err er
 				Back  bool   `json:"back"`
 			}{payreq.RHash, betId, back}, &paidreq, nil)
 			if err != nil {
-				u.notifyAsReply(t.ERROR, t.T{"App": "Microbet", "Err": err.Error()}, messageId)
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()},
+					ctx.Value("message"))
 			}
 			if resp.Status() >= 300 {
-				u.notifyAsReply(t.ERROR, t.T{"App": "Microbet", "Err": "microbet.fun returned an invalid response, please report."}, messageId)
+				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": "microbet.fun returned an invalid response, please report."}, ctx.Value("message"))
 				return
 			}
 			if !paidreq.Settled {
-				u.notifyAsReply(t.MICROBETPAIDBUTNOTCONFIRMED, nil, messageId)
+				send(ctx, u, t.MICROBETPAIDBUTNOTCONFIRMED, ctx.Value("message"))
 				return
 			}
 
-			u.notifyAsReply(t.MICROBETPLACED, nil, messageId)
+			send(ctx, u, t.MICROBETPLACED, nil, ctx.Value("message"))
 		},
 		paymentHasFailed,
 	)
@@ -203,14 +207,16 @@ func getMicrobetBalance(user User) (_ int64, err error) {
 	return balance.Balance, nil
 }
 
-func withdrawMicrobet(user User, sats int) (err error) {
+func withdrawMicrobet(ctx context.Context, sats int) (err error) {
+	user := ctx.Value("initiator").(User)
+
 	session := &napping.Session{
 		Client: &http.Client{
 			Jar: &microbetCookiejar{user},
 		},
 	}
 
-	bolt11, _, err := user.makeInvoice(makeInvoiceArgs{
+	bolt11, _, err := user.makeInvoice(ctx, makeInvoiceArgs{
 		Msatoshi: int64(sats) * 1000,
 		Desc:     "withdraw from microbet.fun",
 		Tag:      "microbet",

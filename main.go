@@ -191,7 +191,8 @@ func server(p *plugin.Plugin) {
 	registerAPIMethods()
 
 	// register webserver routes
-	serveQRCode()
+	serveQRCodes()
+	serveTempAssets()
 	serveLNURL()
 	servePages()
 	serveGiftsWebhook()

@@ -559,7 +559,7 @@ func listenToEtleneumContract(ctid string) {
 
 		for userId, _ := range userIds {
 			user, _ := loadUser(userId)
-			user.notify(t.ETLENEUMCONTRACTEVENT, t.T{
+			send(ctx, user, t.ETLENEUMCONTRACTEVENT, t.T{
 				"Event": ev.Event(),
 				"Id":    ctid,
 				"Data":  data,

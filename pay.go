@@ -14,12 +14,9 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func handlePay(
-	u User,
-	opts docopt.Opts,
-	messageId int,
-	replyToMessage *tgbotapi.Message,
-) error {
+func handlePay(ctx context.Context, opts docopt.Opts) error {
+	u = ctx.Value("initiator").(User)
+
 	// pay invoice flow
 	askConfirmation := true
 	if opts["now"].(bool) {
@@ -45,7 +42,7 @@ func handlePay(
 	// decode invoice
 	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
-		u.notify(t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
+		send(ctx, u, t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
 		return err
 	}
 
@@ -74,51 +71,37 @@ func handlePay(
 				Before(time.Now()),
 			"Currency":  inv.Currency,
 			"Hints":     inv.Route,
-			"IsDiscord": u.isDiscord(),
+			"IsDiscord": ctx.Value("origin").(string) == "discord",
 		}
 
-		if u.isDiscord() {
+		if ctx.Value("origin").(string) == "discord" {
 			if amount == 0 {
-				u.notify(t.ERROR, t.T{"Err": "Amountless invoice, use `/paynow &lt;invoice&gt; &lt;amount&gt;`"})
+				send(ctx, u, t.ERROR, t.T{"Err": "Amountless invoice. Use `/paynow &lt;invoice&gt; &lt;amount&gt;`"})
 				return errors.New("paying amountless on discord")
 			}
 
-			var messageId string
-			switch v := u.notify(t.PAYPROMPT, payTmplParams).(type) {
-			case DiscordMessage:
-				messageId = v.MessageID
-			case string:
-				messageId = v
-			}
-
+			sentId := send(ctx, u, t.PAYPROMPT, payTmplParams)
 			rds.Set(
-				fmt.Sprintf("reaction-confirm:%s:%s", u.DiscordId, messageId),
+				fmt.Sprintf("reaction-confirm:%s:%s", u.DiscordId, sentId),
 				bolt11, time.Minute*15)
 			return nil
 		}
 
 		if amount == 0 {
-			// zero-amount invoices, prompt the user to reply with the desired amount
-			chattable := tgbotapi.MessageConfig{
-				BaseChat: tgbotapi.BaseChat{
-					ChatID:           u.TelegramChatId,
-					ReplyToMessageID: messageId,
-					ReplyMarkup:      tgbotapi.ForceReply{ForceReply: true},
-				},
-				ParseMode:             "HTML",
-				DisableWebPagePreview: true,
-				Text:                  translateTemplate(t.PAYPROMPT, u.Locale, payTmplParams),
+			// zero-amount invoice, prompt the user to reply with the desired amount
+			sent := send(ctx, u, ctx.Value("message"),
+				tgbotapi.ForceReply{ForceReply: true},
+				t.PAYPROMPT, payTmplParams)
+			if sent == nil {
+				return
 			}
-			sent, err := tgsend(chattable)
-			if err != nil {
-				log.Warn().Err(err).Msg("error sending pay prompt amountless")
-				return err
-			}
+
+			sentId, _ := sent.(int)
 			data, _ := json.Marshal(struct {
 				Type   string `json:"type"`
 				Bolt11 string `json:"bolt11"`
 			}{"pay", bolt11})
-			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sent.MessageID), data, time.Minute*15)
+			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Minute*15)
 			return nil
 		}
 
@@ -128,20 +111,27 @@ func handlePay(
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, u.Locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", u.Id)),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translateTemplate(t.PAYAMOUNT, u.Locale, t.T{"Sats": amount / 1000}),
+					translateTemplate(ctx, t.PAYAMOUNT, t.T{"Sats": amount / 1000}),
 					fmt.Sprintf("pay=%s", hashfirstchars)),
 			),
 		)
 
-		u.notifyWithKeyboard(t.PAYPROMPT, payTmplParams, &keyboard, 0)
+		send(ctx, ut.PAYPROMPT, payTmplParams, &keyboard)
 	} else {
+		// modify the original payment with an "attempting" note
+		send(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars}, EDIT, JUSTAPPEND,
+			ctx.Value("message"))
+
+		// parse manually specified satoshis if any
 		amountToPay, _ := opts.Int("<satoshis>")
-		_, err := u.payInvoice(messageId, bolt11, int64(amountToPay)*1000)
+
+		// proceed to pay
+		_, err := u.payInvoice(ctx, bolt11, int64(amountToPay)*1000)
 		if err != nil {
-			u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, ctx.Value("message"))
 			return err
 		}
 	}
@@ -170,7 +160,7 @@ func handlePayReactionConfirm(reaction *discordgo.MessageReaction) {
 		hashfirstchars := inv.PaymentHash[0:5]
 
 		appendToDiscordMessage(reaction.ChannelID, reaction.MessageID,
-			translateTemplate(t.CALLBACKATTEMPT, u.Locale, t.T{
+			translateTemplate(ctx, t.CALLBACKATTEMPT, t.T{
 				"Hash": hashfirstchars,
 			}))
 		discord.MessageReactionAdd(reaction.ChannelID, reaction.MessageID, "✅")
@@ -189,18 +179,18 @@ func handlePayCallback(u User, messageId int, locale string, cb *tgbotapi.Callba
 		bot.AnswerCallbackQuery(
 			tgbotapi.NewCallback(
 				cb.ID,
-				translate(t.CALLBACKEXPIRED, locale),
+				translate(ctx, t.CALLBACKEXPIRED),
 			),
 		)
 		return
 	}
 
 	bot.AnswerCallbackQuery(
-		tgbotapi.NewCallback(cb.ID, translate(t.CALLBACKSENDING, locale)))
+		tgbotapi.NewCallback(cb.ID, translate(ctx, t.CALLBACKSENDING)))
 
 	_, err = u.payInvoice(messageId, bolt11, 0)
 	if err == nil {
-		appendToTelegramMessage(cb, translateTemplate(t.CALLBACKATTEMPT, locale, t.T{
+		appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKATTEMPT, t.T{
 			"Hash": hashfirstchars,
 		}))
 	} else {
@@ -214,7 +204,7 @@ func handlePayVariableAmount(u User, msatoshi int64, data gjson.Result, messageI
 	bolt11 := data.Get("bolt11").String()
 	_, err := u.payInvoice(messageId, bolt11, msatoshi)
 	if err != nil {
-		u.notifyAsReply(t.ERROR, t.T{"Err": err.Error()}, messageId)
+		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, messageId)
 		return
 	}
 

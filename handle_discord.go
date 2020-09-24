@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"math/rand"
+	"context"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
@@ -17,11 +15,14 @@ func addDiscordHandlers() {
 }
 
 func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
-	message := m.Message
+	ctx := context.WithValue(context.Background(), "origin", "discord")
 
+	message := m.Message
 	if message.Author.Bot {
 		return
 	}
+
+	ctx = context.WithValue(ctx, "message", message)
 
 	// this is just to send to amplitude
 	var group *int64 = nil
@@ -32,15 +33,18 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 		messageText string
 		opts        docopt.Opts
 		isCommand   bool
+		commandName string
 	)
 
 	if message.Content[0] != '$' {
 		if bolt11, lnurltext, ok := searchForInvoice(u, message); ok {
 			if bolt11 != "" {
+				commandName = "$pay"
 				opts, _, _ = parse("/pay " + bolt11)
 				goto parsed
 			}
 			if lnurltext != "" {
+				commandName = "$lnurl"
 				opts, _, _ = parse("/lnurl " + lnurltext)
 				goto parsed
 			}
@@ -50,12 +54,13 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	messageText = "/" + message.Content[1:]
-
 	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got discord message")
 
 	opts, isCommand, err = parse(messageText)
 	if !isCommand {
 		// is this a reply we're waiting for?
+		// TODO
+		return
 	}
 	if err != nil {
 		if message.GuildID == "" {
@@ -68,35 +73,30 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 			method := strings.Split(messageText, " ")[0][1:]
 			handled := handleHelp(u, method)
 			if !handled {
-				u.notify(t.WRONGCOMMAND, nil)
+				send(ctx, u, t.WRONGCOMMAND)
 			}
 		}
-
-		// save the fact that we didn't understand this so it can be edited
-		// and reevaluated
-		rds.Set(fmt.Sprintf("parseerror:%s", message.ID), "1", time.Minute*5)
-
 		return
 	}
 
+	commandName = "$" + strings.Split(strings.Split(messageText, " ")[0], "_")[0][1:]
 	go u.track("command", map[string]interface{}{
-		"command": strings.Split(strings.Split(messageText, " ")[0], "_")[0],
+		"command": commandName,
 		"group":   group,
 	})
 
 parsed:
+	ctx = context.WithValue(ctx, "command", command)
+
 	if message.GuildID != "" {
-		u = User{
-			DiscordChannelId: message.ChannelID,
-			Locale:           "en",
-		}
+		// TODO
 	} else {
-		user, tcase, err := ensureDiscordUser(
+		user, err := ensureDiscordUser(
 			message.Author.ID,
 			message.Author.Username+"#"+message.Author.Discriminator,
 			message.Author.Locale)
 		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
+			log.Warn().Err(err).
 				Str("username",
 					message.Author.Username+"#"+message.Author.Discriminator).
 				Str("id", message.Author.ID).
@@ -110,6 +110,8 @@ parsed:
 			log.Debug().Int("id", u.Id).Msg("got request from banned user")
 			return
 		}
+
+		ctx = context.WithValue(ctx, "initiator", u)
 	}
 
 	// by default we use the user locale for the group object, because
@@ -141,9 +143,6 @@ parsed:
 		// group = &message.Chat.ID
 	}
 
-	// if we reached this point we should make sure the command won't be editable again
-	rds.Del(fmt.Sprintf("parseerror:%s", message.ID))
-
 	if opts["paynow"].(bool) {
 		opts["pay"] = true
 		opts["now"] = true
@@ -161,7 +160,7 @@ parsed:
 			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
 				handleTutorial(u, tutorial)
 			} else {
-				u.notify(t.WELCOME, nil)
+				send(ctx, u, t.WELCOME)
 				handleTutorial(u, "")
 			}
 			go u.track("start", nil)
@@ -170,31 +169,31 @@ parsed:
 	case opts["stop"].(bool):
 		if message.GuildID == "" {
 			u.unsetChannel()
-			u.notify(t.STOPNOTIFY, nil)
+			send(ctx, u, t.STOPNOTIFY)
 			go u.track("stop", nil)
 		}
 		break
 	case opts["bluewallet"].(bool), opts["zeus"].(bool), opts["lndhub"].(bool):
-		go handleBlueWallet(u, opts)
+		go handleBlueWallet(ctx, opts)
 	case opts["api"].(bool):
-		go handleAPI(u, opts)
+		go handleAPI(ctx, opts)
 	case opts["lightningatm"].(bool):
-		go handleLightningATM(u)
+		go handleLightningATM(ctx)
 	case opts["tx"].(bool):
-		go handleSingleTransaction(u, opts, 0)
+		go handleSingleTransaction(ctx, opts)
 	case opts["log"].(bool):
-		go handleLogView(u, opts)
+		go handleLogView(ctx, opts)
 	case opts["transactions"].(bool):
-		go handleTransactionList(u, opts)
+		go handleTransactionList(ctx, opts)
 	case opts["balance"].(bool):
-		go handleBalance(u, opts)
+		go handleBalance(ctx, opts)
 	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
 		if opts["lnurl"].(bool) {
 			// create an lnurl-withdraw voucher
-			handleCreateLNURLWithdraw(u, opts, -rand.Int())
+			handleCreateLNURLWithdraw(ctx, opts)
 		} else {
 			// normal payment flow
-			handlePay(u, opts, 0, nil)
+			handlePay(ctx, opts)
 		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		desc, _ := opts.String("<description>")
@@ -207,11 +206,12 @@ parsed:
 		go handleHelp(u, command)
 		break
 	default:
-		u.notify(t.ERROR, t.T{"Err": "not implemented on Discord yet."})
+		send(ctx, u, t.ERROR, t.T{"Err": "not implemented on Discord yet."})
 	}
 }
 
 func handleDiscordReaction(dgs *discordgo.Session, m *discordgo.MessageReactionAdd) {
+	ctx := context.WithValue(context.Background(), "origin", "discord")
 	reaction := m.MessageReaction
 
 	log.Print("got emoji ", reaction.Emoji.Name)

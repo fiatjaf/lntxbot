@@ -71,7 +71,7 @@ func createBitcloudImage(user User, image string) (err error) {
 				for i := 0; i < 25; i++ {
 					status, err := getBitcloudStatus(create.Host)
 					if err != nil {
-						u.notifyAsReply(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()}, messageId)
+						send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()}, messageId)
 						return
 					}
 
@@ -89,7 +89,7 @@ func createBitcloudImage(user User, image string) (err error) {
 							log.Error().Err(err).Str("user", user.Username).Msg("error saving bitclouds data")
 						}
 
-						u.notifyAsReply(t.BITCLOUDSCREATED, t.T{
+						send(ctx, u, t.BITCLOUDSCREATED, t.T{
 							"Image":       image,
 							"Host":        create.Host,
 							"EscapedHost": escapeBitcloudsHost(create.Host),
@@ -102,7 +102,7 @@ func createBitcloudImage(user User, image string) (err error) {
 					}
 				}
 
-				u.notify(t.BITCLOUDSSTOPPEDWAITING, t.T{
+				send(ctx, u, t.BITCLOUDSSTOPPEDWAITING, t.T{
 					"Host":        create.Host,
 					"EscapedHost": escapeBitcloudsHost(create.Host),
 				})
@@ -182,10 +182,10 @@ func topupBitcloud(user User, host string, sats int) error {
 func showBitcloudStatus(user User, host string) {
 	status, err := getBitcloudStatus(host)
 	if err != nil {
-		user.notify(t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+		send(ctx, user, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 	}
 
-	user.notify(t.BITCLOUDSSTATUS, t.T{
+	send(ctx, user, t.BITCLOUDSSTATUS, t.T{
 		"Host":        host,
 		"EscapedHost": escapeBitcloudsHost(host),
 		"Status":      status,
@@ -300,7 +300,7 @@ WHERE id = $1
 					log.Error().Err(err).Msg("deleting expired bitclouds host")
 				}
 			case status.HoursLeft < 24*14 && status.HoursLeft > 24*14-6 && !rds.Exists("bitclouds:2w:"+host).Val():
-				user.notify(t.BITCLOUDSREMINDER, t.T{
+				send(ctx, user, t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
 					"Host":         host,
 					"EscapedHost":  escapeBitcloudsHost(host),
@@ -309,7 +309,7 @@ WHERE id = $1
 				})
 				rds.Set("bitclouds:2w:"+host, "1", time.Hour*48)
 			case status.HoursLeft < 24*7 && status.HoursLeft > 24*7-6 && !rds.Exists("bitclouds:1w:"+host).Val():
-				user.notify(t.BITCLOUDSREMINDER, t.T{
+				send(ctx, user, t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
 					"Host":         host,
 					"EscapedHost":  escapeBitcloudsHost(host),
@@ -318,7 +318,7 @@ WHERE id = $1
 				})
 				rds.Set("bitclouds:1w:"+host, "1", time.Hour*48)
 			case status.HoursLeft < 24*3 && status.HoursLeft > 24*3-6 && !rds.Exists("bitclouds:3d:"+host).Val():
-				user.notify(t.BITCLOUDSREMINDER, t.T{
+				send(ctx, user, t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        false,
 					"Host":         host,
 					"EscapedHost":  escapeBitcloudsHost(host),
@@ -327,7 +327,7 @@ WHERE id = $1
 				})
 				rds.Set("bitclouds:3d:"+host, "1", time.Hour*24)
 			case status.HoursLeft < 25:
-				user.notify(t.BITCLOUDSREMINDER, t.T{
+				send(ctx, user, t.BITCLOUDSREMINDER, t.T{
 					"Alarm":        true,
 					"Host":         host,
 					"EscapedHost":  escapeBitcloudsHost(host),
