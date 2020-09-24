@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,7 +32,7 @@ func registerAPIMethods() {
 	registerBluewalletMethods()
 
 	router.Path("/generatelnurlwithdraw").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		ctx, _, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -52,9 +51,9 @@ func registerAPIMethods() {
 			return
 		}
 
-		lnurlEncoded := handleCreateLNURLWithdraw(user, docopt.Opts{
+		lnurlEncoded := handleCreateLNURLWithdraw(ctx, docopt.Opts{
 			"<satoshis>": params.Satoshis,
-		}, -rand.Int())
+		})
 		if lnurlEncoded == "" {
 			errorInvalidParams(w)
 			return
@@ -67,7 +66,7 @@ func registerAPIMethods() {
 	})
 
 	router.Path("/invoicestatus/{hash}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -115,7 +114,7 @@ func registerAPIMethods() {
 	})
 
 	router.Path("/paymentstatus/{hash}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -157,7 +156,11 @@ func registerAPIMethods() {
 	})
 }
 
-func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err error) {
+func loadUserFromAPICall(
+	r *http.Request,
+) (ctx context.Context, user User, permission Permission, err error) {
+	ctx = context.WithValue(context.Background(), "origin", "api")
+
 	// decode user id and password from auth token
 	splt := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")
 	token := splt[len(splt)-1]
@@ -185,17 +188,19 @@ func loadUserFromAPICall(r *http.Request) (user User, permission Permission, err
 		return
 	}
 
+	ctx = context.WithValue(ctx, "initiator", user)
+
 	// check password
 	if password == user.Password {
 		permission = FullPermissions
 		return
 	}
-	hash1 := calculateHash(user.Password)
+	hash1 := hashString(user.Password)
 	if password == hash1 {
 		permission = InvoicePermissions
 		return
 	}
-	hash2 := calculateHash(hash1)
+	hash2 := hashString(hash1)
 	if password == hash2 {
 		permission = ReadOnlyPermissions
 		return
@@ -264,8 +269,8 @@ func handleAPI(ctx context.Context, opts docopt.Opts) {
 	go u.track("api", nil)
 
 	passwordFull := u.Password
-	passwordInvoice := calculateHash(passwordFull)
-	passwordReadOnly := calculateHash(passwordInvoice)
+	passwordInvoice := hashString(passwordFull)
+	passwordReadOnly := hashString(passwordInvoice)
 
 	tokenFull := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordFull)))
 	tokenInvoice := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d:%s", u.Id, passwordInvoice)))

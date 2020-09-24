@@ -95,7 +95,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 					unsubscribeEtleneum(u, contract, true)
 				}()
 
-				etlurl, err := buildEtleneumCallLNURL(&u, contract, method, params, sats)
+				etlurl, err := buildEtleneumCallLNURL(ctx, &u, contract, method, params, sats)
 				if err != nil {
 					send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 					return
@@ -135,7 +135,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			go u.track("etleneum contracts", nil)
 			send(ctx, u, t.ETLENEUMCONTRACTS, t.T{"Contracts": contracts, "Aliases": aliases})
 		} else if opts["history"].(bool) {
-			history, err := etleneumHistory(u)
+			history, err := etleneumHistory(ctx)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
@@ -143,7 +143,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			go u.track("etleneum history", nil)
 			send(ctx, u, t.ETLENEUMHISTORY, t.T{"History": history})
 		} else if opts["withdraw"].(bool) {
-			_, _, _, withdraw, err := etleneumLogin(u)
+			_, _, _, withdraw, err := etleneumLogin(ctx, u)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
@@ -151,13 +151,13 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			go u.track("etleneum withdraw", nil)
 			handleLNURL(ctx, withdraw, handleLNURLOpts{})
 		} else {
-			account, _, balance, _, err := etleneumLogin(u)
+			account, _, balance, _, err := etleneumLogin(ctx, u)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
 			}
 			go u.track("etleneum account", map[string]interface{}{"sats": balance})
-			send(ctx, ut.ETLENEUMACCOUNT, t.T{
+			send(ctx, u, t.ETLENEUMACCOUNT, t.T{
 				"Account": account,
 				"Balance": balance,
 			}, &tgbotapi.InlineKeyboardMarkup{
@@ -192,13 +192,14 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			}
 
 			go u.track("microbet balance", map[string]interface{}{"sats": balance})
-			send(ctx, ut.APPBALANCE, t.T{"App": "Microbet", "Balance": balance}, &tgbotapi.InlineKeyboardMarkup{
-				[][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.WITHDRAW), "x=microbet-withdraw"),
+			send(ctx, u, t.APPBALANCE, t.T{"App": "Microbet", "Balance": balance},
+				&tgbotapi.InlineKeyboardMarkup{
+					[][]tgbotapi.InlineKeyboardButton{
+						{
+							tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.WITHDRAW), "x=microbet-withdraw"),
+						},
 					},
-				},
-			}, 0)
+				})
 		} else if opts["withdraw"].(bool) {
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
@@ -209,7 +210,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
 			err = withdrawMicrobet(ctx, int(float64(balance)*0.99))
 			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, u.Value("message"))
+				send(ctx, t.ERROR, t.T{"Err": err.Error()}, ctx.Value("message"))
 				return
 			}
 		} else {
@@ -219,60 +220,58 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
 				return
 			}
-			send(ctx, ut.MICROBETBETHEADER,
-				&tgbotapi.InlineKeyboardMarkup{inlineKeyboard})
-
+			send(ctx, t.MICROBETBETHEADER, inlineKeyboard)
 			go u.track("microbet show-bets", nil)
 		}
 	case opts["satellite"].(bool):
 		// create an order
 		satoshis, err := parseSatoshis(opts)
 		if err != nil {
-			handleHelp(u, "satellite")
+			handleHelp(ctx, "satellite")
 			return
 		}
 
-		message := getVariadicFieldOrReplyToContent(opts, message, "<message>")
+		message := getVariadicFieldOrReplyToContent(ctx, opts, "<message>")
 		if message == "" {
-			handleHelp(u, "satellite")
+			handleHelp(ctx, "satellite")
 			return
 		}
 
-		err = createSatelliteOrder(u, messageId, satoshis, message)
+		err = createSatelliteOrder(ctx, satoshis, message)
 		if err != nil {
-			send(ctx, u, t.ERROR,
-				t.T{"App": "satellite", "Err": err.Error()}, messageId)
+			send(ctx, u, t.ERROR, ctx.Value("message"),
+				t.T{"App": "satellite", "Err": err.Error()})
 			return
 		}
 
 		go u.track("satellite send", map[string]interface{}{"sats": satoshis})
-	case opts["fundbtc"].(bool):
-		sats, err := parseSatoshis(opts)
-		if err != nil {
-			handleHelp(u, "fundbtc")
-			return
-		}
+	// case opts["fundbtc"].(bool):
+	// 	sats, err := parseSatoshis(opts)
+	// 	if err != nil {
+	// 		handleHelp(u, "fundbtc")
+	// 		return
+	// 	}
 
-		order, err := prepareGoLightningTransaction(u, messageId, sats-99)
-		if err != nil {
-			send(ctx, u, t.ERROR, t.T{"App": "fundbtc", "Err": err.Error()})
-			return
-		}
+	// 	order, err := prepareGoLightningTransaction(u, messageId, sats-99)
+	// 	if err != nil {
+	// 		send(ctx, u, t.ERROR, t.T{"App": "fundbtc", "Err": err.Error()})
+	// 		return
+	// 	}
 
-		u.sendMessageWithPicture(qrURL(
-			order.Address),
-			translateTemplate(ctx, t.FUNDBTCFINISH, t.T{"Order": order}),
-		)
-		go u.track("fundbtc start", map[string]interface{}{"sats": sats})
+	// 	u.sendMessageWithPicture(qrURL(
+	// 		order.Address),
+	// 		translateTemplate(ctx, t.FUNDBTCFINISH, t.T{"Order": order}),
+	// 	)
+	// 	go u.track("fundbtc start", map[string]interface{}{"sats": sats})
 	case opts["bitclouds"].(bool):
 		switch {
 		case opts["create"].(bool):
-			inlinekeyboard, err := bitcloudsImagesKeyboard()
+			keyboard, err := bitcloudsImagesKeyboard()
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
-			send(ctx, ut.BITCLOUDSCREATEHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
+			send(ctx, u, t.BITCLOUDSCREATEHEADER, keyboard)
 
 			go u.track("bitclouds create-init", nil)
 		case opts["topup"].(bool):
@@ -286,12 +285,12 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			if err == nil {
 				// host provided
 				host = unescapeBitcloudsHost(host)
-				topupBitcloud(u, host, satoshis)
+				topupBitcloud(ctx, host, satoshis)
 				go u.track("bitclouds topup", map[string]interface{}{"host": host})
 			} else {
 				// host not provided, display options
 				noHosts, singleHost,
-					inlineKeyboard, err := bitcloudsHostsKeyboard(u, strconv.Itoa(satoshis))
+					keyboard, err := bitcloudsHostsKeyboard(u, strconv.Itoa(satoshis))
 				if err != nil {
 					send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 					return
@@ -301,11 +300,11 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 					return
 				}
 				if singleHost != "" {
-					topupBitcloud(u, singleHost, satoshis)
+					topupBitcloud(ctx, singleHost, satoshis)
 					return
 				}
 
-				send(ctx, ut.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+				send(ctx, t.BITCLOUDSHOSTSHEADER, keyboard)
 			}
 		case opts["adopt"].(bool), opts["abandon"].(bool):
 			host := unescapeBitcloudsHost(opts["<host>"].(string))
@@ -331,7 +330,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 				// on success, simulate status command
 				opts["adopt"] = false
 				opts["status"] = true
-				handleExternalApp(u, opts, message)
+				handleExternalApp(ctx, opts)
 			} else {
 				send(ctx, u, t.COMPLETED)
 			}
@@ -342,11 +341,11 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			if err == nil {
 				// host provided
 				host = unescapeBitcloudsHost(host)
-				showBitcloudStatus(u, host)
+				showBitcloudStatus(ctx, host)
 			} else {
 				// host not provided, display options
 				noHosts, singleHost,
-					inlineKeyboard, err := bitcloudsHostsKeyboard(u, "status")
+					keyboard, err := bitcloudsHostsKeyboard(u, "status")
 				if err != nil {
 					send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 					return
@@ -356,11 +355,11 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 					return
 				}
 				if singleHost != "" {
-					showBitcloudStatus(u, singleHost)
+					showBitcloudStatus(ctx, singleHost)
 					return
 				}
 
-				send(ctx, ut.BITCLOUDSHOSTSHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+				send(ctx, t.BITCLOUDSHOSTSHEADER, keyboard)
 			}
 		}
 	case opts["skype"].(bool):
@@ -407,7 +406,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 		default:
 			query, err := opts.String("<query>")
 			if err != nil {
-				handleHelp(u, "bitrefill")
+				handleHelp(ctx, "bitrefill")
 				return
 			}
 
@@ -418,7 +417,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			nitems := len(items)
 
 			if nitems == 1 {
-				handleBitrefillItem(u, items[0], phone)
+				handleBitrefillItem(ctx, items[0], phone)
 				return
 			}
 
@@ -443,14 +442,14 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 				"query": query,
 			})
 
-			send(ctx, ut.BITREFILLINVENTORYHEADER, nil, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard}, 0)
+			send(ctx, t.BITREFILLINVENTORYHEADER, &tgbotapi.InlineKeyboardMarkup{inlineKeyboard})
 		}
 	case opts["gifts"].(bool):
 		// create gift or fallback to list gifts
 		sats, err := parseSatoshis(opts)
 		if err == nil {
 			// create
-			err = createGift(u, sats, messageId)
+			err = createGift(ctx, sats)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
 			}
@@ -542,21 +541,9 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 
 			go u.track("sats4ads broadcast", map[string]interface{}{"sats": satoshis})
 
-			// we'll use either a message passed as an argument
-			// or the contents of the message being replied to
-			contentMessage := message.ReplyToMessage
-			if imessage, ok := opts["<message>"]; ok {
-				text := strings.Join(imessage.([]string), " ")
-				if text != "" {
-					contentMessage = &tgbotapi.Message{
-						MessageID: message.MessageID,
-						Text:      text,
-					}
-				}
-			}
-
+			contentMessage := getContentMessage(ctx, opts)
 			if contentMessage == nil {
-				handleHelp(u, "sats4ads")
+				handleHelp(ctx, "sats4ads")
 				return
 			}
 
@@ -564,7 +551,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			maxrate, _ := opts.Int("--max-rate")
 			offset, _ := opts.Int("--skip")
 
-			send(ctx, u, t.SATS4ADSSTART, nil, messageId)
+			send(ctx, t.SATS4ADSSTART, ctx.Value("message"))
 
 			go func() {
 				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
@@ -575,14 +562,14 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 					return
 				}
 
-				send(ctx, u, t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, messageId)
+				send(ctx, t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, ctx.Value("message"))
 			}()
 		case opts["preview"].(bool):
 			go u.track("sats4ads preview", nil)
 
-			contentMessage := message.ReplyToMessage
+			contentMessage := getContentMessage(ctx, opts)
 			if contentMessage == nil {
-				handleHelp(u, "sats4ads")
+				handleHelp(ctx, "sats4ads")
 				return
 			}
 
@@ -595,15 +582,18 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			bot.Send(ad)
 		}
 	default:
-		handleHelp(u, "apps")
+		handleHelp(ctx, "apps")
 	}
 }
 
-func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery) (answer string) {
+func handleExternalAppCallback(ctx context.Context) (answer string) {
+	u := ctx.Value("initiator").(User)
+	cb := ctx.Value("callbackQuery").(*tgbotapi.CallbackQuery)
+
 	parts := strings.Split(cb.Data[2:], "-")
 	switch parts[0] {
 	case "s4a":
-		defer removeKeyboardButtons(cb)
+		defer removeKeyboardButtons(ctx)
 		if parts[1] == "v" {
 			hashfirst10chars := parts[2]
 			confirmAdViewed(u, hashfirst10chars)
@@ -611,8 +601,8 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		}
 	case "etleneum":
 		if parts[1] == "withdraw" {
-			defer removeKeyboardButtons(cb)
-			_, _, _, withdraw, err := etleneumLogin(u)
+			defer removeKeyboardButtons(ctx)
+			_, _, _, withdraw, err := etleneumLogin(ctx, u)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "Etleneum", "Err": err.Error()})
 				return
@@ -622,7 +612,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 		}
 	case "microbet":
 		if parts[1] == "withdraw" {
-			defer removeKeyboardButtons(cb)
+			defer removeKeyboardButtons(ctx)
 			balance, err := getMicrobetBalance(u)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
@@ -630,7 +620,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 
 			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
-			err = withdrawMicrobet(u, int(float64(balance)*0.99))
+			err = withdrawMicrobet(ctx, int(float64(balance)*0.99))
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 				return translate(ctx, t.FAILURE)
@@ -648,9 +638,9 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 			}
 
 			// post a notification message to identify this bet attempt
-			messageId := send(ctx, u, t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
+			send(ctx, u, t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
 
-			err = placeMicrobetBet(u, messageId.(int), betId, back)
+			err = placeMicrobetBet(ctx, betId, back)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 				return translate(ctx, t.FAILURE)
@@ -663,7 +653,7 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 	case "bitrefill":
 		switch parts[1] {
 		case "it":
-			removeKeyboardButtons(cb)
+			removeKeyboardButtons(ctx)
 
 			item, ok := bitrefillInventory[strings.Replace(parts[2], "~", "-", -1)]
 			if !ok {
@@ -673,10 +663,10 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			phone := parts[3]
 
-			appendToTelegramMessage(cb, item.Name)
-			handleBitrefillItem(u, item, phone)
+			send(ctx, cb, item.Name, APPEND)
+			handleBitrefillItem(ctx, item, phone)
 		case "pl":
-			removeKeyboardButtons(cb)
+			removeKeyboardButtons(ctx)
 
 			// get item and package info
 			item, ok := bitrefillInventory[strings.Replace(parts[2], "~", "-", -1)]
@@ -693,25 +683,25 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				return
 			}
 			pack = packages[idx]
-			appendToTelegramMessage(cb, fmt.Sprintf("%v %s", pack.Value, item.Currency))
+			send(ctx, cb, fmt.Sprintf("%v %s", pack.Value, item.Currency), APPEND)
 
 			phone := parts[4]
-			handleProcessBitrefillOrder(u, item, pack, &phone)
+			handleProcessBitrefillOrder(ctx, item, pack, &phone)
 		case "pch":
-			defer removeKeyboardButtons(cb)
+			defer removeKeyboardButtons(ctx)
 			orderId := parts[2]
-			err := purchaseBitrefillOrder(u, orderId)
+			err := purchaseBitrefillOrder(ctx, orderId)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "bitrefill", "Err": err.Error()})
 				return
 			}
 		}
 	case "bitclouds":
-		defer removeKeyboardButtons(cb)
+		defer removeKeyboardButtons(ctx)
 		switch parts[1] {
 		case "create":
 			image := parts[2]
-			err := createBitcloudImage(u, image)
+			err := createBitcloudImage(ctx, image)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
@@ -719,11 +709,11 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 
 			go u.track("bitclouds create-finish", map[string]interface{}{"image": image})
 
-			appendToTelegramMessage(cb, image)
+			send(ctx, cb, image, APPEND)
 		case "status":
 			host := unescapeBitcloudsHost(parts[2])
-			appendToTelegramMessage(cb, host)
-			showBitcloudStatus(u, host)
+			send(ctx, cb, host, APPEND)
+			showBitcloudStatus(ctx, host)
 		default: // sats to topup
 			sats, err := strconv.Atoi(parts[1])
 			host := unescapeBitcloudsHost(parts[2])
@@ -731,12 +721,34 @@ func handleExternalAppCallback(u User, messageId int, cb *tgbotapi.CallbackQuery
 				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
-			appendToTelegramMessage(cb, host)
-			topupBitcloud(u, host, sats)
+			send(ctx, cb, host, APPEND)
+			topupBitcloud(ctx, host, sats)
 
 			go u.track("bitclouds topup", map[string]interface{}{"host": host})
 		}
 	}
 
 	return
+}
+
+func getContentMessage(ctx context.Context, opts docopt.Opts) *tgbotapi.Message {
+	// we'll use either a message passed as an argument...
+	var contentMessage *tgbotapi.Message
+	if imessage := ctx.Value("message"); imessage != nil {
+		if message, ok := imessage.(*tgbotapi.Message); ok {
+			contentMessage = message.ReplyToMessage
+		}
+	}
+
+	// or the contents of the message being replied to
+	if contentMessage == nil {
+		if itext, ok := opts["<text>"]; ok {
+			text := strings.Join(itext.([]string), " ")
+			if text != "" {
+				contentMessage = &tgbotapi.Message{Text: text}
+			}
+		}
+	}
+
+	return contentMessage
 }

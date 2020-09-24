@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,7 +64,9 @@ func (g GiftsGift) RedeemerURL() string {
 	return nodeLink(inv.Get("payee").String())
 }
 
-func createGift(user User, sats int, messageId interface{}) error {
+func createGift(ctx context.Context, sats int) error {
+	user := ctx.Value("initiator").(User)
+
 	var order GiftsOrder
 	var gerr GiftsError
 	resp, err := napping.Post("https://api.lightning.gifts/create", struct {
@@ -86,10 +89,10 @@ func createGift(user User, sats int, messageId interface{}) error {
 		return errors.New("Failed to decode invoice.")
 	}
 	return user.actuallySendExternalPayment(
-		messageId, order.LightningInvoice.PayReq, inv, inv.MSatoshi,
+		ctx, order.LightningInvoice.PayReq, inv, inv.MSatoshi,
 		func(
+			ctx context.Context,
 			u User,
-			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -97,7 +100,7 @@ func createGift(user User, sats int, messageId interface{}) error {
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "gifts", hash)
+			paymentHasSucceeded(ctx, u, msatoshi, msatoshi_sent, preimage, "gifts", hash)
 
 			// wait for gift to be available
 			for i := 0; i < 10; i++ {
@@ -110,7 +113,7 @@ func createGift(user User, sats int, messageId interface{}) error {
 			}
 
 			// we already have the order id which is the gift url
-			send(ctx, u, t.GIFTSCREATED, t.T{"OrderId": order.OrderId}, messageId)
+			send(ctx, u, t.GIFTSCREATED, t.T{"OrderId": order.OrderId}, ctx.Value("message"))
 
 			// save gift info as user data
 			var data GiftsData
@@ -143,6 +146,8 @@ func getGift(orderId string) (gift GiftsGift, err error) {
 
 func serveGiftsWebhook() {
 	router.Path("/app/gifts/webhook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(context.Background(), "origin", "external")
+
 		// parse the incoming data
 		var event GiftSpentEvent
 		err := json.NewDecoder(r.Body).Decode(&event)

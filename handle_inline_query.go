@@ -55,7 +55,9 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		bolt11, _, err := u.makeInvoice(makeInvoiceArgs{Msatoshi: int64(sats) * 1000})
+		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
+			Msatoshi: int64(sats) * 1000,
+		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty
@@ -94,7 +96,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		if sats, err = strconv.Atoi(argv[1]); err != nil {
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveaway", nil) {
+		if !u.checkBalanceFor(ctx, sats, "giveaway") {
 			break
 		}
 
@@ -106,9 +108,12 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("give-%d-%d", u.Id, sats),
 			translateTemplate(ctx, t.INLINEGIVEAWAYRESULT, t.T{"Sats": sats}),
-			translateTemplate(ctx, t.GIVEAWAYMSG, t.T{"User": u.AtName(), "Sats": sats}),
+			translateTemplate(ctx, t.GIVEAWAYMSG, t.T{
+				"User": u.AtName(ctx),
+				"Sats": sats,
+			}),
 		)
-		result.ReplyMarkup = giveawayKeyboard(u.Id, sats, u.Locale)
+		result.ReplyMarkup = giveawayKeyboard(ctx, u.Id, sats)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -133,7 +138,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-		if !u.checkBalanceFor(sats, "coinflip", nil) {
+		if !u.checkBalanceFor(ctx, sats, "coinflip") {
 			break
 		}
 
@@ -164,7 +169,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			}),
 		)
 
-		result.ReplyMarkup = coinflipKeyboard("", u.Id, nparticipants, sats, u.Locale)
+		result.ReplyMarkup = coinflipKeyboard(ctx, "", u.Id, nparticipants, sats)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -195,7 +200,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
 			return
 		}
-		if !u.checkBalanceFor(sats, "giveflip", nil) {
+		if !u.checkBalanceFor(ctx, sats, "giveflip") {
 			break
 		}
 
@@ -223,8 +228,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		)
 
 		giveflipid := cuid.Slug()
-		result.ReplyMarkup = giveflipKeyboard(giveflipid,
-			u.Id, nparticipants, sats, u.Locale)
+		result.ReplyMarkup = giveflipKeyboard(ctx, giveflipid, u.Id, nparticipants, sats)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -241,7 +245,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 
 		results := make([]interface{}, len(hiddenkeys))
 		for i, hiddenkey := range hiddenkeys {
-			_, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, u.Locale)
+			_, hiddenid, hiddenmessage, err := getHiddenMessage(ctx, hiddenkey)
 			if err != nil {
 				continue
 			}
@@ -255,7 +259,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 				hiddenmessage.Preview,
 			)
 
-			result.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, 0, u.Locale)
+			result.ReplyMarkup = revealKeyboard(ctx, hiddenkey, hiddenmessage, 0)
 			results[i] = result
 		}
 

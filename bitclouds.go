@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -37,7 +38,9 @@ type BitcloudStatus struct {
 	Pwd string `json:"pwd"`
 }
 
-func createBitcloudImage(user User, image string) (err error) {
+func createBitcloudImage(ctx context.Context, image string) (err error) {
+	user := ctx.Value("initiator").(User)
+
 	var create struct {
 		Host       string `json:"host"`
 		PayToStart string `json:"paytostart"`
@@ -53,10 +56,10 @@ func createBitcloudImage(user User, image string) (err error) {
 		return errors.New("Failed to decode invoice.")
 	}
 	err = user.actuallySendExternalPayment(
-		0, create.PayToStart, inv, inv.MSatoshi,
+		ctx, create.PayToStart, inv, inv.MSatoshi,
 		func(
+			ctx context.Context,
 			u User,
-			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -64,14 +67,14 @@ func createBitcloudImage(user User, image string) (err error) {
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "bitclouds", hash)
+			paymentHasSucceeded(ctx, u, msatoshi, msatoshi_sent, preimage, "bitclouds", hash)
 
 			// acknowledge the vps creation
 			go func() {
 				for i := 0; i < 25; i++ {
 					status, err := getBitcloudStatus(create.Host)
 					if err != nil {
-						send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()}, messageId)
+						send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()}, ctx.Value("message"))
 						return
 					}
 
@@ -94,7 +97,7 @@ func createBitcloudImage(user User, image string) (err error) {
 							"Host":        create.Host,
 							"EscapedHost": escapeBitcloudsHost(create.Host),
 							"Status":      status,
-						}, messageId)
+						}, ctx.Value("message"))
 						return
 					} else {
 						// keep polling
@@ -142,7 +145,9 @@ func getBitcloudStatus(host string) (status BitcloudStatus, err error) {
 	return
 }
 
-func topupBitcloud(user User, host string, sats int) error {
+func topupBitcloud(ctx context.Context, host string, sats int) error {
+	user := ctx.Value("initiator").(User)
+
 	// the amount to actually pay will be dependent on the
 	// fixed sat/hour price (because if we overpay we don't get
 	// fractions of hours in the balance)
@@ -162,10 +167,10 @@ func topupBitcloud(user User, host string, sats int) error {
 		return errors.New("Failed to decode invoice.")
 	}
 	return user.actuallySendExternalPayment(
-		0, topup.Invoice, inv, inv.MSatoshi,
+		ctx, topup.Invoice, inv, inv.MSatoshi,
 		func(
+			ctx context.Context,
 			u User,
-			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -173,26 +178,26 @@ func topupBitcloud(user User, host string, sats int) error {
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "bitclouds", hash)
+			paymentHasSucceeded(ctx, u, msatoshi, msatoshi_sent, preimage, "bitclouds", hash)
 		},
 		paymentHasFailed,
 	)
 }
 
-func showBitcloudStatus(user User, host string) {
+func showBitcloudStatus(ctx context.Context, host string) {
 	status, err := getBitcloudStatus(host)
 	if err != nil {
-		send(ctx, user, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+		send(ctx, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 	}
 
-	send(ctx, user, t.BITCLOUDSSTATUS, t.T{
+	send(ctx, t.BITCLOUDSSTATUS, t.T{
 		"Host":        host,
 		"EscapedHost": escapeBitcloudsHost(host),
 		"Status":      status,
 	})
 }
 
-func bitcloudsImagesKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err error) {
+func bitcloudsImagesKeyboard() (keyboard *tgbotapi.InlineKeyboardMarkup, err error) {
 	var imagesresp struct {
 		Images []string `json:"images"`
 	}
@@ -205,9 +210,9 @@ func bitcloudsImagesKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton
 
 	images := imagesresp.Images
 	nimages := len(images)
-	inlinekeyboard = make([][]tgbotapi.InlineKeyboardButton, nimages/2+nimages%2)
+	buttons := make([][]tgbotapi.InlineKeyboardButton, nimages/2+nimages%2)
 	for i, image := range images {
-		inlinekeyboard[i/2] = append(inlinekeyboard[i/2],
+		buttons[i/2] = append(buttons[i/2],
 			tgbotapi.NewInlineKeyboardButtonData(
 				image,
 				fmt.Sprintf("x=bitclouds-create-%s", image),
@@ -215,10 +220,10 @@ func bitcloudsImagesKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton
 		)
 	}
 
-	return
+	return &tgbotapi.InlineKeyboardMarkup{buttons}, nil
 }
 
-func bitcloudsHostsKeyboard(user User, data string) (noHosts bool, singleHost string, inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err error) {
+func bitcloudsHostsKeyboard(user User, data string) (noHosts bool, singleHost string, keyboard *tgbotapi.InlineKeyboardMarkup, err error) {
 	hosts, err := listBitclouds(user)
 	if err != nil {
 		return
@@ -233,9 +238,9 @@ func bitcloudsHostsKeyboard(user User, data string) (noHosts bool, singleHost st
 		return
 	}
 
-	inlinekeyboard = make([][]tgbotapi.InlineKeyboardButton, nhosts/2+nhosts%2)
+	buttons := make([][]tgbotapi.InlineKeyboardButton, nhosts/2+nhosts%2)
 	for i, host := range hosts {
-		inlinekeyboard[i/2] = append(inlinekeyboard[i/2],
+		buttons[i/2] = append(buttons[i/2],
 			tgbotapi.NewInlineKeyboardButtonData(
 				host,
 				fmt.Sprintf("x=bitclouds-%s-%s", data, escapeBitcloudsHost(host)),
@@ -243,6 +248,7 @@ func bitcloudsHostsKeyboard(user User, data string) (noHosts bool, singleHost st
 		)
 	}
 
+	keyboard = &tgbotapi.InlineKeyboardMarkup{buttons}
 	return
 }
 
@@ -262,6 +268,11 @@ func listBitclouds(user User) (hosts []string, err error) {
 }
 
 func bitcloudsCheckingRoutine() {
+	ctx := context.WithValue(
+		context.Background(),
+		"origin", "background",
+	)
+
 	for {
 		time.Sleep(1 * time.Hour)
 

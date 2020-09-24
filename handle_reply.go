@@ -6,12 +6,13 @@ import (
 	"strconv"
 
 	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
 )
 
 func handleReply(ctx context.Context) {
 	u := ctx.Value("initiator").(User)
-	message := ctx.Value("message").(*tgbot.Message)
+	message := ctx.Value("message").(*tgbotapi.Message)
 	inreplyto := message.ReplyToMessage.MessageID
 
 	key := fmt.Sprintf("reply:%d:%d", u.Id, inreplyto)
@@ -26,15 +27,15 @@ func handleReply(ctx context.Context) {
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handlePayVariableAmount(u, int64(sats*1000), data, message.MessageID)
+			handlePayVariableAmount(ctx, int64(sats*1000), data)
 		case "lnurlpay-amount":
 			sats, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handleLNURLPayAmount(u, int64(sats*1000), data, message.MessageID)
+			handleLNURLPayAmount(ctx, int64(sats*1000), data)
 		case "lnurlpay-comment":
-			handleLNURLPayComment(u, message.Text, data, message.MessageID)
+			handleLNURLPayComment(ctx, message.Text, data)
 		case "bitrefill":
 			value, err := strconv.ParseFloat(message.Text, 64)
 			if err != nil {
@@ -49,7 +50,8 @@ func handleReply(ctx context.Context) {
 			}
 
 			phone := data.Get("phone").String()
-			handleProcessBitrefillOrder(u, item, BitrefillPackage{Value: value}, &phone)
+			handleProcessBitrefillOrder(ctx, item, BitrefillPackage{Value: value},
+				&phone)
 		default:
 			log.Debug().Int("userId", u.Id).Int("message", inreplyto).Str("type", data.Get("type").String()).
 				Msg("reply to bot message unhandled procedure")

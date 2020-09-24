@@ -12,7 +12,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
+func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 	ctx = context.WithValue(ctx, "callbackQuery", cb)
 
 	u, tcase, err := ensureTelegramUser(
@@ -56,35 +56,35 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		page, _ := strconv.Atoi(parts[0])
 		filter := InOut(parts[1])
 		tag := parts[2]
-		go displayTransactionList(u, page, tag, filter, cb)
+		go displayTransactionList(ctx, page, tag, filter)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
-			u.alert(cb, t.CANTCANCEL, nil)
+			send(ctx, cb, t.CANTCANCEL, WITHALERT)
 			return
 		}
-		removeKeyboardButtons(cb)
-		appendToTelegramMessage(cb, translate(t.CANCELED))
+		removeKeyboardButtons(ctx)
+		send(ctx, t.CANCELED, APPEND)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
 		handlePayCallback(ctx)
 		return
 	case strings.HasPrefix(cb.Data, "lnurlpay="):
-		defer removeKeyboardButtons(cb)
+		defer removeKeyboardButtons(ctx)
 		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
 		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
 		if val, err := rds.Get(key).Result(); err == nil {
 			data := gjson.Parse(val)
-			handleLNURLPayAmount(u, msats, data, cb.Message.MessageID)
+			handleLNURLPayAmount(ctx, msats, data)
 		}
 		return
 	case strings.HasPrefix(cb.Data, "lnurlall="):
-		defer removeKeyboardButtons(cb)
+		defer removeKeyboardButtons(ctx)
 		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
 		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
 		if val, err := rds.Get(key).Result(); err == nil {
 			data := gjson.Parse(val)
-			handleLNURLAllowanceConfirmation(u, msats, data, cb.Message.MessageID)
+			handleLNURLAllowanceConfirmation(ctx, msats, data)
 		}
 		return
 	case strings.HasPrefix(cb.Data, "give="):
@@ -96,15 +96,15 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		giveId := params[2]
 		buttonData := rds.Get("giveaway:" + giveId).Val()
 		if buttonData != cb.Data {
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Giveaway"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Giveaway"}, APPEND)
 			goto answerEmpty
 		}
 		if err = rds.Del("giveaway:" + giveId).Err(); err != nil {
 			log.Warn().Err(err).Str("id", giveId).
 				Msg("error deleting giveaway check from redis")
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveaway"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveaway"}, APPEND)
 			goto answerEmpty
 		}
 
@@ -132,44 +132,42 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 
 		err = giver.sendInternally(
-			messageId,
+			ctx,
 			claimer,
 			false,
 			sats*1000,
 			"",
-			calculateHash(giveId),
+			hashString(giveId),
 			"giveaway",
 		)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to giveaway")
-			claimer.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, claimer, t.ERROR, t.T{"Err": err.Error()}, WITHALERT)
 			return
 		}
 
-		removeKeyboardButtons(cb)
+		removeKeyboardButtons(ctx)
 		send(ctx, claimer, t.USERSENTYOUSATS, t.T{
-			"User":    giver.AtName(),
+			"User":    giver.AtName(ctx),
 			"Sats":    sats,
 			"RawSats": "",
 			"BotOp":   "/giveaway",
 		})
 
 		send(ctx, giver, t.USERSENTTOUSER, t.T{
-			"User":              claimer.AtName(),
+			"User":              claimer.AtName(ctx),
 			"Sats":              sats,
 			"RawSats":           "",
 			"ReceiverHasNoChat": false,
 		})
 
-		appendToTelegramMessage(cb,
-			translateTemplate(ctx, t.GIVEAWAYSATSGIVENPUBLIC, t.T{
-				"From":             giver.AtName(),
-				"To":               claimer.AtName(),
-				"Sats":             sats,
-				"ClaimerHasNoChat": claimer.TelegramChatId == 0,
-				"BotName":          s.ServiceId,
-			}),
-		)
+		send(ctx, t.GIVEAWAYSATSGIVENPUBLIC, t.T{
+			"From":             giver.AtName(ctx),
+			"To":               claimer.AtName(ctx),
+			"Sats":             sats,
+			"ClaimerHasNoChat": claimer.TelegramChatId == 0,
+			"BotName":          s.ServiceId,
+		})
 
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "flip="):
@@ -185,8 +183,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		nregistered := int(rds.SCard(rkey).Val())
 		if nregistered == 0 {
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Coinflip"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Coinflip"}, APPEND)
 			goto answerEmpty
 		}
 
@@ -194,8 +192,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		sats, err2 := strconv.Atoi(params[1])
 		if err1 != nil || err2 != nil {
 			log.Warn().Err(err1).Err(err2).Msg("coinflip error")
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 			goto answerEmpty
 		}
 
@@ -207,16 +205,16 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		joiner := u
 
 		if !canJoinCoinflip(joiner.Id) {
-			u.alert(cb, t.OVERQUOTA, t.T{"App": "coinflip"})
+			send(ctx, t.OVERQUOTA, t.T{"App": "coinflip"}, WITHALERT)
 			return
 		}
-		if !joiner.checkBalanceFor(sats, "coinflip", cb) {
+		if !joiner.checkBalanceFor(ctx, sats, "coinflip") {
 			goto answerEmpty
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
 			// can't join twice
-			u.alert(cb, t.CANTJOINTWICE, nil)
+			send(ctx, t.CANTJOINTWICE, WITHALERT)
 			return
 		}
 
@@ -227,20 +225,18 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		if nregistered+1 < nparticipants {
 			// append @user to the coinflip message (without removing the keyboard)
-			baseEdit := getBaseEdit(cb)
-			baseEdit.ReplyMarkup = coinflipKeyboard(coinflipid, 0, nparticipants, sats, locale)
-			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
-			if messageId != 0 {
-				edit.Text = cb.Message.Text + " " + joiner.AtName()
+			keyboard := coinflipKeyboard(ctx, coinflipid, 0, nparticipants, sats)
+
+			if message := ctx.Value("message"); message != nil {
+				send(ctx, message, joiner.AtName(ctx), APPEND, keyboard)
 			} else {
-				edit.Text = translateTemplate(ctx, t.COINFLIPAD, t.T{
+				send(ctx, t.COINFLIPAD, t.T{
 					"Sats":       sats,
 					"Prize":      sats * nparticipants,
 					"SpotsLeft":  nparticipants - nregistered,
 					"MaxPlayers": nparticipants,
-				})
+				}, EDIT, keyboard)
 			}
-			bot.Send(edit)
 		} else {
 			// run the lottery
 			// even if for some bug we registered more participants than we should
@@ -249,8 +245,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			go rds.Del(rkey)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to get coinflip participants")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 				goto answerEmpty
 			}
 			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
@@ -259,8 +255,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			winnerId, err := strconv.Atoi(swinnerId)
 			if err != nil {
 				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 				goto answerEmpty
 			}
 
@@ -270,36 +266,32 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				part, err := strconv.Atoi(spart)
 				if err != nil {
 					log.Warn().Err(err).Str("part", spart).Msg("participant id is not an int")
-					removeKeyboardButtons(cb)
-					appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}))
+					removeKeyboardButtons(ctx)
+					send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 					goto answerEmpty
 				}
 				participants[i] = part
 			}
 
-			winner, err := settleCoinflip(sats, winnerId, participants)
+			winner, err := settleCoinflip(ctx, sats, winnerId, participants)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing coinflip transactions")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 				goto answerEmpty
 			}
 
-			removeKeyboardButtons(cb)
-			if messageId != 0 {
-				appendToTelegramMessage(cb, joiner.AtName()+"\n"+
-					translateTemplate(ctx, t.CALLBACKWINNER, t.T{"Winner": winner.AtName()}))
-				sendTelegramMessageAsReply(
-					cb.Message.Chat.ID,
-					translateTemplate(
-						t.CALLBACKCOINFLIPWINNER,
-						locale,
-						t.T{"Winner": winner.AtName()},
-					),
-					messageId,
-				)
+			removeKeyboardButtons(ctx)
+			if message := ctx.Value("message"); message != nil {
+				send(ctx, message, EDIT, joiner.AtName(ctx)+"\n"+
+					translateTemplate(ctx, t.CALLBACKWINNER, t.T{
+						"Winner": winner.AtName(ctx),
+					}))
+				send(ctx, t.CALLBACKCOINFLIPWINNER, t.T{"Winner": winner.AtName(ctx)},
+					message)
 			} else {
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKCOINFLIPWINNER, t.T{"Winner": winner.AtName()}))
+				send(ctx, t.CALLBACKCOINFLIPWINNER, t.T{"Winner": winner.AtName(ctx)},
+					APPEND)
 			}
 		}
 	case strings.HasPrefix(cb.Data, "gifl="):
@@ -315,8 +307,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		sats, err2 := strconv.Atoi(params[2])
 		if err0 != nil || err1 != nil || err2 != nil {
 			log.Warn().Err(err0).Err(err1).Err(err2).Msg("giveflip error")
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 			goto answerEmpty
 		}
 
@@ -338,13 +330,13 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 		if joiner.Id == giverId {
 			// giver can't join
-			u.alert(cb, t.GIVERCANTJOIN, nil)
+			send(ctx, t.GIVERCANTJOIN, WITHALERT)
 			return
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
 			// can't join twice
-			u.alert(cb, t.CANTJOINTWICE, nil)
+			send(ctx, t.CANTJOINTWICE, WITHALERT)
 			return
 		}
 
@@ -356,19 +348,17 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		if nregistered+1 < nparticipants {
 			// append @user to the giveflip message (without removing the keyboard)
-			baseEdit := getBaseEdit(cb)
-			baseEdit.ReplyMarkup = giveflipKeyboard(giveflipid, giverId, nparticipants, sats, locale)
-			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
-			if messageId != 0 {
-				edit.Text = cb.Message.Text + " " + joiner.AtName()
+
+			keyboard := giveflipKeyboard(ctx, giveflipid, giverId, nparticipants, sats)
+			if message := ctx.Value("message"); message != nil {
+				send(ctx, message, keyboard, joiner.AtName(ctx), APPEND)
 			} else {
-				edit.Text = translateTemplate(ctx, t.GIVEFLIPAD, t.T{
+				send(ctx, t.GIVEFLIPAD, t.T{
 					"Sats":       sats,
 					"SpotsLeft":  nparticipants - nregistered,
 					"MaxPlayers": nparticipants,
-				})
+				}, EDIT)
 			}
-			bot.Send(edit)
 		} else {
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
@@ -376,8 +366,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			go rds.Del(rkey)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to get giveflip participants")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
 			}
 			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
@@ -386,15 +376,15 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			winnerId, err := strconv.Atoi(swinnerId)
 			if err != nil {
 				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
 			}
 			winner, err := loadUser(winnerId)
 			if err != nil {
 				log.Warn().Err(err).Int("winnerId", winnerId).Msg("failed to load winner on giveflip")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
 			}
 
@@ -402,8 +392,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			giver, err := loadUser(giverId)
 			if err != nil {
 				log.Warn().Err(err).Int("giverId", giverId).Msg("failed to load giver on giveflip")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
 			}
 
@@ -416,38 +406,40 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				}
 
 				loser, _ := loadUser(partId)
-				loserNames = append(loserNames, loser.AtName())
+				loserNames = append(loserNames, loser.AtName(ctx))
 			}
 
-			removeKeyboardButtons(cb)
+			removeKeyboardButtons(ctx)
 			err = giver.sendInternally(
-				messageId,
+				ctx,
 				winner,
 				false,
 				sats*1000,
 				"",
-				calculateHash(giveflipid),
+				hashString(giveflipid),
 				"giveflip",
 			)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to giveflip")
-				send(ctx, winner, t.CLAIMFAILED, t.T{"BotOp": "giveflip", "Err": err.Error()})
+				send(ctx, winner, t.CLAIMFAILED,
+					t.T{"BotOp": "giveflip", "Err": err.Error()})
 				goto answerEmpty
 			}
 
-			send(ctx, winner, t.USERSENTYOUSATS, t.T{"User": giver.AtName(), "Sats": sats, "BotOp": "/giveflip", "RawSats": ""})
-
-			bot.Send(tgbotapi.EditMessageTextConfig{
-				BaseEdit: getBaseEdit(cb),
-				Text: translateTemplate(ctx, t.GIVEFLIPWINNERMSG, t.T{
-					"Receiver":          winner.AtName(),
-					"Sats":              sats,
-					"Sender":            giver.AtName(),
-					"Losers":            strings.Join(loserNames, " "),
-					"ReceiverHasNoChat": winner.TelegramChatId == 0,
-					"BotName":           s.ServiceId,
-				}),
+			send(ctx, winner, t.USERSENTYOUSATS, t.T{
+				"User":  giver.AtName(ctx),
+				"Sats":  sats,
+				"BotOp": "/giveflip", "RawSats": "",
 			})
+
+			send(ctx, t.GIVEFLIPWINNERMSG, t.T{
+				"Receiver":          winner.AtName(ctx),
+				"Sats":              sats,
+				"Sender":            giver.AtName(ctx),
+				"Losers":            strings.Join(loserNames, " "),
+				"ReceiverHasNoChat": winner.TelegramChatId == 0,
+				"BotName":           s.ServiceId,
+			}, EDIT)
 		}
 
 		goto answerEmpty
@@ -464,8 +456,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		nregistered := int(rds.SCard(rkey).Val())
 		if nregistered == 0 {
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Fundraise"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Fundraise"}, APPEND)
 			goto answerEmpty
 		}
 
@@ -474,8 +466,8 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		sats, err3 := strconv.Atoi(params[2])
 		if err1 != nil || err2 != nil || err3 != nil {
 			log.Warn().Err(err1).Err(err2).Err(err3).Msg("error parsing params on fundraise")
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}))
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}, APPEND)
 			goto answerEmpty
 		}
 
@@ -486,40 +478,40 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		joiner := u
 
-		if !joiner.checkBalanceFor(sats, "fundraise", cb) {
+		if !joiner.checkBalanceFor(ctx, sats, "fundraise") {
 			goto answerEmpty
 		}
 
 		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
 			// can't join twice
-			u.alert(cb, t.CANTJOINTWICE, nil)
+			send(ctx, t.CANTJOINTWICE, WITHALERT)
 			return
 		}
 
 		if err := rds.SAdd("fundraise:"+fundraiseid, joiner.Id).Err(); err != nil {
-			log.Warn().Err(err).Str("fundraise", fundraiseid).Msg("error adding giver to fundraise.")
-			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			log.Warn().Err(err).Str("fundraise", fundraiseid).
+				Msg("error adding giver to fundraise.")
+			send(ctx, t.ERROR, t.T{"Err": err.Error()}, WITHALERT)
 			return
 		}
 
 		if nregistered+1 < ngivers {
 			// append @user to the fundraise message (without removing the keyboard)
-			baseEdit := getBaseEdit(cb)
-
 			// we don't have to check for cb.Message/messageId here because we don't
-			// allow fundraises as inline messages so we always have access to cb.Message
-			baseEdit.ReplyMarkup = fundraiseKeyboard(fundraiseid, 0, receiverId, ngivers, sats, locale)
-			edit := tgbotapi.EditMessageTextConfig{BaseEdit: baseEdit}
-			edit.Text = cb.Message.Text + " " + joiner.AtName()
-			bot.Send(edit)
+			// allow fundraises as inline messages so we always have access to
+			// cb.Message.
+
+			send(ctx, ctx.Value("message"), APPEND, joiner.AtName(ctx),
+				fundraiseKeyboard(ctx, fundraiseid, 0, receiverId, ngivers, sats))
 		} else {
-			// commit the fundraise. this is the same as the coinflip, just without randomness.
+			// commit the fundraise. this is the same as the coinflip,
+			// just without randomness.
 			sgivers, err := rds.SMembers(rkey).Result()
 			go rds.Del(rkey)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to get fundraise givers")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}, APPEND)
 				goto answerEmpty
 			}
 
@@ -528,56 +520,49 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			for i, spart := range sgivers {
 				part, err := strconv.Atoi(spart)
 				if err != nil {
-					log.Warn().Err(err).Str("part", spart).Msg("giver id is not an int")
-					removeKeyboardButtons(cb)
-					appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}))
+					log.Warn().Err(err).Str("part", spart).
+						Msg("giver id is not an int")
+					removeKeyboardButtons(ctx)
+					send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}, APPEND)
 					goto answerEmpty
 				}
 				givers[i] = part
 			}
 
-			receiver, err := settleFundraise(sats, receiverId, givers)
+			receiver, err := settleFundraise(ctx, sats, receiverId, givers)
 			if err != nil {
 				log.Warn().Err(err).Msg("error processing fundraise transactions")
-				removeKeyboardButtons(cb)
-				appendToTelegramMessage(cb, translateTemplate(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}))
+				removeKeyboardButtons(ctx)
+				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}, APPEND)
 				goto answerEmpty
 			}
 
-			removeKeyboardButtons(cb)
-			if messageId != 0 {
-				appendToTelegramMessage(cb, joiner.AtName()+"\n"+translate(ctx, t.COMPLETED))
-				sendTelegramMessageAsReply(
-					cb.Message.Chat.ID,
-					translateTemplate(ctx, t.FUNDRAISECOMPLETE, t.T{"Receiver": receiver.AtName()}),
-					messageId,
-				)
-			} else {
-				appendToTelegramMessage(cb,
-					translateTemplate(ctx, t.FUNDRAISECOMPLETE, t.T{"Receiver": receiver.AtName()}),
-				)
-			}
+			removeKeyboardButtons(ctx)
+			send(ctx, APPEND, ctx.Value("message"),
+				joiner.AtName(ctx)+"\n"+translate(ctx, t.COMPLETED))
+			send(ctx, ctx.Value("message"),
+				t.FUNDRAISECOMPLETE, t.T{"Receiver": receiver.AtName(ctx)})
 		}
 	case strings.HasPrefix(cb.Data, "rnm"):
 		// rename chat
-		defer removeKeyboardButtons(cb)
+		defer removeKeyboardButtons(ctx)
 		renameId := cb.Data[4:]
 		data := rds.Get("rename:" + renameId).Val()
 		parts := strings.Split(data, "|~|")
 		if len(parts) != 3 {
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			log.Warn().Str("app", "rename").Msg("data isn't split in 3")
 			return
 		}
 		chatId, err := strconv.ParseInt(parts[0], 10, 64)
 		if err != nil {
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			log.Warn().Err(err).Str("app", "rename").Msg("failed to parse chatId")
 			return
 		}
 		sats, err := strconv.Atoi(parts[1])
 		if err != nil {
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			log.Warn().Err(err).Str("app", "rename").Msg("failed to parse sats")
 			return
 		}
@@ -586,37 +571,33 @@ func handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		// transfer money
 		owner, err := getChatOwner(chatId)
 		if err != nil {
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			log.Warn().Err(err).Str("app", "rename").Msg("failed to get chat owner")
 			return
 		}
 
 		random, err := randomPreimage()
 		if err != nil {
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			log.Warn().Err(err).Str("app", "rename").Msg("failed to generate random")
 			return
 		}
-		hash := calculateHash(random)
+		hash := hashString(random)
 
 		err = u.sendInternally(
-			0, owner, false, sats*1000,
+			ctx, owner, false, sats*1000,
 			fmt.Sprintf("Rename group %d to '%s'", chatId, name),
 			hash, "rename",
 		)
 		if err != nil {
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.ERROR, t.T{
-				"Err": err.Error(),
-			}))
+			send(ctx, t.ERROR, t.T{"Err": err.Error()}, APPEND)
 			return
 		}
 
 		// actually change the name
 		_, err = bot.SetChatTitle(tgbotapi.SetChatTitleConfig{chatId, name})
 		if err != nil {
-			appendToTelegramMessage(cb, translateTemplate(ctx, t.ERROR, t.T{
-				"Err": "Unauthorized",
-			}))
+			send(ctx, t.ERROR, t.T{"Err": "Unauthorized"}, APPEND)
 			return
 		}
 
@@ -635,10 +616,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
         `, hash, len(hash)+1)
 		if err != nil {
 			log.Error().Err(err).Str("hash", hash).Msg("failed to remove pending payment")
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			return
 		}
-		appendToTelegramMessage(cb, translate(ctx, t.TXCANCELED))
+		send(ctx, t.TXCANCELED, APPEND)
 
 		go u.track("remove unclaimed", nil)
 	case strings.HasPrefix(cb.Data, "reveal="):
@@ -648,13 +629,13 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		parts := strings.Split(cb.Data[7:], "-")
 		hiddenkey := parts[0]
 
-		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, locale)
+		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(ctx, hiddenkey)
 		if err != nil {
 			log.Error().Err(err).Str("key", hiddenkey).
 				Msg("error locating hidden message")
-			removeKeyboardButtons(cb)
-			appendToTelegramMessage(cb, translate(ctx, t.HIDDENMSGNOTFOUND))
-			u.alert(cb, t.HIDDENMSGNOTFOUND, nil)
+			removeKeyboardButtons(ctx)
+			send(ctx, t.HIDDENMSGNOTFOUND, APPEND)
+			send(ctx, u, WITHALERT, t.HIDDENMSGNOTFOUND, nil)
 			return
 		}
 
@@ -676,10 +657,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		// also don't let users pay twice
 		if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
-			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		} else if alreadypaid {
-			u.alert(cb, t.ERROR, t.T{"Err": "can't reveal twice"})
+			send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": "can't reveal twice"})
 			return
 		}
 
@@ -693,7 +674,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		// get the count of people who paid to reveal up to now
 		if revealerIdsStr, err := rds.SMembers(revealedsetkey).Result(); err != nil {
-			u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		} else {
 			totalrevealers = len(revealerIdsStr)
@@ -701,7 +682,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			for i, revealerIdsStr := range revealerIdsStr {
 				revealerId, err := strconv.Atoi(revealerIdsStr)
 				if err != nil {
-					u.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+					send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 					return
 				}
 				revealerIds[i] = revealerId
@@ -710,15 +691,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
-			// participants has been reached. before that we will just update the message in-place.
-			baseEdit := getBaseEdit(cb)
-			baseEdit.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, totalrevealers, locale)
-			bot.Send(tgbotapi.EditMessageTextConfig{
-				BaseEdit:              baseEdit,
-				Text:                  hiddenmessage.Preview,
-				ParseMode:             "HTML",
-				DisableWebPagePreview: true,
-			})
+			// participants has been reached. before that we will just update the
+			// message in-place.
+			send(ctx, hiddenmessage.Preview,
+				revealKeyboard(ctx, hiddenkey, hiddenmessage, totalrevealers))
 			return
 		}
 
@@ -729,56 +705,38 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			revealerIds = []int{u.Id}
 		}
 
-		_, err = settleReveal(hiddenmessage.Satoshis, hiddenid, sourceUserId, revealerIds)
+		_, err = settleReveal(ctx, hiddenmessage.Satoshis, hiddenid,
+			sourceUserId, revealerIds)
 		if err != nil {
 			log.Warn().Err(err).Str("id", hiddenid).Int("satoshis", hiddenmessage.Satoshis).
 				Str("revealer", revealer.Username).Msg("failed to pay to reveal")
-			revealer.alert(cb, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, revealer, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
 		// actually reveal
-		if messageId == 0 { // was prompted from an inline query
+		if message := ctx.Value("message"); message != nil {
+			// called in the bot's chat
+			removeKeyboardButtons(ctx)
+			send(ctx, revealer, hiddenmessage.Content, message)
+		} else {
 			if hiddenmessage.Public {
 				// reveal message in-place
-				baseEdit := getBaseEdit(cb)
-				bot.Send(tgbotapi.EditMessageTextConfig{
-					BaseEdit:              baseEdit,
-					Text:                  hiddenmessage.revealed(),
-					ParseMode:             "HTML",
-					DisableWebPagePreview: true,
-				})
+				send(ctx, hiddenmessage.revealed(), EDIT)
 			} else {
 				// reveal message privately
-				sendTelegramMessageAsText(revealer.TelegramChatId,
-					hiddenmessage.revealed())
+				send(ctx, revealer, hiddenmessage.revealed())
 				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated
-					baseEdit := getBaseEdit(cb)
-					baseEdit.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, totalrevealers, locale)
-					bot.Send(tgbotapi.EditMessageTextConfig{
-						BaseEdit:              baseEdit,
-						Text:                  hiddenmessage.Preview,
-						ParseMode:             "HTML",
-						DisableWebPagePreview: true,
-					})
+					send(ctx, EDIT, hiddenmessage.Preview,
+						revealKeyboard(ctx, hiddenkey, hiddenmessage, totalrevealers))
 				} else {
 					// end of quota. no more people can reveal.
-					baseEdit := getBaseEdit(cb)
-					bot.Send(tgbotapi.EditMessageTextConfig{
-						BaseEdit:              baseEdit,
-						Text:                  "A hidden message prompt once lived here.",
-						ParseMode:             "HTML",
-						DisableWebPagePreview: true,
-					})
-					removeKeyboardButtons(cb)
+					send(ctx, EDIT, "A hidden message prompt once lived here.")
+					removeKeyboardButtons(ctx)
 				}
 			}
-		} else {
-			// called in the bot's chat
-			removeKeyboardButtons(cb)
-			sendTelegramMessageAsReply(revealer.TelegramChatId, hiddenmessage.Content, messageId)
 		}
 
 		go u.track("reveal", map[string]interface{}{
@@ -797,18 +755,17 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		if err != nil {
 			log.Warn().Err(err).Str("hash", hashfirstchars).
 				Msg("failed to fetch transaction for checking")
-			appendToTelegramMessage(cb, translate(ctx, t.ERROR))
+			send(ctx, t.ERROR, APPEND)
 			return
 		}
-		appendToTelegramMessage(cb, translate(ctx, t.CHECKING))
+		send(ctx, t.CHECKING, APPEND)
 
 		go u.track("check pending", nil)
 
 		go func(u User, messageId int, hash string) {
 			pays, err := ln.CallNamed("listpays", "payment_hash", hash)
 			if err != nil {
-				appendToTelegramMessage(cb,
-					translateTemplate(ctx, t.ERROR, t.T{"Err": err.Error()}))
+				send(ctx, t.ERROR, t.T{"Err": err.Error()}, APPEND)
 				return
 			}
 
@@ -820,16 +777,16 @@ WHERE substring(payment_hash from 0 for $2) = $1
 					Str("hash", hash).
 					Str("pay", payment.String()).
 					Msg("canceling failed payment")
-				paymentHasFailed(u, messageId, hash)
+				paymentHasFailed(ctx, u, hash)
 				return
 			} else if payment.Get("status").String() == "pending" {
 				// command timed out, should try again later
-				appendToTelegramMessage(cb, translate(ctx, t.TXPENDING))
+				send(ctx, t.TXPENDING, APPEND)
 			} else {
 				// payment succeeded
 				paymentHasSucceeded(
+					ctx,
 					u,
-					messageId,
 					payment.Get("msatoshi").Float(),
 					payment.Get("msatoshi_sent").Float(),
 					payment.Get("payment_preimage").String(),
@@ -840,10 +797,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}(u, txn.TriggerMessage, txn.Hash)
 	case strings.HasPrefix(cb.Data, "x="):
 		// callback from external app
-		answer := handleExternalAppCallback(u, messageId, cb)
+		answer := handleExternalAppCallback(ctx)
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))
 	}
 
 answerEmpty:
-	bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, ""))
+	send(ctx, "")
 }

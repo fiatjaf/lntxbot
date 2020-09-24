@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"strconv"
@@ -15,6 +16,8 @@ var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16392}
 var failUnknown = map[string]interface{}{"result": "fail", "failure_code": 16399}
 
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
+	ctx := context.WithValue(context.Background(), "origin", "background")
+
 	amount := params.Get("htlc.amount").String()
 	scid := params.Get("onion.short_channel_id").String()
 	if scid == "0x0x0" {
@@ -66,7 +69,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 
 	// here we know it's a payment for an lntxbot user
 	go deleteDataAssociatedWithShadowChannelId(bscid)
-	go onInvoicePaid(hash, shadowData)
+	go onInvoicePaid(ctx, hash, shadowData)
 	go resolveWaitingInvoice(hash, Invoice{
 		Bolt11: decodepay.Bolt11{
 			MSatoshi:        shadowData.Msatoshi,

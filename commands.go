@@ -16,12 +16,12 @@ type def struct {
 	inline_example string
 }
 
-func (d def) help(lang string) string {
+func (d def) help(ctx context.Context) string {
 	key := t.Key(strings.ReplaceAll(d.aliases[0], " ", "_") + "Help")
 	if _, ok := t.EN[key]; !ok {
 		return ""
 	}
-	return translateTemplate(key, lang, t.T{"BotName": s.ServiceId})
+	return translateTemplate(ctx, key, t.T{"BotName": s.ServiceId})
 }
 
 var methods = []def{
@@ -110,11 +110,11 @@ var methods = []def{
 		aliases: []string{"satellite"},
 		argstr:  "<satoshis> [<message>...]",
 	},
-	def{
-		// golightning
-		aliases: []string{"fundbtc"},
-		argstr:  "<satoshis>",
-	},
+	// def{
+	// 	// golightning
+	// 	aliases: []string{"fundbtc"},
+	// 	argstr:  "<satoshis>",
+	// },
 	def{
 		aliases: []string{"bitclouds"},
 		argstr:  "[create | status [<host>] | topup <satoshis> [<host>] | adopt <host> | abandon <host>]",
@@ -137,7 +137,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"sats4ads"},
-		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <satoshis> [<message>...] [--max-rate=<maxrate>] [--skip=<offset>] | preview)",
+		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <satoshis> [<text>...] [--max-rate=<maxrate>] [--skip=<offset>] | preview)",
 	},
 	def{
 		aliases: []string{"api"},
@@ -244,8 +244,6 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 }
 
 func handleHelp(ctx context.Context, method string) (handled bool) {
-	u := ctx.Value("initiator").(User)
-
 	var (
 		def        def
 		mainName   string
@@ -261,7 +259,7 @@ func handleHelp(ctx context.Context, method string) (handled bool) {
 		helpString = translateTemplate(ctx, t.HELPINTRO, t.T{
 			"Help": escapeHTML(briefUsage),
 		})
-		u.sendMessage(helpString)
+		send(ctx, helpString)
 		return true
 	}
 
@@ -278,7 +276,7 @@ func handleHelp(ctx context.Context, method string) (handled bool) {
 	} else {
 		similar := findSimilar(method, commandList)
 		if len(similar) > 0 {
-			send(ctx, u, t.HELPSIMILAR, t.T{
+			send(ctx, t.HELPSIMILAR, t.T{
 				"Method":  method,
 				"Similar": similar,
 			})
@@ -292,7 +290,7 @@ func handleHelp(ctx context.Context, method string) (handled bool) {
 	params = t.T{
 		"MainName":      mainName,
 		"Argstr":        escapeHTML(def.argstr),
-		"Help":          def.help(u.Locale),
+		"Help":          def.help(ctx),
 		"HasInline":     def.inline,
 		"InlineExample": escapeHTML(def.inline_example),
 		"Aliases":       aliases,
@@ -303,7 +301,6 @@ func handleHelp(ctx context.Context, method string) (handled bool) {
 		params["HasInline"] = false
 	}
 
-	helpString = translateTemplate(ctx, t.HELPMETHOD, params)
-	u.sendMessage(helpString)
+	send(ctx, t.HELPMETHOD, params)
 	return true
 }

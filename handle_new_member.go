@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -23,7 +24,7 @@ type KickData struct {
 	Sats             int                       `json:"sats"`
 }
 
-func handleNewMember(ctx ctx.Context, joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
+func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
 	g, err := loadGroup(joinMessage.Chat.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -72,7 +73,7 @@ func handleNewMember(ctx ctx.Context, joinMessage *tgbotapi.Message, newmember t
 
 	expiration := time.Minute * 15
 
-	bolt11, hash, err := chatOwner.makeInvoice(makeInvoiceArgs{
+	bolt11, hash, err := chatOwner.makeInvoice(ctx, makeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: true,
 		Msatoshi:               int64(g.Ticket) * 1000,
 		Desc: fmt.Sprintf(
@@ -94,9 +95,7 @@ func handleNewMember(ctx ctx.Context, joinMessage *tgbotapi.Message, newmember t
 		return
 	}
 
-	invoiceMessageId := sendTelegramMessageWithPicture(joinMessage.Chat.ID,
-		qrURL(bolt11), bolt11)
-
+	invoiceMessageId := send(ctx, g, qrURL(bolt11), bolt11)
 	kickdata := KickData{
 		tgbotapi.Message{
 			Chat:      &tgbotapi.Chat{ID: joinMessage.Chat.ID},
@@ -122,15 +121,15 @@ func handleNewMember(ctx ctx.Context, joinMessage *tgbotapi.Message, newmember t
 		log.Warn().Err(err).Str("kickdata", string(kickdatajson)).Msg("error saving kickdata")
 	}
 	pendingApproval.Set(joinKey, kickdata)
-	go waitToKick(joinKey, kickdata)
+	go waitToKick(ctx, joinKey, kickdata)
 }
 
-func waitToKick(joinKey string, kickdata KickData) {
+func waitToKick(ctx context.Context, joinKey string, kickdata KickData) {
 	log.Debug().Str("join-key", joinKey).Msg("waiting to kick")
 	select {
 	case <-waitInvoice(kickdata.Hash):
 		// invoice was paid, accept user in group.
-		ticketPaid(joinKey, kickdata)
+		ticketPaid(ctx, joinKey, kickdata)
 	case <-time.After(15 * time.Minute):
 		// didn't pay. kick
 		log.Info().Str("join-key", joinKey).Msg("invoice expired, kicking user")
@@ -150,7 +149,7 @@ func waitToKick(joinKey string, kickdata KickData) {
 	}
 }
 
-func ticketPaid(joinKey string, kickdata KickData) {
+func ticketPaid(ctx context.Context, joinKey string, kickdata KickData) {
 	g, err := loadGroup(kickdata.JoinMessage.Chat.ID)
 	if err != nil {
 		log.Error().Err(err).Str("chat", kickdata.JoinMessage.Chat.Title).
@@ -172,14 +171,8 @@ func ticketPaid(joinKey string, kickdata KickData) {
 	)
 
 	// replace caption
-	_, err = bot.Send(tgbotapi.NewEditMessageText(
-		kickdata.NotifyMessage.Chat.ID,
-		kickdata.NotifyMessage.MessageID,
-		translateTemplate(t.USERALLOWED, g.Locale, t.T{"User": user.AtName()}),
-	))
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to replace invoice with 'paid' message.")
-	}
+	send(ctx, EDIT, g, &kickdata.NotifyMessage, t.USERALLOWED,
+		t.T{"User": user.AtName(ctx)})
 
 	go user.track("user allowed", map[string]interface{}{
 		"sats":  kickdata.Sats,
@@ -194,6 +187,8 @@ func startKicking() {
 		return
 	}
 
+	ctx := context.WithValue(context.Background(), "origin", "background")
+
 	for joinKey, kickdatastr := range data {
 		var kickdata KickData
 		err := json.Unmarshal([]byte(kickdatastr), &kickdata)
@@ -204,7 +199,7 @@ func startKicking() {
 
 		log.Debug().Msg("restarted kick invoice wait")
 		pendingApproval.Set(joinKey, kickdata)
-		go waitToKick(joinKey, kickdata)
+		go waitToKick(ctx, joinKey, kickdata)
 	}
 }
 

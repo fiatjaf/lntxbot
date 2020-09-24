@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
@@ -16,7 +17,7 @@ type MessageModifier string
 
 const (
 	EDIT        MessageModifier = "EDIT"
-	JUSTAPPEND  MessageModifier = "JUSTAPPEND"
+	APPEND      MessageModifier = "APPEND"
 	WITHALERT   MessageModifier = "WITHALERT"
 	FORCESPAMMY MessageModifier = "FORCESPAMMY"
 )
@@ -27,19 +28,33 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	var template t.Key
 	var templateData t.T
 	var text string
-	var file string
-	var picture string
+	var pictureURL string
+	var documentURL string
 
 	// defaults from ctx
-	var target = ctx.Value("initiator").(User)
-	var origin = ctx.Value("origin").(string)
-	var group GroupChat
-	var spammy bool
-	if igroup := ctx.Value("group"); igroup != nil {
-		group = igroup.(GroupChat)
+	var origin string
+	if iorigin := ctx.Value("initiator"); iorigin != nil {
+		origin, _ = iorigin.(string)
 	}
+	var target *User
+	if itarget := ctx.Value("initiator"); itarget != nil {
+		if ftarget, ok := itarget.(User); ok {
+			target = &ftarget
+		}
+	}
+	var group *GroupChat
+	if igroup := ctx.Value("group"); igroup != nil {
+		if fgroup, ok := igroup.(GroupChat); ok {
+			group = &fgroup
+		}
+	}
+	var spammy bool
 	if ispammy := ctx.Value("spammy"); ispammy != nil {
 		spammy = ispammy.(bool)
+	}
+	var locale string
+	if ilocale := ctx.Value("locale"); ilocale != nil {
+		locale = ilocale.(string)
 	}
 
 	// only telegram
@@ -55,10 +70,10 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	var linkTo DiscordMessageID
 	var discordMessage *discordgo.Message
 
-	for ithing := range things {
+	for _, ithing := range things {
 		switch thing := ithing.(type) {
 		case User:
-			target = thing
+			target = &thing
 			if origin == "telegram" &&
 				target.TelegramChatId == 0 && target.DiscordChannelId != "" {
 				origin = "discord"
@@ -74,21 +89,35 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			text = thing
 		case *tgbotapi.CallbackQuery:
 			callbackQuery = thing
+			origin = "telegram"
 		case *url.URL:
-			picture = thing.String()
-			method = "sendPhoto"
+			spl := strings.Split(thing.Path, ".")
+			ext := spl[len(spl)-1]
+
+			if len(ext) > 5 || ext == "png" || ext == "jpg" || ext == "jpeg" {
+				method = "sendPhoto"
+				pictureURL = thing.String()
+			} else {
+				method = "sendDocument"
+				documentURL = thing.String()
+			}
 		case *tgbotapi.InlineKeyboardMarkup:
 			keyboard = thing
+			// if telegram, this will be ignored
 		case tgbotapi.ForceReply:
-			forceReply = tgbotapi.ForceReply
+			forceReply = tgbotapi.ForceReply{ForceReply: true}
+			// if not telegram, this will be ignored
 		case DiscordMessageID:
 			linkTo = thing
+			origin = "discord"
 		case int:
-			replyTo = thing
+			replyToId = thing
 		case *tgbotapi.Message:
 			telegramMessage = thing
+			origin = "telegram"
 		case *discordgo.Message:
 			discordMessage = thing
+			origin = "discord"
 		case MessageModifier:
 			switch thing {
 			case WITHALERT:
@@ -100,15 +129,52 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				if edit {
 					method = "editMessageText"
 				}
-			case JUSTAPPEND:
+			case APPEND:
+				edit = true
 				justAppend = true
 			}
+		default:
+			log.Debug().Interface("param", ithing).Msg("unrecognized param on send()")
 		}
 	}
 
 	// build text with params
 	if text == "" && template != "" {
-		text = translateTemplate(ctx, key, templateData)
+		// fallback locale to user
+		if locale == "" {
+			if target != nil {
+				locale = target.Locale
+			}
+		}
+		// TODO must also use group locale if we're going to send to a group
+
+		ctx = context.WithValue(ctx, "locale", locale)
+		text = translateTemplate(ctx, template, templateData)
+	}
+
+	// either a user or a group must be a target (or there should be a callback)
+	if target == nil && group == nil && callbackQuery == nil {
+		log.Error().Str("text", text).Msg("no target user or group for message")
+		return nil
+	}
+
+	// determine if we're going to send to the group or in private
+	var useGroup = (!spammy && group != nil) || (group != nil && target == nil)
+
+	// can be "api", "background", "external"
+	if origin != "telegram" && origin != "discord" {
+		if useGroup {
+			origin = "telegram"
+			// TODO discord group
+		} else if target.TelegramChatId != 0 {
+			origin = "telegram"
+		} else if target.DiscordChannelId != "" {
+			origin = "discord"
+		} else {
+			log.Error().Str("text", text).Str("user", target.Username).
+				Msg("can't send message, user has no chat ids")
+			return nil
+		}
 	}
 
 	// build the message to send
@@ -136,13 +202,12 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				values.Set("forceReply", string(jforceReply))
 			}
 
-			// determine if we're going to send to the group or in private
-			if spammy != nil && group != nil {
+			if useGroup {
 				// send to group instead of the the user
-				values.Set("chat_id", strconv.Itoa(-group.(GroupChat).TelegramId))
+				values.Set("chat_id", strconv.FormatInt(-group.TelegramId, 10))
 			} else {
 				// send to user
-				values.Set("chat_id", strconv.Itoa(target.TelegramChatId))
+				values.Set("chat_id", strconv.FormatInt(target.TelegramChatId, 10))
 			}
 
 			// editing
@@ -152,11 +217,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			if edit && canEdit {
 				if callbackQuery != nil && callbackQuery.InlineMessageID != "" {
 					values.Set("inline_message_id", callbackQuery.InlineMessageID)
-					if callbackQuery.Message && justAppend {
+					if callbackQuery.Message != nil && justAppend {
 						text = callbackQuery.Message.Text + " " + text
 					}
 				} else if telegramMessage != nil {
-					values.Set("chat_id", strconv.Itoa(telegramMessage.Chat.ID))
+					values.Set("chat_id", strconv.FormatInt(telegramMessage.Chat.ID, 10))
 					values.Set("message_id", strconv.Itoa(telegramMessage.MessageID))
 					if justAppend {
 						text = telegramMessage.Text + " " + text
@@ -177,10 +242,13 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 					values.Set("reply_to_message_id", strconv.Itoa(
 						telegramMessage.MessageID))
 				}
-				if picture == "" && !edit /* when editing we can't send pictures */ {
+				if pictureURL == "" && !edit /* can't send pictures when editing */ {
 					values.Set("text", text)
-				} else {
-					values.Set("photo", picture)
+				} else if pictureURL != "" {
+					values.Set("photo", pictureURL)
+					values.Set("caption", text)
+				} else if documentURL != "" {
+					values.Set("document", documentURL)
 					values.Set("caption", text)
 				}
 			}
@@ -188,7 +256,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// send message
 			resp, err := bot.MakeRequest(method, values)
 			if err != nil {
-				log.Warn().Str("path", pictureURL.String()).Str("text", text).Err(err).
+				log.Warn().Str("text", text).Err(err).
 					Msg("error sending message to telegram")
 				return
 			}
@@ -196,12 +264,12 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				// if it failed because of the reply-to-id just try again without it
 				if resp.Description == "Bad Request: reply message not found" {
 					values.Del("reply_to_message_id")
-					resp, err := bot.MakeRequest(method, values)
+					resp, err = bot.MakeRequest(method, values)
 					if err != nil {
 						return nil
 					}
 				} else {
-					log.Warn().Str("path", pictureURL.String()).Str("text", text).Err(err).
+					log.Warn().Str("text", text).Err(err).
 						Msg("error sending message to telegram")
 				}
 			}
@@ -224,7 +292,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// send emoji
 			err := discord.MessageReactionAdd(linkTo.Channel(), linkTo.Message(), text)
 			if err != nil {
-				log.Warn().Warn(err).Str("emoji", text).Msg("failed to react with emoji")
+				log.Warn().Err(err).Str("emoji", text).
+					Msg("failed to react with emoji")
 				return
 			}
 			return linkTo
@@ -248,7 +317,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			}
 
 			var channelId string
-			if spammy != nil && group != nil {
+			if !spammy && group != nil {
 				// send to group instead of the the user
 				// TODO(group)
 			} else {
@@ -259,13 +328,21 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// send message
 			message, err := discord.ChannelMessageSendEmbed(channelId, embed)
 			if err != nil {
-				log.Warn().Warn(err).Str("text", text).
+				log.Warn().Err(err).Str("text", text).
 					Msg("failed to send discord message")
 			}
-		}
 
-		return discordIDFromMessage(message)
+			log.Print(discordMessage)
+
+			return discordIDFromMessage(message)
+		}
 	}
 
 	return nil
+}
+
+func removeKeyboardButtons(ctx context.Context) {
+	send(ctx, &tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{},
+	})
 }

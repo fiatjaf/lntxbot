@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -30,7 +31,7 @@ func (h HiddenMessage) revealed() string {
 }
 
 func getHiddenId(message *tgbotapi.Message) string {
-	return calculateHash(fmt.Sprintf("%d%d", message.MessageID, message.Chat.ID))[:7]
+	return hashString("%d%d", message.MessageID, message.Chat.ID)[:7]
 }
 
 func findHiddenKey(hiddenid string) (key string, ok bool) {
@@ -42,7 +43,10 @@ func findHiddenKey(hiddenid string) (key string, ok bool) {
 	return found[0], true
 }
 
-func getHiddenMessage(redisKey, locale string) (sourceuser int, id string, hiddenmessage HiddenMessage, err error) {
+func getHiddenMessage(
+	ctx context.Context,
+	redisKey string,
+) (sourceuser int, id string, hiddenmessage HiddenMessage, err error) {
 	data, err := rds.Get(redisKey).Bytes()
 	if err != nil {
 		return
@@ -61,13 +65,19 @@ func getHiddenMessage(redisKey, locale string) (sourceuser int, id string, hidde
 	}
 
 	if hiddenmessage.Preview == "" {
-		hiddenmessage.Preview = translateTemplate(ctx, t.HIDDENDEFAULTPREVIEW, t.T{"Sats": hiddenmessage.Satoshis})
+		hiddenmessage.Preview = translateTemplate(ctx, t.HIDDENDEFAULTPREVIEW,
+			t.T{"Sats": hiddenmessage.Satoshis})
 	}
 
 	return
 }
 
-func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid int, locale string) *tgbotapi.InlineKeyboardMarkup {
+func revealKeyboard(
+	ctx context.Context,
+	fullRedisKey string,
+	hiddenmessage HiddenMessage,
+	havepaid int,
+) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
@@ -86,7 +96,13 @@ func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid i
 	}
 }
 
-func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver User, err error) {
+func settleReveal(
+	ctx context.Context,
+	sats int,
+	hiddenid string,
+	toId int,
+	fromIds []int,
+) (receiver User, err error) {
 	txn, err := pg.Beginx()
 	if err != nil {
 		return
@@ -102,7 +118,7 @@ func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver 
 	if err != nil {
 		return
 	}
-	receiverHash := calculateHash(random) // for the proxied transaction
+	receiverHash := hashString(random) // for the proxied transaction
 	for _, fromId := range fromIds {
 		if fromId == toId {
 			continue
@@ -142,7 +158,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		giver, _ := loadUser(fromId)
-		giverNames = append(giverNames, giver.AtName())
+		giverNames = append(giverNames, giver.AtName(ctx))
 
 		send(ctx, giver, t.HIDDENREVEALMSG, t.T{
 			"Sats": sats,
@@ -164,7 +180,11 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 }
 
 // giveaway
-func giveawayKeyboard(giverId, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
+func giveawayKeyboard(
+	ctx context.Context,
+	giverId,
+	sats int,
+) *tgbotapi.InlineKeyboardMarkup {
 	giveawayid := cuid.Slug()
 	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
 
@@ -211,7 +231,13 @@ WHERE account_id = $1
 }
 
 // giveflip
-func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
+func giveflipKeyboard(
+	ctx context.Context,
+	giveflipid string,
+	giverId int,
+	nparticipants int,
+	sats int,
+) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
@@ -267,11 +293,11 @@ WHERE account_id = $1
 
 // coinflip
 func coinflipKeyboard(
+	ctx context.Context,
 	coinflipid string,
 	initiatorId int,
 	nparticipants,
 	sats int,
-	locale string,
 ) *tgbotapi.InlineKeyboardMarkup {
 	if coinflipid == "" {
 		coinflipid = cuid.Slug()
@@ -332,7 +358,12 @@ WHERE account_id = $1
 	return ncoinflipsjoined < periodQuota
 }
 
-func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error) {
+func settleCoinflip(
+	ctx context.Context,
+	sats int,
+	toId int,
+	fromIds []int,
+) (receiver User, err error) {
 	txn, err := pg.Beginx()
 	if err != nil {
 		return
@@ -355,7 +386,7 @@ func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error
 	if err != nil {
 		return
 	}
-	receiverHash := calculateHash(random) // for the proxied transaction
+	receiverHash := hashString(random) // for the proxied transaction
 
 	// then we create a transfer from each of the other participants
 	for _, fromId := range fromIds {
@@ -398,11 +429,11 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		giver, _ := loadUser(fromId)
-		giverNames = append(giverNames, giver.AtName())
+		giverNames = append(giverNames, giver.AtName(ctx))
 
 		send(ctx, giver, t.COINFLIPGIVERMSG, t.T{
 			"IndividualSats": sats,
-			"Receiver":       receiver.AtName(),
+			"Receiver":       receiver.AtName(ctx),
 		})
 	}
 
@@ -421,12 +452,12 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 
 // fundraise
 func fundraiseKeyboard(
+	ctx context.Context,
 	fundraiseid string,
 	initiatorId int,
 	receiverId int,
 	nparticipants int,
 	sats int,
-	locale string,
 ) *tgbotapi.InlineKeyboardMarkup {
 	if fundraiseid == "" {
 		fundraiseid = cuid.Slug()
@@ -450,7 +481,12 @@ func fundraiseKeyboard(
 	}
 }
 
-func settleFundraise(sats int, toId int, fromIds []int) (receiver User, err error) {
+func settleFundraise(
+	ctx context.Context,
+	sats int,
+	toId int,
+	fromIds []int,
+) (receiver User, err error) {
 	txn, err := pg.Beginx()
 	if err != nil {
 		return
@@ -466,7 +502,7 @@ func settleFundraise(sats int, toId int, fromIds []int) (receiver User, err erro
 	if err != nil {
 		return
 	}
-	receiverHash := calculateHash(random) // for the proxied transaction
+	receiverHash := hashString(random) // for the proxied transaction
 
 	for _, fromId := range fromIds {
 		if fromId == toId {
@@ -507,11 +543,11 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		giver, _ := loadUser(fromId)
-		giverNames = append(giverNames, giver.AtName())
+		giverNames = append(giverNames, giver.AtName(ctx))
 
 		send(ctx, giver, t.FUNDRAISEGIVERMSG, t.T{
 			"IndividualSats": sats,
-			"Receiver":       receiver.AtName(),
+			"Receiver":       receiver.AtName(ctx),
 		})
 	}
 
@@ -529,11 +565,11 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 
 // rename groups
 func renameKeyboard(
+	ctx context.Context,
 	renamerId int,
 	chatId int64,
 	sats int,
 	name string,
-	locale string,
 ) *tgbotapi.InlineKeyboardMarkup {
 	hash := sha256.Sum256([]byte(name))
 	renameId := hex.EncodeToString(hash[:])[:12]

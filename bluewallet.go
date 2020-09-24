@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -49,7 +50,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/addinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		ctx, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -78,7 +79,7 @@ func registerBluewalletMethods() {
 		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).
 			Msg("bluewallet /addinvoice")
 
-		bolt11, hash, err := user.makeInvoice(makeInvoiceArgs{
+		bolt11, hash, err := user.makeInvoice(ctx, makeInvoiceArgs{
 			IgnoreInvoiceSizeLimit: true,
 			Msatoshi:               1000 * satoshi,
 			Desc:                   params.Memo,
@@ -101,7 +102,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/payinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		ctx, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -145,7 +146,7 @@ func registerBluewalletMethods() {
 			}
 		}()
 
-		_, err = user.payInvoice(0, params.Invoice, 1000*amount)
+		_, err = user.payInvoice(ctx, params.Invoice, 1000*amount)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return
@@ -175,7 +176,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -200,7 +201,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/gettxs").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -249,7 +250,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/getuserinvoices").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -409,7 +410,9 @@ func getLimitAndOffset(r *http.Request) (limit int, offset int) {
 	return
 }
 
-func handleBlueWallet(u User, opts docopt.Opts) {
+func handleBlueWallet(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
+
 	go u.track("bluewallet", map[string]interface{}{
 		"refresh": opts["refresh"].(bool),
 	})
@@ -419,11 +422,11 @@ func handleBlueWallet(u User, opts docopt.Opts) {
 		password, err = u.updatePassword()
 		if err != nil {
 			log.Warn().Err(err).Str("user", u.Username).Msg("error updating password")
-			send(ctx, u, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+			send(ctx, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
 			return
 		}
-		send(ctx, u, t.COMPLETED)
+		send(ctx, t.COMPLETED)
 	}
 	blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
-	u.sendMessageWithPicture(qrURL(blueURL), "<pre>"+blueURL+"</pre>")
+	send(ctx, qrURL(blueURL), "<pre>"+blueURL+"</pre>")
 }

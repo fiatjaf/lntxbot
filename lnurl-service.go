@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,11 +13,9 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
-	"github.com/gorilla/mux"
-	"github.com/lucsky/cuid"
 )
 
-func handleCreateLNURLWithdraw(ctx, opts docopt.Opts) (lnurlEncoded string) {
+func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
 	u := ctx.Value("initiator").(User)
 
 	sats, err := parseSatoshis(opts)
@@ -28,35 +27,34 @@ func handleCreateLNURLWithdraw(ctx, opts docopt.Opts) (lnurlEncoded string) {
 	go u.track("lnurl generate", map[string]interface{}{"sats": sats})
 
 	maxsats := strconv.Itoa(sats)
-	ok := u.checkBalanceFor(sats, "lnurl-withdraw", nil)
+	ok := u.checkBalanceFor(ctx, sats, "lnurl-withdraw")
 	if !ok {
 		return
 	}
 
-	challenge := calculateHash(s.TelegramBotToken + ":" + cuid.New() + ":" + maxsats)
-	nexturl := fmt.Sprintf("%s/lnurl/withdraw?message=%d&challenge=%s",
-		s.ServiceURL, messageId, challenge)
+	challenge := hashString("%s:%d:%d", s.TelegramBotToken, u.Id, maxsats)
+	nexturl := fmt.Sprintf("%s/lnurl/withdraw?challenge=%s", s.ServiceURL, challenge)
 	rds.Set("lnurlwithdraw:"+challenge,
 		fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
 
-	lnurlEncoded, err = lnurl.LNURLEncode(nexturl)
+	enc, err = lnurl.LNURLEncode(nexturl)
 	if err != nil {
 		log.Error().Err(err).Msg("error encoding lnurl on withdraw")
 		return
 	}
 
-	send(ctx, u, qrURL(lnurlEncoded),
-		`<a href="lightning:`+lnurlEncoded+`">`+lnurlEncoded+"</a>")
+	send(ctx, u, qrURL(enc), `<a href="lightning:`+enc+`">`+enc+"</a>")
 	return
 }
 
 func serveLNURL() {
+	ctx := context.WithValue(context.Background(), "origin", "external")
+
 	router.Path("/lnurl/withdraw").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl-withdraw first request")
 
 		qs := r.URL.Query()
 		challenge := qs.Get("challenge")
-		messageIdstr := qs.Get("message")
 		if challenge == "" {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Malformed lnurl."))
 			return
@@ -87,21 +85,20 @@ func serveLNURL() {
 		}
 
 		json.NewEncoder(w).Encode(lnurl.LNURLWithdrawResponse{
-			Callback:           fmt.Sprintf("%s/lnurl/withdraw/invoice/%s", s.ServiceURL, messageIdstr),
-			K1:                 challenge,
-			MaxWithdrawable:    1000 * int64(chMax),
-			MinWithdrawable:    1000 * int64(chMax),
-			DefaultDescription: fmt.Sprintf("%s lnurl withdraw @%s", u.AtName(), s.ServiceId),
-			Tag:                "withdrawRequest",
-			LNURLResponse:      lnurl.OkResponse(),
+			Callback:        fmt.Sprintf("%s/lnurl/withdraw/invoice", s.ServiceURL),
+			K1:              challenge,
+			MaxWithdrawable: 1000 * int64(chMax),
+			MinWithdrawable: 1000 * int64(chMax),
+			DefaultDescription: fmt.Sprintf(
+				"%s lnurl withdraw from %s", u.AtName(ctx), s.ServiceId),
+			Tag:           "withdrawRequest",
+			LNURLResponse: lnurl.OkResponse(),
 		})
 	})
 
-	router.Path("/lnurl/withdraw/invoice/{messageId}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/lnurl/withdraw/invoice/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(context.Background(), "origin", "external")
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl second request")
-
-		messageIdstr := mux.Vars(r)["messageId"]
-		messageId, _ := strconv.Atoi(messageIdstr)
 
 		qs := r.URL.Query()
 		challenge := qs.Get("k1")
@@ -132,7 +129,7 @@ func serveLNURL() {
 		}
 
 		// double-check the challenge (it's a hash of the parameters + our secret)
-		if challenge != calculateHash(s.TelegramBotToken+":"+messageIdstr+":"+strconv.Itoa(chMax)) {
+		if challenge != hashString("%s:%d:%d", s.TelegramBotToken, u.Id, chMax) {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid amount for this lnurl."))
 			return
 		}
@@ -156,7 +153,7 @@ func serveLNURL() {
 		}
 
 		// print the bolt11 just because
-		nextMessageId, _ := u.sendMessageAsReply(bolt11, messageId).(int)
+		send(ctx, u, bolt11, ctx.Value("message"))
 
 		go u.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
 			"sats": inv.Get("msatoshi").Float() / 1000,
@@ -168,7 +165,7 @@ func serveLNURL() {
 			"<invoice>": bolt11,
 			"now":       true,
 		}
-		handlePay(u, opts, nextMessageId, nil)
+		handlePay(ctx, opts)
 		json.NewEncoder(w).Encode(lnurl.OkResponse())
 	})
 
@@ -179,7 +176,7 @@ func serveLNURL() {
 		userid := qs.Get("userid")
 		username := qs.Get("username")
 
-		u, jmeta, err := lnurlPayStuff(userid, username)
+		u, jmeta, err := lnurlPayStuff(ctx, userid, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -200,13 +197,15 @@ func serveLNURL() {
 	})
 
 	router.Path("/lnurl/pay/callback").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(context.Background(), "origin", "external")
+
 		qs := r.URL.Query()
 		userid := qs.Get("userid")
 		username := qs.Get("username")
 		apptag := qs.Get("apptag")
 		amount := qs.Get("amount")
 
-		receiver, jmeta, err := lnurlPayStuff(userid, username)
+		receiver, jmeta, err := lnurlPayStuff(ctx, userid, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -248,7 +247,11 @@ func serveLNURL() {
 	})
 }
 
-func lnurlPayStuff(userid string, username string) (receiver User, jmeta []byte, err error) {
+func lnurlPayStuff(
+	ctx context.Context,
+	userid string,
+	username string,
+) (receiver User, jmeta []byte, err error) {
 	if userid != "" {
 		var id int
 		id, err = strconv.Atoi(userid)
@@ -266,12 +269,12 @@ func lnurlPayStuff(userid string, username string) (receiver User, jmeta []byte,
 		[]string{
 			"text/plain",
 			fmt.Sprintf("Fund %s account on t.me/%s.",
-				receiver.AtName(), s.ServiceId),
+				receiver.AtName(ctx), s.ServiceId),
 		},
 	}
 
 	if username != "" { /* we may have only a userid */
-		if imageURL, err := getUserPictureURL(username); err == nil {
+		if imageURL, err := getTelegramUserPictureURL(username); err == nil {
 			if b64, err := base64FileFromURL(imageURL); err == nil {
 				metadata = append(metadata, []string{"image/jpeg;base64", b64})
 			}

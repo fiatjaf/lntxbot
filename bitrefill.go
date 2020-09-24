@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -149,7 +150,7 @@ WHERE appdata->'bitrefill'->'orders' ? $1
 			return
 		}
 
-		send(ctx, user, t.BITREFILLPURCHASEDONE, t.T{
+		send(context.Background(), user, t.BITREFILLPURCHASEDONE, t.T{
 			"OrderId": orderinfo.OrderId,
 			"Info":    orderinfo,
 		})
@@ -215,7 +216,8 @@ func queryBitrefillInventory(query, phone, countryCode string) []BitrefillInvent
 	return results
 }
 
-func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
+func handleBitrefillItem(ctx context.Context, item BitrefillInventoryItem, phone string) {
+	user := ctx.Value("initiator").(User)
 	packages := item.Packages
 
 	// make buttons
@@ -243,7 +245,7 @@ func handleBitrefillItem(user User, item BitrefillInventoryItem, phone string) {
 		replyCustom = true
 	}
 
-	sentId := send(ctx, usert.BITREFILLPACKAGESHEADER, t.T{
+	sentId := send(ctx, user, t.BITREFILLPACKAGESHEADER, t.T{
 		"Item":        item.Name,
 		"ReplyCustom": replyCustom,
 	}, &tgbotapi.InlineKeyboardMarkup{inlinekeyboard}, 0)
@@ -310,7 +312,9 @@ func placeBitrefillOrder(
 	return resporder.OrderId, resporder.Payment.LightningInvoice, nil
 }
 
-func purchaseBitrefillOrder(user User, orderId string) error {
+func purchaseBitrefillOrder(ctx context.Context, orderId string) error {
+	user := ctx.Value("initiator").(User)
+
 	// get invoice from redis
 	bolt11, err := rds.Get("bitrefillorder:" + orderId).Result()
 	if err != nil {
@@ -323,10 +327,10 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 		return errors.New("Failed to decode invoice.")
 	}
 	err = user.actuallySendExternalPayment(
-		0, bolt11, inv, inv.MSatoshi,
+		ctx, bolt11, inv, inv.MSatoshi,
 		func(
+			ctx context.Context,
 			u User,
-			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -334,7 +338,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "bitrefill", hash)
+			paymentHasSucceeded(ctx, u, msatoshi, msatoshi_sent, preimage, "bitrefill", hash)
 
 			// save to user bitrefill data
 			var data BitrefillData
@@ -376,7 +380,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 			}
 
 			// start polling the order
-			go pollBitrefillOrder(user, orderId, 5)
+			go pollBitrefillOrder(ctx, orderId, 5)
 		},
 		paymentHasFailed,
 	)
@@ -384,7 +388,7 @@ func purchaseBitrefillOrder(user User, orderId string) error {
 	return err
 }
 
-func pollBitrefillOrder(user User, orderId string, countdown int) {
+func pollBitrefillOrder(ctx context.Context, orderId string, countdown int) {
 	var orderinfo BitrefillOrderInfo
 	var resperr BitrefillErrorResponse
 	resp, err := bitrefill.Get("https://api.bitrefill.com/v1/order/"+orderId, nil, &orderinfo, &resperr)
@@ -403,11 +407,11 @@ func pollBitrefillOrder(user User, orderId string, countdown int) {
 		// but it can still contain an error
 		log.Warn().Str("type", orderinfo.ErrorType).Str("id", orderId).Str("message", orderinfo.ErrorMessage).
 			Msg("bitrefill purchase failed")
-		send(ctx, user, t.BITREFILLPURCHASEFAILED, t.T{"ErrorMessage": orderinfo.ErrorMessage})
+		send(ctx, t.BITREFILLPURCHASEFAILED, t.T{"ErrorMessage": orderinfo.ErrorMessage})
 		return
 	} else if orderinfo.Delivered {
 		// no, it's a success!
-		send(ctx, user, t.BITREFILLPURCHASEDONE, t.T{"OrderId": orderId, "Info": orderinfo})
+		send(ctx, t.BITREFILLPURCHASEDONE, t.T{"OrderId": orderId, "Info": orderinfo})
 		return
 	} else if orderinfo.PaymentReceived == false {
 		// should never happen
@@ -416,7 +420,7 @@ func pollBitrefillOrder(user User, orderId string, countdown int) {
 	}
 
 	if countdown > 0 {
-		pollBitrefillOrder(user, orderId, countdown-1)
+		pollBitrefillOrder(ctx, orderId, countdown-1)
 	}
 }
 
@@ -455,11 +459,13 @@ func getBitrefillCountry(user User) (string, error) {
 }
 
 func handleProcessBitrefillOrder(
-	user User,
+	ctx context.Context,
 	item BitrefillInventoryItem,
 	pack BitrefillPackage,
 	phone *string,
 ) {
+	user := ctx.Value("initiator").(User)
+
 	// create order
 	orderId, invoice, err := placeBitrefillOrder(user, item, pack, phone)
 	if err != nil {
@@ -474,7 +480,7 @@ func handleProcessBitrefillOrder(
 		return
 	}
 
-	send(ctx, usert.BITREFILLCONFIRMATION, t.T{
+	send(ctx, user, t.BITREFILLCONFIRMATION, t.T{
 		"Item":    item,
 		"Package": pack,
 		"Sats":    inv.Get("msatoshi").Float() / 1000,
@@ -482,12 +488,12 @@ func handleProcessBitrefillOrder(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, user.Locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", user.Id)),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.YES, user.Locale),
+					translate(ctx, t.YES),
 					fmt.Sprintf("x=bitrefill-pch-%s", orderId)),
 			},
 		},
-	}, 0)
+	})
 }

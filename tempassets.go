@@ -20,9 +20,12 @@ func serveTempAssets() {
 			mimeType := mime.TypeByExtension(filepath.Base(name))
 			w.Header().Set("Content-Type", mimeType)
 
-			val := tempAssets.Get(name)
-			b, _ := val.([]byte)
-			w.Write(b)
+			if val, ok := tempAssets.Get(name); ok {
+				b, _ := val.([]byte)
+				w.Write(b)
+			} else {
+				http.Error(w, "file not found", 404)
+			}
 		},
 	)
 }

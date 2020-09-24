@@ -1,6 +1,8 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -61,7 +63,14 @@ func parseSatoshis(opts docopt.Opts) (sats int, err error) {
 	return 0, errors.New("'satoshis' param invalid")
 }
 
-func searchForInvoice(u User, message interface{}) (bolt11, lnurltext string, ok bool) {
+func searchForInvoice(ctx context.Context) (bolt11, lnurltext string, ok bool) {
+	var message interface{}
+	if imessage := ctx.Value("message"); imessage != nil {
+		message = imessage
+	} else {
+		return "", "", false
+	}
+
 	var text string
 
 	switch m := message.(type) {
@@ -93,18 +102,18 @@ func searchForInvoice(u User, message interface{}) (bolt11, lnurltext string, ok
 		if err != nil {
 			log.Warn().Err(err).Str("fileid", photo.FileID).
 				Msg("failed to get photo URL.")
-			send(ctx, u, t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
+			send(ctx, t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
 			return
 		}
 
 		text, err := decodeQR(photourl)
 		if err != nil {
-			send(ctx, u, t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
+			send(ctx, t.QRCODEFAIL, t.T{"Err": err.Error()}, m.MessageID)
 			return
 		}
 
 		log.Debug().Str("data", text).Msg("got qr code data")
-		sendTelegramMessage(u.TelegramChatId, text)
+		send(ctx, text)
 
 		if bolt11, ok = getBolt11(text); ok {
 			return
@@ -225,80 +234,9 @@ func randomPreimage() (string, error) {
 	return hex.EncodeToString(data), nil
 }
 
-func calculateHash(data string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(data)))
-}
-
-func parseUsername(message *tgbotapi.Message, value interface{}) (u *User, display string, err error) {
-	var username string
-	var user User
-	var uid int
-
-	switch val := value.(type) {
-	case []string:
-		if len(val) > 0 {
-			username = strings.Join(val, " ")
-		}
-	case string:
-		username = val
-	case int:
-		uid = val
-	}
-
-	if intval, err := strconv.Atoi(username); err == nil {
-		uid = intval
-	}
-
-	if username != "" {
-		username = strings.ToLower(username)
-	}
-
-	if username == "" && uid == 0 {
-		return nil, "", errors.New("no user")
-	}
-
-	// check entities for user type
-	if message.Entities != nil {
-		for _, entity := range *message.Entities {
-			if entity.Type == "text_mention" && entity.User != nil {
-				// user without username
-				uid = entity.User.ID
-				display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
-				user, err = ensureTelegramId(uid)
-				if err != nil {
-					return nil, "", err
-				}
-
-				return &user, display, nil
-			}
-			if entity.Type == "mention" {
-				// user with username
-				uname := username[1:]
-				display = "@" + uname
-				user, err = ensureTelegramUsername(uname)
-				if err != nil {
-					return nil, "", err
-				}
-
-				return &user, display, nil
-			}
-		}
-	}
-
-	// if the user identifier passed was neither @someone (mention) nor a text_mention
-	// (for users without usernames but still painted blue and autocompleted by telegram)
-	// and we have a uid that means it's the case where just a numeric id was given and nothing
-	// more.
-	if uid != 0 {
-		user, err = ensureTelegramId(uid)
-		if err != nil {
-			return nil, "", err
-		}
-
-		return &user, user.AtName(), nil
-	}
-
-	return nil, "", errors.New("no user")
+func hashString(format string, a ...interface{}) string {
+	str := fmt.Sprintf(format, a...)
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(str)))
 }
 
 func findSimilar(source string, targets []string) (result []string) {
@@ -374,7 +312,7 @@ func translate(ctx context.Context, key t.Key) string {
 
 func translateTemplate(ctx context.Context, key t.Key, data t.T) string {
 	iloc := ctx.Value("locale")
-	var locale string
+	var locale string = "en"
 	if iloc != nil {
 		locale, _ = iloc.(string)
 	}
@@ -410,14 +348,20 @@ func stringIsIn(needle string, haystack []string) bool {
 	return false
 }
 
-func getVariadicFieldOrReplyToContent(opts docopt.Opts, message *tgbotapi.Message, optsField string) string {
+func getVariadicFieldOrReplyToContent(ctx context.Context, opts docopt.Opts, optsField string) string {
 	if imessage, ok := opts[optsField]; ok {
 		return strings.Join(imessage.([]string), " ")
-	} else if message.ReplyToMessage != nil {
-		return message.ReplyToMessage.Text
-	} else {
-		return ""
 	}
+
+	if imessage := ctx.Value("message"); imessage != nil {
+		if message, ok := imessage.(*tgbotapi.Message); ok {
+			if message.ReplyToMessage != nil {
+				return message.ReplyToMessage.Text
+			}
+		}
+	}
+
+	return ""
 }
 
 func waitPaymentSuccess(hash string) (preimage <-chan string) {
@@ -537,4 +481,25 @@ func messageFromError(err error) string {
 	default:
 		return err.Error()
 	}
+}
+
+func zipdata(filename string, content []byte) (zipped []byte, err error) {
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+
+	f, err := w.Create(filename)
+	if err != nil {
+		return
+	}
+	_, err = f.Write(content)
+	if err != nil {
+		return
+	}
+
+	err = w.Close()
+	if err != nil {
+		return
+	}
+
+	return buf.Bytes(), nil
 }

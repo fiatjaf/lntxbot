@@ -260,7 +260,8 @@ func (u User) AtName(ctx context.Context) string {
 	origin := ctx.Value("origin")
 	if origin == nil ||
 		(origin.(string) == "telegram" && u.TelegramId == 0) ||
-		(origin.(string) == "discord" && u.DiscordId == "") {
+		(origin.(string) == "discord" && u.DiscordId == "" ||
+			(origin.(string) != "telegram" && origin.(string) != "discord")) {
 		if u.DiscordId != "" {
 			return u.Username + "@discord"
 		} else {

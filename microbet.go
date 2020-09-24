@@ -279,13 +279,13 @@ type MicrobetData struct {
 
 var microbetExactMatchExtractor = regexp.MustCompile(`(.+) (\d+ ?- ?\d+) (.+)`)
 
-func microbetKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err error) {
+func microbetKeyboard() (keyboard *tgbotapi.InlineKeyboardMarkup, err error) {
 	bets, err := getMicrobetBets()
 	if err != nil {
 		return
 	}
 
-	inlinekeyboard = make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
+	buttons := make([][]tgbotapi.InlineKeyboardButton, 2*len(bets))
 	for i, bet := range bets {
 		var gamename, backbet string
 
@@ -305,13 +305,13 @@ func microbetKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err e
 			backbet += " (exact)"
 		}
 
-		inlinekeyboard[i*2] = []tgbotapi.InlineKeyboardButton{
+		buttons[i*2] = []tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardButtonURL(
 				fmt.Sprintf("(%d) %s", bet.Amount, gamename),
 				"https://www.google.com/search?q="+gamename,
 			),
 		}
-		inlinekeyboard[i*2+1] = []tgbotapi.InlineKeyboardButton{
+		buttons[i*2+1] = []tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardButtonData(
 				fmt.Sprintf("%s (%d)", backbet, bet.Backers),
 				fmt.Sprintf("x=microbet-%s-true", bet.Id),
@@ -323,5 +323,5 @@ func microbetKeyboard() (inlinekeyboard [][]tgbotapi.InlineKeyboardButton, err e
 		}
 	}
 
-	return
+	return &tgbotapi.InlineKeyboardMarkup{buttons}, nil
 }

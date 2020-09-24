@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -94,7 +95,7 @@ func broadcastSats4Ads(
 	if err != nil {
 		return
 	}
-	sourcehash := calculateHash(random)
+	sourcehash := hashString(random)
 
 	logger := log.With().Str("sourcehash", sourcehash).Int("budget", budgetSatoshis).Int("max", maxrate).Logger()
 
@@ -132,9 +133,8 @@ OFFSET $3
 
 		// identifier for the received payment
 		// will be pending until the user clicks the "Viewed" button
-		targethash := calculateHash(
-			fmt.Sprintf("%d:%s:%d", contentMessage.MessageID, sourcehash, target.Id),
-		)
+		targethash := hashString("%d:%s:%d",
+			contentMessage.MessageID, sourcehash, target.Id)
 		data := "x=s4a-v-" + targethash[:10]
 
 		// build ad message based on the message that was replied to
@@ -213,6 +213,8 @@ func buildSats4AdsMessage(
 	rate int,
 	keyboard interface{},
 ) (ad tgbotapi.Chattable, nchars int, thisCostMsat int, thisCostSatoshis float64) {
+	ctx := context.WithValue(context.Background(), "locale", target.Locale)
+
 	thisCostMsat = 1000 // fixed 1sat fee for each message
 
 	baseChat := tgbotapi.BaseChat{
@@ -225,7 +227,7 @@ func buildSats4AdsMessage(
 		nchars = len(contentMessage.Text)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
-		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
 			"Sats": thisCostSatoshis,
 		})
 
@@ -238,7 +240,7 @@ func buildSats4AdsMessage(
 		nchars = 300 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
-		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
 			"Sats": thisCostSatoshis,
 		})
 
@@ -254,7 +256,7 @@ func buildSats4AdsMessage(
 		nchars = 300 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
-		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
 			"Sats": thisCostSatoshis,
 		})
 		photos := *contentMessage.Photo
@@ -271,7 +273,7 @@ func buildSats4AdsMessage(
 		nchars = 300 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
-		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
 			"Sats": thisCostSatoshis,
 		})
 
@@ -287,7 +289,7 @@ func buildSats4AdsMessage(
 		nchars = 200 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
-		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
 			"Sats": thisCostSatoshis,
 		})
 
@@ -303,7 +305,7 @@ func buildSats4AdsMessage(
 		nchars = 150 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
-		footer := "\n\n" + translateTemplate(t.SATS4ADSADFOOTER, target.Locale, t.T{
+		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
 			"Sats": thisCostSatoshis,
 		})
 
@@ -338,6 +340,8 @@ WHERE to_id = $1 AND payment_hash LIKE $2 || '%'
 }
 
 func cleanupUnviewedAds() {
+	ctx := context.WithValue(context.Background(), "origin", "background")
+
 	// for every person who has received an ad over 3 days ago and haven't seen it
 	// we will cancel that payment (which is pending) and remove that person from
 	// the sats4ads list

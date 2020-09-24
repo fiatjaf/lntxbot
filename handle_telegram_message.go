@@ -19,6 +19,7 @@ import (
 func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	ctx = context.WithValue(ctx, "message", message)
 
+	var u User
 	if message.Chat.Type == "channel" {
 		u = User{
 			TelegramChatId: message.Chat.ID,
@@ -41,7 +42,8 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 
-		ctx = context.WithValue(ctx, "initiator", u)
+		u = user
+		ctx = context.WithValue(ctx, "initiator", user)
 	}
 
 	// by default we use the user locale for the group object, because
@@ -97,7 +99,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(messageText, "/") {
-		if bolt11, lnurltext, ok := searchForInvoice(u, message); ok {
+		if bolt11, lnurltext, ok := searchForInvoice(ctx); ok {
 			if bolt11 != "" {
 				opts, _, _ = parse("/pay " + bolt11)
 				goto parsed
@@ -152,10 +154,10 @@ parsed:
 	case opts["start"].(bool), opts["tutorial"].(bool):
 		if message.Chat.Type == "private" {
 			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
-				handleTutorial(u, tutorial)
+				handleTutorial(ctx, tutorial)
 			} else {
 				send(ctx, u, t.WELCOME)
-				handleTutorial(u, "")
+				handleTutorial(ctx, "")
 			}
 			go u.track("start", nil)
 		}
@@ -167,13 +169,13 @@ parsed:
 			go u.track("stop", nil)
 		}
 		break
-	case opts["microbet"].(bool), opts["fundbtc"].(bool),
+	case opts["microbet"].(bool), // opts["fundbtc"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["sats4ads"].(bool),
 		opts["rub"].(bool), opts["skype"].(bool),
 		opts["bitrefill"].(bool), opts["bitclouds"].(bool),
 		opts["etleneum"].(bool), opts["etl"].(bool):
-		handleExternalApp(ctx, opts, message)
+		handleExternalApp(ctx, opts)
 		break
 	case opts["bluewallet"].(bool), opts["zeus"].(bool), opts["lndhub"].(bool):
 		go handleBlueWallet(ctx, opts)
@@ -213,7 +215,7 @@ parsed:
 			anonymous = true
 		}
 
-		receiver, todisplayname, err = parseUsername(message, usernameval)
+		receiver, todisplayname, err = parseTelegramUsername(ctx, message, usernameval)
 		if receiver != nil {
 			goto ensured
 		}
@@ -258,7 +260,7 @@ parsed:
 
 	ensured:
 		err = u.sendInternally(
-			message.MessageID,
+			ctx,
 			*receiver,
 			anonymous,
 			sats*1000,
@@ -280,7 +282,7 @@ parsed:
 				send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
 			} else {
 				send(ctx, receiver, t.USERSENTYOUSATS, t.T{
-					"User":    u.AtName(),
+					"User":    u.AtName(ctx),
 					"Sats":    sats,
 					"RawSats": satsraw,
 				})
@@ -315,19 +317,14 @@ parsed:
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveaway"})
 			return
 		}
-		if !u.checkBalanceFor(sats, "giveaway", nil) {
+		if !u.checkBalanceFor(ctx, sats, "giveaway") {
 			break
 		}
 
-		sendTelegramMessageWithKeyboard(
-			message.Chat.ID,
-			translateTemplate(t.GIVEAWAYMSG, g.Locale, t.T{
-				"User": u.AtName(),
-				"Sats": sats,
-			}),
-			giveawayKeyboard(u.Id, sats, g.Locale),
-			0,
-		)
+		send(ctx, message.Chat.ID, g, t.GIVEAWAYMSG, t.T{
+			"User": u.AtName(ctx),
+			"Sats": sats,
+		}, giveawayKeyboard(ctx, u.Id, sats))
 
 		go u.track("giveaway created", map[string]interface{}{
 			"group": message.Chat.ID,
@@ -348,7 +345,7 @@ parsed:
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
 			return
 		}
-		if !u.checkBalanceFor(sats, "giveflip", nil) {
+		if !u.checkBalanceFor(ctx, sats, "giveflip") {
 			break
 		}
 
@@ -365,16 +362,13 @@ parsed:
 		}
 
 		giveflipid := cuid.Slug()
-		sendTelegramMessageWithKeyboard(
-			message.Chat.ID,
-			translateTemplate(t.GIVEFLIPMSG, g.Locale, t.T{
-				"User":         u.AtName(),
+		send(ctx, message.Chat.ID, g,
+			t.GIVEFLIPMSG, t.T{
+				"User":         u.AtName(ctx),
 				"Sats":         sats,
 				"Participants": nparticipants,
-			}),
-			giveflipKeyboard(giveflipid, u.Id, nparticipants, sats, g.Locale),
-			0,
-		)
+			},
+			giveflipKeyboard(ctx, giveflipid, u.Id, nparticipants, sats))
 
 		go u.track("giveflip created", map[string]interface{}{
 			"group": message.Chat.ID,
@@ -406,7 +400,7 @@ parsed:
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-		if !u.checkBalanceFor(sats, "coinflip", nil) {
+		if !u.checkBalanceFor(ctx, sats, "coinflip") {
 			break
 		}
 
@@ -420,17 +414,12 @@ parsed:
 			}
 		}
 
-		sendTelegramMessageWithKeyboard(
-			message.Chat.ID,
-			translateTemplate(t.LOTTERYMSG, g.Locale, t.T{
-				"EntrySats":    sats,
-				"Participants": nparticipants,
-				"Prize":        sats * nparticipants,
-				"Registered":   u.AtName(),
-			}),
-			coinflipKeyboard("", u.Id, nparticipants, sats, g.Locale),
-			0,
-		)
+		send(ctx, g, t.LOTTERYMSG, t.T{
+			"EntrySats":    sats,
+			"Participants": nparticipants,
+			"Prize":        sats * nparticipants,
+			"Registered":   u.AtName(ctx),
+		}, coinflipKeyboard(ctx, "", u.Id, nparticipants, sats))
 
 		// save this to limit coinflip creation per user
 		go u.track("coinflip created", map[string]interface{}{
@@ -446,7 +435,7 @@ parsed:
 			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
-		if !u.checkBalanceFor(sats, "fundraise", nil) {
+		if !u.checkBalanceFor(ctx, sats, "fundraise") {
 			break
 		}
 
@@ -456,25 +445,21 @@ parsed:
 			break
 		}
 
-		receiver, receiverdisplayname, err := parseUsername(message, opts["<receiver>"])
+		receiver, receiverdisplayname, err := parseTelegramUsername(ctx, message,
+			opts["<receiver>"])
 		if err != nil {
 			log.Warn().Err(err).Msg("parsing fundraise receiver")
 			send(ctx, u, t.FAILEDUSER)
 			break
 		}
 
-		sendTelegramMessageWithKeyboard(
-			message.Chat.ID,
-			translateTemplate(t.FUNDRAISEAD, g.Locale, t.T{
-				"ToUser":       receiverdisplayname,
-				"Participants": nparticipants,
-				"Sats":         sats,
-				"Fund":         sats * nparticipants,
-				"Registered":   u.AtName(),
-			}),
-			fundraiseKeyboard("", u.Id, receiver.Id, nparticipants, sats, g.Locale),
-			0,
-		)
+		send(ctx, message.Chat.ID, g, t.FUNDRAISEAD, t.T{
+			"ToUser":       receiverdisplayname,
+			"Participants": nparticipants,
+			"Sats":         sats,
+			"Fund":         sats * nparticipants,
+			"Registered":   u.AtName(ctx),
+		}, fundraiseKeyboard(ctx, "", u.Id, receiver.Id, nparticipants, sats))
 
 		go u.track("fundraise created", map[string]interface{}{
 			"group": message.Chat.ID,
@@ -560,22 +545,19 @@ parsed:
 		}
 
 		siq := "reveal " + hiddenid
-		sendTelegramMessageWithKeyboard(u.TelegramChatId,
-			translateTemplate(ctx, t.HIDDENWITHID, t.T{
-				"HiddenId": hiddenid,
-				"Message":  hiddenmessage,
-			}),
-			&tgbotapi.InlineKeyboardMarkup{
-				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-					{
-						tgbotapi.InlineKeyboardButton{
-							Text:              translate(ctx, t.HIDDENSHAREBTN),
-							SwitchInlineQuery: &siq,
-						},
+		send(ctx, u, t.HIDDENWITHID, t.T{
+			"HiddenId": hiddenid,
+			"Message":  hiddenmessage,
+		}, &tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				{
+					tgbotapi.InlineKeyboardButton{
+						Text:              translate(ctx, t.HIDDENSHAREBTN),
+						SwitchInlineQuery: &siq,
 					},
 				},
-			}, message.MessageID,
-		)
+			},
+		}, message.MessageID)
 
 		go u.track("hide", map[string]interface{}{
 			"sats":      hiddenmessage.Satoshis,
@@ -595,13 +577,13 @@ parsed:
 				return
 			}
 
-			_, _, hidden, err := getHiddenMessage(redisKey, g.Locale)
+			_, _, hidden, err := getHiddenMessage(ctx, redisKey)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 				return
 			}
 
-			sendTelegramMessageWithKeyboard(u.TelegramChatId, hidden.Preview, revealKeyboard(redisKey, hidden, 0, g.Locale), 0)
+			send(ctx, u, hidden.Preview, revealKeyboard(ctx, redisKey, hidden, 0))
 		}()
 	case opts["transactions"].(bool):
 		go handleTransactionList(ctx, opts)
@@ -616,7 +598,7 @@ parsed:
 			handlePay(ctx, opts)
 		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		desc := getVariadicFieldOrReplyToContent(opts, message, "<description>")
+		desc := getVariadicFieldOrReplyToContent(ctx, opts, "<description>")
 		go handleInvoice(ctx, opts, desc)
 	case opts["lnurl"].(bool):
 		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
@@ -641,15 +623,10 @@ parsed:
 				return
 			}
 
-			sendTelegramMessageWithKeyboard(
-				message.Chat.ID,
-				translateTemplate(t.RENAMEPROMPT, g.Locale, t.T{
-					"Sats": price,
-					"Name": name,
-				}),
-				renameKeyboard(u.Id, message.Chat.ID, price, name, g.Locale),
-				message.MessageID,
-			)
+			send(ctx, g, t.RENAMEPROMPT, t.T{
+				"Sats": price,
+				"Name": name,
+			}, renameKeyboard(ctx, u.Id, message.Chat.ID, price, name))
 
 			go u.track("rename started", map[string]interface{}{
 				"group": message.Chat.ID,
@@ -658,12 +635,12 @@ parsed:
 		}()
 	case opts["apps"].(bool):
 		go u.track("apps", nil)
-		handleTutorial(u, "apps")
+		handleTutorial(ctx, "apps")
 		break
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		go u.track("help", map[string]interface{}{"command": command})
-		handleHelp(u, command)
+		handleHelp(ctx, command)
 		break
 	case opts["toggle"].(bool):
 		go func() {
@@ -798,7 +775,7 @@ parsed:
 	case opts["dollar"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err == nil {
-			sendTelegramMessage(u.TelegramChatId, getDollarPrice(int64(sats)*1000))
+			send(ctx, getDollarPrice(int64(sats)*1000))
 		}
 		break
 	}

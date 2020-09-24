@@ -1,12 +1,12 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"strconv"
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type Info struct {
@@ -75,20 +75,12 @@ GROUP BY tag
 	return
 }
 
-func (u User) checkBalanceFor(sats int, purpose string, cb *tgbotapi.CallbackQuery) bool {
-	notify := func(key t.Key, templateData t.T) {
-		if cb == nil {
-			send(ctx, u, key, templateData)
-		} else {
-			u.alert(cb, key, templateData)
-		}
-	}
-
+func (u User) checkBalanceFor(ctx context.Context, sats int, purpose string) bool {
 	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
-		notify(t.INSUFFICIENTBALANCE, t.T{
+		send(ctx, u, t.INSUFFICIENTBALANCE, t.T{
 			"Purpose": purpose,
 			"Sats":    float64(sats) - info.Balance,
-		})
+		}, WITHALERT)
 		return false
 	}
 	return true
@@ -139,7 +131,9 @@ SELECT * FROM (
 	return
 }
 
-func handleBalance(u User, opts docopt.Opts) {
+func handleBalance(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
+
 	go u.track("balance", map[string]interface{}{"apps": opts["apps"].(bool)})
 
 	if opts["apps"].(bool) {

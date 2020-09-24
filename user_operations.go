@@ -204,7 +204,9 @@ func (u User) payInvoice(
 		Preimage: "",
 	}
 
-	bot.Send(tgbotapi.NewChatAction(u.TelegramChatId, "Sending payment..."))
+	if u.TelegramChatId != 0 {
+		bot.Send(tgbotapi.NewChatAction(u.TelegramChatId, "Sending payment..."))
+	}
 
 	amount := inv.MSatoshi
 	hash = inv.PaymentHash
@@ -231,9 +233,8 @@ func (u User) payInvoice(
 			return hash, errors.New("Failed to identity internal invoice.")
 		}
 
-		tgMessageId, _ := shadowData.MessageId.(int)
 		err = u.addInternalPendingInvoice(
-			tgMessageId,
+			ctx,
 			shadowData.UserId,
 			shadowData.Msatoshi,
 			hash,
@@ -254,7 +255,7 @@ func (u User) payInvoice(
 
 		inv.Preimage = shadowData.Preimage
 
-		go onInvoicePaid(hash, shadowData)
+		go onInvoicePaid(ctx, hash, shadowData)
 		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(ctx, u, float64(amount), float64(amount),
 			shadowData.Preimage, shadowData.Tag, hash)

@@ -115,8 +115,6 @@ Just pasting <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr8
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> pays the given invoice invoice without asking for confirmation.
 
 /withdraw_lnurl_3000 generates an <b>lnurl and QR code for withdrawing 3000</b> satoshis from a <a href="https://lightning-wallet.com">compatible wallet</a> without asking for confirmation.
-
-<code>/pay</code>, when sent <b>as a reply to an invoice</b> (for example, in a group), asks privately if you want to pay it.
     `,
 
 	SENDHELP: `Sends satoshis to other Telegram users. The receiver is notified on his chat with @{{ .BotName }}. If the receiver has never talked to the bot or have blocked it he can't be notified, however. In that case you can cancel the transaction afterwards in the /transactions view.

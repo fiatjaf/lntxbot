@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -149,7 +150,7 @@ var INVOICESPAMLIMITS = []InvoiceSpamLimit{
 	{100000, "<=100", 10},
 }
 
-func onInvoicePaid(hash string, data ShadowChannelData) {
+func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
 	log.Print("invoice paid ", data)
 	receiver, err := loadUser(data.UserId)
 	if err != nil {
@@ -215,12 +216,14 @@ func onInvoicePaid(hash string, data ShadowChannelData) {
 	}
 }
 
-func handleInvoice(u User, opts docopt.Opts, desc string, tgMessageId int) {
+func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
+	u := ctx.Value("initiator").(User)
+
 	if opts["lnurl"].(bool) {
 		// print static lnurl-pay for this user
 		lnurl, _ := lnurl.LNURLEncode(
 			fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
-		u.sendMessageWithPicture(qrURL(lnurl), lnurl)
+		send(ctx, qrURL(lnurl), lnurl)
 		go u.track("print lnurl", nil)
 	} else {
 		sats, err := parseSatoshis(opts)
@@ -228,17 +231,16 @@ func handleInvoice(u User, opts docopt.Opts, desc string, tgMessageId int) {
 			if opts["any"].(bool) {
 				sats = 0
 			} else {
-				handleHelp(u, "receive")
+				handleHelp(ctx, "receive")
 				return
 			}
 		}
 
 		go u.track("make invoice", map[string]interface{}{"sats": sats})
 
-		bolt11, _, err := u.makeInvoice(makeInvoiceArgs{
-			Msatoshi:  int64(sats) * 1000,
-			Desc:      desc,
-			MessageId: tgMessageId,
+		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
+			Msatoshi: int64(sats) * 1000,
+			Desc:     desc,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
@@ -247,6 +249,6 @@ func handleInvoice(u User, opts docopt.Opts, desc string, tgMessageId int) {
 		}
 
 		// send invoice with qr code
-		u.sendMessageWithPicture(qrURL(bolt11), bolt11)
+		send(ctx, qrURL(bolt11), bolt11)
 	}
 }

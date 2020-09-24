@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -158,7 +159,7 @@ type Hop struct {
 	Delay     int64
 }
 
-func renderLogInfo(u User, hash string) (logInfo string) {
+func renderLogInfo(ctx context.Context, hash string) (logInfo string) {
 	if len(hash) < 5 {
 		return ""
 	}
@@ -184,10 +185,12 @@ func renderLogInfo(u User, hash string) (logInfo string) {
 }
 
 func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
+
 	// individual transaction query
 	hashfirstchars := opts["<hash>"].(string)
 	if len(hashfirstchars) < 5 {
-		send(ctx, u, t.ERROR, t.T{"Err": "hash too small."})
+		send(ctx, t.ERROR, t.T{"Err": "hash too small."})
 		return
 	}
 	go u.track("view tx", nil)
@@ -203,7 +206,7 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 
 	text := translateTemplate(ctx, t.TXINFO, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(u, txn.Hash),
+		"LogInfo": renderLogInfo(ctx, txn.Hash),
 	})
 
 	var actionPrompt interface{}
@@ -224,7 +227,7 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 			),
 		)
 	}
-	send(ctx, u, txstatus, txn.TriggerMessage)
+	send(ctx, text, txn.TriggerMessage, actionPrompt)
 }
 
 func handleTransactionList(ctx context.Context, opts docopt.Opts) {
@@ -237,10 +240,11 @@ func handleTransactionList(ctx context.Context, opts docopt.Opts) {
 	}
 	tag, _ := opts.String("<tag>")
 
-	displayTransactionList(ctx, page, tag, filter, nil)
+	displayTransactionList(ctx, page, tag, filter)
 }
 
-func displayTransactionList(ctx, page int, tag string, filter InOut) {
+func displayTransactionList(ctx context.Context, page int, tag string, filter InOut) {
+	u := ctx.Value("initiator").(User)
 
 	// show list of transactions
 	if page == 0 {
@@ -283,7 +287,7 @@ func displayTransactionList(ctx, page int, tag string, filter InOut) {
 		)
 	}
 
-	send(ctx, ctx.Value("callbackQuery"), EDIT, u, text, &keyboard, t.TXLIST, t.T{
+	send(ctx, ctx.Value("callbackQuery"), EDIT, &keyboard, t.TXLIST, t.T{
 		"Offset":       offset,
 		"Limit":        limit,
 		"From":         offset + 1,
@@ -301,5 +305,5 @@ func handleLogView(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 	go u.track("view log", nil)
-	send(ctx, u, renderLogInfo(u, hash))
+	send(ctx, u, renderLogInfo(ctx, hash))
 }

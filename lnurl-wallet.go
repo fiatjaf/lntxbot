@@ -210,7 +210,8 @@ func handleLNURLPay(
 			"Min":         float64(params.MinSendable) / 1000,
 			"Text":        params.Metadata.Description(),
 		}, ctx.Value("message"), actionPrompt,
-			tempAssetURL("."+params.Metadata.ImageExtension(), params.ImageBytes()))
+		//tempAssetURL("."+params.Metadata.ImageExtension(), params.Bytes()),
+		)
 		if sent == nil {
 			return
 		}
@@ -228,11 +229,11 @@ func handleLNURLPay(
 
 func handleLNURLPayAmount(
 	ctx context.Context,
-	u User,
 	msats int64,
 	data gjson.Result,
-	messageId int,
 ) {
+	u := ctx.Value("initiator").(User)
+
 	// get data from redis object
 	callback := data.Get("url").String()
 	metadata := data.Get("metadata").String()
@@ -243,18 +244,20 @@ func handleLNURLPayAmount(
 		lnurlpayAskForComment(ctx, u, callback, metadata, msats)
 	} else {
 		// proceed to fetch invoice and pay
-		lnurlpayFinish(ctx, u, msats, "", callback, metadata, messageId)
+		lnurlpayFinish(ctx, u, msats, "", callback, metadata)
 	}
 }
 
-func handleLNURLPayComment(u User, comment string, data gjson.Result, messageId int) {
+func handleLNURLPayComment(ctx context.Context, comment string, data gjson.Result) {
+	u := ctx.Value("initiator").(User)
+
 	// get data from redis object
 	callback := data.Get("url").String()
 	metadata := data.Get("metadata").String()
 	msats := data.Get("msatoshi").Int()
 
 	// proceed to fetch invoice and pay
-	lnurlpayFinish(ctx, u, msats, comment, callback, metadata, messageId)
+	lnurlpayFinish(ctx, u, msats, comment, callback, metadata)
 }
 
 func lnurlpayAskForComment(
@@ -325,7 +328,7 @@ func lnurlpayFinish(
 		return
 	}
 
-	if inv.DescriptionHash != calculateHash(metadata) {
+	if inv.DescriptionHash != hashString(metadata) {
 		send(ctx, u, t.ERROR, t.T{"Err": "Got invoice with wrong description_hash"})
 		return
 	}
@@ -352,24 +355,19 @@ func lnurlpayFinish(
 			callbackURL, _ := url.Parse(callback)
 
 			// send raw metadata, for later checking with the description_hash
-			file := tgbotapi.DocumentConfig{
-				BaseFile: tgbotapi.BaseFile{
-					BaseChat: tgbotapi.BaseChat{ChatID: u.TelegramChatId},
-					File: tgbotapi.FileBytes{
-						Name:  calculateHash(metadata) + ".json",
-						Bytes: []byte(metadata),
-					},
-					MimeType:    "text/json",
-					UseExisting: false,
-				},
+			zippedmeta, err := zipdata(hashString(metadata)+".json", []byte(metadata))
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to zip metadata")
+				send(ctx, u, t.ERROR, t.T{
+					"Err": "Failed to send lnurl-pay metadata. Please report."})
+				return
 			}
-			file.Caption = translateTemplate(ctx, t.LNURLPAYMETADATA, t.T{
+
+			send(ctx, u, t.LNURLPAYMETADATA, t.T{
 				"Domain":         callbackURL.Host,
 				"Hash":           inv.PaymentHash,
 				"HashFirstChars": inv.PaymentHash[:5],
-			})
-			file.ParseMode = "HTML"
-			tgsend(file)
+			}, tempAssetURL(".zip", zippedmeta))
 
 			// notify user with success action end applicable
 			if res.SuccessAction != nil {
@@ -401,21 +399,23 @@ func lnurlpayFinish(
 	}
 }
 
-func handleLNURLAllowance(ctx, u User, opts handleLNURLOpts, params lnurl.LNURLAllowanceResponse) {
+func handleLNURLAllowance(ctx context.Context, u User, opts handleLNURLOpts, params lnurl.LNURLAllowanceResponse) {
 	sent := send(ctx, u, t.PAYAMOUNT, t.T{
 		"Domain":      params.SocketURL.Host,
 		"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
 		"Description": params.Description,
-	}, ctx.Value("message"), &tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				translate(ctx, t.CANCEL),
-				fmt.Sprintf("cancel=%d", u.Id)),
-			tgbotapi.NewInlineKeyboardButtonData(
-				translateTemplate(ctx, t.PAYAMOUNT, tmpldata),
-				fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
-		),
-	), tempAssetURL(".png", params.ImageBytes()))
+	}, ctx.Value("message"), &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(ctx, t.CANCEL),
+					fmt.Sprintf("cancel=%d", u.Id)),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(ctx, t.YES),
+					fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
+			),
+		},
+	}, tempAssetURL(".png", params.ImageBytes()))
 	if sent == nil {
 		return
 	}
@@ -429,7 +429,7 @@ func handleLNURLAllowance(ctx, u User, opts handleLNURLOpts, params lnurl.LNURLA
 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 }
 
-func handleLNURLAllowanceConfirmation(ctx, u User, msats int64, data gjson.Result) {
+func handleLNURLAllowanceConfirmation(ctx context.Context, msats int64, data gjson.Result) {
 	// // get data from redis object
 	// socket := data.Get("socket").String()
 	// k1 := data.Get("k1").String()

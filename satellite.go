@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -54,10 +55,10 @@ type SatelliteData struct {
 	Orders [][]string `json:"orders"`
 }
 
-func createSatelliteOrder(user User, messageId interface{}, satoshis int, message string) (err error) {
+func createSatelliteOrder(ctx context.Context, satoshis int, text string) (err error) {
 	resp, err := http.PostForm("https://api.blockstream.space/order", url.Values{
 		"bid":     {strconv.Itoa(satoshis * 1000)},
-		"message": {message},
+		"message": {text},
 	})
 	if err != nil {
 		return
@@ -70,8 +71,8 @@ func createSatelliteOrder(user User, messageId interface{}, satoshis int, messag
 			return
 		}
 
-		log.Warn().Interface("saterr", saterr).Str("user", user.Username).
-			Int("satoshis", satoshis).Int("messagesize", len(message)).
+		log.Warn().Interface("saterr", saterr).
+			Int("satoshis", satoshis).Int("size", len(text)).
 			Msg("satellite returned error")
 		err = errors.New(saterr.Message)
 		return
@@ -83,19 +84,21 @@ func createSatelliteOrder(user User, messageId interface{}, satoshis int, messag
 		return
 	}
 
-	return paySatelliteOrder(user, messageId, orderreq)
+	return paySatelliteOrder(ctx, orderreq)
 }
 
-func paySatelliteOrder(user User, messageId interface{}, orderreq SatelliteOrderRequest) error {
+func paySatelliteOrder(ctx context.Context, orderreq SatelliteOrderRequest) error {
 	inv, err := decodeInvoice(orderreq.LightningInvoice.PayReq)
 	if err != nil {
 		return errors.New("Failed to decode invoice.")
 	}
+
+	user := ctx.Value("initiator").(User)
 	return user.actuallySendExternalPayment(
-		messageId, orderreq.LightningInvoice.PayReq, inv, inv.MSatoshi,
+		ctx, orderreq.LightningInvoice.PayReq, inv, inv.MSatoshi,
 		func(
+			ctx context.Context,
 			u User,
-			messageId interface{},
 			msatoshi float64,
 			msatoshi_sent float64,
 			preimage string,
@@ -103,17 +106,17 @@ func paySatelliteOrder(user User, messageId interface{}, orderreq SatelliteOrder
 			hash string,
 		) {
 			// on success
-			paymentHasSucceeded(u, messageId, msatoshi, msatoshi_sent, preimage, "satellite", hash)
+			paymentHasSucceeded(ctx, u, msatoshi, msatoshi_sent, preimage, "satellite", hash)
 
 			// done
-			send(ctx, u, t.SATELLITEPAID, t.T{"UUID": orderreq.UUID}, messageId)
+			send(ctx, u, t.SATELLITEPAID, t.T{"UUID": orderreq.UUID})
 		},
 		paymentHasFailed,
 	)
 }
 
-func getSatelliteOrder(user User, uuid string) (order SatelliteOrder, err error) {
-	token, ok := getSatelliteOrderToken(user, uuid)
+func getSatelliteOrder(ctx context.Context, uuid string) (order SatelliteOrder, err error) {
+	token, ok := getSatelliteOrderToken(ctx, uuid)
 	if !ok {
 		err = errors.New("Couldn't find order " + uuid + ".")
 		return
@@ -147,7 +150,9 @@ func fetchSatelliteOrder(uuid, token string) (order SatelliteOrder, err error) {
 	return
 }
 
-func getSatelliteOrderToken(user User, uuid string) (token string, ok bool) {
+func getSatelliteOrderToken(ctx context.Context, uuid string) (token string, ok bool) {
+	user := ctx.Value("initiator").(User)
+
 	var satdata SatelliteData
 	err = user.getAppData("satellite", &satdata)
 	if err != nil {

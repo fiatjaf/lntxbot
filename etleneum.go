@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -143,7 +144,7 @@ func aliasToEtleneumContractId(user User, aliasOrId string) (id string) {
 	return
 }
 
-func etleneumLogin(user User) (account, secret string, balance float64, withdraw string, err error) {
+func etleneumLogin(ctx context.Context, user User) (account, secret string, balance float64, withdraw string, err error) {
 	es, err := eventsource.Subscribe("https://etleneum.com/~~~/session", "")
 	if err != nil {
 		return
@@ -166,7 +167,7 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 		json.Unmarshal([]byte(ev.Data()), &data)
 
 		if _, ok := data["auth"]; ok {
-			handleLNURL(user, data["auth"].(string), handleLNURLOpts{
+			handleLNURL(ctx, data["auth"].(string), handleLNURLOpts{
 				loginSilently: true,
 			})
 			withdraw = data["withdraw"].(string)
@@ -203,7 +204,7 @@ func etleneumLogin(user User) (account, secret string, balance float64, withdraw
 	return
 }
 
-func etleneumHistory(user User) (history []EtleneumAccountHistoryEntry, err error) {
+func etleneumHistory(ctx context.Context) (history []EtleneumAccountHistoryEntry, err error) {
 	es, err := eventsource.Subscribe("https://etleneum.com/~~~/session", "")
 	if err != nil {
 		return
@@ -225,7 +226,7 @@ func etleneumHistory(user User) (history []EtleneumAccountHistoryEntry, err erro
 		if ev.Event() == "auth" {
 			var data map[string]interface{}
 			json.Unmarshal([]byte(ev.Data()), &data)
-			handleLNURL(user, data["auth"].(string), handleLNURLOpts{
+			handleLNURL(ctx, data["auth"].(string), handleLNURLOpts{
 				loginSilently: true,
 			})
 		} else if ev.Event() == "history" {
@@ -303,7 +304,8 @@ func getEtleneumCall(callId string) (call EtleneumCall, err error) {
 }
 
 func buildEtleneumCallLNURL(
-	user *User,
+	ctx context.Context,
+	authed *User,
 	contractId string,
 	method string,
 	args []string,
@@ -319,10 +321,10 @@ func buildEtleneumCallLNURL(
 
 		v := strings.TrimSpace(spl[1])
 
-		// if kv is like "user=@fiatjaf" we will translate "@fiatjaf" into the
+		// if kv is like "someone=@fiatjaf" we will translate "@fiatjaf" into the
 		// actual etleneum account for @fiatjaf
 		if strings.HasPrefix(v, "@") && strings.Index(v, " ") == -1 {
-			v, err = translateToEtleneumAccount(v)
+			v, err = translateToEtleneumAccount(ctx, v)
 			if err != nil {
 				return "", err
 			}
@@ -331,9 +333,9 @@ func buildEtleneumCallLNURL(
 		qs.Set(strings.TrimSpace(spl[0]), v)
 	}
 
-	if user != nil {
+	if authed != nil {
 		var userdata EtleneumAppData
-		err := user.getAppData("etleneum", &userdata)
+		err := authed.getAppData("etleneum", &userdata)
 		if err != nil {
 			return "", err
 		}
@@ -383,7 +385,7 @@ func etleneumHmacCall(secret, ctid, method string, args url.Values, sats *int) s
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-func translateToEtleneumAccount(username string) (accountId string, err error) {
+func translateToEtleneumAccount(ctx context.Context, username string) (accountId string, err error) {
 	user, err := ensureTelegramUsername(username[1:])
 	if err != nil {
 		return
@@ -399,7 +401,7 @@ func translateToEtleneumAccount(username string) (accountId string, err error) {
 		return userdata.Account, nil
 	} else {
 		// create etleneum account for this user now and who cares
-		account, _, _, _, err := etleneumLogin(user)
+		account, _, _, _, err := etleneumLogin(ctx, user)
 		if err != nil {
 			return "", err
 		}
@@ -523,6 +525,8 @@ GROUP BY ctid
 }
 
 func listenToEtleneumContract(ctid string) {
+	ctx := context.WithValue(context.Background(), "origin", "background")
+
 	es, err := eventsource.Subscribe("https://etleneum.com/~~~/contract/"+ctid, "")
 	if err != nil {
 		log.Warn().Err(err).Str("contract", ctid).

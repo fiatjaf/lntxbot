@@ -37,7 +37,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 	)
 
 	if message.Content[0] != '$' {
-		if bolt11, lnurltext, ok := searchForInvoice(u, message); ok {
+		if bolt11, lnurltext, ok := searchForInvoice(ctx); ok {
 			if bolt11 != "" {
 				commandName = "$pay"
 				opts, _, _ = parse("/pay " + bolt11)
@@ -71,7 +71,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 				Msg("failed to parse command")
 
 			method := strings.Split(messageText, " ")[0][1:]
-			handled := handleHelp(u, method)
+			handled := handleHelp(ctx, method)
 			if !handled {
 				send(ctx, u, t.WRONGCOMMAND)
 			}
@@ -86,7 +86,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 	})
 
 parsed:
-	ctx = context.WithValue(ctx, "command", command)
+	ctx = context.WithValue(ctx, "command", commandName)
 
 	if message.GuildID != "" {
 		// TODO
@@ -152,16 +152,16 @@ parsed:
 	case opts["dollar"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err == nil {
-			sendDiscordMessage(u.DiscordChannelId, getDollarPrice(int64(sats)*1000))
+			send(ctx, getDollarPrice(int64(sats)*1000))
 		}
 		break
 	case opts["start"].(bool), opts["tutorial"].(bool):
 		if message.GuildID == "" {
 			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
-				handleTutorial(u, tutorial)
+				handleTutorial(ctx, tutorial)
 			} else {
 				send(ctx, u, t.WELCOME)
-				handleTutorial(u, "")
+				handleTutorial(ctx, "")
 			}
 			go u.track("start", nil)
 		}
@@ -197,13 +197,13 @@ parsed:
 		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		desc, _ := opts.String("<description>")
-		go handleInvoice(u, opts, desc, 0)
+		go handleInvoice(ctx, opts, desc)
 	case opts["lnurl"].(bool):
-		go handleLNURL(u, opts["<lnurl>"].(string), handleLNURLOpts{})
+		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		go u.track("help", map[string]interface{}{"command": command})
-		go handleHelp(u, command)
+		go handleHelp(ctx, command)
 		break
 	default:
 		send(ctx, u, t.ERROR, t.T{"Err": "not implemented on Discord yet."})
@@ -214,12 +214,15 @@ func handleDiscordReaction(dgs *discordgo.Session, m *discordgo.MessageReactionA
 	ctx := context.WithValue(context.Background(), "origin", "discord")
 	reaction := m.MessageReaction
 
+	ctx = context.WithValue(ctx,
+		"discordMessageID", discordMessageID(reaction.GuildID, reaction.ChannelID, reaction.MessageID))
+
 	log.Print("got emoji ", reaction.Emoji.Name)
 
 	switch reaction.Emoji.Name {
 	case "⚡":
 		log.Print("lightning emoji!")
 		// potentially an user confirming a $pay command
-		handlePayReactionConfirm(reaction)
+		handlePayReactionConfirm(ctx, reaction)
 	}
 }
