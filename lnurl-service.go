@@ -57,12 +57,6 @@ func serveLNURL() {
 		qs := r.URL.Query()
 		challenge := qs.Get("challenge")
 		messageIdstr := qs.Get("message")
-		if err != nil {
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid user id."))
-			return
-		}
-
-		challenge = qs.Get("challenge")
 		if challenge == "" {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Malformed lnurl."))
 			return
