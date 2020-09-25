@@ -287,7 +287,7 @@ func displayTransactionList(ctx context.Context, page int, tag string, filter In
 		)
 	}
 
-	send(ctx, ctx.Value("callbackQuery"), EDIT, &keyboard, t.TXLIST, t.T{
+	send(ctx, EDIT, &keyboard, t.TXLIST, t.T{
 		"Offset":       offset,
 		"Limit":        limit,
 		"From":         offset + 1,

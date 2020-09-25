@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -62,9 +63,13 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	var forceReply tgbotapi.ForceReply
 	var replyToId int                     // will be sent in reply to this -- or if editing will edit this
 	var telegramMessage *tgbotapi.Message // unless this is provided, this has precedence in edition priotiry
-	var method string = "sendMessage"
-	var callbackQuery *tgbotapi.CallbackQuery
 	var alert bool
+	var callbackQuery *tgbotapi.CallbackQuery
+
+	if icb := ctx.Value("callbackQuery"); icb != nil {
+		callbackQuery = icb.(*tgbotapi.CallbackQuery)
+		origin = "telegram"
+	}
 
 	// only discord
 	var linkTo DiscordMessageID
@@ -72,15 +77,10 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 	for _, ithing := range things {
 		switch thing := ithing.(type) {
+		case *User:
+			target = thing
 		case User:
 			target = &thing
-			if origin == "telegram" &&
-				target.TelegramChatId == 0 && target.DiscordChannelId != "" {
-				origin = "discord"
-			} else if origin == "discord" &&
-				target.DiscordChannelId == "" && target.TelegramChatId != 0 {
-				origin = "telegram"
-			}
 		case t.Key:
 			template = thing
 		case t.T:
@@ -95,10 +95,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			ext := spl[len(spl)-1]
 
 			if len(ext) > 5 || ext == "png" || ext == "jpg" || ext == "jpeg" {
-				method = "sendPhoto"
 				pictureURL = thing.String()
 			} else {
-				method = "sendDocument"
 				documentURL = thing.String()
 			}
 		case *tgbotapi.InlineKeyboardMarkup:
@@ -126,15 +124,25 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				spammy = true
 			case EDIT:
 				edit = true
-				if edit {
-					method = "editMessageText"
-				}
 			case APPEND:
 				edit = true
 				justAppend = true
 			}
+		case nil:
+			// ignore
 		default:
 			log.Debug().Interface("param", ithing).Msg("unrecognized param on send()")
+		}
+	}
+
+	// get origin from user if not present
+	if origin == "" && target != nil {
+		if origin == "telegram" &&
+			target.TelegramChatId == 0 && target.DiscordChannelId != "" {
+			origin = "discord"
+		} else if origin == "discord" &&
+			target.DiscordChannelId == "" && target.TelegramChatId != 0 {
+			origin = "telegram"
 		}
 	}
 
@@ -159,7 +167,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 
 	// determine if we're going to send to the group or in private
-	var useGroup = (!spammy && group != nil) || (group != nil && target == nil)
+	var useGroup = (spammy && group != nil) || (group != nil && target == nil)
 
 	// can be "api", "background", "external"
 	if origin != "telegram" && origin != "discord" {
@@ -180,7 +188,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// build the message to send
 	switch origin {
 	case "telegram":
-		if callbackQuery != nil || !edit {
+		if callbackQuery != nil && !edit {
 			// it's a reply to a callbackQuery
 			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
 				CallbackQueryID: callbackQuery.ID,
@@ -196,10 +204,10 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			}
 			if keyboard != nil {
 				jkeyboard, _ := json.Marshal(keyboard)
-				values.Set("keyboard", string(jkeyboard))
+				values.Set("reply_markup", string(jkeyboard))
 			} else if forceReply.ForceReply {
 				jforceReply, _ := json.Marshal(forceReply)
-				values.Set("forceReply", string(jforceReply))
+				values.Set("reply_markup", string(jforceReply))
 			}
 
 			if useGroup {
@@ -211,18 +219,42 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			}
 
 			// editing
-			canEdit := (callbackQuery != nil && callbackQuery.InlineMessageID != "") ||
-				telegramMessage != nil || replyToId != 0
+			canEdit := (telegramMessage != nil) || (replyToId != 0) ||
+				(callbackQuery != nil && callbackQuery.InlineMessageID != "") ||
+				(callbackQuery != nil && callbackQuery.Message.MessageID != 0)
 
+			var method string
 			if edit && canEdit {
-				if callbackQuery != nil && callbackQuery.InlineMessageID != "" {
-					values.Set("inline_message_id", callbackQuery.InlineMessageID)
-					if callbackQuery.Message != nil && justAppend {
-						text = callbackQuery.Message.Text + " " + text
+				method = "editMessageText"
+
+				if text == "" {
+					// special case when we're editing only the reply_markup:
+					// do this so the current text is kept.
+					justAppend = true
+				}
+
+				if callbackQuery != nil {
+					if callbackQuery.Message.MessageID != 0 {
+						values.Set("chat_id", strconv.FormatInt(
+							callbackQuery.Message.Chat.ID, 10))
+						values.Set("message_id", strconv.Itoa(
+							callbackQuery.Message.MessageID))
+
+						if callbackQuery.Message != nil && justAppend {
+							text = callbackQuery.Message.Text + " " + text
+						}
+					} else if callbackQuery.InlineMessageID != "" {
+						values.Set("inline_message_id", callbackQuery.InlineMessageID)
+
+						if callbackQuery.Message != nil && justAppend {
+							text = callbackQuery.Message.Text + " " + text
+						}
 					}
 				} else if telegramMessage != nil {
-					values.Set("chat_id", strconv.FormatInt(telegramMessage.Chat.ID, 10))
+					values.Set("chat_id", strconv.FormatInt(
+						telegramMessage.Chat.ID, 10))
 					values.Set("message_id", strconv.Itoa(telegramMessage.MessageID))
+
 					if justAppend {
 						text = telegramMessage.Text + " " + text
 					}
@@ -242,12 +274,16 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 					values.Set("reply_to_message_id", strconv.Itoa(
 						telegramMessage.MessageID))
 				}
-				if pictureURL == "" && !edit /* can't send pictures when editing */ {
+
+				if pictureURL == "" && documentURL == "" {
+					method = "sendMessage"
 					values.Set("text", text)
 				} else if pictureURL != "" {
 					values.Set("photo", pictureURL)
 					values.Set("caption", text)
+					method = "sendPhoto"
 				} else if documentURL != "" {
+					method = "sendDocument"
 					values.Set("document", documentURL)
 					values.Set("caption", text)
 				}
@@ -255,14 +291,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 			// send message
 			resp, err := bot.MakeRequest(method, values)
-			if err != nil {
-				log.Warn().Str("text", text).Err(err).
-					Msg("error sending message to telegram")
-				return
+			if err == nil && !resp.Ok {
+				err = errors.New(resp.Description)
 			}
-			if !resp.Ok {
-				// if it failed because of the reply-to-id just try again without it
-				if resp.Description == "Bad Request: reply message not found" {
+			if err != nil {
+				if err.Error() == "Bad Request: reply message not found" {
 					values.Del("reply_to_message_id")
 					resp, err = bot.MakeRequest(method, values)
 					if err != nil {
@@ -271,6 +304,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				} else {
 					log.Warn().Str("text", text).Err(err).
 						Msg("error sending message to telegram")
+					return
 				}
 			}
 
@@ -342,7 +376,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 }
 
 func removeKeyboardButtons(ctx context.Context) {
-	send(ctx, &tgbotapi.InlineKeyboardMarkup{
+	send(ctx, EDIT, &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{},
 	})
 }

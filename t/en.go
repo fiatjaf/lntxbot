@@ -500,7 +500,7 @@ To broadcast an ad you must send a message to the bot that will be your ad conte
 {{end}}
 Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for each user.
     `,
-	SATS4ADSADFOOTER: `[sats4ads: {{printf "%.15g" .Sats}} sat]`,
+	SATS4ADSADFOOTER: `[#sats4ads: {{printf "%.15g" .Sats}} sat]`,
 	SATS4ADSVIEWED:   `Claim`,
 
 	HELPHELP: "Shows full help or help about specific command.",

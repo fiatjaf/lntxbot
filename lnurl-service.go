@@ -18,24 +18,18 @@ import (
 func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
 	u := ctx.Value("initiator").(User)
 
-	sats, err := parseSatoshis(opts)
+	maxSats, err := parseSatoshis(opts)
 	if err != nil {
 		send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 		return
 	}
 
-	go u.track("lnurl generate", map[string]interface{}{"sats": sats})
+	go u.track("lnurl generate", map[string]interface{}{"sats": maxSats})
 
-	maxsats := strconv.Itoa(sats)
-	ok := u.checkBalanceFor(ctx, sats, "lnurl-withdraw")
-	if !ok {
-		return
-	}
-
-	challenge := hashString("%s:%d:%d", s.TelegramBotToken, u.Id, maxsats)
+	challenge := hashString("%s:%d:%d", s.TelegramBotToken, u.Id, maxSats)
 	nexturl := fmt.Sprintf("%s/lnurl/withdraw?challenge=%s", s.ServiceURL, challenge)
 	rds.Set("lnurlwithdraw:"+challenge,
-		fmt.Sprintf(`%d-%s`, u.Id, maxsats), s.InvoiceTimeout)
+		fmt.Sprintf(`%d-%d`, u.Id, maxSats), s.InvoiceTimeout)
 
 	enc, err = lnurl.LNURLEncode(nexturl)
 	if err != nil {

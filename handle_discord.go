@@ -103,15 +103,15 @@ parsed:
 				Msg("failed to ensure user")
 			return
 		}
+
 		u = user
+		ctx = context.WithValue(ctx, "initiator", u)
 
 		// stop if temporarily banned
 		if _, ok := s.Banned[u.Id]; ok {
 			log.Debug().Int("id", u.Id).Msg("got request from banned user")
 			return
 		}
-
-		ctx = context.WithValue(ctx, "initiator", u)
 	}
 
 	// by default we use the user locale for the group object, because

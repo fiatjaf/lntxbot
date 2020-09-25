@@ -36,14 +36,14 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 
+		u = user
+		ctx = context.WithValue(ctx, "initiator", user)
+
 		// stop if temporarily banned
 		if _, ok := s.Banned[u.Id]; ok {
 			log.Debug().Int("id", u.Id).Msg("got request from banned user")
 			return
 		}
-
-		u = user
-		ctx = context.WithValue(ctx, "initiator", user)
 	}
 
 	// by default we use the user locale for the group object, because
@@ -231,7 +231,8 @@ parsed:
 			reply := message.ReplyToMessage
 
 			var cas int
-			rec, cas, err := ensureTelegramUser(reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
+			rec, cas, err := ensureTelegramUser(
+				reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
 			receiver = &rec
 			if err != nil {
 				send(ctx, u, t.SAVERECEIVERFAIL)
@@ -321,7 +322,7 @@ parsed:
 			break
 		}
 
-		send(ctx, message.Chat.ID, g, t.GIVEAWAYMSG, t.T{
+		send(ctx, g, FORCESPAMMY, t.GIVEAWAYMSG, t.T{
 			"User": u.AtName(ctx),
 			"Sats": sats,
 		}, giveawayKeyboard(ctx, u.Id, sats))
@@ -362,13 +363,12 @@ parsed:
 		}
 
 		giveflipid := cuid.Slug()
-		send(ctx, message.Chat.ID, g,
+		send(ctx, g, FORCESPAMMY,
 			t.GIVEFLIPMSG, t.T{
 				"User":         u.AtName(ctx),
 				"Sats":         sats,
 				"Participants": nparticipants,
-			},
-			giveflipKeyboard(ctx, giveflipid, u.Id, nparticipants, sats))
+			}, giveflipKeyboard(ctx, giveflipid, u.Id, nparticipants, sats))
 
 		go u.track("giveflip created", map[string]interface{}{
 			"group": message.Chat.ID,
@@ -414,7 +414,7 @@ parsed:
 			}
 		}
 
-		send(ctx, g, t.LOTTERYMSG, t.T{
+		send(ctx, g, t.LOTTERYMSG, FORCESPAMMY, t.T{
 			"EntrySats":    sats,
 			"Participants": nparticipants,
 			"Prize":        sats * nparticipants,
@@ -453,7 +453,7 @@ parsed:
 			break
 		}
 
-		send(ctx, message.Chat.ID, g, t.FUNDRAISEAD, t.T{
+		send(ctx, g, t.FUNDRAISEAD, FORCESPAMMY, t.T{
 			"ToUser":       receiverdisplayname,
 			"Participants": nparticipants,
 			"Sats":         sats,
