@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
@@ -29,7 +30,7 @@ func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc strin
 	challenge := hashString("%s:%d:%d", s.TelegramBotToken, u.Id, maxSats)
 	nexturl := fmt.Sprintf("%s/lnurl/withdraw?challenge=%s", s.ServiceURL, challenge)
 	rds.Set("lnurlwithdraw:"+challenge,
-		fmt.Sprintf(`%d-%d`, u.Id, maxSats), s.InvoiceTimeout)
+		fmt.Sprintf(`%d-%d`, u.Id, maxSats), 30*time.Minute)
 
 	enc, err = lnurl.LNURLEncode(nexturl)
 	if err != nil {
@@ -90,7 +91,7 @@ func serveLNURL() {
 		})
 	})
 
-	router.Path("/lnurl/withdraw/invoice/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/lnurl/withdraw/invoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(context.Background(), "origin", "external")
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl second request")
 
@@ -116,21 +117,24 @@ func serveLNURL() {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Internal mismatch."))
 			return
 		}
-		u, err := loadUser(chUserId)
+		payer, err := loadUser(chUserId)
 		if err != nil {
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Couldn't load withdrawee user."))
+			json.NewEncoder(w).Encode(
+				lnurl.ErrorResponse("Couldn't load withdrawee user."))
 			return
 		}
 
 		// double-check the challenge (it's a hash of the parameters + our secret)
-		if challenge != hashString("%s:%d:%d", s.TelegramBotToken, u.Id, chMax) {
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid amount for this lnurl."))
+		if challenge != hashString("%s:%d:%d", s.TelegramBotToken, payer.Id, chMax) {
+			json.NewEncoder(w).Encode(
+				lnurl.ErrorResponse("Invalid amount for this lnurl."))
 			return
 		}
 
 		if err := rds.Del("lnurlwithdraw:" + challenge).Err(); err != nil {
 			// if error stop here to prevent extra withdrawals
-			log.Error().Err(err).Str("challenge", challenge).Msg("error deleting used challenge on lnurl withdraw")
+			log.Error().Err(err).Str("challenge", challenge).
+				Msg("error deleting used challenge on lnurl withdraw")
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Redis error. Please report."))
 			return
 		}
@@ -147,9 +151,9 @@ func serveLNURL() {
 		}
 
 		// print the bolt11 just because
-		send(ctx, u, bolt11, ctx.Value("message"))
+		send(ctx, payer, bolt11, ctx.Value("message"))
 
-		go u.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
+		go payer.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
 			"sats": inv.Get("msatoshi").Float() / 1000,
 		})
 
@@ -159,7 +163,7 @@ func serveLNURL() {
 			"<invoice>": bolt11,
 			"now":       true,
 		}
-		handlePay(ctx, opts)
+		handlePay(ctx, payer, opts)
 		json.NewEncoder(w).Encode(lnurl.OkResponse())
 	})
 

@@ -15,9 +15,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func handlePay(ctx context.Context, opts docopt.Opts) error {
-	u := ctx.Value("initiator").(User)
-
+func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 	// pay invoice flow
 	askConfirmation := true
 	if opts["now"].(bool) {
@@ -29,14 +27,14 @@ func handlePay(ctx context.Context, opts docopt.Opts) error {
 	// decode invoice
 	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
-		send(ctx, u, t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
+		send(ctx, payer, t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
 		return err
 	}
 
 	hash := inv.PaymentHash
 	amount := float64(inv.MSatoshi)
 
-	go u.track("pay", map[string]interface{}{
+	go payer.track("pay", map[string]interface{}{
 		"prompt":     askConfirmation,
 		"sats":       amount,
 		"amountless": amount == 0,
@@ -63,20 +61,20 @@ func handlePay(ctx context.Context, opts docopt.Opts) error {
 
 		if ctx.Value("origin").(string) == "discord" {
 			if amount == 0 {
-				send(ctx, u, t.ERROR, t.T{"Err": "Amountless invoice. Use `/paynow &lt;invoice&gt; &lt;amount&gt;`"})
+				send(ctx, t.ERROR, t.T{"Err": "Amountless invoice. Use `/paynow &lt;invoice&gt; &lt;amount&gt;`"})
 				return errors.New("paying amountless on discord")
 			}
 
-			sentId := send(ctx, u, t.PAYPROMPT, payTmplParams)
+			sentId := send(ctx, t.PAYPROMPT, payTmplParams)
 			rds.Set(
-				fmt.Sprintf("reaction-confirm:%s:%s", u.DiscordId, sentId),
+				fmt.Sprintf("reaction-confirm:%s:%s", payer.DiscordId, sentId),
 				bolt11, time.Minute*15)
 			return nil
 		}
 
 		if amount == 0 {
 			// zero-amount invoice, prompt the user to reply with the desired amount
-			sent := send(ctx, u, ctx.Value("message"),
+			sent := send(ctx, ctx.Value("message"),
 				tgbotapi.ForceReply{ForceReply: true},
 				t.PAYPROMPT, payTmplParams)
 			if sent == nil {
@@ -88,7 +86,7 @@ func handlePay(ctx context.Context, opts docopt.Opts) error {
 				Type   string `json:"type"`
 				Bolt11 string `json:"bolt11"`
 			}{"pay", bolt11})
-			rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Minute*15)
+			rds.Set(fmt.Sprintf("reply:%d:%d", payer.Id, sentId), data, time.Minute*15)
 			return nil
 		}
 
@@ -99,14 +97,14 @@ func handlePay(ctx context.Context, opts docopt.Opts) error {
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(
 					translate(ctx, t.CANCEL),
-					fmt.Sprintf("cancel=%d", u.Id)),
+					fmt.Sprintf("cancel=%d", payer.Id)),
 				tgbotapi.NewInlineKeyboardButtonData(
 					translateTemplate(ctx, t.PAYAMOUNT, t.T{"Sats": amount / 1000}),
 					fmt.Sprintf("pay=%s", hashfirstchars)),
 			),
 		)
 
-		send(ctx, u, t.PAYPROMPT, payTmplParams, &keyboard)
+		send(ctx, t.PAYPROMPT, payTmplParams, &keyboard)
 	} else {
 		// modify the original payment with an "attempting" note
 		send(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hash[:5]}, APPEND,
@@ -116,9 +114,9 @@ func handlePay(ctx context.Context, opts docopt.Opts) error {
 		amountToPay, _ := opts.Int("<satoshis>")
 
 		// proceed to pay
-		_, err := u.payInvoice(ctx, bolt11, int64(amountToPay)*1000)
+		_, err := payer.payInvoice(ctx, bolt11, int64(amountToPay)*1000)
 		if err != nil {
-			send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, ctx.Value("message"))
+			send(ctx, payer, t.ERROR, t.T{"Err": err.Error()}, ctx.Value("message"))
 			return err
 		}
 	}

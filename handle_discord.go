@@ -193,7 +193,7 @@ parsed:
 			handleCreateLNURLWithdraw(ctx, opts)
 		} else {
 			// normal payment flow
-			handlePay(ctx, opts)
+			handlePay(ctx, u, opts)
 		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		desc, _ := opts.String("<description>")

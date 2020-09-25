@@ -595,7 +595,7 @@ parsed:
 			handleCreateLNURLWithdraw(ctx, opts)
 		} else {
 			// normal payment flow
-			handlePay(ctx, opts)
+			handlePay(ctx, u, opts)
 		}
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		desc := getVariadicFieldOrReplyToContent(ctx, opts, "<description>")
@@ -674,7 +674,9 @@ parsed:
 
 			g, err := ensureGroup(message.Chat.ID, u.Locale)
 			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).Int64("group", message.Chat.ID).Msg("failed to ensure group")
+				log.Warn().Err(err).Str("user", u.Username).
+					Int64("group", message.Chat.ID).
+					Msg("failed to ensure group")
 				return
 			}
 
@@ -694,7 +696,7 @@ parsed:
 
 				setTicketPrice(message.Chat.ID, price)
 				if price > 0 {
-					send(ctx, g, t.TICKETMSG, t.T{
+					send(ctx, g, t.TICKETMSG, FORCESPAMMY, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})
@@ -714,7 +716,7 @@ parsed:
 
 				setRenamablePrice(message.Chat.ID, price)
 				if price > 0 {
-					send(ctx, g, t.RENAMABLEMSG, t.T{
+					send(ctx, g, t.RENAMABLEMSG, FORCESPAMMY, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})
@@ -733,7 +735,7 @@ parsed:
 					"spammy": spammy,
 				})
 
-				send(ctx, g, t.SPAMMYMSG, t.T{"Spammy": spammy})
+				send(ctx, g, t.SPAMMYMSG, FORCESPAMMY, t.T{"Spammy": spammy})
 			case opts["coinflips"].(bool):
 				log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
 				enabled, err := toggleCoinflips(message.Chat.ID)
@@ -748,7 +750,7 @@ parsed:
 					"enabled": enabled,
 				})
 
-				send(ctx, g, t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
+				send(ctx, g, t.COINFLIPSENABLEDMSG, FORCESPAMMY, t.T{"Enabled": enabled})
 			case opts["language"].(bool):
 				if lang, err := opts.String("<lang>"); err == nil {
 					log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
@@ -764,9 +766,9 @@ parsed:
 						"lang":  lang,
 					})
 
-					send(ctx, g, t.LANGUAGEMSG, t.T{"Language": lang})
+					send(ctx, g, t.LANGUAGEMSG, FORCESPAMMY, t.T{"Language": lang})
 				} else {
-					send(ctx, g, t.LANGUAGEMSG, t.T{"Language": g.Locale})
+					send(ctx, g, t.LANGUAGEMSG, FORCESPAMMY, t.T{"Language": g.Locale})
 				}
 
 			}

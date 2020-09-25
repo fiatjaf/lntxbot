@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -19,7 +20,14 @@ func serveQRCodes() {
 	router.PathPrefix("/qr/").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			value := r.URL.Path[3:]
-			value = strings.ToUpper(value)
+			d, err := base64.StdEncoding.DecodeString(value)
+			if err == nil {
+				value = string(d)
+			}
+
+			if strings.HasPrefix(value, "lnurl1") || strings.HasPrefix(value, "lnbc") {
+				value = strings.ToUpper(value)
+			}
 
 			qr, err := qrcode.New(value, qrcode.Medium)
 			if err != nil {
@@ -40,6 +48,9 @@ func serveQRCodes() {
 }
 
 func qrURL(value string) *url.URL {
+	if strings.Index(value, "/") >= 0 {
+		value = base64.StdEncoding.EncodeToString([]byte(value))
+	}
 	u, _ := url.Parse(s.ServiceURL + "/qr/" + value)
 	return u
 }

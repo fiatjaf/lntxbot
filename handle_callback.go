@@ -123,7 +123,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 
 		go u.track("giveaway joined", map[string]interface{}{"sats": sats})
-
 		claimer := u
 
 		if !canJoinGiveaway(claimer.Id) {
@@ -161,13 +160,16 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			"ReceiverHasNoChat": false,
 		})
 
-		send(ctx, t.GIVEAWAYSATSGIVENPUBLIC, t.T{
-			"From":             giver.AtName(ctx),
-			"To":               claimer.AtName(ctx),
-			"Sats":             sats,
-			"ClaimerHasNoChat": claimer.TelegramChatId == 0,
-			"BotName":          s.ServiceId,
-		})
+		if imessage := ctx.Value("message"); imessage != nil {
+			message := imessage.(*tgbotapi.Message)
+			send(ctx, message.Chat.ID, FORCESPAMMY, t.GIVEAWAYSATSGIVENPUBLIC, t.T{
+				"From":             giver.AtName(ctx),
+				"To":               claimer.AtName(ctx),
+				"Sats":             sats,
+				"ClaimerHasNoChat": claimer.TelegramChatId == 0,
+				"BotName":          s.ServiceId,
+			}, message.MessageID)
+		}
 
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "flip="):
@@ -265,7 +267,8 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			for i, spart := range sparticipants {
 				part, err := strconv.Atoi(spart)
 				if err != nil {
-					log.Warn().Err(err).Str("part", spart).Msg("participant id is not an int")
+					log.Warn().Err(err).Str("part", spart).
+						Msg("participant id is not an int")
 					removeKeyboardButtons(ctx)
 					send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 					goto answerEmpty
@@ -282,13 +285,14 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			}
 
 			removeKeyboardButtons(ctx)
-			if message := ctx.Value("message"); message != nil {
+			if imessage := ctx.Value("message"); imessage != nil {
+				message := imessage.(*tgbotapi.Message)
 				send(ctx, message, EDIT, joiner.AtName(ctx)+"\n"+
 					translateTemplate(ctx, t.CALLBACKWINNER, t.T{
 						"Winner": winner.AtName(ctx),
 					}))
-				send(ctx, t.CALLBACKCOINFLIPWINNER, t.T{"Winner": winner.AtName(ctx)},
-					message)
+				send(ctx, message.Chat.ID, FORCESPAMMY, t.CALLBACKCOINFLIPWINNER,
+					t.T{"Winner": winner.AtName(ctx)}, message.MessageID)
 			} else {
 				send(ctx, t.CALLBACKCOINFLIPWINNER, t.T{"Winner": winner.AtName(ctx)},
 					APPEND)
@@ -391,7 +395,8 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			// giver
 			giver, err := loadUser(giverId)
 			if err != nil {
-				log.Warn().Err(err).Int("giverId", giverId).Msg("failed to load giver on giveflip")
+				log.Warn().Err(err).Int("giverId", giverId).
+					Msg("failed to load giver on giveflip")
 				removeKeyboardButtons(ctx)
 				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
@@ -540,7 +545,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			removeKeyboardButtons(ctx)
 			send(ctx, APPEND, ctx.Value("message"),
 				joiner.AtName(ctx)+"\n"+translate(ctx, t.COMPLETED))
-			send(ctx, ctx.Value("message"),
+			send(ctx, cb.Message.Chat.ID, FORCESPAMMY, ctx.Value("message"),
 				t.FUNDRAISECOMPLETE, t.T{"Receiver": receiver.AtName(ctx)})
 		}
 	case strings.HasPrefix(cb.Data, "rnm"):

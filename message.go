@@ -59,6 +59,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 
 	// only telegram
+	var chatId int64
 	var keyboard *tgbotapi.InlineKeyboardMarkup
 	var forceReply tgbotapi.ForceReply
 	var replyToId int                     // will be sent in reply to this -- or if editing will edit this
@@ -81,6 +82,12 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			target = thing
 		case User:
 			target = &thing
+		case *GroupChat:
+			group = thing
+		case GroupChat:
+			group = &thing
+		case int64:
+			chatId = thing
 		case t.Key:
 			template = thing
 		case t.T:
@@ -94,7 +101,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			spl := strings.Split(thing.Path, ".")
 			ext := spl[len(spl)-1]
 
-			if len(ext) > 5 || ext == "png" || ext == "jpg" || ext == "jpeg" {
+			if strings.HasPrefix(thing.Path, "/qr/") ||
+				ext == "png" || ext == "jpg" || ext == "jpeg" {
 				pictureURL = thing.String()
 			} else {
 				documentURL = thing.String()
@@ -167,7 +175,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 
 	// determine if we're going to send to the group or in private
-	var useGroup = (spammy && group != nil) || (group != nil && target == nil)
+	var groupId = chatId // may be zero if not given
+	if group != nil {
+		groupId = -group.TelegramId
+	}
+	var useGroup = (spammy && groupId != 0) || (groupId != 0 && target == nil)
 
 	// can be "api", "background", "external"
 	if origin != "telegram" && origin != "discord" {
@@ -212,7 +224,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 			if useGroup {
 				// send to group instead of the the user
-				values.Set("chat_id", strconv.FormatInt(-group.TelegramId, 10))
+				values.Set("chat_id", strconv.FormatInt(groupId, 10))
 			} else {
 				// send to user
 				values.Set("chat_id", strconv.FormatInt(target.TelegramChatId, 10))
@@ -266,6 +278,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						return
 					}
 				}
+
+				values.Set("text", text)
 			} else {
 				// not editing, can add pictures and reply_to targets
 				if replyToId != 0 {
@@ -314,6 +328,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			return c.MessageID
 		}
 	case "discord":
+		log.Print(discordMessage)
+
 		if utf8.RuneCountInString(text) == 1 {
 			// it's an emoji reaction
 			if linkTo == "" {
@@ -365,8 +381,6 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				log.Warn().Err(err).Str("text", text).
 					Msg("failed to send discord message")
 			}
-
-			log.Print(discordMessage)
 
 			return discordIDFromMessage(message)
 		}

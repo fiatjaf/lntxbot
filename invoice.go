@@ -151,7 +151,6 @@ var INVOICESPAMLIMITS = []InvoiceSpamLimit{
 }
 
 func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
-	log.Print("invoice paid ", data)
 	receiver, err := loadUser(data.UserId)
 	if err != nil {
 		log.Warn().Err(err).
@@ -184,35 +183,20 @@ func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
 		data.Tag,
 	)
 	if err != nil {
-		switch data.Origin {
-		case "telegram":
-			mid, _ := data.MessageId.(int)
-			send(ctx, receiver, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, mid)
-		case "discord":
-			send(ctx, receiver, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash})
-			if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-				discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
-			}
+		send(ctx, receiver, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
+		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
 		}
 		return
 	}
 
-	switch data.Origin {
-	case "telegram":
-		mid, _ := data.MessageId.(int)
-		send(ctx, receiver, t.PAYMENTRECEIVED, t.T{
-			"Sats": data.Msatoshi / 1000,
-			"Hash": hash[:5],
-		}, mid)
-	case "discord":
-		send(ctx, receiver, t.PAYMENTRECEIVED, t.T{
-			"Sats": data.Msatoshi / 1000,
-			"Hash": hash[:5],
-		})
+	send(ctx, receiver, t.PAYMENTRECEIVED, t.T{
+		"Sats": data.Msatoshi / 1000,
+		"Hash": hash[:5],
+	})
 
-		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
-		}
+	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
 	}
 }
 
