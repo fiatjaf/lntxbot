@@ -99,10 +99,6 @@ var methods = []def{
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
-		aliases: []string{"microbet"},
-		argstr:  "[list | bets | balance | withdraw | bet]",
-	},
-	def{
 		aliases: []string{"etleneum", "etl"},
 		argstr:  "[history | withdraw | (apps | contracts) | call <id> | <contract> [state [<jqfilter>] | subscribe | unsubscribe | <method> [<satoshis>] [<params>...]]]",
 	},
@@ -221,7 +217,7 @@ func parse(message string) (opts docopt.Opts, isCommand bool, err error) {
 		return
 	}
 
-	// turn /app_microbet_bets, for example, into /app microbet bet
+	// turn '_' into ' '
 	parts := strings.SplitN(message, " ", 2)
 	parts[0] = strings.ReplaceAll(parts[0], "_", " ")
 	message = strings.Join(parts, " ")

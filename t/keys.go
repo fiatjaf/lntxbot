@@ -131,13 +131,6 @@ const (
 	ETLENEUMSUBSCRIBED    Key = "EtleneumSubscribed"
 	ETLENEUMCONTRACTEVENT Key = "EtleneumContractEvent"
 
-	MICROBETHELP                Key = "microbetHelp"
-	MICROBETBETHEADER           Key = "MicrobetBetHeader"
-	MICROBETPAIDBUTNOTCONFIRMED Key = "MicrobetPaidButNotConfirmed"
-	MICROBETPLACING             Key = "MicrobetPlacing"
-	MICROBETPLACED              Key = "MicrobetPlaced"
-	MICROBETLIST                Key = "MicrobetList"
-
 	BITREFILLHELP            Key = "bitrefillHelp"
 	BITREFILLINVENTORYHEADER Key = "BitrefillInventoryHeader"
 	BITREFILLPACKAGESHEADER  Key = "BitrefillPackagelHeader"

@@ -169,7 +169,7 @@ parsed:
 			go u.track("stop", nil)
 		}
 		break
-	case opts["microbet"].(bool), // opts["fundbtc"].(bool),
+	case // opts["fundbtc"].(bool),
 		opts["satellite"].(bool), opts["gifts"].(bool),
 		opts["sats4ads"].(bool),
 		opts["rub"].(bool), opts["skype"].(bool),

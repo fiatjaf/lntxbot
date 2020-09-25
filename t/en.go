@@ -304,26 +304,6 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 <code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
     `,
 
-	MICROBETBETHEADER:           "#microbet Bet on one of these predictions:",
-	MICROBETPAIDBUTNOTCONFIRMED: "#microbet Paid, but bet not confirmed. Huge Microbet bug?",
-	MICROBETPLACING:             "#microbet Placing bet on <b>{{.Bet.Description}} ({{if .Back}}back{{else}}lay{{end}})</b>.",
-	MICROBETPLACED:              "#microbet Bet placed!",
-	MICROBETLIST: `
-#microbet Your bets
-{{range .Bets}}<code>{{.Description}}</code> {{if .UserBack}}{{.UserBack}}/{{.Backers}} × {{.Layers}}{{else}}{{.Backers}} × {{.UserLay}}/{{.Layers}}{{end}} <code>{{.Amount}}</code> <i>{{if .Canceled}}canceled{{else if .Closed}}{{if .WonAmount}}won {{.AmountWon}}{{else}}lost {{.AmountLost}}{{end}}{{else}}open{{end}}</i>
-{{else}}
-<i>~ no bets were ever made. ~</i>
-{{end}}
-    `,
-	MICROBETHELP: `
-<a href="https://microbet.fun/">Microbet</a> is a simple service that allows people to bet against each other on sports games results. The bet price is fixed and the odds are calculated considering the amount of back versus lay bets. There's a 1% fee on all withdraws.
-
-/microbet displays all open bet markets so you can yours.
-/microbet_bets shows your bet history.
-/microbet_balance displays your balance.
-/microbet_withdraw withdraws all your balance.
-    `,
-
 	BITREFILLINVENTORYHEADER: `#bitrefill Choose your provider:`,
 	BITREFILLPACKAGESHEADER:  `#bitrefill Choose your <i>{{.Item}}</i> card{{if .ReplyCustom}} (or reply with a custom value){{end}}:`,
 	BITREFILLNOPROVIDERS:     `#bitrefill No providers found.`,
@@ -622,7 +602,6 @@ These are the services we currently support:
 🖥️  /etleneum -- make arbitrary calls, browse state and calls and subscribe to events on https://etleneum.com/. /help_etleneum
 📢 /sats4ads -- get paid to see ads, pay to broadcast ads. /help_sats4ads
 ☁️ /bitclouds -- create and manage VPSes, Bitcoin and Lightning nodes as-a-service. /help_bitclouds
-⚽ /microbet -- place bets on microbet.fun and withdraw your balance with a single click. /help_microbet
 🎁 /gifts -- create  a withdrawable link on lightning.gifts you can send to friends, get notified when they are spent, don't lose the redeem links. /help_gifts
 📡 /satellite -- send messages from the space using the Blockstream Satellite. /help_satellite
 🎲 /coinflip -- create a winner-takes-all fair lottery with satoshis at stake on a group chat. /help_coinflip
@@ -631,7 +610,6 @@ These are the services we currently support:
 📲 /bitrefill -- buy gift cards and refill phones. /help_bitrefill
 📞 /skype -- top-up an Skype account, provided by @lntorubbot. /help_skype
 💸 /rub -- fund your account on Qiwi, Yandex.Money, Troika, Strelka and many other Russian services with great exchange rate, provided by @lntorubbot. /help_rub  
-⛓️ /fundbtc -- send satoshis from your on-chain Bitcoin wallet to your @{{ .BotName }} balance, powered by golightning.club. /help_fundbtc
 
 Read more in the /help page for each app.
     `,

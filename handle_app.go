@@ -168,61 +168,6 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 				},
 			}, 0)
 		}
-	case opts["microbet"].(bool):
-		if opts["bets"].(bool) || opts["list"].(bool) {
-			// list my bets
-			bets, err := getMyMicrobetBets(u)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
-				return
-			}
-
-			// only show the last 30
-			if len(bets) > 30 {
-				bets = bets[:30]
-			}
-
-			go u.track("microbet list", nil)
-			send(ctx, u, t.MICROBETLIST, t.T{"Bets": bets})
-		} else if opts["balance"].(bool) {
-			balance, err := getMicrobetBalance(u)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
-				return
-			}
-
-			go u.track("microbet balance", map[string]interface{}{"sats": balance})
-			send(ctx, u, t.APPBALANCE, t.T{"App": "Microbet", "Balance": balance},
-				&tgbotapi.InlineKeyboardMarkup{
-					[][]tgbotapi.InlineKeyboardButton{
-						{
-							tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.WITHDRAW), "x=microbet-withdraw"),
-						},
-					},
-				})
-		} else if opts["withdraw"].(bool) {
-			balance, err := getMicrobetBalance(u)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
-				return
-			}
-
-			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
-			err = withdrawMicrobet(ctx, int(float64(balance)*0.99))
-			if err != nil {
-				send(ctx, t.ERROR, t.T{"Err": err.Error()}, ctx.Value("message"))
-				return
-			}
-		} else {
-			// list available bets as actionable buttons
-			inlineKeyboard, err := microbetKeyboard()
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
-				return
-			}
-			send(ctx, t.MICROBETBETHEADER, inlineKeyboard)
-			go u.track("microbet show-bets", nil)
-		}
 	case opts["satellite"].(bool):
 		// create an order
 		satoshis, err := parseSatoshis(opts)
@@ -609,46 +554,6 @@ func handleExternalAppCallback(ctx context.Context) (answer string) {
 			}
 			go u.track("etleneum withdraw", nil)
 			handleLNURL(ctx, withdraw, handleLNURLOpts{})
-		}
-	case "microbet":
-		if parts[1] == "withdraw" {
-			defer removeKeyboardButtons(ctx)
-			balance, err := getMicrobetBalance(u)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"App": "Microbet", "Err": err.Error()})
-				return translate(ctx, t.FAILURE)
-			}
-
-			go u.track("microbet withdraw", map[string]interface{}{"sats": balance})
-			err = withdrawMicrobet(ctx, int(float64(balance)*0.99))
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-				return translate(ctx, t.FAILURE)
-			}
-
-			return translate(ctx, t.PROCESSING)
-		} else {
-			// bet on something
-			betId := parts[1]
-			back := parts[2] == "true"
-			bet, err := getMicrobetBet(betId)
-			if err != nil {
-				log.Warn().Err(err).Str("betId", betId).Msg("bet not available")
-				return translate(ctx, t.ERROR)
-			}
-
-			// post a notification message to identify this bet attempt
-			send(ctx, u, t.MICROBETPLACING, t.T{"Bet": bet, "Back": back})
-
-			err = placeMicrobetBet(ctx, betId, back)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-				return translate(ctx, t.FAILURE)
-			}
-
-			go u.track("microbet place-bet", nil)
-
-			return translate(ctx, t.PROCESSING)
 		}
 	case "bitrefill":
 		switch parts[1] {

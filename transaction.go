@@ -121,8 +121,6 @@ func (t Transaction) Icon() string {
 		return "📢"
 	case "satellite":
 		return "📡"
-	case "microbet":
-		return "⚽"
 	case "golightning":
 		return "⛓️"
 	case "bitclouds":
