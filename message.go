@@ -32,6 +32,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	var pictureURL string
 	var documentURL string
 
+	log := log.With().Interface("origin", ctx.Value("origin")).Logger()
+
 	// defaults from ctx
 	var origin string
 	if iorigin := ctx.Value("initiator"); iorigin != nil {
@@ -143,6 +145,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		}
 	}
 
+	log = log.With().Str("key", string(template)).Str("user", target.Username).
+		Bool("alert", alert).Bool("spammy", spammy).Bool("edit", edit).
+		Bool("append", justAppend).Bool("keyboard", keyboard != nil).
+		Bool("cb", callbackQuery != nil).Bool("group", group != nil).Logger()
+
 	// get origin from user if not present
 	if origin == "" && target != nil {
 		if origin == "telegram" &&
@@ -170,7 +177,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 	// either a user or a group must be a target (or there should be a callback)
 	if target == nil && group == nil && callbackQuery == nil {
-		log.Error().Str("text", text).Msg("no target user or group for message")
+		log.Error().Msg("no target user or group for message")
 		return nil
 	}
 
@@ -191,8 +198,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		} else if target.DiscordChannelId != "" {
 			origin = "discord"
 		} else {
-			log.Error().Str("text", text).Str("user", target.Username).
-				Msg("can't send message, user has no chat ids")
+			log.Error().Msg("can't send message, user has no chat ids")
 			return nil
 		}
 	}
@@ -237,14 +243,13 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 			var method string
 			if edit && canEdit {
-				method = "editMessageText"
-
 				if text == "" {
 					// special case when we're editing only the reply_markup:
 					// do this so the current text is kept.
 					justAppend = true
 				}
 
+				var wasFile bool
 				if callbackQuery != nil {
 					if callbackQuery.Message.MessageID != 0 {
 						values.Set("chat_id", strconv.FormatInt(
@@ -252,12 +257,18 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						values.Set("message_id", strconv.Itoa(
 							callbackQuery.Message.MessageID))
 
+						if messageHasCaption(callbackQuery.Message) {
+							wasFile = true
+						}
 						if callbackQuery.Message != nil && justAppend {
 							text = callbackQuery.Message.Text + " " + text
 						}
 					} else if callbackQuery.InlineMessageID != "" {
 						values.Set("inline_message_id", callbackQuery.InlineMessageID)
 
+						if messageHasCaption(callbackQuery.Message) {
+							wasFile = true
+						}
 						if callbackQuery.Message != nil && justAppend {
 							text = callbackQuery.Message.Text + " " + text
 						}
@@ -267,19 +278,29 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						telegramMessage.Chat.ID, 10))
 					values.Set("message_id", strconv.Itoa(telegramMessage.MessageID))
 
+					if messageHasCaption(telegramMessage) {
+						wasFile = true
+					}
 					if justAppend {
 						text = telegramMessage.Text + " " + text
 					}
 				} else if replyToId != 0 {
 					values.Set("message_id", strconv.Itoa(replyToId))
 					if justAppend {
-						log.Error().Str("text", text).
-							Msg("can't append to a message if we only have its id")
+						log.Error().Msg("can't append to a message with only its id")
 						return
 					}
 				}
 
-				values.Set("text", text)
+				if text == "" && values.Get("reply_markup") != "" {
+					method = "editMessageReplyMarkup"
+				} else if wasFile {
+					method = "editMessageCaption"
+					values.Set("caption", text)
+				} else {
+					method = "editMessageText"
+					values.Set("text", text)
+				}
 			} else {
 				// not editing, can add pictures and reply_to targets
 				if replyToId != 0 {
@@ -312,10 +333,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				if err.Error() == "Bad Request: reply message not found" {
 					values.Del("reply_to_message_id")
 					resp, err = bot.MakeRequest(method, values)
-					if err != nil {
-						return nil
-					}
-				} else {
+				}
+				if err != nil {
 					log.Warn().Str("text", text).Err(err).
 						Msg("error sending message to telegram")
 					return
@@ -334,7 +353,6 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// it's an emoji reaction
 			if linkTo == "" {
 				log.Error().
-					Str("emoji", text).
 					Msg("trying to send a reaction without a DiscordMessageID")
 				return
 			}
@@ -378,8 +396,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// send message
 			message, err := discord.ChannelMessageSendEmbed(channelId, embed)
 			if err != nil {
-				log.Warn().Err(err).Str("text", text).
-					Msg("failed to send discord message")
+				log.Warn().Err(err).Msg("failed to send discord message")
 			}
 
 			return discordIDFromMessage(message)

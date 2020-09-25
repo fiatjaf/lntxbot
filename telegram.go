@@ -176,3 +176,11 @@ func parseTelegramUsername(
 
 	return nil, "", errors.New("no user")
 }
+
+func messageHasCaption(message *tgbotapi.Message) bool {
+	return message.Caption != "" ||
+		message.Photo != nil ||
+		message.Document != nil ||
+		message.Audio != nil ||
+		message.Animation != nil
+}
