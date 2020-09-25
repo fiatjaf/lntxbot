@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	cmap "github.com/orcaman/concurrent-map"
@@ -19,6 +20,13 @@ type GroupChat struct {
 }
 
 const GROUPCHATFIELDS = "telegram_id, locale, spammy, ticket"
+
+func (g *GroupChat) String() string {
+	if g == nil {
+		return "null"
+	}
+	return fmt.Sprintf("%d", g.TelegramId)
+}
 
 func ensureGroup(telegramId int64, locale string) (g GroupChat, err error) {
 	err = pg.Get(&g, `

@@ -63,6 +63,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// only telegram
 	var chatId int64
 	var keyboard *tgbotapi.InlineKeyboardMarkup
+	var mustSendAnActualMessage bool
 	var forceReply tgbotapi.ForceReply
 	var replyToId int                     // will be sent in reply to this -- or if editing will edit this
 	var telegramMessage *tgbotapi.Message // unless this is provided, this has precedence in edition priotiry
@@ -82,12 +83,16 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		switch thing := ithing.(type) {
 		case *User:
 			target = thing
+			mustSendAnActualMessage = true
 		case User:
 			target = &thing
+			mustSendAnActualMessage = true
 		case *GroupChat:
 			group = thing
+			mustSendAnActualMessage = true
 		case GroupChat:
 			group = &thing
+			mustSendAnActualMessage = true
 		case int64:
 			chatId = thing
 		case t.Key:
@@ -145,10 +150,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		}
 	}
 
-	log = log.With().Str("key", string(template)).Str("user", target.Username).
+	log = log.With().Str("key", string(template)).Stringer("user", target).
 		Bool("alert", alert).Bool("spammy", spammy).Bool("edit", edit).
 		Bool("append", justAppend).Bool("keyboard", keyboard != nil).
-		Bool("cb", callbackQuery != nil).Bool("group", group != nil).Logger()
+		Bool("cb", callbackQuery != nil).Stringer("group", group).
+		Logger()
 
 	// get origin from user if not present
 	if origin == "" && target != nil {
@@ -206,7 +212,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// build the message to send
 	switch origin {
 	case "telegram":
-		if callbackQuery != nil && !edit {
+		if callbackQuery != nil && !edit && !mustSendAnActualMessage {
 			// it's a reply to a callbackQuery
 			bot.AnswerCallbackQuery(tgbotapi.CallbackConfig{
 				CallbackQueryID: callbackQuery.ID,
@@ -251,7 +257,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 				var wasFile bool
 				if callbackQuery != nil {
-					if callbackQuery.Message.MessageID != 0 {
+					if callbackQuery.Message != nil {
 						values.Set("chat_id", strconv.FormatInt(
 							callbackQuery.Message.Chat.ID, 10))
 						values.Set("message_id", strconv.Itoa(
@@ -260,15 +266,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						if messageHasCaption(callbackQuery.Message) {
 							wasFile = true
 						}
-						if callbackQuery.Message != nil && justAppend {
+						if justAppend {
 							text = callbackQuery.Message.Text + " " + text
 						}
 					} else if callbackQuery.InlineMessageID != "" {
 						values.Set("inline_message_id", callbackQuery.InlineMessageID)
-
-						if messageHasCaption(callbackQuery.Message) {
-							wasFile = true
-						}
 						if callbackQuery.Message != nil && justAppend {
 							text = callbackQuery.Message.Text + " " + text
 						}
@@ -324,6 +326,10 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				}
 			}
 
+			log = log.With().Str("method", method).Str("chat_id", values.Get("chat_id")).
+				Bool("using-group", useGroup).
+				Logger()
+
 			// send message
 			resp, err := bot.MakeRequest(method, values)
 			if err == nil && !resp.Ok {
@@ -335,8 +341,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 					resp, err = bot.MakeRequest(method, values)
 				}
 				if err != nil {
-					log.Warn().Str("text", text).Err(err).
-						Msg("error sending message to telegram")
+					log.Warn().Err(err).Msg("error sending message to telegram")
 					return
 				}
 			}

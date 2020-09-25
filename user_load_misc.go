@@ -39,6 +39,18 @@ const USERFIELDS = `
   coalesce(discord_channel_id, '') AS discord_channel_id
 `
 
+func (u *User) String() string {
+	if u == nil {
+		return "null"
+	}
+
+	if u.Username != "" {
+		return fmt.Sprintf("%s(%d)", u.Username, u.Id)
+	} else {
+		return fmt.Sprintf("(%d)", u.Id)
+	}
+}
+
 func loadUser(id int) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+`
@@ -271,7 +283,8 @@ func (u User) AtName(ctx context.Context) string {
 		if u.Username != "" {
 			return "@" + u.Username
 		}
-		return fmt.Sprintf("[user %d](tg://user?id=%d)", u.TelegramId, u.TelegramId)
+		return fmt.Sprintf(`<a href="tg://user?id=%d">user %d</a>`,
+			u.TelegramId, u.TelegramId)
 	} else if origin.(string) == "discord" {
 		return fmt.Sprintf("<@!%s>", u.DiscordId)
 	} else {
