@@ -180,6 +180,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 		ctx = context.WithValue(ctx, "locale", locale)
 		text = translateTemplate(ctx, template, templateData)
+		text = strings.TrimSpace(text)
 	}
 
 	// either a user or a group must be a target (or there should be a callback)
@@ -250,13 +251,6 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 			var method string
 			if edit && canEdit {
-				if text == "" {
-					// special case when we're editing only the reply_markup:
-					// do this so the current text is kept.
-					justAppend = true
-				}
-
-				var wasFile bool
 				if callbackQuery != nil {
 					if callbackQuery.Message != nil {
 						values.Set("chat_id", strconv.FormatInt(
@@ -264,16 +258,22 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						values.Set("message_id", strconv.Itoa(
 							callbackQuery.Message.MessageID))
 
-						if messageHasCaption(callbackQuery.Message) {
-							wasFile = true
-						}
-						if justAppend {
+						if justAppend || text == "" {
 							text = callbackQuery.Message.Text + " " + text
+						} else if messageHasCaption(callbackQuery.Message) {
+							method = "editMessageCaption"
+							values.Set("caption", text)
+						} else if text == "" && values.Get("reply_markup") != "" {
+							method = "editMessageReplyMarkup"
 						}
 					} else if callbackQuery.InlineMessageID != "" {
+						values.Del("chat_id")
 						values.Set("inline_message_id", callbackQuery.InlineMessageID)
 						if callbackQuery.Message != nil && justAppend {
 							text = callbackQuery.Message.Text + " " + text
+						}
+						if text == "" && values.Get("reply_markup") != "" {
+							method = "editMessageReplyMarkup"
 						}
 					}
 				} else if telegramMessage != nil {
@@ -281,11 +281,13 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						telegramMessage.Chat.ID, 10))
 					values.Set("message_id", strconv.Itoa(telegramMessage.MessageID))
 
-					if messageHasCaption(telegramMessage) {
-						wasFile = true
-					}
-					if justAppend {
+					if justAppend || text == "" {
 						text = telegramMessage.Text + " " + text
+					} else if messageHasCaption(telegramMessage) {
+						method = "editMessageCaption"
+						values.Set("caption", text)
+					} else if text == "" && values.Get("reply_markup") != "" {
+						method = "editMessageReplyMarkup"
 					}
 				} else if replyToId != 0 {
 					values.Set("message_id", strconv.Itoa(replyToId))
@@ -295,12 +297,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 					}
 				}
 
-				if text == "" && values.Get("reply_markup") != "" {
-					method = "editMessageReplyMarkup"
-				} else if wasFile {
-					method = "editMessageCaption"
-					values.Set("caption", text)
-				} else {
+				if method == "" {
 					method = "editMessageText"
 					values.Set("text", text)
 				}
