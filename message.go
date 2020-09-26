@@ -78,6 +78,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// only discord
 	var linkTo DiscordMessageID
 	var discordMessage *discordgo.Message
+	var emojiReaction string
 
 	for _, ithing := range things {
 		switch thing := ithing.(type) {
@@ -101,7 +102,12 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		case t.T:
 			templateData = thing
 		case string:
-			text = thing
+			if utf8.RuneCountInString(text) == 1 {
+				emojiReaction = thing
+				origin = "discord"
+			} else {
+				text = thing
+			}
 		case *tgbotapi.CallbackQuery:
 			callbackQuery = thing
 			origin = "telegram"
@@ -350,59 +356,87 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			return c.MessageID
 		}
 	case "discord":
-		log.Print(discordMessage)
+		var reference = linkTo
+		if reference == "" && discordMessage != nil {
+			reference = discordIDFromMessage(discordMessage)
+		}
 
-		if utf8.RuneCountInString(text) == 1 {
+		if emojiReaction != "" {
 			// it's an emoji reaction
-			if linkTo == "" {
-				log.Error().
-					Msg("trying to send a reaction without a DiscordMessageID")
+			if reference == "" {
+				log.Error().Msg("trying to send a reaction without a reference")
 				return
 			}
 
 			// send emoji
-			err := discord.MessageReactionAdd(linkTo.Channel(), linkTo.Message(), text)
+			err := discord.MessageReactionAdd(
+				reference.Channel(), reference.Message(), emojiReaction)
 			if err != nil {
 				log.Warn().Err(err).Str("emoji", text).
 					Msg("failed to react with emoji")
 				return
 			}
 			return linkTo
+		} else if documentURL != "" {
+			// for documentURLs we behave differently as embeds won't work
+			// TODO
 		} else {
-			// it's a message TODO(edit)
+			// it's a message or edit
 			text = convertToDiscord(text)
 			if linkTo != "" {
 				text += "\n" + linkTo.URL()
 			}
 
+			// build the embed object to send
+			// TODO use simple messages if there just one line of text?
 			embed := &discordgo.MessageEmbed{
 				Description: text,
 			}
-
 			if pictureURL != "" {
 				embed.Image = &discordgo.MessageEmbedImage{URL: pictureURL}
 			}
-
 			if commandName := ctx.Value("command"); commandName != nil {
 				embed.Title = commandName.(string)
 			}
 
-			var channelId string
-			if !spammy && group != nil {
-				// send to group instead of the the user
-				// TODO(group)
+			if edit && reference != "" {
+				// editing
+				if justAppend {
+					if discordMessage != nil {
+						text = discordMessage.Embeds[0].Description + " " + text
+					} else {
+						log.Error().Msg("can't append to a message with only its id")
+						return
+					}
+				}
+
+				// send edit
+				message, err := discord.ChannelMessageEditEmbed(
+					linkTo.Channel(), linkTo.Message(), embed)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to send discord message")
+				}
+
+				return discordIDFromMessage(message)
 			} else {
-				// send to user
-				channelId = target.DiscordChannelId
-			}
+				var channelId string
+				if !spammy && group != nil {
+					// send to group instead of the the user
+					// TODO(group)
+				} else {
+					// send to user
+					channelId = target.DiscordChannelId
+				}
 
-			// send message
-			message, err := discord.ChannelMessageSendEmbed(channelId, embed)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to send discord message")
-			}
+				// send message
+				message, err := discord.ChannelMessageSendEmbed(channelId, embed)
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to send discord message")
+					return
+				}
 
-			return discordIDFromMessage(message)
+				return discordIDFromMessage(message)
+			}
 		}
 	}
 

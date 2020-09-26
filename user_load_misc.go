@@ -30,7 +30,7 @@ type User struct {
 
 const USERFIELDS = `
   id,
-  coalesce(telegram_username, coalesce(discord_username, '')) AS username,
+  coalesce(telegram_username, discord_username, '') AS username,
   locale,
   password,
   coalesce(telegram_id, 0) AS telegram_id,
@@ -49,6 +49,10 @@ func (u *User) String() string {
 	} else {
 		return fmt.Sprintf("(%d)", u.Id)
 	}
+}
+
+func (u User) hasPrivateChat() bool {
+	return u.TelegramChatId != 0 || u.DiscordChannelId != ""
 }
 
 func loadUser(id int) (u User, err error) {
@@ -175,38 +179,6 @@ RETURNING `+USERFIELDS,
 	return
 }
 
-func ensureDiscordUser(discordId, username, locale string) (u User, err error) {
-	username = strings.ToLower(username)
-
-	// always update locale while selecting user
-	// unless it was set manually or isn't available
-	// also update the username
-	err = pg.Get(&u, `
-UPDATE account AS u
-SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
-SET username = $3
-WHERE u.discord_id = $1
-RETURNING `+USERFIELDS,
-		discordId, username, locale)
-	if err != nil && err != sql.ErrNoRows {
-		return
-	}
-
-	if err == sql.ErrNoRows {
-		// user not registered
-		err = pg.Get(&u, `
-INSERT INTO account (discord_id, discord_username)
-VALUES ($1, $2)
-RETURNING `+USERFIELDS, discordId, username)
-	}
-
-	// corner cases won't happen because on discord we always deal with ids,
-	// never usernames. even when people send tips like "$tip @someone" we
-	// will have access to the id of that person directly.
-
-	return u, nil
-}
-
 func ensureTelegramId(telegram_id int) (u User, err error) {
 	err = pg.Get(&u, `
 INSERT INTO account (telegram_id)
@@ -237,6 +209,39 @@ func (u *User) setChat(id int64) error {
 
 func (u *User) unsetChat() {
 	pg.Exec(`UPDATE account SET telegram_chat_id = NULL WHERE id = $1`, u.Id)
+}
+
+func ensureDiscordUser(discordId, username, locale string) (u User, err error) {
+	username = strings.ToLower(username)
+
+	// always update locale while selecting user
+	// unless it was set manually or isn't available
+	// also update the username
+	err = pg.Get(&u, `
+UPDATE account AS u
+SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
+  , discord_username = $2
+WHERE u.discord_id = $1
+RETURNING `+USERFIELDS,
+		discordId, username, locale)
+	if err != nil && err != sql.ErrNoRows {
+		return
+	}
+
+	if err == sql.ErrNoRows {
+		// user not registered
+		err = pg.Get(&u, `
+INSERT INTO account (discord_id, discord_username)
+VALUES ($1, $2)
+RETURNING `+USERFIELDS,
+			discordId, username)
+	}
+
+	// corner cases won't happen because on discord we always deal with ids,
+	// never usernames. even when people send tips like "$tip @someone" we
+	// will have access to the id of that person directly.
+
+	return u, nil
 }
 
 func (u *User) setChannel(id string) error {

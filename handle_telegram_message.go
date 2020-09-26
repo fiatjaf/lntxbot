@@ -53,7 +53,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	g := GroupChat{TelegramId: message.Chat.ID, Locale: u.Locale}
 
 	// this is just to send to amplitude
-	var group *int64 = nil
+	var groupId *int64 = nil
 
 	if message.Chat.Type == "private" {
 		// after ensuring the user we should always enable him to
@@ -73,7 +73,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			g = loadedGroup
 		}
 
-		group = &message.Chat.ID
+		groupId = &message.Chat.ID
 
 		if message.Entities == nil || len(*message.Entities) == 0 ||
 			// unless in the private chat, only messages starting with
@@ -83,6 +83,9 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 	}
+
+	// may be the user chat fake-group
+	ctx = context.WithValue(ctx, "group", g)
 
 	var (
 		opts        = make(docopt.Opts)
@@ -137,7 +140,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 
 	go u.track("command", map[string]interface{}{
 		"command": strings.Split(strings.Split(message.Text, " ")[0], "_")[0],
-		"group":   group,
+		"group":   groupId,
 	})
 
 parsed:
@@ -184,135 +187,11 @@ parsed:
 	case opts["log"].(bool):
 		go handleLogView(ctx, opts)
 	case opts["send"].(bool), opts["tip"].(bool):
-		ctx = context.WithValue(ctx, "spammy", g.isSpammy())
-
-		// sending money to others
-		var (
-			sats          int
-			todisplayname string
-			receiver      *User
-			usernameval   interface{}
-			extra         string
-		)
-
-		// get quantity
-		sats, err := parseSatoshis(opts)
-		satsraw := opts["<satoshis>"].(string)
-
-		if err != nil || sats <= 0 {
-			send(ctx, g, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
-			break
-		} else {
-			usernameval = opts["<receiver>"]
-		}
-
-		anonymous := false
-		if opts["anonymously"].(bool) ||
-			opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
-			anonymous = true
-		}
-
-		receiver, todisplayname, err = parseTelegramUsername(ctx, message, usernameval)
-		if receiver != nil {
-			goto ensured
-		}
-
-		// no username, this may be a reply-tip
-		if message.ReplyToMessage != nil {
-			if iextra, ok := opts["<receiver>"]; ok {
-				// in this case this may be a tipping message
-				extra = strings.Join(iextra.([]string), " ")
-			}
-
-			log.Debug().Str("extra", extra).Msg("it's a reply-tip")
-			reply := message.ReplyToMessage
-
-			var cas int
-			rec, cas, err := ensureTelegramUser(
-				reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
-			receiver = &rec
-			if err != nil {
-				send(ctx, g, u, t.SAVERECEIVERFAIL)
-				log.Warn().Err(err).Int("case", cas).
-					Str("username", reply.From.UserName).
-					Int("id", reply.From.ID).
-					Msg("failed to ensure user on reply-tip")
-				break
-			}
-			if reply.From.UserName != "" {
-				todisplayname = "@" + reply.From.UserName
-			} else {
-				todisplayname = strings.TrimSpace(
-					reply.From.FirstName + " " + reply.From.LastName,
-				)
-			}
-		} else {
-			// if we ever reach this point then it's because the receiver is missing.
-			if err != nil {
-				log.Warn().Err(err).Interface("val", usernameval).
-					Msg("error parsing username")
-			}
-			send(ctx, g, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
-			break
-		}
-
-	ensured:
-		err = u.sendInternally(
-			ctx,
-			*receiver,
-			anonymous,
-			sats*1000,
-			extra,
-			"",
-			"",
-		)
-		if err != nil {
-			log.Warn().Err(err).
-				Str("from", u.Username).
-				Str("to", todisplayname).
-				Msg("failed to send/tip")
-			send(ctx, g, u, t.FAILEDSEND, t.T{"Err": err.Error()})
-			break
-		}
-
-		// notify sender -- if spammy == true this will be sent in the group
-		send(ctx, g, u, t.USERSENTTOUSER, t.T{
-			"User":              todisplayname,
-			"Sats":              sats,
-			"RawSats":           satsraw,
-			"ReceiverHasNoChat": receiver.TelegramChatId == 0,
-		})
-
-		// notify receiver
-		if receiver.TelegramChatId != 0 {
-			// if possible, privately
-			if anonymous {
-				send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
-			} else {
-				send(ctx, receiver, t.USERSENTYOUSATS, t.T{
-					"User":    u.AtName(ctx),
-					"Sats":    sats,
-					"RawSats": satsraw,
-				})
-			}
-		} else {
-			// if the receiver doesn't have a chat, always notify in the group
-			send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
-				"From":             u.AtName(ctx),
-				"To":               receiver.AtName(ctx),
-				"Sats":             sats,
-				"ClaimerHasNoChat": true,
-				"BotName":          s.ServiceId,
-			}, message.MessageID, FORCESPAMMY)
-		}
-
 		go u.track("send", map[string]interface{}{
-			"group":     group,
+			"group":     groupId,
 			"reply-tip": message.ReplyToMessage != nil,
-			"sats":      sats,
 		})
-
-		break
+		handleSend(ctx, opts)
 	case opts["giveaway"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err != nil {
@@ -333,7 +212,7 @@ parsed:
 		}, giveawayKeyboard(ctx, u.Id, sats))
 
 		go u.track("giveaway created", map[string]interface{}{
-			"group": message.Chat.ID,
+			"group": groupId,
 			"sats":  sats,
 		})
 		break
@@ -376,7 +255,7 @@ parsed:
 			}, giveflipKeyboard(ctx, giveflipid, u.Id, nparticipants, sats))
 
 		go u.track("giveflip created", map[string]interface{}{
-			"group": message.Chat.ID,
+			"group": groupId,
 			"sats":  sats,
 			"n":     nparticipants,
 		})
@@ -428,7 +307,7 @@ parsed:
 
 		// save this to limit coinflip creation per user
 		go u.track("coinflip created", map[string]interface{}{
-			"group": message.Chat.ID,
+			"group": groupId,
 			"sats":  sats,
 			"n":     nparticipants,
 		})
@@ -450,8 +329,7 @@ parsed:
 			break
 		}
 
-		receiver, receiverdisplayname, err := parseTelegramUsername(ctx, message,
-			opts["<receiver>"])
+		receiver, err := examineTelegramUsername(message, opts["<receiver>"])
 		if err != nil {
 			log.Warn().Err(err).Msg("parsing fundraise receiver")
 			send(ctx, u, t.FAILEDUSER)
@@ -459,7 +337,7 @@ parsed:
 		}
 
 		send(ctx, g, t.FUNDRAISEAD, FORCESPAMMY, t.T{
-			"ToUser":       receiverdisplayname,
+			"ToUser":       receiver.AtName(ctx),
 			"Participants": nparticipants,
 			"Sats":         sats,
 			"Fund":         sats * nparticipants,
@@ -467,7 +345,7 @@ parsed:
 		}, fundraiseKeyboard(ctx, "", u.Id, receiver.Id, nparticipants, sats))
 
 		go u.track("fundraise created", map[string]interface{}{
-			"group": message.Chat.ID,
+			"group": groupId,
 			"sats":  sats,
 			"n":     nparticipants,
 		})
@@ -634,7 +512,7 @@ parsed:
 			}, renameKeyboard(ctx, u.Id, message.Chat.ID, price, name))
 
 			go u.track("rename started", map[string]interface{}{
-				"group": message.Chat.ID,
+				"group": groupId,
 				"sats":  price,
 			})
 		}()
@@ -695,7 +573,7 @@ parsed:
 				}
 
 				go u.track("toggle ticket", map[string]interface{}{
-					"group": message.Chat.ID,
+					"group": groupId,
 					"sats":  price,
 				})
 
@@ -715,7 +593,7 @@ parsed:
 				}
 
 				go u.track("toggle renamable", map[string]interface{}{
-					"group": message.Chat.ID,
+					"group": groupId,
 					"sats":  price,
 				})
 
@@ -736,7 +614,7 @@ parsed:
 				}
 
 				go u.track("toggle spammy", map[string]interface{}{
-					"group":  message.Chat.ID,
+					"group":  groupId,
 					"spammy": spammy,
 				})
 
@@ -768,7 +646,7 @@ parsed:
 					}
 
 					go u.track("toggle language", map[string]interface{}{
-						"group": message.Chat.ID,
+						"group": groupId,
 						"lang":  lang,
 					})
 

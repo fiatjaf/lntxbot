@@ -24,8 +24,10 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 
 	ctx = context.WithValue(ctx, "message", message)
 
+	g := GroupChat{}
+
 	// this is just to send to amplitude
-	var group *int64 = nil
+	var groupId *int64 = nil
 
 	// declaring stuff so we can use goto
 	var (
@@ -76,10 +78,13 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	// may be the user chat fake-group
+	ctx = context.WithValue(ctx, "group", g)
+
 	commandName = "$" + strings.Split(strings.Split(messageText, " ")[0], "_")[0][1:]
 	go u.track("command", map[string]interface{}{
 		"command": commandName,
-		"group":   group,
+		"group":   groupId,
 	})
 
 parsed:
@@ -196,6 +201,12 @@ parsed:
 		go handleInvoice(ctx, opts, desc)
 	case opts["lnurl"].(bool):
 		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
+	case opts["send"].(bool), opts["tip"].(bool):
+		go u.track("send", map[string]interface{}{
+			"group":     groupId,
+			"reply-tip": false,
+		})
+		handleSend(ctx, opts)
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		go u.track("help", map[string]interface{}{"command": command})
@@ -211,7 +222,8 @@ func handleDiscordReaction(dgs *discordgo.Session, m *discordgo.MessageReactionA
 	reaction := m.MessageReaction
 
 	ctx = context.WithValue(ctx,
-		"discordMessageID", discordMessageID(reaction.GuildID, reaction.ChannelID, reaction.MessageID))
+		"discordMessageID",
+		discordMessageID(reaction.GuildID, reaction.ChannelID, reaction.MessageID))
 
 	log.Print("got emoji ", reaction.Emoji.Name)
 

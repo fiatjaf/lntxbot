@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -99,11 +98,10 @@ func getTelegramUserPictureURL(username string) (string, error) {
 	return image, nil
 }
 
-func parseTelegramUsername(
-	ctx context.Context,
+func examineTelegramUsername(
 	message *tgbotapi.Message,
 	value interface{},
-) (u *User, display string, err error) {
+) (u *User, err error) {
 	var username string
 	var user User
 	var uid int
@@ -128,7 +126,7 @@ func parseTelegramUsername(
 	}
 
 	if username == "" && uid == 0 {
-		return nil, "", errors.New("no user")
+		return nil, errors.New("no user")
 	}
 
 	// check entities for user type
@@ -137,42 +135,40 @@ func parseTelegramUsername(
 			if entity.Type == "text_mention" && entity.User != nil {
 				// user without username
 				uid = entity.User.ID
-				display = strings.TrimSpace(entity.User.FirstName + " " + entity.User.LastName)
 				user, err = ensureTelegramId(uid)
 				if err != nil {
-					return nil, "", err
+					return nil, err
 				}
 
-				return &user, display, nil
+				return &user, nil
 			}
 			if entity.Type == "mention" {
 				// user with username
 				uname := username[1:]
-				display = "@" + uname
 				user, err = ensureTelegramUsername(uname)
 				if err != nil {
-					return nil, "", err
+					return nil, err
 				}
 
-				return &user, display, nil
+				return &user, nil
 			}
 		}
 	}
 
 	// if the user identifier passed was neither @someone (mention) nor a text_mention
 	// (for users without usernames but still painted blue and autocompleted by telegram)
-	// and we have a uid that means it's the case where just a numeric id was given and nothing
-	// more.
+	// and we have a uid that means it's the case where just a numeric id was given
+	// and nothing more.
 	if uid != 0 {
 		user, err = ensureTelegramId(uid)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 
-		return &user, user.AtName(ctx), nil
+		return &user, nil
 	}
 
-	return nil, "", errors.New("no user")
+	return nil, errors.New("no user")
 }
 
 func messageHasCaption(message *tgbotapi.Message) bool {

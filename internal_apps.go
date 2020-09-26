@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
+	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
@@ -593,5 +595,147 @@ func renameKeyboard(
 				),
 			},
 		},
+	}
+}
+
+func handleSend(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
+	g := ctx.Value("group").(GroupChat)
+
+	ctx = context.WithValue(ctx, "spammy", g.isSpammy())
+
+	// sending money to others
+	var (
+		sats          int
+		todisplayname string
+		receiver      *User
+		usernameval   interface{}
+		extra         string
+	)
+
+	// get quantity
+	sats, err := parseSatoshis(opts)
+	satsraw := opts["<satoshis>"].(string)
+
+	if err != nil || sats <= 0 {
+		send(ctx, g, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+		return
+	} else {
+		usernameval = opts["<receiver>"]
+	}
+
+	anonymous := false
+	if opts["anonymously"].(bool) ||
+		opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
+		anonymous = true
+	}
+
+	switch message := ctx.Value("message").(type) {
+	case *discordgo.Message: // discord
+		name, _ := usernameval.(string)
+		receiver, err = examineDiscordUsername(name)
+		if err != nil {
+			log.Warn().Err(err).Interface("username", usernameval).
+				Msg("failed to examine discord username")
+			send(ctx, g, u, t.SAVERECEIVERFAIL)
+			return
+		}
+
+		goto ensured
+	case *tgbotapi.Message: // telegram
+		receiver, err = examineTelegramUsername(message, usernameval)
+		if receiver != nil {
+			goto ensured
+		}
+
+		// no username, this may be a reply-tip
+		if message.ReplyToMessage != nil {
+			if iextra, ok := opts["<receiver>"]; ok {
+				// in this case this may be a tipping message
+				extra = strings.Join(iextra.([]string), " ")
+			}
+
+			log.Debug().Str("extra", extra).Msg("it's a reply-tip")
+			reply := message.ReplyToMessage
+
+			var cas int
+			rec, cas, err := ensureTelegramUser(
+				reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
+			receiver = &rec
+			if err != nil {
+				send(ctx, g, u, t.SAVERECEIVERFAIL)
+				log.Warn().Err(err).Int("case", cas).
+					Str("username", reply.From.UserName).
+					Int("id", reply.From.ID).
+					Msg("failed to ensure user on reply-tip")
+				return
+			}
+			if reply.From.UserName != "" {
+				todisplayname = "@" + reply.From.UserName
+			} else {
+				todisplayname = strings.TrimSpace(
+					reply.From.FirstName + " " + reply.From.LastName,
+				)
+			}
+			goto ensured
+		}
+	}
+
+	// if we ever reach this point then it's because the receiver is missing.
+	if err != nil {
+		log.Warn().Err(err).Interface("val", usernameval).
+			Msg("error parsing username")
+	}
+	send(ctx, g, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
+	return
+
+ensured:
+	err = u.sendInternally(
+		ctx,
+		*receiver,
+		anonymous,
+		sats*1000,
+		extra,
+		"",
+		"",
+	)
+	if err != nil {
+		log.Warn().Err(err).
+			Str("from", u.Username).
+			Str("to", todisplayname).
+			Msg("failed to send/tip")
+		send(ctx, g, u, t.FAILEDSEND, t.T{"Err": err.Error()})
+		return
+	}
+
+	// notify sender -- if spammy == true this will be sent in the group
+	send(ctx, g, u, t.USERSENTTOUSER, t.T{
+		"User":              todisplayname,
+		"Sats":              sats,
+		"RawSats":           satsraw,
+		"ReceiverHasNoChat": receiver.TelegramChatId == 0,
+	})
+
+	// notify receiver
+	if receiver.hasPrivateChat() {
+		// if possible, privately
+		if anonymous {
+			send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
+		} else {
+			send(ctx, receiver, t.USERSENTYOUSATS, t.T{
+				"User":    u.AtName(ctx),
+				"Sats":    sats,
+				"RawSats": satsraw,
+			})
+		}
+	} else {
+		// if the receiver doesn't have a chat, always notify in the group
+		send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
+			"From":             u.AtName(ctx),
+			"To":               receiver.AtName(ctx),
+			"Sats":             sats,
+			"ClaimerHasNoChat": true,
+			"BotName":          s.ServiceId,
+		}, ctx.Value("message"), FORCESPAMMY)
 	}
 }

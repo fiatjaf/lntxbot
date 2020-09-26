@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
@@ -18,7 +19,14 @@ func discordMessageID(guildId, channelId, messageId string) DiscordMessageID {
 }
 
 func discordIDFromMessage(message *discordgo.Message) DiscordMessageID {
+	if message == nil {
+		return ""
+	}
 	return discordMessageID(message.GuildID, message.ChannelID, message.ID)
+}
+
+func discordIDFromReaction(reaction *discordgo.MessageReaction) DiscordMessageID {
+	return discordMessageID(reaction.GuildID, reaction.ChannelID, reaction.MessageID)
 }
 
 func (d DiscordMessageID) Guild() string   { return strings.Split(string(d), "/")[0] }
@@ -31,7 +39,7 @@ func (d DiscordMessageID) URL() string {
 
 var slashToDollarSignReplacer = regexp.MustCompile(`([^\w\/]|^)/(\w)`)
 var mdConverter = html_to_markdown.NewConverter("", true, &html_to_markdown.Options{
-	EmDelimiter:     "__",
+	EmDelimiter:     "_",
 	StrongDelimiter: "**",
 	CodeBlockStyle:  "fenced",
 	Fence:           "```",
@@ -48,13 +56,21 @@ func convertToDiscord(v string) string {
 	return v
 }
 
-func appendToDiscordMessage(channelId, messageId, text string) {
-	message, err := discord.ChannelMessage(channelId, messageId)
-	if err != nil || len(message.Embeds) < 1 {
-		return
+func examineDiscordUsername(name string) (u *User, err error) {
+	if !strings.HasPrefix(name, "<@!") || name[len(name)-1] != '>' || len(name) < 10 {
+		return nil, errors.New("invalid discord user reference")
 	}
 
-	embed := message.Embeds[0]
-	embed.Description += " " + text
-	discord.ChannelMessageEditEmbed(channelId, messageId, embed)
+	did := name[3 : len(name)-1]
+	st, err := discord.User(did)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := ensureDiscordUser(did, st.Username+"#"+st.Discriminator, st.Locale)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
