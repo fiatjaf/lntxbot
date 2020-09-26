@@ -28,10 +28,7 @@ func (u User) getInfo() (info Info, err error) {
 SELECT
   b.account_id,
   b.balance/1000 AS balance,
-  CASE
-    WHEN b.balance > 5000000 THEN b.balance * 0.99009 / 1000
-    ELSE b.balance/1000
-  END AS usable,
+  b.balance * 0.995 / 1000 AS usable,
   (
     SELECT coalesce(sum(amount), 0)::float/1000 FROM lightning.transaction AS t
     WHERE b.account_id = t.to_id

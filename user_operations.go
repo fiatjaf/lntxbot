@@ -305,11 +305,6 @@ func (u User) actuallySendExternalPayment(
 	}
 	defer txn.Rollback()
 
-	fee_reserve := float64(msatoshi) * 0.01
-	if msatoshi < 5000000 {
-		fee_reserve = 0
-	}
-
 	// if not tg this will just be ignored
 	// TODO maybe remove trigger_message from the database
 	var tgMessageId int
@@ -319,9 +314,17 @@ func (u User) actuallySendExternalPayment(
 		}
 	}
 
+	maxfeepercent := 0.5
+	exemptfee := 5000
+	fee_reserve := float64(msatoshi) * 0.005
+	if msatoshi < 1000000 {
+		fee_reserve += 5000 // account for exemptfee
+	}
+
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
-  (from_id, amount, fees, description, payment_hash, pending, trigger_message, remote_node)
+  (from_id, amount, fees, description, payment_hash, pending,
+   trigger_message, remote_node)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, u.Id, msatoshi, int64(fee_reserve), inv.Description,
 		hash, true, tgMessageId, inv.Payee)
@@ -342,16 +345,11 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return ErrDatabase
 	}
 
-	exemptfee := 3000
-	if balance > 10000 {
-		exemptfee = 7000
-	}
-
 	// set common params
 	params := map[string]interface{}{
 		"bolt11":        bolt11,
 		"riskfactor":    3,
-		"maxfeepercent": 0.4,
+		"maxfeepercent": maxfeepercent,
 		"exemptfee":     exemptfee,
 		"label":         fmt.Sprintf("user=%d", u.Id),
 		"use_shadow":    false,
