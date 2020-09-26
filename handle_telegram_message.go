@@ -487,16 +487,15 @@ parsed:
 		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
 	case opts["rename"].(bool):
 		go func() {
+			ctx = context.WithValue(ctx, "spammy", true)
+
 			if message.Chat.Type == "private" {
 				return
 			}
 
 			name := opts["<name>"].(string)
 
-			var price int
-			pg.Get(&price,
-				"SELECT renamable FROM groupchat WHERE telegram_id = $1",
-				-message.Chat.ID)
+			price := g.getRenamePrice()
 			if price == 0 {
 				send(ctx, g, t.GROUPNOTRENAMABLE)
 				return
@@ -563,9 +562,10 @@ parsed:
 				return
 			}
 
+			ctx = context.WithValue(ctx, "spammy", true)
 			switch {
 			case opts["ticket"].(bool):
-				log.Info().Int64("group", message.Chat.ID).Msg("toggling ticket")
+				log.Info().Stringer("group", &g).Msg("toggling ticket")
 				price, err := opts.Int("<price>")
 				if err != nil {
 					g.setTicketPrice(0)
@@ -579,13 +579,13 @@ parsed:
 
 				g.setTicketPrice(price)
 				if price > 0 {
-					send(ctx, g, t.TICKETMSG, FORCESPAMMY, t.T{
+					send(ctx, g, t.TICKETMSG, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})
 				}
 			case opts["renamable"].(bool):
-				log.Info().Int64("group", message.Chat.ID).Msg("toggling renamable")
+				log.Info().Stringer("group", &g).Msg("toggling renamable")
 				price, err := opts.Int("<price>")
 				if err != nil {
 					g.setTicketPrice(0)
@@ -597,15 +597,15 @@ parsed:
 					"sats":  price,
 				})
 
-				g.setRenamablePrice(price)
+				g.setRenamePrice(price)
 				if price > 0 {
-					send(ctx, g, t.RENAMABLEMSG, FORCESPAMMY, t.T{
+					send(ctx, g, t.RENAMABLEMSG, t.T{
 						"Sat":     price,
 						"BotName": s.ServiceId,
 					})
 				}
 			case opts["spammy"].(bool):
-				log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
+				log.Debug().Stringer("group", &g).Msg("toggling spammy")
 				spammy, err := g.toggleSpammy()
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to toggle spammy")
@@ -618,9 +618,9 @@ parsed:
 					"spammy": spammy,
 				})
 
-				send(ctx, g, t.SPAMMYMSG, FORCESPAMMY, t.T{"Spammy": spammy})
+				send(ctx, g, t.SPAMMYMSG, t.T{"Spammy": spammy})
 			case opts["coinflips"].(bool):
-				log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
+				log.Debug().Stringer("group", &g).Msg("toggling coinflips")
 				enabled, err := g.toggleCoinflips()
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to toggle coinflips")
@@ -633,10 +633,10 @@ parsed:
 					"enabled": enabled,
 				})
 
-				send(ctx, g, t.COINFLIPSENABLEDMSG, FORCESPAMMY, t.T{"Enabled": enabled})
+				send(ctx, g, t.COINFLIPSENABLEDMSG, t.T{"Enabled": enabled})
 			case opts["language"].(bool):
 				if lang, err := opts.String("<lang>"); err == nil {
-					log.Info().Int64("group", message.Chat.ID).Str("language", lang).
+					log.Info().Stringer("group", &g).Str("language", lang).
 						Msg("toggling language")
 					err := setLanguage(message.Chat.ID, lang)
 					if err != nil {
@@ -650,9 +650,9 @@ parsed:
 						"lang":  lang,
 					})
 
-					send(ctx, g, t.LANGUAGEMSG, FORCESPAMMY, t.T{"Language": lang})
+					send(ctx, g, t.LANGUAGEMSG, t.T{"Language": lang})
 				} else {
-					send(ctx, g, t.LANGUAGEMSG, FORCESPAMMY, t.T{"Language": g.Locale})
+					send(ctx, g, t.LANGUAGEMSG, t.T{"Language": g.Locale})
 				}
 
 			}

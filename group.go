@@ -67,11 +67,18 @@ WHERE telegram_id = $1
 	return
 }
 
-func (g GroupChat) setRenamablePrice(sat int) (err error) {
+func (g GroupChat) setRenamePrice(sat int) (err error) {
 	_, err = pg.Exec(`
 UPDATE groupchat SET renamable = $2
 WHERE telegram_id = $1
     `, g.TelegramId, sat)
+	return
+}
+
+func (g GroupChat) getRenamePrice() (sat int) {
+	pg.Get(&sat,
+		"SELECT renamable FROM groupchat WHERE telegram_id = $1",
+		g.TelegramId)
 	return
 }
 
