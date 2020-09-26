@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -657,12 +659,22 @@ parsed:
 
 			}
 		}()
-		break
 	case opts["dollar"].(bool):
 		sats, err := parseSatoshis(opts)
 		if err == nil {
 			send(ctx, getDollarPrice(int64(sats)*1000))
 		}
-		break
+	case opts["moon"].(bool):
+		moonURLs := []string{
+			"https://www.currexy.com/upload/naujienos/original/2017/09/moon-btc-34899.jpg",
+			"https://cryptocurrencies.com.au/wp-content/uploads/2019/06/bitcoin-moon-art.jpg",
+			"https://cryptodailygazette.com/wp-content/uploads/2019/03/bitcoin-to-the-moon-1-650x364.jpg",
+			"https://assets.pando.com/uploads/2015/01/bitcoin-to-the-moon.jpg",
+			"https://blokt.com/wp-content/uploads/2019/02/Rocket-launch-to-moon-as-a-Bitcoin-price-increase-concept.-The-elements-of-this-image-furnished-by-NASA-Image.jpg",
+		}
+
+		choice := moonURLs[rand.Intn(len(moonURLs))]
+		moonURL, _ := url.Parse(choice)
+		send(ctx, g, FORCESPAMMY, moonURL)
 	}
 }
