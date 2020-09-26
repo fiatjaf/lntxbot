@@ -60,7 +60,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "cancel="):
 		if strconv.Itoa(u.Id) != cb.Data[7:] {
-			send(ctx, cb, t.CANTCANCEL, WITHALERT)
+			send(ctx, t.CANTCANCEL, WITHALERT)
 			return
 		}
 		removeKeyboardButtons(ctx)
@@ -145,7 +145,9 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			return
 		}
 
-		removeKeyboardButtons(ctx)
+		go removeKeyboardButtons(ctx)
+
+		// announce to receiver
 		send(ctx, claimer, t.USERSENTYOUSATS, t.T{
 			"User":    giver.AtName(ctx),
 			"Sats":    sats,
@@ -153,6 +155,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			"BotOp":   "/giveaway",
 		})
 
+		// announce to giver
 		send(ctx, giver, t.USERSENTTOUSER, t.T{
 			"User":              claimer.AtName(ctx),
 			"Sats":              sats,
@@ -160,16 +163,30 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			"ReceiverHasNoChat": false,
 		})
 
+		var editAction MessageModifier
 		if imessage := ctx.Value("message"); imessage != nil {
+			editAction = APPEND
 			message := imessage.(*tgbotapi.Message)
-			send(ctx, message.Chat.ID, FORCESPAMMY, t.GIVEAWAYSATSGIVENPUBLIC, t.T{
-				"From":             giver.AtName(ctx),
-				"To":               claimer.AtName(ctx),
-				"Sats":             sats,
-				"ClaimerHasNoChat": claimer.TelegramChatId == 0,
-				"BotName":          s.ServiceId,
-			}, message.MessageID)
+
+			// announce publicly
+			send(ctx, message.Chat.ID, t.USERSENTTOUSER, t.T{
+				"User":              claimer.AtName(ctx),
+				"Sats":              sats,
+				"RawSats":           "",
+				"ReceiverHasNoChat": false,
+			}, message.MessageID, FORCESPAMMY)
+		} else {
+			editAction = EDIT
 		}
+
+		// edit original message
+		send(ctx, t.SATSGIVENPUBLIC, t.T{
+			"From":             giver.AtName(ctx),
+			"To":               claimer.AtName(ctx),
+			"Sats":             sats,
+			"ClaimerHasNoChat": claimer.TelegramChatId == 0,
+			"BotName":          s.ServiceId,
+		}, ctx.Value("message"), editAction)
 
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "flip="):
@@ -214,14 +231,16 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		if isMember, err := rds.SIsMember(rkey, joiner.Id).Result(); err != nil || isMember {
+		isMember, err := rds.SIsMember(rkey, joiner.Id).Result()
+		if err != nil || isMember {
 			// can't join twice
 			send(ctx, t.CANTJOINTWICE, WITHALERT)
 			return
 		}
 
 		if err := rds.SAdd("coinflip:"+coinflipid, joiner.Id).Err(); err != nil {
-			log.Warn().Err(err).Str("coinflip", coinflipid).Msg("error adding participant to coinflip.")
+			log.Warn().Err(err).Str("coinflip", coinflipid).
+				Msg("error adding participant to coinflip.")
 			goto answerEmpty
 		}
 
@@ -470,7 +489,8 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		ngivers, err2 := strconv.Atoi(params[1])
 		sats, err3 := strconv.Atoi(params[2])
 		if err1 != nil || err2 != nil || err3 != nil {
-			log.Warn().Err(err1).Err(err2).Err(err3).Msg("error parsing params on fundraise")
+			log.Warn().Err(err1).Err(err2).Err(err3).
+				Msg("error parsing params on fundraise")
 			removeKeyboardButtons(ctx)
 			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}, APPEND)
 			goto answerEmpty

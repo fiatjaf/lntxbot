@@ -28,9 +28,71 @@ func (g *GroupChat) String() string {
 	return fmt.Sprintf("%d", g.TelegramId)
 }
 
+var spammy_cache = cmap.New()
+
+func (g GroupChat) toggleSpammy() (spammy bool, err error) {
+	err = pg.Get(&spammy, `
+UPDATE groupchat AS g SET spammy = NOT g.spammy
+WHERE telegram_id = $1
+RETURNING spammy
+    `, g.TelegramId)
+
+	spammy_cache.Set(strconv.FormatInt(g.TelegramId, 10), spammy)
+	return
+}
+
+func (g GroupChat) toggleCoinflips() (enabled bool, err error) {
+	err = pg.Get(&enabled, `
+UPDATE groupchat AS g SET coinflips = NOT g.coinflips
+WHERE telegram_id = $1
+RETURNING coinflips
+    `, g.TelegramId)
+	return
+}
+
+func (g GroupChat) areCoinflipsEnabled() (enabled bool) {
+	err := pg.Get(&enabled,
+		"SELECT coinflips FROM groupchat WHERE telegram_id = $1", g.TelegramId)
+	if err != nil {
+		return true
+	}
+	return
+}
+
+func (g GroupChat) setTicketPrice(sat int) (err error) {
+	_, err = pg.Exec(`
+UPDATE groupchat SET ticket = $2
+WHERE telegram_id = $1
+    `, g.TelegramId, sat)
+	return
+}
+
+func (g GroupChat) setRenamablePrice(sat int) (err error) {
+	_, err = pg.Exec(`
+UPDATE groupchat SET renamable = $2
+WHERE telegram_id = $1
+    `, g.TelegramId, sat)
+	return
+}
+
+func (g GroupChat) isSpammy() (spammy bool) {
+	if spammy, ok := spammy_cache.Get(strconv.FormatInt(g.TelegramId, 10)); ok {
+		return spammy.(bool)
+	}
+
+	err := pg.Get(&spammy,
+		"SELECT spammy FROM groupchat WHERE telegram_id = $1", g.TelegramId)
+	if err != nil {
+		return false
+	}
+
+	spammy_cache.Set(strconv.FormatInt(g.TelegramId, 10), spammy)
+	return
+}
+
 func ensureGroup(telegramId int64, locale string) (g GroupChat, err error) {
 	err = pg.Get(&g, `
-INSERT INTO telegram.chat AS g (telegram_id, locale)
+INSERT INTO groupchat AS g (telegram_id, locale)
 VALUES (
   $1,
   CASE WHEN $2 != '' THEN $2 ELSE 'en' END
@@ -39,73 +101,13 @@ ON CONFLICT (telegram_id)
   DO UPDATE
     SET locale = CASE WHEN $2 != '' THEN $2 ELSE g.locale END
   RETURNING `+GROUPCHATFIELDS+`
-    `, -telegramId, locale)
+    `, telegramId, locale)
 	return
 }
 
 func loadGroup(telegramId int64) (g GroupChat, err error) {
-	err = pg.Get(&g, "SELECT "+GROUPCHATFIELDS+" FROM telegram.chat WHERE telegram_id = $1", -telegramId)
-	return
-}
-
-var spammy_cache = cmap.New()
-
-func toggleSpammy(telegramId int64) (spammy bool, err error) {
-	err = pg.Get(&spammy, `
-UPDATE telegram.chat AS g SET spammy = NOT g.spammy
-WHERE telegram_id = $1
-RETURNING spammy
-    `, -telegramId)
-
-	spammy_cache.Set(strconv.FormatInt(-telegramId, 10), spammy)
-
-	return
-}
-
-func isSpammy(telegramId int64) (spammy bool) {
-	if spammy, ok := spammy_cache.Get(strconv.FormatInt(-telegramId, 10)); ok {
-		return spammy.(bool)
-	}
-
-	err := pg.Get(&spammy, "SELECT spammy FROM telegram.chat WHERE telegram_id = $1", -telegramId)
-	if err != nil {
-		return false
-	}
-
-	spammy_cache.Set(strconv.FormatInt(-telegramId, 10), spammy)
-	return
-}
-
-func toggleCoinflips(telegramId int64) (enabled bool, err error) {
-	err = pg.Get(&enabled, `
-UPDATE telegram.chat AS g SET coinflips = NOT g.coinflips
-WHERE telegram_id = $1
-RETURNING coinflips
-    `, -telegramId)
-	return
-}
-
-func areCoinflipsEnabled(telegramId int64) (enabled bool) {
-	err := pg.Get(&enabled, "SELECT coinflips FROM telegram.chat WHERE telegram_id = $1", -telegramId)
-	if err != nil {
-		return true
-	}
-	return
-}
-
-func setTicketPrice(telegramId int64, sat int) (err error) {
-	_, err = pg.Exec(`
-UPDATE telegram.chat SET ticket = $2
-WHERE telegram_id = $1
-    `, -telegramId, sat)
-	return
-}
-
-func setRenamablePrice(telegramId int64, sat int) (err error) {
-	_, err = pg.Exec(`
-UPDATE telegram.chat SET renamable = $2
-WHERE telegram_id = $1
-    `, -telegramId, sat)
+	err = pg.Get(&g,
+		"SELECT "+GROUPCHATFIELDS+" FROM groupchat WHERE telegram_id = $1", telegramId)
 	return
 }
 
@@ -119,9 +121,8 @@ func setLanguage(chatId int64, lang string) (err error) {
 	id := chatId
 	taint := ", manual_locale = true"
 	if chatId < 0 {
-		table = "telegram.chat"
+		table = "groupchat"
 		field = "telegram_id"
-		id = -chatId
 		taint = ""
 	}
 

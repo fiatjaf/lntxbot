@@ -560,7 +560,7 @@ func (u User) sendInternally(
 	hash string,
 	tag string,
 ) error {
-	if target.Id == u.Id || target.Username == u.Username || target.TelegramId == u.TelegramId {
+	if target.Id == u.Id {
 		return errors.New("Can't pay yourself.")
 	}
 

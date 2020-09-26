@@ -136,7 +136,7 @@ lnurl-auth успех!
 
 /giveaway_1000: как только кто-либо нажмёт 'Получить' 1000 сатоши будут переведены кликеру.
     `,
-	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} сат подарены от {{.From}} пользователю {{.To}}.{{if .ClaimerHasNoChat}} Для управления своими сатоши, начните диалог с @{{.BotName}}.{{end}}",
+	SATSGIVENPUBLIC: "{{.Sats}} сат подарены от {{.From}} пользователю {{.To}}.{{if .ClaimerHasNoChat}} Для управления своими сатоши, начните диалог с @{{.BotName}}.{{end}}",
 	CLAIMFAILED:             "Ошибка запроса {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:           "Получить",
 	GIVEAWAYMSG:             "{{.User}} раздаёт {{.Sats}} сат!",

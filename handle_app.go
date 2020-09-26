@@ -568,7 +568,7 @@ func handleExternalAppCallback(ctx context.Context) (answer string) {
 
 			phone := parts[3]
 
-			send(ctx, cb, item.Name, APPEND)
+			send(ctx, item.Name, APPEND)
 			handleBitrefillItem(ctx, item, phone)
 		case "pl":
 			removeKeyboardButtons(ctx)
@@ -588,7 +588,7 @@ func handleExternalAppCallback(ctx context.Context) (answer string) {
 				return
 			}
 			pack = packages[idx]
-			send(ctx, cb, fmt.Sprintf("%v %s", pack.Value, item.Currency), APPEND)
+			send(ctx, fmt.Sprintf("%v %s", pack.Value, item.Currency), APPEND)
 
 			phone := parts[4]
 			handleProcessBitrefillOrder(ctx, item, pack, &phone)
@@ -611,13 +611,12 @@ func handleExternalAppCallback(ctx context.Context) (answer string) {
 				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
-
 			go u.track("bitclouds create-finish", map[string]interface{}{"image": image})
 
-			send(ctx, cb, image, APPEND)
+			send(ctx, image, APPEND)
 		case "status":
 			host := unescapeBitcloudsHost(parts[2])
-			send(ctx, cb, host, APPEND)
+			send(ctx, host, APPEND)
 			showBitcloudStatus(ctx, host)
 		default: // sats to topup
 			sats, err := strconv.Atoi(parts[1])
@@ -626,7 +625,7 @@ func handleExternalAppCallback(ctx context.Context) (answer string) {
 				send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
 				return
 			}
-			send(ctx, cb, host, APPEND)
+			send(ctx, host, APPEND)
 			topupBitcloud(ctx, host, sats)
 
 			go u.track("bitclouds topup", map[string]interface{}{"host": host})

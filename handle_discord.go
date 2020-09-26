@@ -125,7 +125,6 @@ parsed:
 		// receive payment notifications and so on, as not all people will
 		// remember to call /start
 		u.setChannel(message.ChannelID)
-		// g.TelegramId = -g.TelegramId // because we invert when sending a message
 
 	} else {
 		// when we're in a group, load the group

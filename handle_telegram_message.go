@@ -60,7 +60,6 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		// receive payment notifications and so on, as not all people will
 		// remember to call /start
 		u.setChat(message.Chat.ID)
-		g.TelegramId = -g.TelegramId // because we invert when sending a message
 	} else {
 		// when we're in a group, load the group
 		loadedGroup, err := loadGroup(message.Chat.ID)
@@ -188,7 +187,7 @@ parsed:
 	case opts["log"].(bool):
 		go handleLogView(ctx, opts)
 	case opts["send"].(bool), opts["tip"].(bool):
-		ctx = context.WithValue(ctx, "spammy", isSpammy(g.TelegramId))
+		ctx = context.WithValue(ctx, "spammy", g.isSpammy())
 
 		// sending money to others
 		var (
@@ -204,14 +203,15 @@ parsed:
 		satsraw := opts["<satoshis>"].(string)
 
 		if err != nil || sats <= 0 {
-			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, g, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		} else {
 			usernameval = opts["<receiver>"]
 		}
 
 		anonymous := false
-		if opts["anonymously"].(bool) || opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
+		if opts["anonymously"].(bool) ||
+			opts["--anonymous"].(bool) || opts["sendanonymously"].(bool) {
 			anonymous = true
 		}
 
@@ -235,7 +235,7 @@ parsed:
 				reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
 			receiver = &rec
 			if err != nil {
-				send(ctx, u, t.SAVERECEIVERFAIL)
+				send(ctx, g, u, t.SAVERECEIVERFAIL)
 				log.Warn().Err(err).Int("case", cas).
 					Str("username", reply.From.UserName).
 					Int("id", reply.From.ID).
@@ -255,7 +255,7 @@ parsed:
 				log.Warn().Err(err).Interface("val", usernameval).
 					Msg("error parsing username")
 			}
-			send(ctx, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
+			send(ctx, g, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
 			break
 		}
 
@@ -274,11 +274,21 @@ parsed:
 				Str("from", u.Username).
 				Str("to", todisplayname).
 				Msg("failed to send/tip")
-			send(ctx, u, t.FAILEDSEND, t.T{"Err": err.Error()})
+			send(ctx, g, u, t.FAILEDSEND, t.T{"Err": err.Error()})
 			break
 		}
 
+		// notify sender -- if spammy == true this will be sent in the group
+		send(ctx, g, u, t.USERSENTTOUSER, t.T{
+			"User":              todisplayname,
+			"Sats":              sats,
+			"RawSats":           satsraw,
+			"ReceiverHasNoChat": receiver.TelegramChatId == 0,
+		})
+
+		// notify receiver
 		if receiver.TelegramChatId != 0 {
+			// if possible, privately
 			if anonymous {
 				send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
 			} else {
@@ -288,18 +298,16 @@ parsed:
 					"RawSats": satsraw,
 				})
 			}
+		} else {
+			// if the receiver doesn't have a chat, always notify in the group
+			send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
+				"From":             u.AtName(ctx),
+				"To":               receiver.AtName(ctx),
+				"Sats":             sats,
+				"ClaimerHasNoChat": true,
+				"BotName":          s.ServiceId,
+			}, message.MessageID, FORCESPAMMY)
 		}
-
-		var maybeForceSpammy interface{}
-		if receiver.TelegramChatId == 0 {
-			maybeForceSpammy = FORCESPAMMY
-		}
-
-		send(ctx, u, t.USERSENTTOUSER, t.T{
-			"User":    todisplayname,
-			"Sats":    sats,
-			"RawSats": satsraw,
-		}, message.MessageID, maybeForceSpammy)
 
 		go u.track("send", map[string]interface{}{
 			"group":     group,
@@ -377,7 +385,7 @@ parsed:
 		})
 		break
 	case opts["coinflip"].(bool), opts["lottery"].(bool):
-		enabled := areCoinflipsEnabled(message.Chat.ID)
+		enabled := g.areCoinflipsEnabled()
 		if !enabled {
 			forwardMessage(message, u.TelegramChatId)
 			deleteMessage(message)
@@ -612,7 +620,7 @@ parsed:
 
 			var price int
 			pg.Get(&price,
-				"SELECT renamable FROM telegram.chat WHERE telegram_id = $1",
+				"SELECT renamable FROM groupchat WHERE telegram_id = $1",
 				-message.Chat.ID)
 			if price == 0 {
 				send(ctx, g, t.GROUPNOTRENAMABLE)
@@ -685,7 +693,7 @@ parsed:
 				log.Info().Int64("group", message.Chat.ID).Msg("toggling ticket")
 				price, err := opts.Int("<price>")
 				if err != nil {
-					setTicketPrice(message.Chat.ID, 0)
+					g.setTicketPrice(0)
 					send(ctx, g, t.FREEJOIN)
 				}
 
@@ -694,7 +702,7 @@ parsed:
 					"sats":  price,
 				})
 
-				setTicketPrice(message.Chat.ID, price)
+				g.setTicketPrice(price)
 				if price > 0 {
 					send(ctx, g, t.TICKETMSG, FORCESPAMMY, t.T{
 						"Sat":     price,
@@ -705,7 +713,7 @@ parsed:
 				log.Info().Int64("group", message.Chat.ID).Msg("toggling renamable")
 				price, err := opts.Int("<price>")
 				if err != nil {
-					setTicketPrice(message.Chat.ID, 0)
+					g.setTicketPrice(0)
 					send(ctx, g, t.FREEJOIN)
 				}
 
@@ -714,7 +722,7 @@ parsed:
 					"sats":  price,
 				})
 
-				setRenamablePrice(message.Chat.ID, price)
+				g.setRenamablePrice(price)
 				if price > 0 {
 					send(ctx, g, t.RENAMABLEMSG, FORCESPAMMY, t.T{
 						"Sat":     price,
@@ -723,7 +731,7 @@ parsed:
 				}
 			case opts["spammy"].(bool):
 				log.Debug().Int64("group", message.Chat.ID).Msg("toggling spammy")
-				spammy, err := toggleSpammy(message.Chat.ID)
+				spammy, err := g.toggleSpammy()
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to toggle spammy")
 					send(ctx, g, t.ERROR, t.T{"Err": err.Error()})
@@ -738,7 +746,7 @@ parsed:
 				send(ctx, g, t.SPAMMYMSG, FORCESPAMMY, t.T{"Spammy": spammy})
 			case opts["coinflips"].(bool):
 				log.Debug().Int64("group", message.Chat.ID).Msg("toggling coinflips")
-				enabled, err := toggleCoinflips(message.Chat.ID)
+				enabled, err := g.toggleCoinflips()
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to toggle coinflips")
 					send(ctx, g, t.ERROR, t.T{"Err": err.Error()})

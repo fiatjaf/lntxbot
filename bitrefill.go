@@ -344,7 +344,8 @@ func purchaseBitrefillOrder(ctx context.Context, orderId string) error {
 			var data BitrefillData
 			err := user.getAppData("bitrefill", &data)
 			if err != nil {
-				send(ctx, u, t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
+				send(ctx, u, t.BITREFILLFAILEDSAVE,
+					t.T{"OrderId": orderId, "Err": err.Error()})
 				return
 			}
 			data.PaidOrders = append(data.PaidOrders, orderId)
@@ -356,7 +357,8 @@ func purchaseBitrefillOrder(ctx context.Context, orderId string) error {
 
 			err = user.setAppData("bitrefill", data)
 			if err != nil {
-				send(ctx, u, t.BITREFILLFAILEDSAVE, t.T{"OrderId": orderId, "Err": err.Error()})
+				send(ctx, u, t.BITREFILLFAILEDSAVE,
+					t.T{"OrderId": orderId, "Err": err.Error()})
 				return
 			}
 
@@ -405,17 +407,21 @@ func pollBitrefillOrder(ctx context.Context, orderId string, countdown int) {
 	// got a valid response
 	if orderinfo.ErrorType != "" {
 		// but it can still contain an error
-		log.Warn().Str("type", orderinfo.ErrorType).Str("id", orderId).Str("message", orderinfo.ErrorMessage).
+		log.Warn().Str("type", orderinfo.ErrorType).
+			Str("id", orderId).Str("message", orderinfo.ErrorMessage).
 			Msg("bitrefill purchase failed")
-		send(ctx, t.BITREFILLPURCHASEFAILED, t.T{"ErrorMessage": orderinfo.ErrorMessage})
+		send(ctx, ctx.Value("initiator"), t.BITREFILLPURCHASEFAILED,
+			t.T{"ErrorMessage": orderinfo.ErrorMessage})
 		return
 	} else if orderinfo.Delivered {
 		// no, it's a success!
-		send(ctx, t.BITREFILLPURCHASEDONE, t.T{"OrderId": orderId, "Info": orderinfo})
+		send(ctx, ctx.Value("initiator"), t.BITREFILLPURCHASEDONE,
+			t.T{"OrderId": orderId, "Info": orderinfo})
 		return
 	} else if orderinfo.PaymentReceived == false {
 		// should never happen
-		log.Error().Str("id", orderId).Msg("polling unpaid bitrefill order, this shouldn't happen")
+		log.Error().Str("id", orderId).
+			Msg("polling unpaid bitrefill order, this shouldn't happen")
 		return
 	}
 

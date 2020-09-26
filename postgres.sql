@@ -1,4 +1,3 @@
-CREATE SCHEMA telegram;
 CREATE SCHEMA lightning;
 
 CREATE TABLE account (
@@ -18,7 +17,7 @@ CREATE TABLE account (
   appdata jsonb NOT NULL DEFAULT '{}' -- data for all apps this user have, as a map of {"appname": {anything}}
 );
 
-CREATE TABLE telegram.chat (
+CREATE TABLE groupchat (
   telegram_id bigint PRIMARY KEY,
   locale text NOT NULL DEFAULT 'en',
   spammy boolean NOT NULL DEFAULT false,

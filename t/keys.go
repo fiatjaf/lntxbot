@@ -85,7 +85,7 @@ const (
 	GIVEAWAYHELP            Key = "giveawayHelp"
 	GIVEAWAYMSG             Key = "GiveAwayMsg"
 	GIVEAWAYCLAIM           Key = "GiveAwayClaim"
-	GIVEAWAYSATSGIVENPUBLIC Key = "GiveawaySatsGivenPublic"
+	SATSGIVENPUBLIC Key = "GiveawaySatsGivenPublic"
 
 	COINFLIPHELP      Key = "coinflipHelp"
 	COINFLIPWINNERMSG Key = "CoinflipWinnerMsg"

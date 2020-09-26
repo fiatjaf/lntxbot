@@ -74,7 +74,8 @@ func createBitcloudImage(ctx context.Context, image string) (err error) {
 				for i := 0; i < 25; i++ {
 					status, err := getBitcloudStatus(create.Host)
 					if err != nil {
-						send(ctx, u, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()}, ctx.Value("message"))
+						send(ctx, u, t.ERROR, ctx.Value("message"),
+							t.T{"App": "bitclouds", "Err": err.Error()})
 						return
 					}
 
@@ -187,10 +188,11 @@ func topupBitcloud(ctx context.Context, host string, sats int) error {
 func showBitcloudStatus(ctx context.Context, host string) {
 	status, err := getBitcloudStatus(host)
 	if err != nil {
-		send(ctx, t.ERROR, t.T{"App": "bitclouds", "Err": err.Error()})
+		send(ctx, ctx.Value("initiator"), t.ERROR,
+			t.T{"App": "bitclouds", "Err": err.Error()})
 	}
 
-	send(ctx, t.BITCLOUDSSTATUS, t.T{
+	send(ctx, ctx.Value("initiator"), t.BITCLOUDSSTATUS, t.T{
 		"Host":        host,
 		"EscapedHost": escapeBitcloudsHost(host),
 		"Status":      status,

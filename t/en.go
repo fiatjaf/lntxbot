@@ -138,7 +138,7 @@ Lists all your transactions with pagination controls. Each transaction has a lin
 
 /giveaway_1000: once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
     `,
-	GIVEAWAYSATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
+	SATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
 	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:           "Claim",
 	GIVEAWAYMSG:             "{{.User}} is giving {{.Sats}} sat away!",

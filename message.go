@@ -95,6 +95,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			mustSendAnActualMessage = true
 		case int64:
 			chatId = thing
+			mustSendAnActualMessage = true
 		case t.Key:
 			template = thing
 		case t.T:
@@ -190,7 +191,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// determine if we're going to send to the group or in private
 	var groupId = chatId // may be zero if not given
 	if group != nil {
-		groupId = -group.TelegramId
+		groupId = group.TelegramId
 	}
 	var useGroup = (spammy && groupId != 0) || (groupId != 0 && target == nil)
 
