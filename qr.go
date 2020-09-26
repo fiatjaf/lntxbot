@@ -19,9 +19,15 @@ import (
 func serveQRCodes() {
 	router.PathPrefix("/qr/").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			value := r.URL.Path[3:]
-			d, err := base64.StdEncoding.DecodeString(value)
-			if err == nil {
+			value := r.URL.Path[4:]
+
+			if strings.HasPrefix(value, "base64,") {
+				d, err := base64.StdEncoding.DecodeString(value[7:])
+				if err != nil {
+					log.Warn().Err(err).Str("value", value).Msg("failed to decode b64")
+					http.Error(w, "failed to decode base64 data for qr", 400)
+					return
+				}
 				value = string(d)
 			}
 
@@ -29,7 +35,7 @@ func serveQRCodes() {
 				value = strings.ToUpper(value)
 			}
 
-			qr, err := qrcode.New(value, qrcode.Medium)
+			qr, err := qrcode.New(value, qrcode.Low)
 			if err != nil {
 				log.Warn().Err(err).Str("value", value).Msg("failed to encode qr")
 				http.Error(w, "failed to encode "+value+" as a QR code.", 400)
@@ -49,7 +55,7 @@ func serveQRCodes() {
 
 func qrURL(value string) *url.URL {
 	if strings.Index(value, "/") >= 0 {
-		value = base64.StdEncoding.EncodeToString([]byte(value))
+		value = "base64," + base64.StdEncoding.EncodeToString([]byte(value))
 	}
 	u, _ := url.Parse(s.ServiceURL + "/qr/" + value)
 	return u
