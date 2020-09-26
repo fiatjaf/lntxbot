@@ -87,8 +87,11 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			"inline": true,
 		})
 		goto responded
-	case "giveaway":
-		if len(argv) != 2 {
+	case "give", "giveaway":
+		if len(argv) != 2 && len(argv) != 3 {
+			goto answerEmpty
+		}
+		if len(argv) == 3 && command == "giveaway" {
 			goto answerEmpty
 		}
 
@@ -96,24 +99,38 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		if sats, err = strconv.Atoi(argv[1]); err != nil {
 			break
 		}
-		if !u.checkBalanceFor(ctx, sats, "giveaway") {
+		if !u.checkBalanceFor(ctx, sats, command) {
 			break
 		}
 
-		go u.track("giveaway created", map[string]interface{}{
-			"sats":   sats,
-			"inline": true,
+		var recv string
+		if len(argv) == 3 {
+			recv = argv[2]
+			recv = strings.TrimSpace(recv)
+			recv = strings.ToLower(recv)
+			recv = strings.TrimPrefix(recv, "@")
+		}
+
+		go u.track(command+" created", map[string]interface{}{
+			"sats":     sats,
+			"inline":   true,
+			"receiver": recv,
 		})
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
-			fmt.Sprintf("give-%d-%d", u.Id, sats),
-			translateTemplate(ctx, t.INLINEGIVEAWAYRESULT, t.T{"Sats": sats}),
+			fmt.Sprintf("gv-%d-%d-%s", u.Id, sats, recv),
+			translateTemplate(ctx, t.INLINEGIVEAWAYRESULT, t.T{
+				"Sats":     sats,
+				"Receiver": recv,
+			}),
 			translateTemplate(ctx, t.GIVEAWAYMSG, t.T{
-				"User": u.AtName(ctx),
-				"Sats": sats,
+				"User":     u.AtName(ctx),
+				"Sats":     sats,
+				"Receiver": recv,
+				"Away":     command == "giveaway",
 			}),
 		)
-		result.ReplyMarkup = giveawayKeyboard(ctx, u.Id, sats)
+		result.ReplyMarkup = giveawayKeyboard(ctx, u.Id, sats, recv)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,

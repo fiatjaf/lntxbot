@@ -182,30 +182,10 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 }
 
 // giveaway
-func giveawayKeyboard(
-	ctx context.Context,
-	giverId,
-	sats int,
-) *tgbotapi.InlineKeyboardMarkup {
-	giveawayid := cuid.Slug()
-	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
-
-	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
-
-	return &tgbotapi.InlineKeyboardMarkup{
-		[][]tgbotapi.InlineKeyboardButton{
-			{
-				tgbotapi.NewInlineKeyboardButtonData(
-					translate(ctx, t.CANCEL),
-					fmt.Sprintf("cancel=%d", giverId),
-				),
-				tgbotapi.NewInlineKeyboardButtonData(
-					translate(ctx, t.GIVEAWAYCLAIM),
-					buttonData,
-				),
-			},
-		},
-	}
+type GiveAwayData struct {
+	FromId     int
+	Sats       int
+	ToSpecific string
 }
 
 func canJoinGiveaway(joinerId int) bool {
@@ -230,6 +210,75 @@ WHERE account_id = $1
 	periodQuota := s.GiveawayDailyQuota * s.GiveawayAvgDays
 
 	return ngiveawaysjoined < periodQuota
+}
+
+func giveawayKeyboard(
+	ctx context.Context,
+	giverId int,
+	sats int,
+	receiverName string,
+) *tgbotapi.InlineKeyboardMarkup {
+	giveawayid := cuid.Slug()
+
+	buttonData := fmt.Sprintf("give=%s", giveawayid)
+	saveGiveawayData(giveawayid, giverId, sats, receiverName)
+
+	return &tgbotapi.InlineKeyboardMarkup{
+		[][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(ctx, t.CANCEL),
+					fmt.Sprintf("cancel=%d", giverId),
+				),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(ctx, t.GIVEAWAYCLAIM),
+					buttonData,
+				),
+			},
+		},
+	}
+}
+
+func saveGiveawayData(giveId string, from int, sats int, to string) {
+	jdata, _ := json.Marshal(GiveAwayData{
+		FromId:     from,
+		Sats:       sats,
+		ToSpecific: to,
+	})
+	rds.Set("giveaway:"+giveId, string(jdata), s.GiveAwayTimeout)
+}
+
+func getGiveawayData(giveId string) (from User, to User, sats int, err error) {
+	jdata, _ := rds.Eval(`
+local giveid = KEYS[1]
+local result = redis.call("get", giveid)
+redis.call("del", giveid)
+return result
+    `, []string{"giveaway:" + giveId}).Val().(string)
+
+	var data GiveAwayData
+	err = json.Unmarshal([]byte(jdata), &data)
+	if err != nil {
+		return
+	}
+
+	from, err = loadUser(data.FromId)
+	if err != nil {
+		log.Warn().Err(err).Int("id", data.FromId).Msg("failed to load user on giveaway")
+		return
+	}
+
+	if data.ToSpecific != "" {
+		to, err = loadTelegramUsername(data.ToSpecific)
+		if err != nil {
+			log.Warn().Err(err).Str("username", data.ToSpecific).
+				Msg("failed to load giveaway specific receiver")
+			return
+		}
+	}
+
+	sats = data.Sats
+	return
 }
 
 // giveflip

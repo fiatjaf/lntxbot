@@ -209,7 +209,7 @@ parsed:
 		send(ctx, g, FORCESPAMMY, t.GIVEAWAYMSG, t.T{
 			"User": u.AtName(ctx),
 			"Sats": sats,
-		}, giveawayKeyboard(ctx, u.Id, sats))
+		}, giveawayKeyboard(ctx, u.Id, sats, ""))
 
 		go u.track("giveaway created", map[string]interface{}{
 			"group": groupId,

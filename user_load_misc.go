@@ -64,6 +64,15 @@ WHERE id = $1
 	return
 }
 
+func loadTelegramUsername(username string) (u User, err error) {
+	err = pg.Get(&u, `
+SELECT `+USERFIELDS+`
+FROM account
+WHERE telegram_username = $1
+    `, username)
+	return
+}
+
 func loadTelegramUser(telegramId int) (u User, err error) {
 	err = pg.Get(&u, `
 SELECT `+USERFIELDS+`

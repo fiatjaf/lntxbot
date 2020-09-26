@@ -24,7 +24,7 @@ var RU = map[Key]string{
 	CALLBACKSENDING: "Отправляю платёж.",
 
 	INLINEINVOICERESULT:  "Счёт на {{.Sats}} сат.",
-	INLINEGIVEAWAYRESULT: "Раздать {{.Sats}} сат",
+	INLINEGIVEAWAYRESULT: "дайте {{.Sats}} сат {{if .Receiver}}@{{.Receiver}}{{else}}кому угодно{{end}}",
 	INLINEGIVEFLIPRESULT: "Раздаёт {{.Sats}} сат одному из {{.MaxPlayers}} участников",
 	INLINECOINFLIPRESULT: "Лотерея с входным платежом {{.Sats}} сат для {{.MaxPlayers}} участников",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}собрать:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}прив:{{.Message.Times}}{{else if .Message.Public}}пуб{{else}}прив{{end}}): {{.Message.Content}}",
@@ -137,9 +137,9 @@ lnurl-auth успех!
 /giveaway_1000: как только кто-либо нажмёт 'Получить' 1000 сатоши будут переведены кликеру.
     `,
 	SATSGIVENPUBLIC: "{{.Sats}} сат подарены от {{.From}} пользователю {{.To}}.{{if .ClaimerHasNoChat}} Для управления своими сатоши, начните диалог с @{{.BotName}}.{{end}}",
-	CLAIMFAILED:             "Ошибка запроса {{.BotOp}}: {{.Err}}",
-	GIVEAWAYCLAIM:           "Получить",
-	GIVEAWAYMSG:             "{{.User}} раздаёт {{.Sats}} сат!",
+	CLAIMFAILED:     "Ошибка запроса {{.BotOp}}: {{.Err}}",
+	GIVEAWAYCLAIM:   "Получить",
+	GIVEAWAYMSG:     "{{.User}} {{if .Away}}раздаёт{{else if .Receiver}}@{{.Receiver}}{{else}}тебе{{end}} {{.Sats}} сат!",
 
 	COINFLIPHELP: `Запускает честную лотерею подбрасывания монетки с указанным количеством участников. Все платят одинаковую стоимость входа. Победитель получает всё. Токены перемещаются только в тот момент, когда запускается лотерея.
 

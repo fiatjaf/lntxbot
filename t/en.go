@@ -24,7 +24,7 @@ var EN = map[Key]string{
 	CALLBACKSENDING: "Sending payment.",
 
 	INLINEINVOICERESULT:  "Payment request for {{.Sats}} sat.",
-	INLINEGIVEAWAYRESULT: "Give {{.Sats}} away",
+	INLINEGIVEAWAYRESULT: "Give {{.Sats}} sat {{if .Receiver}}to @{{.Receiver}}{{else}}away{{end}}",
 	INLINEGIVEFLIPRESULT: "Give away {{.Sats}} sat to one out of {{.MaxPlayers}} participants",
 	INLINECOINFLIPRESULT: "Lottery with entry fee of {{.Sats}} sat for {{.MaxPlayers}} participants",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
@@ -139,9 +139,9 @@ Lists all your transactions with pagination controls. Each transaction has a lin
 /giveaway_1000: once someone clicks the 'Claim' button 1000 satoshis will be transferred from you to them.
     `,
 	SATSGIVENPUBLIC: "{{.Sats}} sat given from {{.From}} to {{.To}}.{{if .ClaimerHasNoChat}} To manage your funds, start a conversation with @{{.BotName}}.{{end}}",
-	CLAIMFAILED:             "Failed to claim {{.BotOp}}: {{.Err}}",
-	GIVEAWAYCLAIM:           "Claim",
-	GIVEAWAYMSG:             "{{.User}} is giving {{.Sats}} sat away!",
+	CLAIMFAILED:     "Failed to claim {{.BotOp}}: {{.Err}}",
+	GIVEAWAYCLAIM:   "Claim",
+	GIVEAWAYMSG:     "{{.User}} is giving {{if .Away}}away{{else if .Receiver}}@{{.Receiver}}{{else}}you{{end}} {{.Sats}} sats!",
 
 	COINFLIPHELP: `Starts a fair lottery with the given number of participants. Everybody pay the same amount as the entry fee. The winner gets it all. Funds are only moved from participants accounts when the lottery is actualized.
 

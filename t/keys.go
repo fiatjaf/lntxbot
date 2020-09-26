@@ -82,9 +82,9 @@ const (
 
 	BALANCEHELP Key = "balanceHelp"
 
-	GIVEAWAYHELP            Key = "giveawayHelp"
-	GIVEAWAYMSG             Key = "GiveAwayMsg"
-	GIVEAWAYCLAIM           Key = "GiveAwayClaim"
+	GIVEAWAYHELP    Key = "giveawayHelp"
+	GIVEAWAYMSG     Key = "GiveAwayMsg"
+	GIVEAWAYCLAIM   Key = "GiveAwayClaim"
 	SATSGIVENPUBLIC Key = "GiveawaySatsGivenPublic"
 
 	COINFLIPHELP      Key = "coinflipHelp"

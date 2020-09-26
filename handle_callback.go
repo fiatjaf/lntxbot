@@ -88,49 +88,28 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 		return
 	case strings.HasPrefix(cb.Data, "give="):
-		params := strings.Split(cb.Data[5:], "-")
-		if len(params) != 3 {
-			goto answerEmpty
-		}
-
-		giveId := params[2]
-		buttonData := rds.Get("giveaway:" + giveId).Val()
-		if buttonData != cb.Data {
+		giveId := cb.Data[5:]
+		from, to, sats, err := getGiveawayData(giveId)
+		if err != nil {
 			removeKeyboardButtons(ctx)
 			send(ctx, t.CALLBACKEXPIRED, t.T{"BotOp": "Giveaway"}, APPEND)
 			goto answerEmpty
 		}
-		if err = rds.Del("giveaway:" + giveId).Err(); err != nil {
-			log.Warn().Err(err).Str("id", giveId).
-				Msg("error deleting giveaway check from redis")
-			removeKeyboardButtons(ctx)
-			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveaway"}, APPEND)
-			goto answerEmpty
-		}
 
-		fromid, err1 := strconv.Atoi(params[0])
-		sats, err2 := strconv.Atoi(params[1])
-		if err1 != nil || err2 != nil {
-			goto answerEmpty
-		}
-
-		giver, err := loadUser(fromid)
-		if err != nil {
-			log.Warn().Err(err).
-				Int("id", fromid).
-				Msg("failed to load user")
-			goto answerEmpty
-		}
-
-		go u.track("giveaway joined", map[string]interface{}{"sats": sats})
 		claimer := u
-
-		if !canJoinGiveaway(claimer.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveaway"})
+		if to.Username != "" && claimer.Username != to.Username {
+			send(ctx, t.CALLBACKERROR, WITHALERT,
+				t.T{"BotOp": "Giveaway", "Err": "You're not " + to.AtName(ctx)})
+			saveGiveawayData(giveId, from.Id, sats, to.Username)
+			return
+		} else if !canJoinGiveaway(claimer.Id) {
+			send(ctx, t.OVERQUOTA, t.T{"App": "giveaway"}, WITHALERT)
+			saveGiveawayData(giveId, from.Id, sats, to.Username)
 			return
 		}
+		go u.track("giveaway joined", map[string]interface{}{"sats": sats})
 
-		err = giver.sendInternally(
+		err = from.sendInternally(
 			ctx,
 			claimer,
 			false,
@@ -149,14 +128,14 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		// announce to receiver
 		send(ctx, claimer, t.USERSENTYOUSATS, t.T{
-			"User":    giver.AtName(ctx),
+			"User":    from.AtName(ctx),
 			"Sats":    sats,
 			"RawSats": "",
 			"BotOp":   "/giveaway",
 		})
 
 		// announce to giver
-		send(ctx, giver, t.USERSENTTOUSER, t.T{
+		send(ctx, from, t.USERSENTTOUSER, t.T{
 			"User":              claimer.AtName(ctx),
 			"Sats":              sats,
 			"RawSats":           "",
@@ -181,7 +160,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		// edit original message
 		send(ctx, t.SATSGIVENPUBLIC, t.T{
-			"From":             giver.AtName(ctx),
+			"From":             from.AtName(ctx),
 			"To":               claimer.AtName(ctx),
 			"Sats":             sats,
 			"ClaimerHasNoChat": claimer.TelegramChatId == 0,
@@ -241,6 +220,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		if err := rds.SAdd("coinflip:"+coinflipid, joiner.Id).Err(); err != nil {
 			log.Warn().Err(err).Str("coinflip", coinflipid).
 				Msg("error adding participant to coinflip.")
+			send(ctx, t.ERROR, t.T{"Err": err.Error()}, WITHALERT)
 			goto answerEmpty
 		}
 
@@ -348,7 +328,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		joiner := u
 
 		if !canJoinGiveflip(joiner.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
+			send(ctx, t.OVERQUOTA, t.T{"App": "giveflip"}, WITHALERT)
 			return
 		}
 		if joiner.Id == giverId {
