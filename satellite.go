@@ -156,7 +156,7 @@ func getSatelliteOrderToken(ctx context.Context, uuid string) (token string, ok 
 	var satdata SatelliteData
 	err = user.getAppData("satellite", &satdata)
 	if err != nil {
-		log.Error().Err(err).Str("user", user.Username).Str("uuid", uuid).
+		log.Error().Err(err).Stringer("user", &user).Str("uuid", uuid).
 			Msg("failed to load satellite data when searching for token")
 		return
 	}

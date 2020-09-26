@@ -31,10 +31,8 @@ func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
 		})
 		if err != nil ||
 			(chatmember.Status != "administrator" && chatmember.Status != "creator") {
-			log.Warn().Err(err).
-				Int64("group", chat.ID).
-				Int("user", user.ID).
-				Msg("can't get user or not an admin.")
+			log.Warn().Err(err).  Int64("group", chat.ID).
+				Int("user-tg", user.ID).  Msg("can't get user or not an admin.")
 			return false
 		}
 

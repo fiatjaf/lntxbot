@@ -102,7 +102,7 @@ func (u User) makeInvoice(
 		}
 	}
 
-	log.Debug().Str("user", u.Username).Str("desc", args.Desc).Int64("msats", msatoshi).
+	log.Debug().Stringer("user", &u).Str("desc", args.Desc).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
 	var exp *time.Duration
@@ -456,13 +456,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 					"sats":  msatoshi / 1000,
 					"payee": inv.Payee,
 				})
-				log.Warn().
-					Str("user", u.Username).
-					Int("user-id", u.Id).
-					Interface("params", params).
-					Interface("tries", tries).
-					Str("bolt11", bolt11).
-					Str("hash", hash).
+				log.Warn().Stringer("user", &u).
+					Interface("params", params).Interface("tries", tries).
+					Str("bolt11", bolt11).Str("hash", hash).
 					Msg("payment failed according to listpays")
 					// give the money back to the user
 				onFailure(ctx, u, hash)
@@ -486,12 +482,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 				"sats":  msatoshi / 1000,
 				"payee": inv.Payee,
 			})
-			log.Warn().
-				Str("user", u.Username).
-				Int("user-id", u.Id).
-				Interface("params", params).
-				Interface("tries", tries).
-				Str("hash", hash).
+			log.Warn().Stringer("user", &u).
+				Interface("params", params).Interface("tries", tries).Str("hash", hash).
 				Msg("payment wasn't even tried")
 				// give the money back to the user
 			onFailure(ctx, u, hash)
@@ -715,7 +707,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
     `, u.Id, amount, desc, hash, preimage, tagn)
 	if err != nil {
 		log.Error().Err(err).
-			Str("user", u.Username).Str("hash", hash).
+			Stringer("user", &u).Str("hash", hash).
 			Msg("failed to save payment received.")
 	}
 
@@ -775,11 +767,8 @@ SET fees = $1, preimage = $2, pending = false, tag = $4
 WHERE payment_hash = $3
     `, fees, preimage, hash, tagn)
 	if err != nil {
-		log.Error().Err(err).
-			Str("user", u.Username).
-			Str("hash", hash).
-			Float64("fees", fees).
-			Msg("failed to update transaction fees.")
+		log.Error().Err(err).Stringer("user", &u).Str("hash", hash).
+			Float64("fees", fees).Msg("failed to update transaction fees.")
 		send(ctx, u, t.DBERROR, nil, ctx.Value("message"))
 	}
 

@@ -32,7 +32,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			log.Warn().Err(err).Int("case", tcase).
 				Str("username", message.From.UserName).
 				Int("id", message.From.ID).
-				Msg("failed to ensure user")
+				Msg("failed to ensure telegram user")
 			return
 		}
 
@@ -93,8 +93,6 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		)
 	)
 
-	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got telegram message")
-
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(messageText, "/") {
@@ -112,6 +110,8 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 
 	// otherwise parse the slash command
 	opts, isCommand, err = parse(messageText)
+	log.Debug().Str("t", messageText).Stringer("user", &u).Err(err).
+		Msg("telegram message")
 	if !isCommand {
 		if message.ReplyToMessage != nil &&
 			message.ReplyToMessage.From.ID == bot.Self.ID {
@@ -126,9 +126,6 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			// only tell we don't understand commands when in a private chat
 			// because these commands we're not understanding
 			// may be targeting other bots in a group, so we're spamming people.
-			log.Debug().Err(err).Str("command", messageText).
-				Msg("failed to parse command")
-
 			method := strings.Split(messageText, " ")[0][1:]
 			handled := handleHelp(ctx, method)
 			if !handled {
@@ -661,7 +658,8 @@ parsed:
 							"lang":     lang,
 							"personal": true,
 						})
-						log.Info().Str("user", u.Username).Str("language", lang).Msg("toggling language")
+						log.Info().Stringer("user", &u).Str("language", lang).
+							Msg("toggling language")
 						err := setLanguage(u.TelegramChatId, lang)
 						if err != nil {
 							log.Warn().Err(err).Msg("failed to toggle language")
@@ -682,8 +680,7 @@ parsed:
 
 			g, err := ensureGroup(message.Chat.ID, u.Locale)
 			if err != nil {
-				log.Warn().Err(err).Str("user", u.Username).
-					Int64("group", message.Chat.ID).
+				log.Warn().Err(err).Stringer("user", &u).Int64("group", message.Chat.ID).
 					Msg("failed to ensure group")
 				return
 			}
@@ -754,14 +751,15 @@ parsed:
 				}
 
 				go u.track("toggle coinflips", map[string]interface{}{
-					"group":   message.Chat.ID,
+					"group":   groupId,
 					"enabled": enabled,
 				})
 
 				send(ctx, g, t.COINFLIPSENABLEDMSG, FORCESPAMMY, t.T{"Enabled": enabled})
 			case opts["language"].(bool):
 				if lang, err := opts.String("<lang>"); err == nil {
-					log.Info().Int64("group", message.Chat.ID).Str("language", lang).Msg("toggling language")
+					log.Info().Int64("group", message.Chat.ID).Str("language", lang).
+						Msg("toggling language")
 					err := setLanguage(message.Chat.ID, lang)
 					if err != nil {
 						log.Warn().Err(err).Msg("failed to toggle language")

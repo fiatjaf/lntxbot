@@ -137,7 +137,7 @@ func handleBalance(ctx context.Context, opts docopt.Opts) {
 		// balance of apps
 		taggedbalances, err := u.getTaggedBalances()
 		if err != nil {
-			log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+			log.Warn().Err(err).Stringer("user", &u).Msg("failed to get info")
 			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
@@ -147,7 +147,7 @@ func handleBalance(ctx context.Context, opts docopt.Opts) {
 		// normal balance
 		info, err := u.getInfo()
 		if err != nil {
-			log.Warn().Err(err).Str("user", u.Username).Msg("failed to get info")
+			log.Warn().Err(err).Stringer("user", &u).Msg("failed to get info")
 			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}

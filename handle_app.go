@@ -499,9 +499,10 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			send(ctx, t.SATS4ADSSTART, ctx.Value("message"))
 
 			go func() {
-				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(u, satoshis, contentMessage, maxrate, offset)
+				nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(ctx,
+					satoshis, contentMessage, maxrate, offset)
 				if err != nil {
-					log.Warn().Err(err).Str("user", u.Username).
+					log.Warn().Err(err).Stringer("user", &u).
 						Msg("sats4ads broadcast fail")
 					send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
 					return

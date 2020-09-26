@@ -84,13 +84,15 @@ func createBitcloudImage(ctx context.Context, image string) (err error) {
 						var data BitcloudsData
 						err := user.getAppData("bitclouds", &data)
 						if err != nil {
-							log.Error().Err(err).Str("user", user.Username).Msg("error loading bitclouds data")
+							log.Error().Err(err).Stringer("user", &user).
+								Msg("error loading bitclouds data")
 							return
 						}
 						data[create.Host] = BitcloudInstanceData{Policy: "remind"}
 						err = user.setAppData("bitclouds", data)
 						if err != nil {
-							log.Error().Err(err).Str("user", user.Username).Msg("error saving bitclouds data")
+							log.Error().Err(err).Stringer("user", &user).
+								Msg("error saving bitclouds data")
 						}
 
 						send(ctx, u, t.BITCLOUDSCREATED, t.T{
@@ -258,7 +260,7 @@ func listBitclouds(user User) (hosts []string, err error) {
 	var data BitcloudsData
 	err = user.getAppData("bitclouds", &data)
 	if err != nil {
-		log.Error().Err(err).Str("user", user.Username).Msg("error loading bitclouds data")
+		log.Error().Err(err).Stringer("user", &user).Msg("error loading bitclouds data")
 		return
 	}
 

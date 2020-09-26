@@ -54,9 +54,9 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	messageText = "/" + message.Content[1:]
-	log.Debug().Str("t", messageText).Int("user", u.Id).Msg("got discord message")
 
 	opts, isCommand, err = parse(messageText)
+	log.Debug().Str("t", messageText).Stringer("user", &u).Err(err).Msg("discord message")
 	if !isCommand {
 		// is this a reply we're waiting for?
 		// TODO
@@ -67,9 +67,6 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 			// only tell we don't understand commands when in a private chat
 			// because these commands we're not understanding
 			// may be targeting other bots in a group, so we're spamming people.
-			log.Debug().Err(err).Str("command", messageText).
-				Msg("failed to parse command")
-
 			method := strings.Split(messageText, " ")[0][1:]
 			handled := handleHelp(ctx, method)
 			if !handled {

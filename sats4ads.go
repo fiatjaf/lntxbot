@@ -159,7 +159,9 @@ OFFSET $3
 
 		if int(costSatoshis+thisCostSatoshis) > budgetSatoshis {
 			// budget ended, stop queueing messages
-			logger.Info().Float64("spent", costSatoshis).Float64("next", thisCostSatoshis).Msg("budget ended")
+			logger.Info().Float64("spent", costSatoshis).
+				Float64("next", thisCostSatoshis).
+				Msg("budget ended")
 			break
 		}
 
@@ -331,7 +333,7 @@ SET pending = false
 WHERE to_id = $1 AND payment_hash LIKE $2 || '%'
     `, user.Id, hashfirst10chars)
 	if err != nil {
-		log.Warn().Err(err).Str("hash", hashfirst10chars).Int("user", user.Id).
+		log.Warn().Err(err).Str("hash", hashfirst10chars).Stringer("user", &user).
 			Msg("failed to mark sats4ads tx as not pending")
 	}
 
@@ -396,7 +398,7 @@ SELECT DISTINCT to_id FROM adsreceivedtxs
 					if receiver, err := loadUser(receiverId); err == nil {
 						err = turnSats4AdsOff(receiver)
 						if err != nil {
-							log.Warn().Int("user", receiverId).
+							log.Warn().Stringer("user", &receiver).
 								Msg("failed to turn off sats4ads for inactive user")
 							continue
 						}
