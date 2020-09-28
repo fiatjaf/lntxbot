@@ -230,7 +230,7 @@ func (u User) payInvoice(
 		if !ok {
 			log.Debug().Str("hash", hash).Str("scid", inv.Route[0][0].ShortChannelId).
 				Msg("what is this? an internal payment unrecognized")
-			return hash, errors.New("Failed to identity internal invoice.")
+			goto externalinvoice
 		}
 
 		err = u.addInternalPendingInvoice(
@@ -259,17 +259,16 @@ func (u User) payInvoice(
 		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(ctx, u, float64(amount), float64(amount),
 			shadowData.Preimage, shadowData.Tag, hash)
-	} else {
-		// it's an invoice from elsewhere, continue and
-		// actually send the lightning payment
+	}
 
-		err := u.actuallySendExternalPayment(
-			ctx, bolt11, inv, amount,
-			paymentHasSucceeded, paymentHasFailed,
-		)
-		if err != nil {
-			return hash, err
-		}
+externalinvoice:
+	// it's an invoice from elsewhere, continue and
+	// actually send the lightning payment
+
+	err = u.actuallySendExternalPayment(ctx, bolt11, inv, amount,
+		paymentHasSucceeded, paymentHasFailed)
+	if err != nil {
+		return hash, err
 	}
 
 	return hash, nil
