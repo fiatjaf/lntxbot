@@ -41,8 +41,6 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 		return
 	}
 
-	log.Debug().Interface("params", iparams).Msg("got lnurl params")
-
 	switch params := iparams.(type) {
 	case lnurl.LNURLAuthParams:
 		handleLNURLAuth(ctx, u, opts, params)
@@ -188,7 +186,7 @@ func handleLNURLPay(
 		// must ask for amount or confirmation
 		var actionPrompt interface{}
 		if fixedAmount > 0 {
-			actionPrompt = tgbotapi.NewInlineKeyboardMarkup(
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonData(
 						translate(ctx, t.CANCEL),
@@ -199,8 +197,9 @@ func handleLNURLPay(
 						fmt.Sprintf("lnurlpay=%d", fixedAmount)),
 				),
 			)
+			actionPrompt = &keyboard
 		} else {
-			actionPrompt = tgbotapi.ForceReply{ForceReply: true}
+			actionPrompt = &tgbotapi.ForceReply{ForceReply: true}
 		}
 
 		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{

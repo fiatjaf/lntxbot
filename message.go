@@ -64,7 +64,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	var chatId int64
 	var keyboard *tgbotapi.InlineKeyboardMarkup
 	var mustSendAnActualMessage bool
-	var forceReply tgbotapi.ForceReply
+	var forceReply *tgbotapi.ForceReply
 	var replyToId int                     // will be sent in reply to this -- or if editing will edit this
 	var telegramMessage *tgbotapi.Message // unless this is provided, this has precedence in edition priotiry
 	var alert bool
@@ -124,8 +124,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		case *tgbotapi.InlineKeyboardMarkup:
 			keyboard = thing
 			// if telegram, this will be ignored
-		case tgbotapi.ForceReply:
-			forceReply = tgbotapi.ForceReply{ForceReply: true}
+		case *tgbotapi.ForceReply:
+			forceReply = thing
 			// if not telegram, this will be ignored
 		case DiscordMessageID:
 			linkTo = thing
@@ -237,7 +237,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			if keyboard != nil {
 				jkeyboard, _ := json.Marshal(keyboard)
 				values.Set("reply_markup", string(jkeyboard))
-			} else if forceReply.ForceReply {
+			} else if forceReply != nil {
 				jforceReply, _ := json.Marshal(forceReply)
 				values.Set("reply_markup", string(jforceReply))
 			}

@@ -212,18 +212,21 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 		// allow people to cancel pending if they're old enough
 		text = text + "\n\n" + translate(ctx, t.RECHECKPENDING)
 
-		actionPrompt = tgbotapi.NewInlineKeyboardMarkup(
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.YES), "check="+hashfirstchars),
 			),
 		)
+		actionPrompt = &keyboard
 	} else if txn.IsUnclaimed() {
 		text = text + "\n\n" + translate(ctx, t.RETRACTQUESTION)
-		actionPrompt = tgbotapi.NewInlineKeyboardMarkup(
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.YES), "remunc="+hashfirstchars),
+				tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.YES),
+					"remunc="+hashfirstchars),
 			),
 		)
+		actionPrompt = &keyboard
 	}
 	send(ctx, text, txn.TriggerMessage, actionPrompt)
 }
