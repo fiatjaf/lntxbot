@@ -202,15 +202,19 @@ func handleLNURLPay(
 			actionPrompt = &tgbotapi.ForceReply{ForceReply: true}
 		}
 
+		var imageURL interface{}
+		if params.Metadata.ImageExtension() != "" {
+			imageURL = tempAssetURL("."+params.Metadata.ImageExtension(),
+				params.Metadata.ImageBytes())
+		}
+
 		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{
 			"Domain":      params.CallbackURL.Host,
 			"FixedAmount": float64(fixedAmount) / 1000,
 			"Max":         float64(params.MaxSendable) / 1000,
 			"Min":         float64(params.MinSendable) / 1000,
 			"Text":        params.Metadata.Description(),
-		}, ctx.Value("message"), actionPrompt,
-		//tempAssetURL("."+params.Metadata.ImageExtension(), params.Bytes()),
-		)
+		}, ctx.Value("message"), actionPrompt, imageURL)
 		if sent == nil {
 			return
 		}
