@@ -106,9 +106,8 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 
 		send(ctx, t.PAYPROMPT, payTmplParams, &keyboard)
 	} else {
-		// modify the original payment with an "attempting" note
-		send(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hash[:5]}, APPEND,
-			ctx.Value("message"))
+		// send an "attempting" message
+		send(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hash[:5]}, ctx.Value("message"))
 
 		// parse manually specified satoshis if any
 		amountToPay, _ := opts.Int("<satoshis>")
@@ -135,21 +134,23 @@ func handlePayReactionConfirm(ctx context.Context, reaction *discordgo.MessageRe
 	// and it comes from the correct user
 	u, err := loadDiscordUser(reaction.UserID)
 	if err != nil {
-		log.Warn().Err(err).Str("id", reaction.UserID).Msg("failed to load discord user")
+		log.Warn().Err(err).Str("id", reaction.UserID).
+			Msg("failed to load discord user")
 		return
 	}
+
+	messageRef := discordIDFromReaction(reaction)
 
 	_, err = u.payInvoice(ctx, bolt11, 0)
 	if err == nil {
 		inv, _ := decodepay.Decodepay(bolt11)
 		hashfirstchars := inv.PaymentHash[0:5]
 
-		send(ctx, reaction.ChannelID, reaction.MessageID,
-			translateTemplate(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars}))
-		discord.MessageReactionAdd(reaction.ChannelID, reaction.MessageID, "✅")
+		send(ctx, messageRef, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars})
+		send(ctx, messageRef, "✅")
 	} else {
-		appendToDiscordMessage(reaction.ChannelID, reaction.MessageID, err.Error())
-		discord.MessageReactionAdd(reaction.ChannelID, reaction.MessageID, "❌")
+		send(ctx, messageRef, t.ERROR, t.T{"Err": err.Error()})
+		send(ctx, messageRef, "❌")
 	}
 }
 

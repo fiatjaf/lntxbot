@@ -77,14 +77,15 @@ FROM rategroups
 }
 
 func broadcastSats4Ads(
-	user User,
+	ctx context.Context,
 	budgetSatoshis int,
 	contentMessage *tgbotapi.Message,
 	maxrate int,
 	offset int,
 ) (messagesSent int, roundedCostSatoshis int, errMsg string, err error) {
-	costSatoshis := 0.0
+	user := ctx.Value("initiator").(User)
 
+	costSatoshis := 0.0
 	if maxrate == 0 {
 		maxrate = 500
 	}
@@ -145,7 +146,7 @@ OFFSET $3
 				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.InlineKeyboardButton{
-							Text:         "Viewed",
+							Text:         translate(ctx, t.SATS4ADSVIEWED),
 							CallbackData: &data,
 						},
 					},

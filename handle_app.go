@@ -542,7 +542,7 @@ func handleExternalAppCallback(ctx context.Context) (answer string) {
 		defer removeKeyboardButtons(ctx)
 		if parts[1] == "v" {
 			hashfirst10chars := parts[2]
-			confirmAdViewed(u, hashfirst10chars)
+			go confirmAdViewed(u, hashfirst10chars)
 			go u.track("sats4ads viewed", nil)
 		}
 	case "etleneum":

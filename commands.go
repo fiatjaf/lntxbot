@@ -160,6 +160,9 @@ var methods = []def{
 		argstr:  "<satoshis>",
 	},
 	def{
+		aliases: []string{"moon"},
+	},
+	def{
 		aliases: []string{"help"},
 		argstr:  "[<command>]",
 	},

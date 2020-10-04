@@ -671,6 +671,8 @@ parsed:
 			"https://cryptodailygazette.com/wp-content/uploads/2019/03/bitcoin-to-the-moon-1-650x364.jpg",
 			"https://assets.pando.com/uploads/2015/01/bitcoin-to-the-moon.jpg",
 			"https://blokt.com/wp-content/uploads/2019/02/Rocket-launch-to-moon-as-a-Bitcoin-price-increase-concept.-The-elements-of-this-image-furnished-by-NASA-Image.jpg",
+			"https://miro.medium.com/max/1838/0*xJEt4-dCPp9L03fi.jpg",
+			"http://www.tothemoon.com/wp-content/uploads/2018/05/bitcoin-to-the-moon-crptocurrency-645x366.jpg",
 		}
 
 		choice := moonURLs[rand.Intn(len(moonURLs))]

@@ -265,7 +265,15 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 							callbackQuery.Message.MessageID))
 
 						if justAppend || text == "" {
-							text = callbackQuery.Message.Text + " " + text
+							if messageHasCaption(callbackQuery.Message) {
+								text = callbackQuery.Message.Caption + " " + text
+								method = "editMessageCaption"
+								values.Set("caption", text)
+							} else {
+								text = callbackQuery.Message.Text + " " + text
+								method = "editMessageText"
+								values.Set("text", text)
+							}
 						} else if messageHasCaption(callbackQuery.Message) {
 							method = "editMessageCaption"
 							values.Set("caption", text)
@@ -288,7 +296,15 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 					values.Set("message_id", strconv.Itoa(telegramMessage.MessageID))
 
 					if justAppend || text == "" {
-						text = telegramMessage.Text + " " + text
+						if messageHasCaption(telegramMessage) {
+							text = telegramMessage.Caption + " " + text
+							method = "editMessageCaption"
+							values.Set("caption", text)
+						} else {
+							text = telegramMessage.Text + " " + text
+							method = "editMessageText"
+							values.Set("text", text)
+						}
 					} else if messageHasCaption(telegramMessage) {
 						method = "editMessageCaption"
 						values.Set("caption", text)

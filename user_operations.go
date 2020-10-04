@@ -222,14 +222,16 @@ func (u User) payInvoice(
 		// it's an internal invoice. mark as paid internally.
 		bscid, err := decodeShortChannelId(inv.Route[0][0].ShortChannelId)
 		if err != nil {
-			return hash, errors.New("Failed to decode short_channel_id: " + err.Error())
 			log.Debug().Str("hash", hash).
 				Msg("what is this? an internal payment unrecognized")
+			send(ctx, u, t.INTERNALPAYMENTUNEXPECTED, ctx.Value("message"))
+			return hash, errors.New("Failed to decode short_channel_id: " + err.Error())
 		}
 		shadowData, ok := extractDataFromShadowChannelId(bscid)
 		if !ok {
 			log.Debug().Str("hash", hash).Str("scid", inv.Route[0][0].ShortChannelId).
 				Msg("what is this? an internal payment unrecognized")
+			send(ctx, u, t.INTERNALPAYMENTUNEXPECTED, ctx.Value("message"))
 			goto externalinvoice
 		}
 
@@ -768,7 +770,7 @@ WHERE payment_hash = $3
 	if err != nil {
 		log.Error().Err(err).Stringer("user", &u).Str("hash", hash).
 			Float64("fees", fees).Msg("failed to update transaction fees.")
-		send(ctx, u, t.DBERROR, nil, ctx.Value("message"))
+		send(ctx, u, t.DBERROR, ctx.Value("message"))
 	}
 
 	send(ctx, u, t.PAIDMESSAGE, t.T{

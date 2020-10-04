@@ -64,7 +64,8 @@ lnurl-auth success!
 	RENAMEPROMPT:      "Pay <b>{{.Sats}} sat</b> to rename this group to <i>{{.Name}}</i>?",
 	GROUPNOTRENAMABLE: "This group is not renamable!",
 
-	PAYMENTFAILED: "Payment failed. /log_{{.ShortHash}}",
+	INTERNALPAYMENTUNEXPECTED: "Something odd has happened. If this is an internal invoice it will fail. Maybe the invoice has expired or something else we don't know. If it is an external invoice ignore this warning.",
+	PAYMENTFAILED:             "Payment failed. /log_{{.ShortHash}}",
 	PAIDMESSAGE: `Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
@@ -543,6 +544,7 @@ Registered: {{.Registered}}
 	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
 	GIVERCANTJOIN:      "Giver can't join!",
 	CANTJOINTWICE:      "Can't join twice!",
+	CANTREVEALOWN:      "Can't reveal your own hidden message!",
 	CANTCANCEL:         "You don't have the powers to cancel this.",
 	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
 	INVALIDAMT:         "Invalid amount: {{.Amount}}",
@@ -558,7 +560,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 
 	TXNOTFOUND: "Couldn't find transaction {{.HashFirstChars}}.",
 	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}[💤 UNCLAIMED]{{end}}
-<i>{{.Txn.Description}}</i>{{if not .Txn.TelegramPeer.Valid}}
+<i>{{.Txn.Description}}</i>{{if .Txn.Tag.Valid}} #{{.Txn.Tag.String}}{{end}}{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
 <b>Hash</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}

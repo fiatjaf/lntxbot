@@ -36,8 +36,8 @@ func getHiddenId(message *tgbotapi.Message) string {
 	return hashString("%d%d", message.MessageID, message.Chat.ID)[:7]
 }
 
-func findHiddenKey(hiddenid string) (key string, ok bool) {
-	found := rds.Keys("hidden:*:" + hiddenid).Val()
+func findHiddenKey(hiddenId string) (key string, ok bool) {
+	found := rds.Keys("hidden:*:" + hiddenId).Val()
 	if len(found) == 0 {
 		return "", false
 	}
@@ -101,7 +101,7 @@ func revealKeyboard(
 func settleReveal(
 	ctx context.Context,
 	sats int,
-	hiddenid string,
+	hiddenId string,
 	toId int,
 	fromIds []int,
 ) (receiver User, err error) {
@@ -121,6 +121,9 @@ func settleReveal(
 		return
 	}
 	receiverHash := hashString(random) // for the proxied transaction
+
+	desc := fmt.Sprintf("reveal of %s", hiddenId)
+
 	for _, fromId := range fromIds {
 		if fromId == toId {
 			continue
@@ -128,17 +131,18 @@ func settleReveal(
 
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
-VALUES ($1, $2, $3, 'reveal')
-    `, fromId, s.ProxyAccount, msats)
+INSERT INTO lightning.transaction (from_id, to_id, amount, tag, description)
+VALUES ($1, $2, $3, 'reveal', $4)
+    `, fromId, s.ProxyAccount, msats, desc)
 		if err != nil {
 			return
 		}
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction AS t (payment_hash, from_id, to_id, amount, tag)
-VALUES ($1, $2, $3, $4, 'reveal')
+INSERT INTO lightning.transaction AS t
+    (payment_hash, from_id, to_id, amount, tag, description)
+VALUES ($1, $2, $3, $4, 'reveal', $5)
 ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
-    `, receiverHash, s.ProxyAccount, toId, msats)
+    `, receiverHash, s.ProxyAccount, toId, msats, desc)
 		if err != nil {
 			return
 		}
@@ -164,7 +168,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 
 		send(ctx, giver, t.HIDDENREVEALMSG, t.T{
 			"Sats": sats,
-			"Id":   hiddenid,
+			"Id":   hiddenId,
 		})
 	}
 
@@ -176,7 +180,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 	send(ctx, receiver, t.HIDDENSOURCEMSG, t.T{
 		"Sats":      sats * len(fromIds),
 		"Revealers": strings.Join(giverNames, " "),
-		"Id":        hiddenid,
+		"Id":        hiddenId,
 	})
 	return
 }

@@ -224,21 +224,21 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		if nregistered+1 < nparticipants {
-			// append @user to the coinflip message (without removing the keyboard)
-			keyboard := coinflipKeyboard(ctx, coinflipid, 0, nparticipants, sats)
+		// append @user to the coinflip message (without removing the keyboard)
+		keyboard := coinflipKeyboard(ctx, coinflipid, 0, nparticipants, sats)
 
-			if message := ctx.Value("message"); message != nil {
-				send(ctx, message, joiner.AtName(ctx), APPEND, keyboard)
-			} else {
-				send(ctx, t.COINFLIPAD, t.T{
-					"Sats":       sats,
-					"Prize":      sats * nparticipants,
-					"SpotsLeft":  nparticipants - nregistered,
-					"MaxPlayers": nparticipants,
-				}, EDIT, keyboard)
-			}
+		if message := ctx.Value("message"); message != nil {
+			send(ctx, message, joiner.AtName(ctx), APPEND, keyboard)
 		} else {
+			send(ctx, t.COINFLIPAD, t.T{
+				"Sats":       sats,
+				"Prize":      sats * nparticipants,
+				"SpotsLeft":  nparticipants - nregistered,
+				"MaxPlayers": nparticipants,
+			}, EDIT, keyboard)
+		}
+
+		if nregistered+1 >= nparticipants {
 			// run the lottery
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
@@ -255,7 +255,8 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			// winner id
 			winnerId, err := strconv.Atoi(swinnerId)
 			if err != nil {
-				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
+				log.Warn().Err(err).Str("winnerId", swinnerId).
+					Msg("winner id is not an int")
 				removeKeyboardButtons(ctx)
 				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 				goto answerEmpty
@@ -286,7 +287,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			removeKeyboardButtons(ctx)
 			if imessage := ctx.Value("message"); imessage != nil {
 				message := imessage.(*tgbotapi.Message)
-				send(ctx, message, EDIT, joiner.AtName(ctx)+"\n"+
+				send(ctx, message, APPEND, "\n"+
 					translateTemplate(ctx, t.CALLBACKWINNER, t.T{
 						"Winner": winner.AtName(ctx),
 					}))
@@ -294,7 +295,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 					t.T{"Winner": winner.AtName(ctx)}, message.MessageID)
 			} else {
 				send(ctx, t.CALLBACKCOINFLIPWINNER, t.T{"Winner": winner.AtName(ctx)},
-					APPEND)
+					EDIT)
 			}
 		}
 	case strings.HasPrefix(cb.Data, "gifl="):
@@ -344,25 +345,25 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 
 		if err := rds.SAdd("giveflip:"+giveflipid, joiner.Id).Err(); err != nil {
-			log.Warn().Err(err).Str("giveflip", giveflipid).Msg("error adding participant to giveflip.")
+			log.Warn().Err(err).Str("giveflip", giveflipid).
+				Msg("error adding participant to giveflip.")
 			goto answerEmpty
 		}
 		rds.Expire("giveflip:"+giveflipid, s.GiveAwayTimeout)
 
-		if nregistered+1 < nparticipants {
-			// append @user to the giveflip message (without removing the keyboard)
-
-			keyboard := giveflipKeyboard(ctx, giveflipid, giverId, nparticipants, sats)
-			if message := ctx.Value("message"); message != nil {
-				send(ctx, message, keyboard, joiner.AtName(ctx), APPEND)
-			} else {
-				send(ctx, t.GIVEFLIPAD, t.T{
-					"Sats":       sats,
-					"SpotsLeft":  nparticipants - nregistered,
-					"MaxPlayers": nparticipants,
-				}, EDIT)
-			}
+		// append @user to the giveflip message (without removing the keyboard)
+		keyboard := giveflipKeyboard(ctx, giveflipid, giverId, nparticipants, sats)
+		if message := ctx.Value("message"); message != nil {
+			send(ctx, message, keyboard, joiner.AtName(ctx), APPEND)
 		} else {
+			send(ctx, t.GIVEFLIPAD, t.T{
+				"Sats":       sats,
+				"SpotsLeft":  nparticipants - nregistered,
+				"MaxPlayers": nparticipants,
+			}, EDIT)
+		}
+
+		if nregistered+1 >= nparticipants {
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
 			sparticipants, err := rds.SMembers(rkey).Result()
@@ -378,14 +379,16 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			// winner
 			winnerId, err := strconv.Atoi(swinnerId)
 			if err != nil {
-				log.Warn().Err(err).Str("winnerId", swinnerId).Msg("winner id is not an int")
+				log.Warn().Err(err).Str("winnerId", swinnerId).
+					Msg("winner id is not an int")
 				removeKeyboardButtons(ctx)
 				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
 			}
 			winner, err := loadUser(winnerId)
 			if err != nil {
-				log.Warn().Err(err).Int("winnerId", winnerId).Msg("failed to load winner on giveflip")
+				log.Warn().Err(err).Int("winnerId", winnerId).
+					Msg("failed to load winner on giveflip")
 				removeKeyboardButtons(ctx)
 				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
@@ -633,6 +636,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		// reveal message.
 		parts := strings.Split(cb.Data[7:], "-")
 		hiddenkey := parts[0]
+		revealer := u
 
 		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(ctx, hiddenkey)
 		if err != nil {
@@ -644,6 +648,14 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
+		// can't reveal your own thing
+		if sourceUserId == revealer.Id {
+			send(ctx, WITHALERT, t.CANTREVEALOWN)
+			return
+		}
+
+		didReveal := false
+
 		go u.track("reveal", map[string]interface{}{
 			"sats":      hiddenmessage.Satoshis,
 			"times":     hiddenmessage.Times,
@@ -651,24 +663,22 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			"public":    hiddenmessage.Public,
 		})
 
-		revealer := u
-		didReveal := false
-
 		// cache reveal so we know who has paid to reveal this for now
 		var revealerIds []int
-		var totalrevealers int
+		var totalRevealers int
 
 		revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
 
 		// also don't let users pay twice
 		if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
-			send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		} else if alreadypaid {
-			send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": "can't reveal twice"})
+			send(ctx, WITHALERT, t.ERROR, t.T{"Err": "can't reveal twice"})
 			return
 		}
 
+		// after this function is finished we create/add the revealer to the list
 		defer func(u User, revealedsetkey string) {
 			if !didReveal {
 				return
@@ -679,27 +689,33 @@ WHERE substring(payment_hash from 0 for $2) = $1
 
 		// get the count of people who paid to reveal up to now
 		if revealerIdsStr, err := rds.SMembers(revealedsetkey).Result(); err != nil {
-			send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		} else {
-			totalrevealers = len(revealerIdsStr)
-			revealerIds := make([]int, totalrevealers)
+			totalRevealers = len(revealerIdsStr)
+			revealerIds = make([]int, totalRevealers+1)
 			for i, revealerIdsStr := range revealerIdsStr {
 				revealerId, err := strconv.Atoi(revealerIdsStr)
 				if err != nil {
-					send(ctx, u, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
+					send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 					return
 				}
 				revealerIds[i] = revealerId
 			}
+
+			// add current revealer
+			revealerIds[totalRevealers] = revealer.Id
+			totalRevealers += 1
 		}
 
-		if hiddenmessage.Crowdfund > 1 && totalrevealers < hiddenmessage.Crowdfund {
+		didReveal = true
+
+		if hiddenmessage.Crowdfund > 1 && totalRevealers < hiddenmessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
 			// participants has been reached. before that we will just update the
 			// message in-place.
-			send(ctx, hiddenmessage.Preview,
-				revealKeyboard(ctx, hiddenkey, hiddenmessage, totalrevealers))
+			send(ctx, hiddenmessage.Preview, EDIT,
+				revealKeyboard(ctx, hiddenkey, hiddenmessage, totalRevealers))
 			return
 		}
 
@@ -713,9 +729,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		_, err = settleReveal(ctx, hiddenmessage.Satoshis, hiddenid,
 			sourceUserId, revealerIds)
 		if err != nil {
-			log.Warn().Err(err).Str("id", hiddenid).Int("satoshis", hiddenmessage.Satoshis).
+			log.Warn().Err(err).Str("id", hiddenid).
+				Int("satoshis", hiddenmessage.Satoshis).
 				Str("revealer", revealer.Username).Msg("failed to pay to reveal")
-			send(ctx, revealer, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 
@@ -731,11 +748,11 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			} else {
 				// reveal message privately
 				send(ctx, revealer, hiddenmessage.revealed())
-				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalrevealers {
+				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalRevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated
 					send(ctx, EDIT, hiddenmessage.Preview,
-						revealKeyboard(ctx, hiddenkey, hiddenmessage, totalrevealers))
+						revealKeyboard(ctx, hiddenkey, hiddenmessage, totalRevealers))
 				} else {
 					// end of quota. no more people can reveal.
 					send(ctx, EDIT, "A hidden message prompt once lived here.")

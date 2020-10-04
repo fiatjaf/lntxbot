@@ -96,6 +96,13 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 	}
 
 	invoiceMessageId := send(ctx, g, qrURL(bolt11), bolt11)
+	if invoiceMessageId == nil {
+		log.Error().Stringer("group", &g).
+			Msg("failed to send invoice message on new member")
+		send(ctx, g, t.ERROR, t.T{"Err": "Error sending, please report."})
+		return
+	}
+
 	kickdata := KickData{
 		tgbotapi.Message{
 			Chat:      &tgbotapi.Chat{ID: joinMessage.Chat.ID},
@@ -118,7 +125,8 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 	kickdatajson, _ := json.Marshal(kickdata)
 	err = rds.HSet("ticket-pending", joinKey, string(kickdatajson)).Err()
 	if err != nil {
-		log.Warn().Err(err).Str("kickdata", string(kickdatajson)).Msg("error saving kickdata")
+		log.Warn().Err(err).Str("kickdata", string(kickdatajson)).
+			Msg("error saving kickdata")
 	}
 	pendingApproval.Set(joinKey, kickdata)
 	go waitToKick(ctx, joinKey, kickdata)
