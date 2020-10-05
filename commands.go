@@ -91,7 +91,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"hide"},
-		argstr:  "<satoshis> [<message>...] [--revealers=<num_revealers>] [--crowdfund=<num_participants>] [--public] [--private]",
+		argstr:  "<satoshis> [<message>...] [--revealers=<num_revealers>] [--crowdfund=<num_participants>] [--private]",
 	},
 	def{
 		aliases:        []string{"reveal"},

@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -25,7 +26,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	log.Debug().Str("d", cb.Data).Str("user", u.Username).Msg("got callback")
+	log.Debug().Str("d", cb.Data).Stringer("user", &u).Msg("got callback")
 	ctx = context.WithValue(ctx, "initiator", u)
 
 	if cb.Message != nil {
@@ -623,7 +624,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
   AND is_unclaimed(tx)
         `, hash, len(hash)+1)
 		if err != nil {
-			log.Error().Err(err).Str("hash", hash).Msg("failed to remove pending payment")
+			log.Error().Err(err).Str("hash", hash).
+				Msg("failed to remove pending payment")
 			send(ctx, t.ERROR, APPEND)
 			return
 		}
@@ -638,7 +640,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		hiddenkey := parts[0]
 		revealer := u
 
-		sourceUserId, hiddenid, hiddenmessage, err := getHiddenMessage(ctx, hiddenkey)
+		sourceUserId, hiddenId, hiddenMessage, err := getHiddenMessage(ctx, hiddenkey)
 		if err != nil {
 			log.Error().Err(err).Str("key", hiddenkey).
 				Msg("error locating hidden message")
@@ -648,90 +650,88 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
+		if !revealer.checkBalanceFor(ctx, hiddenMessage.Satoshis, "reveal") {
+			goto answerEmpty
+		}
+
 		// can't reveal your own thing
 		if sourceUserId == revealer.Id {
 			send(ctx, WITHALERT, t.CANTREVEALOWN)
 			return
 		}
 
-		didReveal := false
-
 		go u.track("reveal", map[string]interface{}{
-			"sats":      hiddenmessage.Satoshis,
-			"times":     hiddenmessage.Times,
-			"crowdfund": hiddenmessage.Crowdfund,
-			"public":    hiddenmessage.Public,
+			"sats":      hiddenMessage.Satoshis,
+			"times":     hiddenMessage.Times,
+			"crowdfund": hiddenMessage.Crowdfund,
+			"public":    hiddenMessage.Public,
 		})
 
 		// cache reveal so we know who has paid to reveal this for now
 		var revealerIds []int
 		var totalRevealers int
 
-		revealedsetkey := fmt.Sprintf("revealed:%s", hiddenid)
+		revealedSetKey := fmt.Sprintf("revealed:%s", hiddenId)
 
 		// also don't let users pay twice
-		if alreadypaid, err := rds.SIsMember(revealedsetkey, u.Id).Result(); err != nil {
+		if alreadyPaid, err := rds.SIsMember(revealedSetKey, u.Id).Result(); err != nil {
 			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
-		} else if alreadypaid {
+		} else if alreadyPaid {
 			send(ctx, WITHALERT, t.ERROR, t.T{"Err": "can't reveal twice"})
 			return
 		}
 
-		// after this function is finished we create/add the revealer to the list
-		defer func(u User, revealedsetkey string) {
-			if !didReveal {
-				return
-			}
-			rds.SAdd(revealedsetkey, u.Id)
-			rds.Expire(revealedsetkey, s.HiddenMessageTimeout).Err()
-		}(u, revealedsetkey)
+		// add current payer to redis then fetch that same set of current revealers
+		result := rds.Eval(`
+            local key = KEYS[1]
+            local user = ARGV[1]
+            local expiry = ARGV[2]
+            redis.call("sadd", key, user)
+            redis.call("expire", key, expiry)
+            return redis.call("smembers", key)
+        `,
+			[]string{revealedSetKey}, u.Id, int(s.HiddenMessageTimeout/time.Second))
 
-		// get the count of people who paid to reveal up to now
-		if revealerIdsStr, err := rds.SMembers(revealedsetkey).Result(); err != nil {
+		if err := result.Err(); err != nil {
 			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
-		} else {
-			totalRevealers = len(revealerIdsStr)
-			revealerIds = make([]int, totalRevealers+1)
-			for i, revealerIdsStr := range revealerIdsStr {
-				revealerId, err := strconv.Atoi(revealerIdsStr)
-				if err != nil {
-					send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
-					return
-				}
-				revealerIds[i] = revealerId
-			}
-
-			// add current revealer
-			revealerIds[totalRevealers] = revealer.Id
-			totalRevealers += 1
 		}
 
-		didReveal = true
+		revealerIdsI := result.Val().([]interface{})
+		totalRevealers = len(revealerIdsI)
+		revealerIds = make([]int, totalRevealers)
+		for i, revealerId := range revealerIdsI {
+			revealerId, err := strconv.Atoi(revealerId.(string))
+			if err != nil {
+				send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
+				return
+			}
+			revealerIds[i] = revealerId
+		}
 
-		if hiddenmessage.Crowdfund > 1 && totalRevealers < hiddenmessage.Crowdfund {
+		if hiddenMessage.Crowdfund > 1 && totalRevealers < hiddenMessage.Crowdfund {
 			// if this is a crowdfund we must only reveal after the threshold of
 			// participants has been reached. before that we will just update the
 			// message in-place.
-			send(ctx, hiddenmessage.Preview, EDIT,
-				revealKeyboard(ctx, hiddenkey, hiddenmessage, totalRevealers))
+			send(ctx, hiddenMessage.Preview, EDIT,
+				revealKeyboard(ctx, hiddenkey, hiddenMessage, totalRevealers))
 			return
 		}
 
 		// send the satoshis.
 		// if it's a crowdfunding we'll send from everybody at the same time,
 		// otherwise just from the current revealer.
-		if hiddenmessage.Crowdfund <= 1 {
+		if hiddenMessage.Crowdfund <= 1 {
 			revealerIds = []int{u.Id}
 		}
 
-		_, err = settleReveal(ctx, hiddenmessage.Satoshis, hiddenid,
+		_, err = settleReveal(ctx, hiddenMessage.Satoshis, hiddenId,
 			sourceUserId, revealerIds)
 		if err != nil {
-			log.Warn().Err(err).Str("id", hiddenid).
-				Int("satoshis", hiddenmessage.Satoshis).
-				Str("revealer", revealer.Username).Msg("failed to pay to reveal")
+			log.Warn().Err(err).Str("id", hiddenId).
+				Int("satoshis", hiddenMessage.Satoshis).
+				Stringer("revealer", &revealer).Msg("failed to pay to reveal")
 			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
@@ -740,19 +740,19 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		if message := ctx.Value("message"); message != nil {
 			// called in the bot's chat
 			removeKeyboardButtons(ctx)
-			send(ctx, revealer, hiddenmessage.Content, message)
+			send(ctx, revealer, hiddenMessage.Content, message)
 		} else {
-			if hiddenmessage.Public {
+			if hiddenMessage.Public {
 				// reveal message in-place
-				send(ctx, hiddenmessage.revealed(), EDIT)
+				send(ctx, hiddenMessage.revealed(), EDIT)
 			} else {
 				// reveal message privately
-				send(ctx, revealer, hiddenmessage.revealed())
-				if hiddenmessage.Times == 0 || hiddenmessage.Times > totalRevealers {
+				send(ctx, revealer, hiddenMessage.revealed())
+				if hiddenMessage.Times == 0 || hiddenMessage.Times > totalRevealers {
 					// more people can still pay for this
 					// buttons are kept so others still can pay, but updated
-					send(ctx, EDIT, hiddenmessage.Preview,
-						revealKeyboard(ctx, hiddenkey, hiddenmessage, totalRevealers))
+					send(ctx, EDIT, hiddenMessage.Preview,
+						revealKeyboard(ctx, hiddenkey, hiddenMessage, totalRevealers))
 				} else {
 					// end of quota. no more people can reveal.
 					send(ctx, EDIT, "A hidden message prompt once lived here.")
@@ -762,10 +762,10 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}
 
 		go u.track("reveal", map[string]interface{}{
-			"sats":      hiddenmessage.Satoshis,
-			"times":     hiddenmessage.Times,
-			"crowdfund": hiddenmessage.Crowdfund,
-			"public":    hiddenmessage.Public,
+			"sats":      hiddenMessage.Satoshis,
+			"times":     hiddenMessage.Times,
+			"crowdfund": hiddenMessage.Crowdfund,
+			"public":    hiddenMessage.Public,
 		})
 
 		break

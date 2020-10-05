@@ -367,7 +367,8 @@ parsed:
 		if icontent, ok := opts["<message>"]; ok {
 			message := strings.Join(icontent.([]string), " ")
 			if content != "" {
-				// we are using the text from the replyto as the content, this is the preview
+				// if we are using the text from the replyto as the content,
+				// this is the preview
 				preview = message
 			} else {
 				// otherwise parse the ~ thing
@@ -375,6 +376,8 @@ parsed:
 				if len(contentparts) == 2 {
 					preview = contentparts[0]
 					content = contentparts[1]
+				} else {
+					content = message
 				}
 			}
 		} else if message.ReplyToMessage == nil {
@@ -389,7 +392,8 @@ parsed:
 			return
 		}
 
-		public := opts["--public"].(bool)
+		public := true
+
 		if private := opts["--private"].(bool); private {
 			public = false
 		}
