@@ -66,10 +66,16 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 			}
 
 			sentId := send(ctx, t.PAYPROMPT, payTmplParams)
-			rds.Set(
-				fmt.Sprintf("reaction-confirm:%s:%s", payer.DiscordId, sentId),
-				bolt11, time.Minute*15)
-			return nil
+			if sentId == nil {
+				return errors.New("error sending prompt to discord")
+			}
+
+			mid := sentId.(DiscordMessageID).Message()
+			err = rds.Set(
+				fmt.Sprintf("reaction-confirm:%s:%s", payer.DiscordId, mid),
+				bolt11, time.Minute*15).Err()
+
+			return err
 		}
 
 		if amount == 0 {
@@ -127,6 +133,7 @@ func handlePayReactionConfirm(ctx context.Context, reaction *discordgo.MessageRe
 	key := fmt.Sprintf("reaction-confirm:%s:%s", reaction.UserID, reaction.MessageID)
 	bolt11, err := rds.Get(key).Result()
 	if err != nil {
+		log.Warn().Err(err).Str("key", key).Msg("couldn't load payment details")
 		return
 	}
 

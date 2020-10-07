@@ -18,7 +18,8 @@ CREATE TABLE account (
 );
 
 CREATE TABLE groupchat (
-  telegram_id bigint PRIMARY KEY,
+  telegram_id bigint UNIQUE,
+  discord_guild_id TEXT UNIQUE,
   locale text NOT NULL DEFAULT 'en',
   spammy boolean NOT NULL DEFAULT false,
   ticket int NOT NULL DEFAULT 0,

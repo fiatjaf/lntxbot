@@ -13,19 +13,47 @@ import (
 */
 
 type GroupChat struct {
-	TelegramId int64  `db:"telegram_id"`
-	Locale     string `db:"locale"`
-	Spammy     bool   `db:"spammy"`
-	Ticket     int    `db:"ticket"`
+	DiscordGuildId string `db:"discord_guild_id"`
+	TelegramId     int64  `db:"telegram_id"`
+	Locale         string `db:"locale"`
+	Spammy         bool   `db:"spammy"`
+	Ticket         int    `db:"ticket"`
 }
 
-const GROUPCHATFIELDS = "telegram_id, locale, spammy, ticket"
+const GROUPCHATFIELDS = "coalesce(discord_guild_id, '') AS discord_guild_id, coalesce(telegram_id, 0) AS telegram_id, locale, spammy, ticket"
 
 func (g *GroupChat) String() string {
 	if g == nil {
 		return "null"
 	}
-	return fmt.Sprintf("%d", g.TelegramId)
+	if g.TelegramId != 0 {
+		return fmt.Sprintf("tg:%d", g.TelegramId)
+	}
+	if g.DiscordGuildId != "" {
+		return fmt.Sprintf("dgg:%s", g.DiscordGuildId)
+	}
+	return "unknown"
+}
+
+func ensureTelegramGroup(telegramId int64, locale string) (g GroupChat, err error) {
+	err = pg.Get(&g, `
+INSERT INTO groupchat AS g (telegram_id, locale)
+VALUES (
+  $1,
+  CASE WHEN $2 != '' THEN $2 ELSE 'en' END
+)
+ON CONFLICT (telegram_id)
+  DO UPDATE
+    SET locale = CASE WHEN $2 != '' THEN $2 ELSE g.locale END
+  RETURNING `+GROUPCHATFIELDS+`
+    `, telegramId, locale)
+	return
+}
+
+func loadTelegramGroup(telegramId int64) (g GroupChat, err error) {
+	err = pg.Get(&g,
+		"SELECT "+GROUPCHATFIELDS+" FROM groupchat WHERE telegram_id = $1", telegramId)
+	return
 }
 
 var spammy_cache = cmap.New()
@@ -94,27 +122,6 @@ func (g GroupChat) isSpammy() (spammy bool) {
 	}
 
 	spammy_cache.Set(strconv.FormatInt(g.TelegramId, 10), spammy)
-	return
-}
-
-func ensureGroup(telegramId int64, locale string) (g GroupChat, err error) {
-	err = pg.Get(&g, `
-INSERT INTO groupchat AS g (telegram_id, locale)
-VALUES (
-  $1,
-  CASE WHEN $2 != '' THEN $2 ELSE 'en' END
-)
-ON CONFLICT (telegram_id)
-  DO UPDATE
-    SET locale = CASE WHEN $2 != '' THEN $2 ELSE g.locale END
-  RETURNING `+GROUPCHATFIELDS+`
-    `, telegramId, locale)
-	return
-}
-
-func loadGroup(telegramId int64) (g GroupChat, err error) {
-	err = pg.Get(&g,
-		"SELECT "+GROUPCHATFIELDS+" FROM groupchat WHERE telegram_id = $1", telegramId)
 	return
 }
 

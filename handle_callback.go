@@ -35,7 +35,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		if cb.Message.Chat != nil && cb.Message.Chat.Type != "private" {
 			// it's a group. try to load the locale for the group.
-			if g, err := loadGroup(cb.Message.Chat.ID); err == nil {
+			if g, err := loadTelegramGroup(cb.Message.Chat.ID); err == nil {
 				ctx = context.WithValue(ctx, "group", g)
 				ctx = context.WithValue(ctx, "locale", g.Locale)
 			}

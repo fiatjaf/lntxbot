@@ -25,7 +25,7 @@ type KickData struct {
 }
 
 func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
-	g, err := loadGroup(joinMessage.Chat.ID)
+	g, err := loadTelegramGroup(joinMessage.Chat.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// fine, this group has no settings
@@ -158,7 +158,7 @@ func waitToKick(ctx context.Context, joinKey string, kickdata KickData) {
 }
 
 func ticketPaid(ctx context.Context, joinKey string, kickdata KickData) {
-	g, err := loadGroup(kickdata.JoinMessage.Chat.ID)
+	g, err := loadTelegramGroup(kickdata.JoinMessage.Chat.ID)
 	if err != nil {
 		log.Error().Err(err).Str("chat", kickdata.JoinMessage.Chat.Title).
 			Msg("error fetching group chat after ticked paid")

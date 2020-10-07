@@ -64,7 +64,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		u.setChat(message.Chat.ID)
 	} else {
 		// when we're in a group, load the group
-		loadedGroup, err := loadGroup(message.Chat.ID)
+		loadedGroup, err := loadTelegramGroup(message.Chat.ID)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				log.Warn().Err(err).Int64("id", message.Chat.ID).Msg("failed to load group")
@@ -561,7 +561,7 @@ parsed:
 				return
 			}
 
-			g, err := ensureGroup(message.Chat.ID, u.Locale)
+			g, err := ensureTelegramGroup(message.Chat.ID, u.Locale)
 			if err != nil {
 				log.Warn().Err(err).Stringer("user", &u).Int64("group", message.Chat.ID).
 					Msg("failed to ensure group")

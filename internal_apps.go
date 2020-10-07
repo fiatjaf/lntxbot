@@ -659,11 +659,10 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 	// sending money to others
 	var (
-		sats          int
-		todisplayname string
-		receiver      *User
-		usernameval   interface{}
-		extra         string
+		sats        int
+		receiver    *User
+		usernameval interface{}
+		extra       string
 	)
 
 	// get quantity
@@ -685,7 +684,15 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 	switch message := ctx.Value("message").(type) {
 	case *discordgo.Message: // discord
-		name, _ := usernameval.(string)
+		var name string
+		if names, ok := usernameval.([]string); ok && len(names) == 1 {
+			name = names[0]
+		} else {
+			log.Warn().Err(err).Interface("username", usernameval).
+				Msg("discord username in wrong format")
+			send(ctx, g, u, t.ERROR, t.T{"Err": "invalid user reference"})
+			return
+		}
 		receiver, err = examineDiscordUsername(name)
 		if err != nil {
 			log.Warn().Err(err).Interface("username", usernameval).
@@ -723,13 +730,6 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 					Msg("failed to ensure user on reply-tip")
 				return
 			}
-			if reply.From.UserName != "" {
-				todisplayname = "@" + reply.From.UserName
-			} else {
-				todisplayname = strings.TrimSpace(
-					reply.From.FirstName + " " + reply.From.LastName,
-				)
-			}
 			goto ensured
 		}
 	}
@@ -755,7 +755,7 @@ ensured:
 	if err != nil {
 		log.Warn().Err(err).
 			Str("from", u.Username).
-			Str("to", todisplayname).
+			Str("to", receiver.AtName(ctx)).
 			Msg("failed to send/tip")
 		send(ctx, g, u, t.FAILEDSEND, t.T{"Err": err.Error()})
 		return
@@ -763,10 +763,11 @@ ensured:
 
 	// notify sender -- if spammy == true this will be sent in the group
 	send(ctx, g, u, t.USERSENTTOUSER, t.T{
-		"User":              todisplayname,
-		"Sats":              sats,
-		"RawSats":           satsraw,
-		"ReceiverHasNoChat": receiver.TelegramChatId == 0,
+		"User":    receiver.AtName(ctx),
+		"Sats":    sats,
+		"RawSats": satsraw,
+		"ReceiverHasNoChat": receiver.TelegramChatId == 0 &&
+			receiver.DiscordChannelId == "",
 	})
 
 	// notify receiver

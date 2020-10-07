@@ -18,20 +18,19 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 	ctx := context.WithValue(context.Background(), "origin", "discord")
 
 	message := m.Message
-	if message.Author.Bot {
+	if message.Author.Bot || len(message.Content) == 0 {
 		return
 	}
 
 	ctx = context.WithValue(ctx, "message", message)
 
-	g := GroupChat{}
-
 	// this is just to send to amplitude
-	var groupId *int64 = nil
+	var groupId *string = nil
 
 	// declaring stuff so we can use goto
 	var (
 		u           User
+		g           GroupChat
 		messageText string
 		opts        docopt.Opts
 		isCommand   bool
@@ -78,9 +77,6 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// may be the user chat fake-group
-	ctx = context.WithValue(ctx, "group", g)
-
 	commandName = "$" + strings.Split(strings.Split(messageText, " ")[0], "_")[0][1:]
 	go u.track("command", map[string]interface{}{
 		"command": commandName,
@@ -90,58 +86,39 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 parsed:
 	ctx = context.WithValue(ctx, "command", commandName)
 
-	if message.GuildID != "" {
-		// TODO
-	} else {
-		user, err := ensureDiscordUser(
-			message.Author.ID,
-			message.Author.Username+"#"+message.Author.Discriminator,
-			message.Author.Locale)
-		if err != nil {
-			log.Warn().Err(err).
-				Str("username",
-					message.Author.Username+"#"+message.Author.Discriminator).
-				Str("id", message.Author.ID).
-				Msg("failed to ensure user")
-			return
-		}
-
-		u = user
-		ctx = context.WithValue(ctx, "initiator", u)
-
-		// stop if temporarily banned
-		if _, ok := s.Banned[u.Id]; ok {
-			log.Debug().Int("id", u.Id).Msg("got request from banned user")
-			return
-		}
+	user, err := ensureDiscordUser(
+		message.Author.ID,
+		message.Author.Username+"#"+message.Author.Discriminator,
+		message.Author.Locale)
+	if err != nil {
+		log.Warn().Err(err).
+			Str("username",
+				message.Author.Username+"#"+message.Author.Discriminator).
+			Str("id", message.Author.ID).
+			Msg("failed to ensure user")
+		return
 	}
 
-	// by default we use the user locale for the group object, because
-	// we may end up sending the message to the user instead of to the group
-	// (if, for example, the user calls /coinflip on his own chat) then
-	// we at least want the correct language used there.
-	// g := GroupChat{TelegramId: message.Chat.ID, Locale: u.Locale}
+	u = user
+	ctx = context.WithValue(ctx, "initiator", u)
+
+	// stop if temporarily banned
+	if _, ok := s.Banned[u.Id]; ok {
+		log.Debug().Int("id", u.Id).Msg("got request from banned user")
+		return
+	}
 
 	if message.GuildID == "" {
 		// after ensuring the user we should always enable him to
 		// receive payment notifications and so on, as not all people will
 		// remember to call /start
 		u.setChannel(message.ChannelID)
-
 	} else {
-		// when we're in a group, load the group
-		// loadedGroup, err := loadGroup(message.Chat.ID)
-		// if err != nil {
-		// 	if err != sql.ErrNoRows {
-		// 		log.Warn().Err(err).Int64("id", message.Chat.ID).Msg("failed to load group")
-		// 	}
-		// 	// proceed with an empty group (manually defined before)
-		// } else {
-		// 	// we manage to load a group, use it then
-		// 	g = loadedGroup
-		// }
+		// when we're in a group, put that in the context
+		g = GroupChat{DiscordGuildId: message.GuildID, Locale: u.Locale}
+		ctx = context.WithValue(ctx, "group", g)
 
-		// group = &message.Chat.ID
+		groupId = &message.GuildID
 	}
 
 	if opts["paynow"].(bool) {
@@ -225,11 +202,8 @@ func handleDiscordReaction(dgs *discordgo.Session, m *discordgo.MessageReactionA
 		"discordMessageID",
 		discordMessageID(reaction.GuildID, reaction.ChannelID, reaction.MessageID))
 
-	log.Print("got emoji ", reaction.Emoji.Name)
-
 	switch reaction.Emoji.Name {
 	case "⚡":
-		log.Print("lightning emoji!")
 		// potentially an user confirming a $pay command
 		handlePayReactionConfirm(ctx, reaction)
 	}

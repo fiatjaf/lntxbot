@@ -36,7 +36,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 	// defaults from ctx
 	var origin string
-	if iorigin := ctx.Value("initiator"); iorigin != nil {
+	if iorigin := ctx.Value("origin"); iorigin != nil {
 		origin, _ = iorigin.(string)
 	}
 	var target *User
@@ -202,8 +202,10 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 	var useGroup = (spammy && groupId != 0) || (groupId != 0 && target == nil)
 
-	// can be "api", "background", "external"
+	// origin can be "api", "background", "external"
 	if origin != "telegram" && origin != "discord" {
+		// here we try to determine where to notify the user
+		// this is only used when he is not interacting with the bot directly
 		if useGroup {
 			origin = "telegram"
 			// TODO discord group
@@ -378,7 +380,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		}
 
 		if emojiReaction != "" {
-			// it's an emoji reaction
+			// we're sending an emoji reaction
 			if reference == "" {
 				log.Error().Msg("trying to send a reaction without a reference")
 				return
@@ -397,7 +399,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// for documentURLs we behave differently as embeds won't work
 			// TODO
 		} else {
-			// it's a message or edit
+			// we're sending a message or edit
 			text = convertToDiscord(text)
 			if linkTo != "" {
 				text += "\n" + linkTo.URL()
@@ -436,11 +438,21 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				return discordIDFromMessage(message)
 			} else {
 				var channelId string
-				if !spammy && group != nil {
-					// send to group instead of the the user
-					// TODO(group)
+				if group != nil {
+					spamChannelId, _ := getGuildMetadata(group.DiscordGuildId)
+
+					if spammy {
+						// send to the same channel it came from
+						channelId = ctx.Value("message").(*discordgo.Message).ChannelID
+					} else if target.DiscordChannelId == "" && spamChannelId != "" {
+						// send to the #commands or #lntxbot
+						channelId = spamChannelId
+					} else {
+						// send to user privately
+						channelId = target.DiscordChannelId
+					}
 				} else {
-					// send to user
+					// send to user privately
 					channelId = target.DiscordChannelId
 				}
 
