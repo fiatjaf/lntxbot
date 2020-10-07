@@ -166,7 +166,7 @@ func registerBluewalletMethods() {
 			PaymentError:    "",
 			PaymentPreimage: preimage,
 			PaymentRoute:    make(map[string]interface{}),
-			PaymentHash:     Buffer(decoded.PaymentHash),
+			PaymentHash:     tx.Hash,
 			Decoded:         decoded,
 			FeeMsat:         int64(tx.Fees * 1000),
 			Type:            "paid_invoice",
@@ -231,7 +231,7 @@ func registerBluewalletMethods() {
 				PaymentError:    "",
 				PaymentPreimage: preimage,
 				PaymentRoute:    make(map[string]interface{}),
-				PaymentHash:     Buffer(tx.Hash),
+				PaymentHash:     tx.Hash,
 				Decoded:         LndHubDecoded{},
 				FeeMsat:         int64(tx.Fees * 1000),
 				Type:            "paid_invoice",
@@ -358,7 +358,7 @@ type LndHubPaymentResult struct {
 	PaymentError    string                 `json:"payment_error"`
 	PaymentPreimage string                 `json:"payment_preimage"`
 	PaymentRoute    map[string]interface{} `json:"route"`
-	PaymentHash     Buffer                 `json:"payment_hash"`
+	PaymentHash     string                 `json:"payment_hash"`
 	Decoded         LndHubDecoded          `json:"decoded"`
 	FeeMsat         int64                  `json:"fee_msat"`
 	Type            string                 `json:"type"`
