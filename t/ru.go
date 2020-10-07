@@ -290,7 +290,7 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 {{with index $aliases .Id}}/etl_{{.}} или {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} вызовы, {{msatToSat .Funds | printf "%.15g"}} сат</i>){{end}}
     `,
 	ETLENEUMSUBSCRIBED: `#etleneum Вы {{if not .Subscribed}}не-{{end}}подписаны {{if .Subscribed}}на{{else}}из{{end}} /etl_{{.Contract}}.`,
-	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> на /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
+	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> {{with .Data.msatoshi}}{{. | msatToSat | printf "%.15g"}}{{end}} /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
 <code>[ошибка] {{.Data.message | escapehtml}}</code>{{else if eq .Event "call-run-event"}}
 <code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
 <code>[завершено]</code>{{end}} {{with .Data.message}}{{.}}{{end}}

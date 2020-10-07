@@ -299,7 +299,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 {{with index $aliases .Id}}/etl_{{.}} or {{end}}/etl_{{.Id}}: <b>{{.Name}}</b> (<i>{{.NCalls}} calls, {{msatToSat .Funds | printf "%.15g"}} sat</i>){{end}}
     `,
 	ETLENEUMSUBSCRIBED: `#etleneum You're now {{if not .Subscribed}}un{{end}}subscribed {{if .Subscribed}}to{{else}}from{{end}} /etl_{{.Contract}}.`,
-	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> on /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
+	ETLENEUMCONTRACTEVENT: `#etleneum <i>{{.Data.method}}</i> {{with .Data.msatoshi}}{{. | msatToSat | printf "%.15g"}}{{end}} /etl_call_{{.Data.id}}:{{if eq .Event "call-error"}}
 <code>[error]</code> {{.Data.message | escapehtml}}{{else if eq .Event "call-run-event"}}
 <code>[{{.Data.kind}}]</code>{{else if eq .Event "call-made"}}
 <code>[finished]</code>{{end}} {{with .Data.message}}{{.}}{{end}}
