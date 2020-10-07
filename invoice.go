@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -15,7 +17,9 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
+	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
+	"github.com/tidwall/gjson"
 )
 
 type Invoice struct {
@@ -138,18 +142,63 @@ func decodeShortChannelId(scid string) (uint64, error) {
 // creating too many small invoices is forbidden
 // because we're not a faucet milking machine
 
-type InvoiceSpamLimit struct {
-	EqualOrSmallerThan int64
-	Key                string
-	PerDay             int
+var INVOICESPAMLIMITS = map[string]int64{
+	"ridiculously_small_invoices": 1000,
+	"very_small_invoices":         5000,
+	"small_invoices":              23000,
+	"still_small_invoices":        100000,
 }
 
-var INVOICESPAMLIMITS = []InvoiceSpamLimit{
-	{1000, "<=1", 1},
-	{10000, "<=10", 3},
-	{100000, "<=100", 10},
+type RateLimiterPolicy struct {
+	Key             string `json:"key"`
+	TimeUnit        string `json:"time_unit"`
+	RequestsPerUnit int    `json:"requests_per_unit"`
 }
 
+func setupInvoiceRateLimiter() error {
+	auth := req.Header{"X-API-Key": s.RateBucketKey}
+
+	var resp *req.Resp
+	var err error
+
+	for key, invMsat := range INVOICESPAMLIMITS {
+		maxEvents := int(math.Pow(float64(invMsat)/1000, 0.7))
+
+		resp, err = req.Post("https://api.ratebucket.io/v1/policy/fixed_window", auth,
+			req.BodyJSON(RateLimiterPolicy{key, "hour", maxEvents}))
+		if err == nil && resp.Response().StatusCode >= 300 {
+			err = errors.New(resp.String())
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func checkInvoiceRateLimit(key string, userId int) bool {
+	log.Print(key, " ", userId)
+	resp, err := req.Get(
+		fmt.Sprintf("https://api.ratebucket.io/v1/increment/%s/%d", key, userId))
+	if err == nil && resp.Response().StatusCode >= 300 {
+		err = errors.New(resp.String())
+	}
+	if err != nil {
+		log.Error().Err(err).Str("key", key).Int("user-id", userId).
+			Msg("failed to check/increment rate limit")
+		return true
+	}
+
+	log.Print(resp.String())
+	if gjson.Parse(resp.String()).Get("requests_remaining").Int() < 0 {
+		return false
+	}
+
+	return true
+}
+
+// what happens when a payment is received
 func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
 	receiver, err := loadUser(data.UserId)
 	if err != nil {

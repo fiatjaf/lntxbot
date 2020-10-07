@@ -46,6 +46,7 @@ type Settings struct {
 	LNPayKey           string `envconfig:"LNPAY_KEY"`
 	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
+	RateBucketKey      string `envconfig:"RATEBUCKET_KEY"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"480h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"10m`
@@ -161,6 +162,14 @@ func server(p *plugin.Plugin) {
 	// amplitude client
 	if s.AmplitudeKey != "" {
 		amp = amplitude.New(s.AmplitudeKey)
+	}
+
+	// rate limiter for invoices
+	if s.RateBucketKey != "" {
+		err := setupInvoiceRateLimiter()
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to setup ratebucket.io")
+		}
 	}
 
 	// create telegram bot
