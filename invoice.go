@@ -20,6 +20,7 @@ import (
 	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 type Invoice struct {
@@ -40,7 +41,7 @@ func decodeInvoice(bolt11 string) (Invoice, error) {
 	}, nil
 }
 
-var waitingInvoices = cmap.New() // make(map[string][]chan gjson.Result)
+var waitingInvoices = cmap.New() // make(map[string][]chan Invoice)
 
 func waitInvoice(hash string) (inv <-chan Invoice) {
 	wait := make(chan Invoice)
@@ -199,6 +200,8 @@ func checkInvoiceRateLimit(key string, userId int) bool {
 }
 
 // what happens when a payment is received
+var userPaymentStream = cmap.New() // make(map[int]eventsource.EventSource)
+
 func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
 	receiver, err := loadUser(data.UserId)
 	if err != nil {
@@ -211,6 +214,14 @@ func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
 	receiver.track("got payment", map[string]interface{}{
 		"sats": float64(data.Msatoshi) / 1000,
 	})
+
+	// send to user stream if the user is listening
+	if ies, ok := userPaymentStream.Get(strconv.Itoa(receiver.Id)); ok {
+		go ies.(eventsource.EventSource).SendEventMessage(
+			`{"payment_hash": "`+hash+`", "msatoshi": `+
+				strconv.FormatInt(data.Msatoshi, 10)+`}`,
+			"payment-received", "")
+	}
 
 	// is there a comment associated with this?
 	go func() {

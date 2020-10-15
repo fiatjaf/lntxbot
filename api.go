@@ -15,6 +15,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	"github.com/gorilla/mux"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 type Permission int
@@ -153,6 +154,54 @@ func registerAPIMethods() {
 			"status": status,
 		})
 		return
+	})
+
+	router.Path("/payments/stream").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, user, permission, err := loadUserFromAPICall(r)
+		if err != nil {
+			errorBadAuth(w)
+			return
+		}
+		if permission < ReadOnlyPermissions {
+			errorInsufficientPermissions(w)
+			return
+		}
+
+		var es eventsource.EventSource
+		if ies, ok := userPaymentStream.Get(strconv.Itoa(user.Id)); ok {
+			es = ies.(eventsource.EventSource)
+		} else {
+			es = eventsource.New(
+				&eventsource.Settings{
+					Timeout:        5 * time.Second,
+					CloseOnTimeout: true,
+					IdleTimeout:    1 * time.Minute,
+				},
+				func(r *http.Request) [][]byte {
+					return [][]byte{
+						[]byte("X-Accel-Buffering: no"),
+						[]byte("Cache-Control: no-cache"),
+						[]byte("Content-Type: text/event-stream"),
+						[]byte("Connection: keep-alive"),
+						[]byte("Access-Control-Allow-Origin: *"),
+					}
+				},
+			)
+			userPaymentStream.Set(strconv.Itoa(user.Id), es)
+			go func() {
+				for {
+					time.Sleep(25 * time.Second)
+					es.SendEventMessage("", "keepalive", "")
+				}
+			}()
+		}
+
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			es.SendRetryMessage(3 * time.Second)
+		}()
+
+		es.ServeHTTP(w, r)
 	})
 }
 

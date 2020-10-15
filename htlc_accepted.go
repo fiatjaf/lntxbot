@@ -70,7 +70,8 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	// here we know it's a payment for an lntxbot user
 	go deleteDataAssociatedWithShadowChannelId(bscid)
 	go onInvoicePaid(ctx, hash, shadowData)
-	go resolveWaitingInvoice(hash, Invoice{
+
+	invoice := Invoice{
 		Bolt11: decodepay.Bolt11{
 			MSatoshi:        shadowData.Msatoshi,
 			Description:     shadowData.Description,
@@ -78,7 +79,8 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 			PaymentHash:     hash,
 		},
 		Preimage: shadowData.Preimage,
-	})
+	}
+	go resolveWaitingInvoice(hash, invoice)
 
 	p.Logf("invoice received. we have a preimage: %s - resolve", shadowData.Preimage)
 	return map[string]interface{}{
