@@ -34,6 +34,7 @@ require (
 	github.com/tidwall/gjson v1.6.1
 	github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2
 	github.com/willf/bitset v1.1.10 // indirect
+	gopkg.in/antage/eventsource.v1 v1.0.0-20150318155416-803f4c5af225
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
 	gopkg.in/redis.v5 v5.2.9
 )

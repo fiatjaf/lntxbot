@@ -47,6 +47,13 @@ var mdConverter = md.NewConverter("", true, &md.Options{
 	Fence:           "```",
 }).AddRules(
 	md.Rule{
+		Filter: []string{"code"},
+		Replacement: func(_ string, sel *goquery.Selection, opt *md.Options) *string {
+			code := sel.Text()
+			return md.String("`" + code + "`")
+		},
+	},
+	md.Rule{
 		Filter: []string{"br"},
 		Replacement: func(_ string, sel *goquery.Selection, opt *md.Options) *string {
 			return md.String("\n")
@@ -54,7 +61,6 @@ var mdConverter = md.NewConverter("", true, &md.Options{
 	},
 ).After(
 	func(v string) string {
-		v = strings.ReplaceAll(v, "``", "` `")
 		v = strings.ReplaceAll(v, "Telegram", "Discord")
 		v = slashToDollarSignReplacer.ReplaceAllString(v, "$1$$$2")
 		return v

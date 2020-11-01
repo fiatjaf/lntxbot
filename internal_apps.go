@@ -653,9 +653,12 @@ func renameKeyboard(
 
 func handleSend(ctx context.Context, opts docopt.Opts) {
 	u := ctx.Value("initiator").(User)
-	g := ctx.Value("group").(GroupChat)
 
-	ctx = context.WithValue(ctx, "spammy", g.isSpammy())
+	var g GroupChat
+	if ig := ctx.Value("group"); ig != nil {
+		g, _ = ig.(GroupChat)
+		ctx = context.WithValue(ctx, "spammy", g.isSpammy())
+	}
 
 	// sending money to others
 	var (
@@ -761,8 +764,8 @@ ensured:
 		return
 	}
 
-	// notify sender -- if spammy == true this will be sent in the group
-	send(ctx, g, u, t.USERSENTTOUSER, t.T{
+	// notify sender
+	send(ctx, u, t.USERSENTTOUSER, t.T{
 		"User":    receiver.AtName(ctx),
 		"Sats":    sats,
 		"RawSats": satsraw,
@@ -771,8 +774,8 @@ ensured:
 	})
 
 	// notify receiver
-	if receiver.hasPrivateChat() {
-		// if possible, privately
+	if receiver.hasPrivateChat() && !ctx.Value("spammy").(bool) {
+		// if possible (and we're not in a spammy group), privately
 		if anonymous {
 			send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
 		} else {
@@ -783,13 +786,14 @@ ensured:
 			})
 		}
 	} else {
-		// if the receiver doesn't have a chat, always notify in the group
+		// publicly if the receiver doesn't have a chat or if the group is spammy
 		send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
-			"From":             u.AtName(ctx),
-			"To":               receiver.AtName(ctx),
-			"Sats":             sats,
-			"ClaimerHasNoChat": true,
-			"BotName":          s.ServiceId,
+			"From": u.AtName(ctx),
+			"To":   receiver.AtName(ctx),
+			"Sats": sats,
+			"ClaimerHasNoChat": receiver.TelegramChatId == 0 &&
+				receiver.DiscordChannelId == "",
+			"BotName": s.ServiceId,
 		}, ctx.Value("message"), FORCESPAMMY)
 	}
 }

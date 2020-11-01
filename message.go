@@ -51,6 +51,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			group = &fgroup
 		}
 	}
+	var forceSpammy bool
+	var hasExplicitTarget bool
 	var spammy bool
 	if ispammy := ctx.Value("spammy"); ispammy != nil {
 		spammy = ispammy.(bool)
@@ -85,9 +87,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		case *User:
 			target = thing
 			mustSendAnActualMessage = true
+			hasExplicitTarget = true
 		case User:
 			target = &thing
 			mustSendAnActualMessage = true
+			hasExplicitTarget = true
 		case *GroupChat:
 			group = thing
 			mustSendAnActualMessage = true
@@ -144,6 +148,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				alert = true
 			case FORCESPAMMY:
 				spammy = true
+				forceSpammy = true
 			case EDIT:
 				edit = true
 			case APPEND:
@@ -200,7 +205,9 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	if group != nil {
 		groupId = group.TelegramId
 	}
-	var useGroup = (spammy && groupId != 0) || (groupId != 0 && target == nil)
+	var useGroup = (spammy && !hasExplicitTarget && groupId != 0) ||
+		(forceSpammy && groupId != 0) ||
+		(groupId != 0 && target == nil)
 
 	// origin can be "api", "background", "external"
 	if origin != "telegram" && origin != "discord" {
@@ -440,11 +447,13 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				var channelId string
 				if group != nil {
 					spamChannelId, _ := getGuildMetadata(group.DiscordGuildId)
+					message := ctx.Value("message").(*discordgo.Message)
 
 					if spammy {
 						// send to the same channel it came from
-						channelId = ctx.Value("message").(*discordgo.Message).ChannelID
-					} else if target.DiscordChannelId == "" && spamChannelId != "" {
+						channelId = message.ChannelID
+					} else if (message.ChannelID == spamChannelId) ||
+						(target.DiscordChannelId == "" && spamChannelId != "") {
 						// send to the #commands or #lntxbot
 						channelId = spamChannelId
 					} else {

@@ -44,10 +44,10 @@ lnurl-auth успех!
 {{if not .FixedAmount}}<b>Ответьте с неким количеством для подтверждения.</b>{{end}}
     `,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> ответил:
-
+{{.Text}}
 {{if .DecipherError}}Ошибка расшифровки ({{.DecipherError}}):
-{{end}}<pre>{{.Text}}</pre>
-{{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
+{{end}}{{if .Value}}<pre>{{.Value}}</pre>
+{{end}}{{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
 	LNURLPAYMETADATA: `#lnurlpay метаданные:
 <b>домен</b>: <i>{{.Domain}}</i>

@@ -26,7 +26,7 @@ type handleLNURLOpts struct {
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 	u := ctx.Value("initiator").(User)
 
-	iparams, err := lnurl.HandleLNURL(lnurltext)
+	_, iparams, err := lnurl.HandleLNURL(lnurltext)
 	if err != nil {
 		if lnurlerr, ok := err.(lnurl.LNURLErrorResponse); ok {
 			send(ctx, u, t.LNURLERROR, t.T{
@@ -225,7 +225,8 @@ func handleLNURLPay(
 			Metadata     string `json:"metadata"`
 			URL          string `json:"url"`
 			NeedsComment bool   `json:"needs_comment"`
-		}{"lnurlpay-amount", params.EncodedMetadata, params.Callback, params.CommentAllowed > 0})
+		}{"lnurlpay-amount", params.EncodedMetadata, params.Callback,
+			params.CommentAllowed > 0})
 		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 	}
 }
@@ -271,7 +272,7 @@ func lnurlpayAskForComment(
 	msats int64,
 ) {
 	callbackURL, _ := url.Parse(callback)
-	sent := send(ctx, u, ctx.Value("message"), tgbotapi.ForceReply{ForceReply: true},
+	sent := send(ctx, u, ctx.Value("message"), &tgbotapi.ForceReply{ForceReply: true},
 		t.LNURLPAYPROMPTCOMMENT, t.T{"Domain": callbackURL.Host})
 	if sent == nil {
 		return
@@ -291,8 +292,8 @@ func lnurlpayFinish(
 	ctx context.Context,
 	u User,
 	msats int64,
-	comment,
-	callback,
+	comment string,
+	callback string,
 	metadata string,
 ) {
 	params := &url.Values{
@@ -376,6 +377,7 @@ func lnurlpayFinish(
 			if res.SuccessAction != nil {
 				var text string
 				var decerr error
+				var value string
 
 				switch res.SuccessAction.Tag {
 				case "message":
@@ -383,7 +385,8 @@ func lnurlpayFinish(
 				case "url":
 					text = res.SuccessAction.Description
 				case "aes":
-					text, decerr = res.SuccessAction.Decipher(bpreimage)
+					text = res.SuccessAction.Description
+					value, decerr = res.SuccessAction.Decipher(bpreimage)
 				}
 
 				// give it a time so it's the last message to be sent
@@ -392,6 +395,7 @@ func lnurlpayFinish(
 				send(ctx, u, t.LNURLPAYSUCCESS, t.T{
 					"Domain":        callbackURL.Host,
 					"Text":          text,
+					"Value":         value,
 					"URL":           res.SuccessAction.URL,
 					"DecipherError": decerr,
 				}, ctx.Value("message"))

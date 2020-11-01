@@ -81,7 +81,7 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 		if amount == 0 {
 			// zero-amount invoice, prompt the user to reply with the desired amount
 			sent := send(ctx, ctx.Value("message"),
-				tgbotapi.ForceReply{ForceReply: true},
+				&tgbotapi.ForceReply{ForceReply: true},
 				t.PAYPROMPT, payTmplParams)
 			if sent == nil {
 				return nil

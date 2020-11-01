@@ -45,10 +45,10 @@ lnurl-auth success!
     `,
 	LNURLPAYPROMPTCOMMENT: `<code>{{.Domain}}</code> expects some text:`,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
-
+{{.Text}}
 {{if .DecipherError}}Failed to decipher ({{.DecipherError}}):
-{{end}}<pre>{{.Text}}</pre>
-{{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
+{{end}}{{if .Value}}<pre>{{.Value}}</pre>
+{{end}}{{if .URL}}<a href="{{.URL}}">{{.URL}}</a>{{end}}
     `,
 	LNURLPAYMETADATA: `#lnurlpay metadata:
 <b>domain</b>: <i>{{.Domain}}</i>
