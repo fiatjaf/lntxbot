@@ -499,7 +499,7 @@ parsed:
 				return
 			}
 
-			name := opts["<name>"].(string)
+			name := getVariadicFieldOrReplyToContent(ctx, opts, "<name>")
 
 			price := g.getRenamePrice()
 			if price == 0 {

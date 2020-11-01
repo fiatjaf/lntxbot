@@ -149,7 +149,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"rename"},
-		argstr:  "<name>",
+		argstr:  "<name>...",
 	},
 	def{
 		aliases: []string{"toggle"},
