@@ -331,7 +331,7 @@ parsed:
 			break
 		}
 
-		receiver, err := examineTelegramUsername(message, opts["<receiver>"])
+		receiver, err := examineTelegramUsername(opts["<receiver>"].(string))
 		if err != nil {
 			log.Warn().Err(err).Msg("parsing fundraise receiver")
 			send(ctx, u, t.FAILEDUSER)

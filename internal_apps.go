@@ -664,8 +664,8 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 	var (
 		sats        int
 		receiver    *User
-		usernameval interface{}
-		extra       string
+		username    string
+		description string
 	)
 
 	// get quantity
@@ -676,7 +676,7 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 		send(ctx, g, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 		return
 	} else {
-		usernameval = opts["<receiver>"]
+		username, _ = opts.String("<receiver>")
 	}
 
 	anonymous := false
@@ -685,20 +685,15 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 		anonymous = true
 	}
 
+	if extra, ok := opts["<description>"].([]string); ok {
+		description = strings.Join(extra, " ")
+	}
+
 	switch message := ctx.Value("message").(type) {
 	case *discordgo.Message: // discord
-		var name string
-		if names, ok := usernameval.([]string); ok && len(names) == 1 {
-			name = names[0]
-		} else {
-			log.Warn().Err(err).Interface("username", usernameval).
-				Msg("discord username in wrong format")
-			send(ctx, g, u, t.ERROR, t.T{"Err": "invalid user reference"})
-			return
-		}
-		receiver, err = examineDiscordUsername(name)
+		receiver, err = examineDiscordUsername(username)
 		if err != nil {
-			log.Warn().Err(err).Interface("username", usernameval).
+			log.Warn().Err(err).Str("username", username).
 				Msg("failed to examine discord username")
 			send(ctx, g, u, t.SAVERECEIVERFAIL)
 			return
@@ -706,19 +701,18 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 		goto ensured
 	case *tgbotapi.Message: // telegram
-		receiver, err = examineTelegramUsername(message, usernameval)
+		receiver, err = examineTelegramUsername(username)
 		if receiver != nil {
 			goto ensured
 		}
 
 		// no username, this may be a reply-tip
 		if message.ReplyToMessage != nil {
-			if iextra, ok := opts["<receiver>"]; ok {
-				// in this case this may be a tipping message
-				extra = strings.Join(iextra.([]string), " ")
-			}
+			// the <receiver> part is useless as a username,
+			// but it can part of the tip description
+			description = username + " " + description
 
-			log.Debug().Str("extra", extra).Msg("it's a reply-tip")
+			log.Debug().Str("desc", description).Msg("it's a reply-tip")
 			reply := message.ReplyToMessage
 
 			var cas int
@@ -739,8 +733,7 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 	// if we ever reach this point then it's because the receiver is missing.
 	if err != nil {
-		log.Warn().Err(err).Interface("val", usernameval).
-			Msg("error parsing username")
+		log.Warn().Err(err).Str("username", username).Msg("error parsing username")
 	}
 	send(ctx, g, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
 	return
@@ -751,7 +744,7 @@ ensured:
 		*receiver,
 		anonymous,
 		sats*1000,
-		extra,
+		strings.TrimSpace(description),
 		"",
 		"",
 	)

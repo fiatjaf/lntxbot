@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -98,77 +97,23 @@ func getTelegramUserPictureURL(username string) (string, error) {
 	return image, nil
 }
 
-func examineTelegramUsername(
-	message *tgbotapi.Message,
-	value interface{},
-) (u *User, err error) {
-	var username string
-	var user User
-	var uid int
-
-	switch val := value.(type) {
-	case []string:
-		if len(val) > 0 {
-			username = strings.Join(val, " ")
-		}
-	case string:
-		username = val
-	case int:
-		uid = val
+func examineTelegramUsername(username string) (*User, error) {
+	if username == "" {
+		return nil, errors.New("username is blank")
+	}
+	if !strings.HasPrefix(username, "@") {
+		return nil, errors.New("username doesn't start with @")
 	}
 
-	if intval, err := strconv.Atoi(username); err == nil {
-		uid = intval
+	username = strings.ToLower(username)
+	username = username[1:] // exclude initial @
+
+	user, err := ensureTelegramUsername(username)
+	if err != nil {
+		return nil, err
 	}
 
-	if username != "" {
-		username = strings.ToLower(username)
-	}
-
-	if username == "" && uid == 0 {
-		return nil, errors.New("no user")
-	}
-
-	// check entities for user type
-	if message.Entities != nil {
-		for _, entity := range *message.Entities {
-			if entity.Type == "text_mention" && entity.User != nil {
-				// user without username
-				uid = entity.User.ID
-				user, err = ensureTelegramId(uid)
-				if err != nil {
-					return nil, err
-				}
-
-				return &user, nil
-			}
-			if entity.Type == "mention" {
-				// user with username
-				uname := username[1:]
-				user, err = ensureTelegramUsername(uname)
-				if err != nil {
-					return nil, err
-				}
-
-				return &user, nil
-			}
-		}
-	}
-
-	// if the user identifier passed was neither @someone (mention) nor a text_mention
-	// (for users without usernames but still painted blue and autocompleted by telegram)
-	// and we have a uid that means it's the case where just a numeric id was given
-	// and nothing more.
-	if uid != 0 {
-		user, err = ensureTelegramId(uid)
-		if err != nil {
-			return nil, err
-		}
-
-		return &user, nil
-	}
-
-	return nil, errors.New("no user")
+	return &user, nil
 }
 
 func messageHasCaption(message *tgbotapi.Message) bool {

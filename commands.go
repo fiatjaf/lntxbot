@@ -45,7 +45,7 @@ var methods = []def{
 	},
 	def{
 		aliases:        []string{"send", "tip", "sendanonymously"},
-		argstr:         "[anonymously] <satoshis> [<receiver>...] [--anonymous]",
+		argstr:         "[anonymously] <satoshis> [<receiver>] [<description>...] [--anonymous]",
 		inline_example: "give <satoshis> <username>",
 	},
 	def{
@@ -87,7 +87,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"fundraise", "crowdfund"},
-		argstr:  "<satoshis> <num_participants> <receiver>...",
+		argstr:  "<satoshis> <num_participants> <receiver>",
 	},
 	def{
 		aliases: []string{"hide"},
