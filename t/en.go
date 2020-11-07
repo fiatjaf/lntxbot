@@ -585,9 +585,12 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 
 You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions. Also, it charges <b>zero fees</b>!
 
-It also supports <a href="https://github.com/btcontract/lnurl-rfc/blob/master/lnurl-withdraw.md">lnurl-withdraws</a> to and from other places, handles pending and failed transactions smoothly, is capable of paying to <a href="https://github.com/btcontract/lnurl-rfc/blob/master/lnurl-pay.md">addresses</a>, does <a href="https://twitter.com/VNumeris/status/1148403575820709890">QR code scanning</a> (although for that you have to take a picture of the QR code with your Telegram app and that may fail depending on your phone's camera, patience and luck) and other goodies.
-
-With @{{ .BotName }} you're well equipped for doing online stuff on the Lightning Network.
+- To pay invoices, just paste them in the bot chat
+- To generate invoices, use /invoice (see /help_invoice)
+- To pay or withdraw or login with <a href="https://github.com/fiatjaf/awesome-lnurl">lnurl</a>, just paste the <i>lnurl code</i> in the bot chat
+- To see your history of transactions use /transactions
+- To see your balance use /balance
+- All other actions have commands that can be quite complex, /help and <code>/help &lt;command&gt;</code> are your only hope (and also copying commands from other people or asking on @lntxbot_dev)
     `,
 	TUTORIALBLUE: `
 Although it works, for real-world usage opening a Telegram chat and pasting invoices can be a pain.
