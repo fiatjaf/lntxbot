@@ -51,10 +51,11 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		return continueHTLC
 	}
 
-	shadowData, ok := extractDataFromShadowChannelId(bscid)
-	if !ok {
+	shadowData, err := extractDataFromShadowChannelId(bscid)
+	if err != nil {
 		// it's not an invoice for an etleneum call or contract
-		p.Logf("failed to get data from onion.short_channel_id - continue")
+		p.Logf("failed to get data from onion.short_channel_id (%s) - continue",
+			err.Error())
 		return continueHTLC
 	}
 
@@ -76,7 +77,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	derivedHash := sha256.Sum256(preimage)
 	derivedHashHex := hex.EncodeToString(derivedHash[:])
 	if derivedHashHex != hash {
-		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - return incorrect_or_unknown_payment_details",
+		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - fail with incorrect_or_unknown_payment_details",
 			shadowData.Preimage, derivedHashHex, hash)
 
 		// get keys stuff so we can return a wrapped onion to pre-pay probes

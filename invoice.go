@@ -95,7 +95,7 @@ func makeShadowChannelId(data ShadowChannelData) uint64 {
 	return binary.BigEndian.Uint64(secret)
 }
 
-func extractDataFromShadowChannelId(channelId uint64) (data ShadowChannelData, ok bool) {
+func extractDataFromShadowChannelId(channelId uint64) (d ShadowChannelData, err error) {
 	bin := make([]byte, 8)
 	binary.BigEndian.PutUint64(bin, channelId)
 
@@ -105,12 +105,12 @@ func extractDataFromShadowChannelId(channelId uint64) (data ShadowChannelData, o
 		return
 	}
 
-	err = json.Unmarshal([]byte(j), &data)
+	err = json.Unmarshal([]byte(j), &d)
 	if err != nil {
 		return
 	}
 
-	return data, true
+	return d, nil
 }
 
 func deleteDataAssociatedWithShadowChannelId(channelId uint64) error {

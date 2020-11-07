@@ -274,9 +274,10 @@ func (u User) payInvoice(
 			send(ctx, u, t.INTERNALPAYMENTUNEXPECTED, ctx.Value("message"))
 			return hash, errors.New("Failed to decode short_channel_id: " + err.Error())
 		}
-		shadowData, ok := extractDataFromShadowChannelId(bscid)
-		if !ok {
-			log.Debug().Str("hash", hash).Str("scid", inv.Route[0][0].ShortChannelId).
+		shadowData, err := extractDataFromShadowChannelId(bscid)
+		if err != nil {
+			log.Debug().Err(err).Str("hash", hash).
+				Str("scid", inv.Route[0][0].ShortChannelId).
 				Msg("what is this? an internal payment unrecognized")
 			send(ctx, u, t.INTERNALPAYMENTUNEXPECTED, ctx.Value("message"))
 			goto externalinvoice
