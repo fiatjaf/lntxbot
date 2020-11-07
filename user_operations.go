@@ -116,6 +116,11 @@ func (u User) makeInvoice(
 		}
 	}
 
+	// derive custom private key for this user
+	seedhash := sha256.Sum256(
+		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.TelegramBotToken)))
+	sk, _ := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
+
 	shadowData := ShadowChannelData{
 		UserId:    u.Id,
 		Origin:    ctx.Value("origin").(string),
@@ -123,8 +128,9 @@ func (u User) makeInvoice(
 		Tag:       args.Tag,
 		Msatoshi:  msatoshi,
 		// Description: added next
-		Preimage: hex.EncodeToString(preimage),
-		Extra:    extra,
+		Preimage:  hex.EncodeToString(preimage),
+		SecretKey: hex.EncodeToString(sk.Serialize()),
+		Extra:     extra,
 	}
 
 	var descriptionOrDescriptionHash interface{}
@@ -138,11 +144,6 @@ func (u User) makeInvoice(
 		}
 		shadowData.DescriptionHash = args.DescHash
 	}
-
-	// derive custom private key for this user
-	seedhash := sha256.Sum256(
-		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.TelegramBotToken)))
-	sk, _ := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
 
 	bolt11, hash, err = ln.InvoiceWithShadowRoute(
 		msatoshi,

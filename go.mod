@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.2.0
 	github.com/PuerkitoBio/goquery v1.5.1
+	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
 	github.com/arschles/assert v2.0.0+incompatible // indirect
 	github.com/arschles/go-bindata-html-template v0.0.0-20170123182818-839a6918b9ff
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
@@ -23,8 +24,9 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.7.0
+	github.com/lightningnetwork/lightning-onion v1.0.1
+	github.com/lightningnetwork/lnd v0.10.1-beta
 	github.com/lithammer/fuzzysearch v1.1.0
 	github.com/lucsky/cuid v1.0.2
 	github.com/msingleton/amplitude-go v0.0.0-20200312121213-b7c11448c30e

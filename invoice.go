@@ -81,6 +81,7 @@ type ShadowChannelData struct {
 	Description     string
 	DescriptionHash string
 	Preimage        string
+	SecretKey       string
 	Extra           map[string]interface{}
 }
 
