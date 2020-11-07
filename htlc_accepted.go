@@ -63,6 +63,14 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		return failHTLC
 	}
 
+	// here we know it's a payment for an lntxbot user
+	receiver, err := loadUser(shadowData.UserId)
+	if err != nil {
+		log.Warn().Err(err).Interface("shadow-data", shadowData).
+			Msg("failed to load user on htlc_accepted")
+		return continueHTLC
+	}
+
 	// ensure our preimage is correct
 	preimage, _ := hex.DecodeString(shadowData.Preimage)
 	derivedHash := sha256.Sum256(preimage)
@@ -86,12 +94,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 			return failHTLC
 		}
 
-		lastHopKeyBytes, err := hex.DecodeString(shadowData.SecretKey)
-		if err != nil {
-			p.Logf("couldn't get shadowData.SecretKey: %s", err.Error())
-			return failHTLC
-		}
-		lastHopKey, _ := btcec.PrivKeyFromBytes(btcec.S256(), lastHopKeyBytes)
+		lastHopKey := receiver.invoicePrivateKey()
 
 		// bolt04 shared key stuff: ecdh() then sha256()
 		s := &btcec.PublicKey{}
@@ -115,7 +118,6 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		mac := hmac.New(sha256.New, umKey[:])
 		mac.Write(data)
 		h := mac.Sum(nil)
-		p.Logf("mac=%x", h)
 		failureOnion := append(h, data...)
 
 		// obfuscate/wrap the message as if we were the last hop
@@ -135,9 +137,9 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		}
 	}
 
-	// here we know it's a payment for an lntxbot user
+	// here we know this payment has succeeded
 	go deleteDataAssociatedWithShadowChannelId(bscid)
-	go onInvoicePaid(ctx, hash, shadowData)
+	go receiver.onReceivedInvoicePayment(ctx, hash, shadowData)
 
 	invoice := Invoice{
 		Bolt11: decodepay.Bolt11{

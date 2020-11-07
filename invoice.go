@@ -20,7 +20,6 @@ import (
 	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
-	"gopkg.in/antage/eventsource.v1"
 )
 
 type Invoice struct {
@@ -198,67 +197,6 @@ func checkInvoiceRateLimit(key string, userId int) bool {
 	}
 
 	return true
-}
-
-// what happens when a payment is received
-var userPaymentStream = cmap.New() // make(map[int]eventsource.EventSource)
-
-func onInvoicePaid(ctx context.Context, hash string, data ShadowChannelData) {
-	receiver, err := loadUser(data.UserId)
-	if err != nil {
-		log.Warn().Err(err).
-			Interface("shadow-data", data).
-			Msg("failed to load on onInvoicePaid")
-		return
-	}
-
-	receiver.track("got payment", map[string]interface{}{
-		"sats": float64(data.Msatoshi) / 1000,
-	})
-
-	// send to user stream if the user is listening
-	if ies, ok := userPaymentStream.Get(strconv.Itoa(receiver.Id)); ok {
-		go ies.(eventsource.EventSource).SendEventMessage(
-			`{"payment_hash": "`+hash+`", "msatoshi": `+
-				strconv.FormatInt(data.Msatoshi, 10)+`}`,
-			"payment-received", "")
-	}
-
-	// is there a comment associated with this?
-	go func() {
-		time.Sleep(3 * time.Second)
-		if comment, ok := data.Extra["comment"]; ok && comment != "" {
-			send(ctx, receiver, t.LNURLPAYCOMMENT, t.T{
-				"Text":           comment,
-				"HashFirstChars": hash[:5],
-			})
-		}
-	}()
-
-	// proceed to compute an incoming payment for this user
-	err = receiver.paymentReceived(
-		int(data.Msatoshi),
-		data.Description,
-		hash,
-		data.Preimage,
-		data.Tag,
-	)
-	if err != nil {
-		send(ctx, receiver, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
-		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
-		}
-		return
-	}
-
-	send(ctx, receiver, t.PAYMENTRECEIVED, t.T{
-		"Sats": data.Msatoshi / 1000,
-		"Hash": hash[:5],
-	})
-
-	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
-	}
 }
 
 func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {

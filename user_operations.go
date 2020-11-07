@@ -19,6 +19,8 @@ import (
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx/types"
+	cmap "github.com/orcaman/concurrent-map"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {
@@ -54,6 +56,14 @@ LIMIT 1
 	}
 
 	return
+}
+
+func (u User) invoicePrivateKey() *btcec.PrivateKey {
+	// derive custom private key for this user
+	seedhash := sha256.Sum256(
+		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.TelegramBotToken)))
+	sk, _ := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
+	return sk
 }
 
 type makeInvoiceArgs struct {
@@ -116,11 +126,6 @@ func (u User) makeInvoice(
 		}
 	}
 
-	// derive custom private key for this user
-	seedhash := sha256.Sum256(
-		[]byte(fmt.Sprintf("invoicekeyseed:%d:%s", u.Id, s.TelegramBotToken)))
-	sk, _ := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
-
 	shadowData := ShadowChannelData{
 		UserId:    u.Id,
 		Origin:    ctx.Value("origin").(string),
@@ -128,9 +133,8 @@ func (u User) makeInvoice(
 		Tag:       args.Tag,
 		Msatoshi:  msatoshi,
 		// Description: added next
-		Preimage:  hex.EncodeToString(preimage),
-		SecretKey: hex.EncodeToString(sk.Serialize()),
-		Extra:     extra,
+		Preimage: hex.EncodeToString(preimage),
+		Extra:    extra,
 	}
 
 	var descriptionOrDescriptionHash interface{}
@@ -144,6 +148,8 @@ func (u User) makeInvoice(
 		}
 		shadowData.DescriptionHash = args.DescHash
 	}
+
+	sk := u.invoicePrivateKey()
 
 	bolt11, hash, err = ln.InvoiceWithShadowRoute(
 		msatoshi,
@@ -172,6 +178,63 @@ func (u User) makeInvoice(
 	}
 
 	return bolt11, hash, nil
+}
+
+// what happens when a payment is received
+var userPaymentStream = cmap.New() // make(map[int]eventsource.EventSource)
+
+func (u User) onReceivedInvoicePayment(
+	ctx context.Context,
+	hash string,
+	data ShadowChannelData,
+) {
+	u.track("got payment", map[string]interface{}{
+		"sats": float64(data.Msatoshi) / 1000,
+	})
+
+	// send to user stream if the user is listening
+	if ies, ok := userPaymentStream.Get(strconv.Itoa(u.Id)); ok {
+		go ies.(eventsource.EventSource).SendEventMessage(
+			`{"payment_hash": "`+hash+`", "msatoshi": `+
+				strconv.FormatInt(data.Msatoshi, 10)+`}`,
+			"payment-received", "")
+	}
+
+	// is there a comment associated with this?
+	go func() {
+		time.Sleep(3 * time.Second)
+		if comment, ok := data.Extra["comment"]; ok && comment != "" {
+			send(ctx, u, t.LNURLPAYCOMMENT, t.T{
+				"Text":           comment,
+				"HashFirstChars": hash[:5],
+			})
+		}
+	}()
+
+	// proceed to compute an incoming payment for this user
+	err = u.paymentReceived(
+		int(data.Msatoshi),
+		data.Description,
+		hash,
+		data.Preimage,
+		data.Tag,
+	)
+	if err != nil {
+		send(ctx, u, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
+		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
+		}
+		return
+	}
+
+	send(ctx, u, t.PAYMENTRECEIVED, t.T{
+		"Sats": data.Msatoshi / 1000,
+		"Hash": hash[:5],
+	})
+
+	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
+	}
 }
 
 func (u User) payInvoice(
@@ -241,7 +304,15 @@ func (u User) payInvoice(
 
 		inv.Preimage = shadowData.Preimage
 
-		go onInvoicePaid(ctx, hash, shadowData)
+		receiver, err := loadUser(shadowData.UserId)
+		if err != nil {
+			log.Warn().Err(err).Interface("shadow-data", shadowData).
+				Msg("failed to load receiver on internal invoice")
+			return hash,
+				errors.New("Internal error loading the receiver for this invoice.")
+		}
+
+		go receiver.onReceivedInvoicePayment(ctx, hash, shadowData)
 		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(ctx, u, float64(amount), float64(amount),
 			shadowData.Preimage, shadowData.Tag, hash)
