@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
@@ -228,6 +229,9 @@ func buildSats4AdsMessage(
 	switch {
 	case contentMessage.Text != "":
 		nchars = len(contentMessage.Text)
+		if strings.Index(contentMessage.Text, "https://") != -1 {
+			nchars += 300
+		}
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
 		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
@@ -240,7 +244,7 @@ func buildSats4AdsMessage(
 			DisableWebPagePreview: false,
 		}
 	case contentMessage.Animation != nil:
-		nchars = 300 + len(contentMessage.Caption)
+		nchars = 100 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
 		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{
@@ -256,7 +260,7 @@ func buildSats4AdsMessage(
 			},
 		}
 	case contentMessage.Photo != nil:
-		nchars = 300 + len(contentMessage.Caption)
+		nchars = 100 + len(contentMessage.Caption)
 		thisCostMsat += rate * nchars
 		thisCostSatoshis = float64(thisCostMsat) / 1000
 		footer := "\n\n" + translateTemplate(ctx, t.SATS4ADSADFOOTER, t.T{

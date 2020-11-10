@@ -460,7 +460,8 @@ Sats4ads is an ad marketplace on Telegram. Pay money to show ads to others, rece
 
 Rates for each user are in msatoshi-per-character. The maximum rate is 1000 msat.
 Each ad also includes a fixed fee of 1 sat.
-Images and videos are priced as if they were 300 characters.
+Images and videos are priced as if they were 100 characters.
+Links are priced an extra 300 characters as they have an annoying preview.
 
 To broadcast an ad you must send a message to the bot that will be your ad contents, then reply to it using <code>/sats4ads broadcast ...</code> as described. You can use <code>--max-rate=500</code> and <code>--skip=0</code> to have better control over how your message is going to be broadcasted. These are the defaults.
 
