@@ -103,11 +103,17 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	if !strings.HasPrefix(messageText, "/") {
 		if bolt11, lnurltext, ok := searchForInvoice(ctx); ok {
 			if bolt11 != "" {
-				opts, _, _ = parse("/pay " + bolt11)
+				opts, _, err = parse("/pay " + bolt11)
+				if err != nil {
+					return
+				}
 				goto parsed
 			}
 			if lnurltext != "" {
-				opts, _, _ = parse("/lnurl " + lnurltext)
+				opts, _, err = parse("/lnurl " + lnurltext)
+				if err != nil {
+					return
+				}
 				goto parsed
 			}
 		}
