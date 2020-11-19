@@ -291,6 +291,23 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			Results:       results,
 			IsPersonal:    true,
 		})
+	case "show":
+		if argv[1] == "id" {
+			resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+				InlineQueryID: q.ID,
+				Results: []interface{}{
+					tgbotapi.NewInlineQueryResultArticle("tgid",
+						fmt.Sprintf("Telegram ID: %d", u.TelegramId),
+						fmt.Sprintf("Your Telegram ID: %d", u.TelegramId),
+					),
+					tgbotapi.NewInlineQueryResultArticle("lntxbotid",
+						fmt.Sprintf("@%s ID: %d", s.ServiceId, u.Id),
+						fmt.Sprintf("Your @%s ID: %d", s.ServiceId, u.Id),
+					),
+				},
+				IsPersonal: true,
+			})
+		}
 	default:
 		goto answerEmpty
 	}
