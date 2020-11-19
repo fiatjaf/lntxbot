@@ -92,7 +92,8 @@ WHERE discord_id = $1
 }
 
 func ensureTelegramUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
-	vusername := sql.NullString{String: strings.ToLower(username), Valid: username != ""}
+	username = strings.ToLower(username)
+	vusername := sql.NullString{String: username, Valid: username != ""}
 	var userRows []User
 
 	// always update locale while selecting user
