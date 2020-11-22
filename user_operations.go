@@ -602,7 +602,7 @@ func (u User) sendInternally(
 	ctx context.Context,
 	target User,
 	anonymous bool,
-	msats int,
+	msats int64,
 	desc string,
 	hash string,
 	tag string,

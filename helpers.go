@@ -37,27 +37,45 @@ var dollarPrice = struct {
 	rate       float64
 }{time.Now(), 0}
 
-var menuItems = map[string]int{
-	"popcorn":  27,
-	"piparote": 88,
-	"banana":   777,
+var menuItems = map[string]int64{
+	"popcorn":    27,
+	"piparote":   88,
+	"banana":     777,
+	"watermelon": 1214,
 }
 
-func parseSatoshis(opts docopt.Opts) (sats int, err error) {
+func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
 	amt, ok := opts["<satoshis>"].(string)
 	if !ok {
 		return 0, errors.New("'satoshis' param missing")
 	}
 
-	sats, err = strconv.Atoi(amt)
+	return parseAmountString(amt)
+}
+
+func parseAmountString(amt string) (msats int64, err error) {
+	// is a number
+	sats, err := strconv.ParseFloat(amt, 64)
 	if err == nil {
-		return sats, nil
+		return int64(sats * 1000), nil
 	}
 
-	// a menu of varieties
-	sats, ok = menuItems[amt]
+	// is an item of a menu of varieties
+	itemSats, ok := menuItems[amt]
 	if ok {
-		return sats, nil
+		return itemSats * 1000, nil
+	}
+
+	// is a fiat currency
+	if strings.HasSuffix(strings.ToUpper(amt), "USD") {
+		dollars, err := strconv.ParseFloat(amt[0:len(amt)-3], 64)
+		if err == nil {
+			msats, err = getMSatoshisForDollar(dollars)
+			if err != nil {
+				return 0, err
+			}
+			return msats, nil
+		}
 	}
 
 	return 0, errors.New("'satoshis' param invalid")
@@ -195,6 +213,14 @@ func getDollarPrice(msats int64) string {
 		return "~ USD"
 	}
 	return fmt.Sprintf("%.2f USD", float64(msats)/rate)
+}
+
+func getMSatoshisForDollar(dollar float64) (int64, error) {
+	rate, err := getDollarRate()
+	if err != nil {
+		return 0, errors.New("couldn't get exchange rate")
+	}
+	return int64(dollar * rate), nil
 }
 
 func getDollarRate() (rate float64, err error) {

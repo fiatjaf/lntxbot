@@ -50,13 +50,13 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 
 	switch command {
 	case "invoice", "receive", "fund":
-		sats, err := strconv.Atoi(argv[1])
+		msats, err := parseAmountString(argv[1])
 		if err != nil {
 			goto answerEmpty
 		}
 
 		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
-			Msatoshi: int64(sats) * 1000,
+			Msatoshi: msats,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
@@ -83,7 +83,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		})
 
 		go u.track("make invoice", map[string]interface{}{
-			"sats":   sats,
+			"sats":   msats / 1000,
 			"inline": true,
 		})
 		goto responded
@@ -95,13 +95,14 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		var sats int
-		if sats, err = strconv.Atoi(argv[1]); err != nil {
+		msats, err := parseAmountString(argv[1])
+		if err != nil {
 			break
 		}
-		if !u.checkBalanceFor(ctx, sats, command) {
+		if !u.checkBalanceFor(ctx, msats, command) {
 			break
 		}
+		sats := int(msats / 1000)
 
 		var recv string
 		if len(argv) == 3 {
@@ -155,7 +156,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
 			return
 		}
-		if !u.checkBalanceFor(ctx, sats, "coinflip") {
+		if !u.checkBalanceFor(ctx, int64(sats*1000), "coinflip") {
 			break
 		}
 
@@ -204,10 +205,11 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		var sats int
-		if sats, err = strconv.Atoi(argv[1]); err != nil {
+		msats, err := parseAmountString(argv[1])
+		if err != nil {
 			break
 		}
+		sats := int(msats / 1000)
 
 		if !canCreateGiveflip(u.Id) {
 			send(ctx, u, t.RATELIMIT)
@@ -217,7 +219,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
 			return
 		}
-		if !u.checkBalanceFor(ctx, sats, "giveflip") {
+		if !u.checkBalanceFor(ctx, msats, "giveflip") {
 			break
 		}
 

@@ -114,7 +114,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			ctx,
 			claimer,
 			false,
-			sats*1000,
+			int64(sats)*1000,
 			"",
 			hashString(giveId),
 			"giveaway",
@@ -188,13 +188,14 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 
 		nparticipants, err1 := strconv.Atoi(params[0])
-		sats, err2 := strconv.Atoi(params[1])
+		msats, err2 := parseAmountString(params[1])
 		if err1 != nil || err2 != nil {
 			log.Warn().Err(err1).Err(err2).Msg("coinflip error")
 			removeKeyboardButtons(ctx)
 			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 			goto answerEmpty
 		}
+		sats := int(msats / 1000)
 
 		go u.track("coinflip joined", map[string]interface{}{
 			"sats": sats,
@@ -207,7 +208,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			send(ctx, t.OVERQUOTA, t.T{"App": "coinflip"}, WITHALERT)
 			return
 		}
-		if !joiner.checkBalanceFor(ctx, sats, "coinflip") {
+		if !joiner.checkBalanceFor(ctx, msats, "coinflip") {
 			goto answerEmpty
 		}
 
@@ -422,7 +423,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				ctx,
 				winner,
 				false,
-				sats*1000,
+				int64(sats)*1000,
 				"",
 				hashString(giveflipid),
 				"giveflip",
@@ -471,7 +472,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		receiverId, err1 := strconv.Atoi(params[0])
 		ngivers, err2 := strconv.Atoi(params[1])
-		sats, err3 := strconv.Atoi(params[2])
+		msats, err3 := parseAmountString(params[2])
 		if err1 != nil || err2 != nil || err3 != nil {
 			log.Warn().Err(err1).Err(err2).Err(err3).
 				Msg("error parsing params on fundraise")
@@ -479,6 +480,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Fundraise"}, APPEND)
 			goto answerEmpty
 		}
+		sats := int(msats / 1000)
 
 		go u.track("fundraise joined", map[string]interface{}{
 			"sats": sats,
@@ -487,7 +489,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		joiner := u
 
-		if !joiner.checkBalanceFor(ctx, sats, "fundraise") {
+		if !joiner.checkBalanceFor(ctx, msats, "fundraise") {
 			goto answerEmpty
 		}
 
@@ -594,7 +596,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		hash := hashString(random)
 
 		err = u.sendInternally(
-			ctx, owner, false, sats*1000,
+			ctx, owner, false, int64(sats)*1000,
 			fmt.Sprintf("Rename group %d to '%s'", chatId, name),
 			hash, "rename",
 		)
@@ -650,7 +652,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 
-		if !revealer.checkBalanceFor(ctx, hiddenMessage.Satoshis, "reveal") {
+		if !revealer.checkBalanceFor(ctx, int64(hiddenMessage.Satoshis*1000), "reveal") {
 			goto answerEmpty
 		}
 

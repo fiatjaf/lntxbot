@@ -351,15 +351,26 @@ func createLocalizerBundle() (t.Bundle, error) {
 	bundle.AddFunc("roman", roman)
 	bundle.AddFunc("letter", func(i int) string { return string([]rune{rune(i) + 97}) })
 	bundle.AddFunc("add", func(a, b int) int { return a + b })
-	bundle.AddFunc("menuItem", func(sats int, rawItem string, showSats bool) string {
+	bundle.AddFunc("menuItem", func(sats interface{}, rawItem string, showSats bool) string {
+		var satShow string
+		switch s := sats.(type) {
+		case int:
+			satShow = strconv.Itoa(s) + " sat"
+		case int64:
+			satShow = strconv.FormatInt(s, 10) + " sat"
+		case float64:
+			satShow = fmt.Sprintf("%.3g sat", s)
+		}
+
 		if _, ok := menuItems[rawItem]; ok {
 			if showSats {
-				return rawItem + " (" + strconv.Itoa(sats) + " sat)"
+				return rawItem + " (" + satShow + ")"
 			} else {
 				return rawItem
 			}
 		}
-		return strconv.Itoa(sats) + " sat"
+
+		return satShow
 	})
 
 	err := bundle.AddLanguage("en", t.EN)

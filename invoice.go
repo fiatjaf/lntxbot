@@ -209,20 +209,20 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 		send(ctx, qrURL(lnurl), lnurl)
 		go u.track("print lnurl", nil)
 	} else {
-		sats, err := parseSatoshis(opts)
+		msats, err := parseSatoshis(opts)
 		if err != nil {
 			if opts["any"].(bool) {
-				sats = 0
+				msats = 0
 			} else {
 				handleHelp(ctx, "receive")
 				return
 			}
 		}
 
-		go u.track("make invoice", map[string]interface{}{"sats": sats})
+		go u.track("make invoice", map[string]interface{}{"sats": msats / 1000})
 
 		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
-			Msatoshi: int64(sats) * 1000,
+			Msatoshi: msats,
 			Desc:     desc,
 		})
 		if err != nil {

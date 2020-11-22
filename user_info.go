@@ -11,6 +11,7 @@ import (
 
 type Info struct {
 	AccountId     string  `db:"account_id"`
+	BalanceMsat   int64   `db:"balance_msat"`
 	Balance       float64 `db:"balance"`
 	UsableBalance float64 `db:"usable"`
 	TotalSent     float64 `db:"totalsent"`
@@ -27,6 +28,7 @@ func (u User) getInfo() (info Info, err error) {
 	err = pg.Get(&info, `
 SELECT
   b.account_id,
+  b.balance AS balance_msat,
   b.balance/1000 AS balance,
   b.balance * 0.995 / 1000 AS usable,
   (
@@ -72,11 +74,11 @@ GROUP BY tag
 	return
 }
 
-func (u User) checkBalanceFor(ctx context.Context, sats int, purpose string) bool {
-	if info, err := u.getInfo(); err != nil || int(info.Balance) < sats {
+func (u User) checkBalanceFor(ctx context.Context, msats int64, purpose string) bool {
+	if info, err := u.getInfo(); err != nil || info.BalanceMsat < msats {
 		send(ctx, u, t.INSUFFICIENTBALANCE, t.T{
 			"Purpose": purpose,
-			"Sats":    float64(sats) - info.Balance,
+			"Sats":    float64(msats/1000) - info.Balance + 1,
 		}, WITHALERT)
 		return false
 	}

@@ -74,8 +74,9 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 				// make a call
 				params := opts["<params>"].([]string)
 				var sats *int // nil means not specified
-				if satoshi, err := parseSatoshis(opts); err == nil {
-					sats = &satoshi
+				if msats, err := parseSatoshis(opts); err == nil {
+					satsv := int(msats / 1000)
+					sats = &satsv
 				} else {
 					// surprise! supplying <satoshi> is actually optional.
 					// if it's not an integer we'll interpret it as a kv param.
@@ -170,11 +171,12 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 		}
 	case opts["satellite"].(bool):
 		// create an order
-		satoshis, err := parseSatoshis(opts)
+		msats, err := parseSatoshis(opts)
 		if err != nil {
 			handleHelp(ctx, "satellite")
 			return
 		}
+		satoshis := int(msats)
 
 		message := getVariadicFieldOrReplyToContent(ctx, opts, "<message>")
 		if message == "" {
@@ -220,12 +222,13 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 
 			go u.track("bitclouds create-init", nil)
 		case opts["topup"].(bool):
-			satoshis, err := parseSatoshis(opts)
+			msats, err := parseSatoshis(opts)
 			if err != nil {
 				send(ctx, u, t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 				return
 			}
 
+			satoshis := int(msats / 1000)
 			host, err := opts.String("<host>")
 			if err == nil {
 				// host provided
@@ -391,9 +394,10 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 		}
 	case opts["gifts"].(bool):
 		// create gift or fallback to list gifts
-		sats, err := parseSatoshis(opts)
+		msats, err := parseSatoshis(opts)
 		if err == nil {
 			// create
+			sats := int(msats / 1000)
 			err = createGift(ctx, sats)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "gifts", "Err": err.Error()})
@@ -478,11 +482,12 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 				return
 			}
 
-			satoshis, err := parseSatoshis(opts)
+			msats, err := parseSatoshis(opts)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
 				return
 			}
+			satoshis := int(msats / 1000)
 
 			go u.track("sats4ads broadcast", map[string]interface{}{"sats": satoshis})
 

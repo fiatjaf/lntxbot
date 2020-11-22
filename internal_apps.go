@@ -662,17 +662,17 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 	// sending money to others
 	var (
-		sats        int
+		msats       int64
 		receiver    *User
 		username    string
 		description string
 	)
 
 	// get quantity
-	sats, err := parseSatoshis(opts)
-	satsraw := opts["<satoshis>"].(string)
+	msats, err := parseSatoshis(opts)
+	amtraw := opts["<satoshis>"].(string)
 
-	if err != nil || sats <= 0 {
+	if err != nil || msats <= 0 {
 		send(ctx, g, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 		return
 	} else {
@@ -743,7 +743,7 @@ ensured:
 		ctx,
 		*receiver,
 		anonymous,
-		sats*1000,
+		msats,
 		strings.TrimSpace(description),
 		"",
 		"",
@@ -760,8 +760,8 @@ ensured:
 	// notify sender
 	send(ctx, u, t.USERSENTTOUSER, t.T{
 		"User":    receiver.AtName(ctx),
-		"Sats":    sats,
-		"RawSats": satsraw,
+		"Sats":    msats / 1000,
+		"RawSats": amtraw,
 		"ReceiverHasNoChat": receiver.TelegramChatId == 0 &&
 			receiver.DiscordChannelId == "",
 	})
@@ -770,12 +770,12 @@ ensured:
 	if receiver.hasPrivateChat() && !ctx.Value("spammy").(bool) {
 		// if possible (and we're not in a spammy group), privately
 		if anonymous {
-			send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": sats})
+			send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": msats / 1000})
 		} else {
 			send(ctx, receiver, t.USERSENTYOUSATS, t.T{
 				"User":    u.AtName(ctx),
-				"Sats":    sats,
-				"RawSats": satsraw,
+				"Sats":    msats / 1000,
+				"RawSats": amtraw,
 			})
 		}
 	} else {
@@ -783,7 +783,7 @@ ensured:
 		send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
 			"From": u.AtName(ctx),
 			"To":   receiver.AtName(ctx),
-			"Sats": sats,
+			"Sats": msats / 1000,
 			"ClaimerHasNoChat": receiver.TelegramChatId == 0 &&
 				receiver.DiscordChannelId == "",
 			"BotName": s.ServiceId,

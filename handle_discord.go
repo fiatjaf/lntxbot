@@ -134,9 +134,9 @@ parsed:
 
 	switch {
 	case opts["dollar"].(bool):
-		sats, err := parseSatoshis(opts)
+		msats, err := parseSatoshis(opts)
 		if err == nil {
-			send(ctx, getDollarPrice(int64(sats)*1000))
+			send(ctx, getDollarPrice(msats))
 		}
 		break
 	case opts["start"].(bool), opts["tutorial"].(bool):
