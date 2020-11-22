@@ -181,13 +181,13 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 	// build text with params
 	if text == "" && template != "" {
-		// fallback locale to user
-		if locale == "" {
-			if target != nil {
-				locale = target.Locale
-			}
+		// fallback locale to user or group
+		if locale == "" && group != nil {
+			locale = group.Locale
 		}
-		// TODO must also use group locale if we're going to send to a group
+		if locale == "" && target != nil {
+			locale = target.Locale
+		}
 
 		ctx = context.WithValue(ctx, "locale", locale)
 		text = translateTemplate(ctx, template, templateData)
