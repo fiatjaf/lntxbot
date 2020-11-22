@@ -57,6 +57,10 @@ func parseAmountString(amt string) (msats int64, err error) {
 	// is a number
 	sats, err := strconv.ParseFloat(amt, 64)
 	if err == nil {
+		if sats < 1 {
+			return 0, errors.New("too small")
+		}
+
 		return int64(sats * 1000), nil
 	}
 
