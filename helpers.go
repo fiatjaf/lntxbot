@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	cmap "github.com/orcaman/concurrent-map"
+	"github.com/soudy/mathcat"
 	"github.com/tidwall/gjson"
 )
 
@@ -37,13 +39,11 @@ var dollarPrice = struct {
 	rate       float64
 }{time.Now(), 0}
 
-var menuItems = map[string]int64{
-	"popcorn":    27,
-	"piparote":   88,
-	"banana":     777,
-	"🍌":          777,
-	"watermelon": 1214,
-	"🍉":          1214,
+var menuItems = map[string]*big.Rat{
+	"popcorn":    big.NewRat(27, 1),
+	"piparote":   big.NewRat(88, 1),
+	"banana":     big.NewRat(777, 1),
+	"watermelon": big.NewRat(1214, 1),
 }
 
 func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
@@ -68,20 +68,41 @@ func parseAmountString(amt string) (msats int64, err error) {
 		return int64(sats * 1000), nil
 	}
 
-	// is an item of a menu of varieties
-	itemSats, ok := menuItems[amt]
-	if ok {
-		return itemSats * 1000, nil
+	// replace emojis
+	amt = strings.ReplaceAll(amt, "🍌", "banana")
+	amt = strings.ReplaceAll(amt, "🍉", "watermelon")
+	amt = strings.ReplaceAll(amt, "🍿", "popcorn")
+
+	// usd
+	usdMsat, err := getDollarRate()
+	if err != nil {
+		return 0, errors.New("couldn't get exchange rate")
+	}
+
+	// is an expression
+	p := mathcat.New()
+	for k, v := range menuItems {
+		p.Variables[k] = v
+	}
+	usdRat := new(big.Rat).SetFloat64(usdMsat)
+	usdRat.Mul(usdRat, big.NewRat(1, 1000))
+	p.Variables["USD"] = usdRat
+	p.Variables["usd"] = usdRat
+	r, err := p.Run(amt)
+	if err == nil {
+		f, _ := r.Float64()
+		if f < 100000 {
+			return int64(f * 1000), nil
+		}
+	} else {
+		log.Debug().Err(err).Str("expr", amt).Msg("invalid amt math expression")
 	}
 
 	// is a fiat currency
 	if strings.HasSuffix(strings.ToUpper(amt), "USD") {
 		dollars, err := strconv.ParseFloat(amt[0:len(amt)-3], 64)
 		if err == nil {
-			msats, err = getMSatoshisForDollar(dollars)
-			if err != nil {
-				return 0, err
-			}
+			msats := int64(dollars * usdMsat)
 			return msats, nil
 		}
 	}
@@ -221,14 +242,6 @@ func getDollarPrice(msats int64) string {
 		return "~ USD"
 	}
 	return fmt.Sprintf("%.2f USD", float64(msats)/rate)
-}
-
-func getMSatoshisForDollar(dollar float64) (int64, error) {
-	rate, err := getDollarRate()
-	if err != nil {
-		return 0, errors.New("couldn't get exchange rate")
-	}
-	return int64(dollar * rate), nil
 }
 
 func getDollarRate() (rate float64, err error) {
