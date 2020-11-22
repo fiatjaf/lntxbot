@@ -41,7 +41,9 @@ var menuItems = map[string]int64{
 	"popcorn":    27,
 	"piparote":   88,
 	"banana":     777,
+	"🍌":          777,
 	"watermelon": 1214,
+	"🍉":          1214,
 }
 
 func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
