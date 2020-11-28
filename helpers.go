@@ -396,8 +396,8 @@ func stringIsIn(needle string, haystack []string) bool {
 }
 
 func getVariadicFieldOrReplyToContent(ctx context.Context, opts docopt.Opts, optsField string) string {
-	if imessage, ok := opts[optsField]; ok {
-		return strings.Join(imessage.([]string), " ")
+	if text, ok := opts[optsField]; ok {
+		return strings.Join(text.([]string), " ")
 	}
 
 	if imessage := ctx.Value("message"); imessage != nil {

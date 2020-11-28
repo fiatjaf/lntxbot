@@ -26,6 +26,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/msingleton/amplitude-go"
 	cmap "github.com/orcaman/concurrent-map"
+	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"gopkg.in/redis.v5"
 )
@@ -222,7 +223,7 @@ func server(p *plugin.Plugin) {
 
 	// start http server
 	srv := &http.Server{
-		Handler:      router,
+		Handler:      cors.Default().Handler(router),
 		Addr:         s.Host + ":" + s.Port,
 		WriteTimeout: 300 * time.Second,
 		ReadTimeout:  300 * time.Second,

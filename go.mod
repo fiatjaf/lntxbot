@@ -31,6 +31,7 @@ require (
 	github.com/lucsky/cuid v1.0.2
 	github.com/msingleton/amplitude-go v0.0.0-20200312121213-b7c11448c30e
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
+	github.com/rs/cors v1.7.0
 	github.com/rs/zerolog v1.20.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/soudy/mathcat v0.0.0-20201027222343-588f3d377cb9
