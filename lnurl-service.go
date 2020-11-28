@@ -19,11 +19,12 @@ import (
 func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
 	u := ctx.Value("initiator").(User)
 
-	maxSats, err := parseSatoshis(opts)
+	maxMSats, err := parseSatoshis(opts)
 	if err != nil {
 		send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 		return
 	}
+	maxSats := maxMSats / 1000
 
 	go u.track("lnurl generate", map[string]interface{}{"sats": maxSats})
 
