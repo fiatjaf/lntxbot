@@ -409,7 +409,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		"maxfeepercent": maxfeepercent,
 		"exemptfee":     exemptfee,
 		"label":         fmt.Sprintf("user=%d", u.Id),
-		"use_shadow":    false,
+		"retry_for":     20,
 	}
 
 	if inv.MSatoshi == 0 {
