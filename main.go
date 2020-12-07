@@ -78,7 +78,7 @@ var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var discord *discordgo.Session
 var amp *amplitude.Client
-var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
 var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
 var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
