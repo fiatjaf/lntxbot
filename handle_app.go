@@ -176,7 +176,7 @@ func handleExternalApp(ctx context.Context, opts docopt.Opts) {
 			handleHelp(ctx, "satellite")
 			return
 		}
-		satoshis := int(msats)
+		satoshis := int(msats / 1000)
 
 		message := getVariadicFieldOrReplyToContent(ctx, opts, "<message>")
 		if message == "" {
