@@ -39,7 +39,6 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		}
 
 		u = user
-		ctx = context.WithValue(ctx, "initiator", user)
 
 		// stop if temporarily banned
 		if _, ok := s.Banned[u.Id]; ok {
@@ -47,6 +46,8 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 	}
+
+	ctx = context.WithValue(ctx, "initiator", u)
 
 	// by default we use the user locale for the group object, because
 	// we may end up sending the message to the user instead of to the group

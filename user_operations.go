@@ -423,11 +423,13 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		var fallbackError Try
 
 		payment, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
-		if errw, ok := err.(lightning.ErrorCommand); ok {
-			fallbackError = Try{
-				Success: false,
-				Error:   errw.Message,
-				Route:   []Hop{},
+		if err != nil {
+			if errw, ok := err.(lightning.ErrorCommand); ok {
+				fallbackError = Try{
+					Success: false,
+					Error:   errw.Message,
+					Route:   []Hop{},
+				}
 			}
 		}
 
