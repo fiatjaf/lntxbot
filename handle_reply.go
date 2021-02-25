@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -23,21 +22,21 @@ func handleReply(ctx context.Context) {
 		data := gjson.Parse(val)
 		switch data.Get("type").String() {
 		case "pay":
-			sats, err := strconv.ParseFloat(message.Text, 64)
+			msats, err := parseAmountString(message.Text)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handlePayVariableAmount(ctx, int64(sats*1000), data)
+			handlePayVariableAmount(ctx, msats, data)
 		case "lnurlpay-amount":
-			sats, err := strconv.ParseFloat(message.Text, 64)
+			msats, err := parseAmountString(message.Text)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handleLNURLPayAmount(ctx, int64(sats*1000), data)
+			handleLNURLPayAmount(ctx, msats, data)
 		case "lnurlpay-comment":
 			handleLNURLPayComment(ctx, message.Text, data)
 		case "bitrefill":
-			value, err := strconv.ParseFloat(message.Text, 64)
+			msats, err := parseAmountString(message.Text)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
@@ -50,7 +49,7 @@ func handleReply(ctx context.Context) {
 			}
 
 			phone := data.Get("phone").String()
-			handleProcessBitrefillOrder(ctx, item, BitrefillPackage{Value: value},
+			handleProcessBitrefillOrder(ctx, item, BitrefillPackage{Value: msats / 1000},
 				&phone)
 		default:
 			log.Debug().Int("userId", u.Id).Int("message", inreplyto).Str("type", data.Get("type").String()).

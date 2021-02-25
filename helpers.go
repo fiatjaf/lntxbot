@@ -41,6 +41,7 @@ var dollarPrice = struct {
 
 var menuItems = map[string]*big.Rat{
 	"popcorn":    big.NewRat(27, 1),
+	"ziplock":    big.NewRat(50, 1),
 	"piparote":   big.NewRat(88, 1),
 	"banana":     big.NewRat(777, 1),
 	"watermelon": big.NewRat(1214, 1),
