@@ -242,6 +242,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		if nregistered+1 >= nparticipants {
 			// run the lottery
+			time.Sleep(3 * time.Second)
 			// even if for some bug we registered more participants than we should
 			// we run the lottery with them all
 			sparticipants, err := rds.SMembers(rkey).Result()
@@ -289,7 +290,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			removeKeyboardButtons(ctx)
 			if imessage := ctx.Value("message"); imessage != nil {
 				message := imessage.(*tgbotapi.Message)
-				send(ctx, message, APPEND, "\n"+
+				send(ctx, message, APPEND, joiner.AtName(ctx)+"\n"+
 					translateTemplate(ctx, t.CALLBACKWINNER, t.T{
 						"Winner": winner.AtName(ctx),
 					}))
