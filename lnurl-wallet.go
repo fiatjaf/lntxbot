@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -452,5 +453,38 @@ func lnurlpayFinish(
 		}()
 	} else {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId.(int))
+	}
+}
+
+func lnurlBalanceCheckRoutine() {
+	ctx := context.WithValue(context.Background(), "origin", "background")
+
+	for {
+		// every day, check everybody's balance on other services
+		time.Sleep(time.Hour * 24)
+
+		var checks []struct {
+			UserID int    `db:"account"`
+			URL    string `db:"url"`
+		}
+		err = pg.Get(&checks, `SELECT url FROM balance_check`)
+		if err == sql.ErrNoRows {
+			err = nil
+		}
+		if err != nil {
+			log.Error().Err(err).Msg("failed to fetch balance_checks on routine")
+		}
+
+		for _, check := range checks {
+			u, err := loadUser(check.UserID)
+			if err != nil {
+				log.Error().Err(err).Int("user", check.UserID).Str("url", check.URL).
+					Msg("failed to load user on balance_checks routine")
+				continue
+			}
+
+			handleLNURL(context.WithValue(ctx, "initiator", u),
+				check.URL, handleLNURLOpts{isBalanceCheck: true})
+		}
 	}
 }

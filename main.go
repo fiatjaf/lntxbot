@@ -219,6 +219,7 @@ func server(p *plugin.Plugin) {
 	// routines
 	go startKicking()
 	go sats4adsCleanupRoutine()
+	go lnurlBalanceCheckRoutine()
 
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
