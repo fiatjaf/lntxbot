@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -18,9 +20,41 @@ import (
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
+func serveLNURLBalanceNotify() {
+	ctx := context.WithValue(context.Background(), "origin", "external")
+
+	router.Path("/lnurl/withdraw/notify").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+
+		qs := r.URL.Query()
+		service := qs.Get("service")
+		user, _ := strconv.Atoi(qs.Get("user"))
+
+		log.Debug().Str("url", r.URL.String()).Str("service", service).Int("user", user).
+			Msg("lnurl-withdraw balance notify")
+
+		u, err := loadUser(user)
+		if err != nil {
+			return
+		}
+
+		balanceCheck, err := u.loadBalanceCheckURL(service)
+		if err != nil {
+			log.Warn().Err(err).Msg("loading balanceCheck url")
+			return
+		}
+
+		if balanceCheck != "" {
+			handleLNURL(context.WithValue(ctx, "initiator", u),
+				balanceCheck, handleLNURLOpts{isBalanceCheck: true})
+		}
+	})
+}
+
 type handleLNURLOpts struct {
 	loginSilently      bool
 	payWithoutPromptIf *int64
+	isBalanceCheck     bool
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
@@ -41,6 +75,10 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 		return
 	}
 
+	if _, isW := iparams.(lnurl.LNURLWithdrawResponse); opts.isBalanceCheck && !isW {
+		return
+	}
+
 	switch params := iparams.(type) {
 	case lnurl.LNURLAuthParams:
 		handleLNURLAuth(ctx, u, opts, params)
@@ -48,11 +86,11 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 		handleLNURLWithdraw(ctx, u, opts, params)
 	case lnurl.LNURLPayResponse1:
 		handleLNURLPay(ctx, u, opts, params)
-	case lnurl.LNURLAllowanceResponse:
-		handleLNURLAllowance(ctx, u, opts, params)
 	default:
 		send(ctx, u, t.LNURLUNSUPPORTED, ctx.Value("message"))
 	}
+	//	case lnurl.LNURLAllowanceResponse:
+	//		handleLNURLAllowance(ctx, u, opts, params)
 
 	return
 }
@@ -113,11 +151,22 @@ func handleLNURLWithdraw(
 	opts handleLNURLOpts,
 	params lnurl.LNURLWithdrawResponse,
 ) {
+	// if possible, save this
+	u.saveBalanceCheckURL(params)
+
+	// modify description
+	desc := params.DefaultDescription
+	if opts.isBalanceCheck {
+		desc += " (automatic)"
+		log.Info().Stringer("user", &u).Str("service", params.CallbackURL.Host).
+			Msg("performing automatic balanceCheck")
+	}
+
 	// lnurl-withdraw: make an invoice with the highest possible value and send
 	bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: false,
 		Msatoshi:               params.MaxWithdrawable,
-		Desc:                   params.DefaultDescription,
+		Desc:                   desc,
 	})
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -128,6 +177,8 @@ func handleLNURLWithdraw(
 	_, err = napping.Get(params.Callback, &url.Values{
 		"k1": {params.K1},
 		"pr": {bolt11},
+		"balanceNotify": {fmt.Sprintf("%s/lnurl/withdraw/notify?service=%s&user=%d",
+			s.ServiceURL, params.CallbackURL.Host, u.Id)},
 	}, &sentinvres, &sentinvres)
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -406,61 +457,61 @@ func lnurlpayFinish(
 	}
 }
 
-func handleLNURLAllowance(ctx context.Context, u User, opts handleLNURLOpts, params lnurl.LNURLAllowanceResponse) {
-	sent := send(ctx, u, t.PAYAMOUNT, t.T{
-		"Domain":      params.SocketURL.Host,
-		"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
-		"Description": params.Description,
-	}, ctx.Value("message"), &tgbotapi.InlineKeyboardMarkup{
-		[][]tgbotapi.InlineKeyboardButton{
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(
-					translate(ctx, t.CANCEL),
-					fmt.Sprintf("cancel=%d", u.Id)),
-				tgbotapi.NewInlineKeyboardButtonData(
-					translate(ctx, t.YES),
-					fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
-			),
-		},
-	}, tempAssetURL(".png", params.ImageBytes()))
-	if sent == nil {
-		return
-	}
-
-	sentId := sent.(int)
-	data, _ := json.Marshal(struct {
-		Type   string `json:"type"`
-		Socket string `json:"socket"`
-		K1     string `json:"k1"`
-	}{"lnurlpay", params.Socket, params.K1})
-	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
-}
-
-func handleLNURLAllowanceConfirmation(ctx context.Context, msats int64, data gjson.Result) {
-	// // get data from redis object
-	// socket := data.Get("socket").String()
-	// k1 := data.Get("k1").String()
-
-	// // proceed to establish a session
-	// session, err := allowance_socket.Connect(socket, msats, k1)
-	// if err != nil {
-	// 	send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-	// 	return
-	// }
-
-	// // continuously send balance
-	// go func () {
-	//     err := session.Send(lnurl.AllowanceBalance{
-
-	// })
-	//     if err != nil{
-	//     return
-	//     }
-	// }()
-
-	// for {
-	//     select {
-	//     case session.
-	//     }
-	// }
-}
+// func handleLNURLAllowance(ctx context.Context, u User, opts handleLNURLOpts, params lnurl.LNURLAllowanceResponse) {
+// 	sent := send(ctx, u, t.PAYAMOUNT, t.T{
+// 		"Domain":      params.SocketURL.Host,
+// 		"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
+// 		"Description": params.Description,
+// 	}, ctx.Value("message"), &tgbotapi.InlineKeyboardMarkup{
+// 		[][]tgbotapi.InlineKeyboardButton{
+// 			tgbotapi.NewInlineKeyboardRow(
+// 				tgbotapi.NewInlineKeyboardButtonData(
+// 					translate(ctx, t.CANCEL),
+// 					fmt.Sprintf("cancel=%d", u.Id)),
+// 				tgbotapi.NewInlineKeyboardButtonData(
+// 					translate(ctx, t.YES),
+// 					fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
+// 			),
+// 		},
+// 	}, tempAssetURL(".png", params.ImageBytes()))
+// 	if sent == nil {
+// 		return
+// 	}
+//
+// 	sentId := sent.(int)
+// 	data, _ := json.Marshal(struct {
+// 		Type   string `json:"type"`
+// 		Socket string `json:"socket"`
+// 		K1     string `json:"k1"`
+// 	}{"lnurlpay", params.Socket, params.K1})
+// 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
+// }
+//
+// func handleLNURLAllowanceConfirmation(ctx context.Context, msats int64, data gjson.Result) {
+// 	// get data from redis object
+// 	socket := data.Get("socket").String()
+// 	k1 := data.Get("k1").String()
+//
+// 	// proceed to establish a session
+// 	session, err := allowance_socket.Connect(socket, msats, k1)
+// 	if err != nil {
+// 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+// 		return
+// 	}
+//
+// 	// continuously send balance
+// 	go func () {
+// 	    err := session.Send(lnurl.AllowanceBalance{
+//
+// 	})
+// 	    if err != nil{
+// 	    return
+// 	    }
+// 	}()
+//
+// 	for {
+// 	    select {
+// 	    case session.
+// 	    }
+// 	}
+// }

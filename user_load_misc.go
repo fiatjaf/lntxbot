@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/jmoiron/sqlx"
 	"github.com/msingleton/amplitude-go"
 )
@@ -272,6 +274,48 @@ UPDATE account
 SET password = DEFAULT WHERE id = $1
 RETURNING password;                            
     `, u.Id)
+	return
+}
+
+func (u User) saveBalanceCheckURL(params lnurl.LNURLWithdrawResponse) {
+	log := log.With().
+		Str("service", params.CallbackURL.Host).
+		Stringer("user", &u).Str("url", params.BalanceCheck).
+		Logger()
+
+	if b, err := url.Parse(params.BalanceCheck); err == nil && b.Host == params.CallbackURL.Host {
+		_, err := pg.Exec(`
+INSERT INTO balance_check (service, account, url)
+VALUES ($1, $2, $3)
+ON CONFLICT (service, account) DO UPDATE SET url = $3
+        `, params.CallbackURL.Host, u.Id, params.BalanceCheck)
+		if err == nil {
+			log.Info().Msg("saved balance_check")
+		} else {
+			log.Error().Err(err).Msg("failed to save balance_check")
+		}
+	} else {
+		_, err := pg.Exec(`
+DELETE FROM balance_check
+WHERE service = $1 AND account = $2
+         `, params.CallbackURL.Host, u.Id)
+		if err == nil {
+			log.Info().Msg("deleted balance_check")
+		} else {
+			log.Error().Err(err).Msg("failed to delete balance_check")
+		}
+	}
+}
+
+func (u User) loadBalanceCheckURL(service string) (rawurl string, err error) {
+	err = pg.Get(&rawurl, `
+SELECT url
+FROM balance_check
+WHERE account = $1 AND service = $2
+    `, u.Id, service)
+	if err == sql.ErrNoRows {
+		err = nil
+	}
 	return
 }
 

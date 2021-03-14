@@ -17,6 +17,14 @@ CREATE TABLE account (
   appdata jsonb NOT NULL DEFAULT '{}' -- data for all apps this user have, as a map of {"appname": {anything}}
 );
 
+CREATE TABLE balance_check (
+  service text NOT NULL, -- a domain name
+  account int REFERENCES account (id),
+  url text NOT NULL,
+
+  PRIMARY KEY(service, account)
+);
+
 CREATE TABLE groupchat (
   telegram_id bigint UNIQUE,
   discord_guild_id TEXT UNIQUE,

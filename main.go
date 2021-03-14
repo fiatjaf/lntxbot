@@ -204,6 +204,7 @@ func server(p *plugin.Plugin) {
 	serveQRCodes()
 	serveTempAssets()
 	serveLNURL()
+	serveLNURLBalanceNotify()
 	servePages()
 	serveGiftsWebhook()
 	serveBitrefillWebhook()

@@ -79,15 +79,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			handleLNURLPayAmount(ctx, msats, data)
 		}
 		return
-	case strings.HasPrefix(cb.Data, "lnurlall="):
-		defer removeKeyboardButtons(ctx)
-		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
-		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
-		if val, err := rds.Get(key).Result(); err == nil {
-			data := gjson.Parse(val)
-			handleLNURLAllowanceConfirmation(ctx, msats, data)
-		}
-		return
 	case strings.HasPrefix(cb.Data, "give="):
 		giveId := cb.Data[5:]
 		from, to, sats, err := getGiveawayData(giveId)
@@ -825,6 +816,16 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		answer := handleExternalAppCallback(ctx)
 		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))
 	}
+
+	//	case strings.HasPrefix(cb.Data, "lnurlall="):
+	//		defer removeKeyboardButtons(ctx)
+	//		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
+	//		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
+	//		if val, err := rds.Get(key).Result(); err == nil {
+	//			data := gjson.Parse(val)
+	//			handleLNURLAllowanceConfirmation(ctx, msats, data)
+	//		}
+	//		return
 
 answerEmpty:
 	send(ctx, "")
