@@ -811,21 +811,15 @@ WHERE substring(payment_hash from 0 for $2) = $1
 				)
 			}
 		}(u, txn.TriggerMessage, txn.Hash)
-	case strings.HasPrefix(cb.Data, "x="):
-		// callback from external app
-		answer := handleExternalAppCallback(ctx)
-		bot.AnswerCallbackQuery(tgbotapi.NewCallback(cb.ID, answer))
+	case strings.HasPrefix(cb.Data, "s4a="):
+		defer removeKeyboardButtons(ctx)
+		parts := strings.Split(cb.Data[2:], "-")
+		if parts[1] == "v" {
+			hashfirst10chars := parts[2]
+			go confirmAdViewed(u, hashfirst10chars)
+			go u.track("sats4ads viewed", nil)
+		}
 	}
-
-	//	case strings.HasPrefix(cb.Data, "lnurlall="):
-	//		defer removeKeyboardButtons(ctx)
-	//		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
-	//		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
-	//		if val, err := rds.Get(key).Result(); err == nil {
-	//			data := gjson.Parse(val)
-	//			handleLNURLAllowanceConfirmation(ctx, msats, data)
-	//		}
-	//		return
 
 answerEmpty:
 	send(ctx, "")

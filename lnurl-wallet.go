@@ -89,8 +89,6 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 	default:
 		send(ctx, u, t.LNURLUNSUPPORTED, ctx.Value("message"))
 	}
-	//	case lnurl.LNURLAllowanceResponse:
-	//		handleLNURLAllowance(ctx, u, opts, params)
 
 	return
 }
@@ -456,62 +454,3 @@ func lnurlpayFinish(
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId.(int))
 	}
 }
-
-// func handleLNURLAllowance(ctx context.Context, u User, opts handleLNURLOpts, params lnurl.LNURLAllowanceResponse) {
-// 	sent := send(ctx, u, t.PAYAMOUNT, t.T{
-// 		"Domain":      params.SocketURL.Host,
-// 		"Amount":      float64(params.RecommendedAllowanceAmount) / 1000,
-// 		"Description": params.Description,
-// 	}, ctx.Value("message"), &tgbotapi.InlineKeyboardMarkup{
-// 		[][]tgbotapi.InlineKeyboardButton{
-// 			tgbotapi.NewInlineKeyboardRow(
-// 				tgbotapi.NewInlineKeyboardButtonData(
-// 					translate(ctx, t.CANCEL),
-// 					fmt.Sprintf("cancel=%d", u.Id)),
-// 				tgbotapi.NewInlineKeyboardButtonData(
-// 					translate(ctx, t.YES),
-// 					fmt.Sprintf("lnurlall=%d", params.RecommendedAllowanceAmount/1000)),
-// 			),
-// 		},
-// 	}, tempAssetURL(".png", params.ImageBytes()))
-// 	if sent == nil {
-// 		return
-// 	}
-//
-// 	sentId := sent.(int)
-// 	data, _ := json.Marshal(struct {
-// 		Type   string `json:"type"`
-// 		Socket string `json:"socket"`
-// 		K1     string `json:"k1"`
-// 	}{"lnurlpay", params.Socket, params.K1})
-// 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
-// }
-//
-// func handleLNURLAllowanceConfirmation(ctx context.Context, msats int64, data gjson.Result) {
-// 	// get data from redis object
-// 	socket := data.Get("socket").String()
-// 	k1 := data.Get("k1").String()
-//
-// 	// proceed to establish a session
-// 	session, err := allowance_socket.Connect(socket, msats, k1)
-// 	if err != nil {
-// 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-// 		return
-// 	}
-//
-// 	// continuously send balance
-// 	go func () {
-// 	    err := session.Send(lnurl.AllowanceBalance{
-//
-// 	})
-// 	    if err != nil{
-// 	    return
-// 	    }
-// 	}()
-//
-// 	for {
-// 	    select {
-// 	    case session.
-// 	    }
-// 	}
-// }

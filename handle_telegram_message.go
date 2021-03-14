@@ -177,14 +177,6 @@ parsed:
 			go u.track("stop", nil)
 		}
 		break
-	case // opts["fundbtc"].(bool),
-		opts["satellite"].(bool), opts["gifts"].(bool),
-		opts["sats4ads"].(bool),
-		opts["rub"].(bool), opts["skype"].(bool),
-		opts["bitrefill"].(bool), opts["bitclouds"].(bool),
-		opts["etleneum"].(bool), opts["etl"].(bool):
-		handleExternalApp(ctx, opts)
-		break
 	case opts["bluewallet"].(bool), opts["zeus"].(bool), opts["lndhub"].(bool):
 		go handleBlueWallet(ctx, opts)
 	case opts["api"].(bool):
@@ -534,10 +526,6 @@ parsed:
 				"sats":  price,
 			})
 		}()
-	case opts["apps"].(bool):
-		go u.track("apps", nil)
-		handleTutorial(ctx, "apps")
-		break
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		go u.track("help", map[string]interface{}{"command": command})
@@ -676,6 +664,13 @@ parsed:
 
 			}
 		}()
+	case opts["sats4ads"].(bool):
+		handleSats4Ads(ctx, u, opts)
+	case opts["satoshis"].(bool):
+		msats, err := parseSatoshis(opts)
+		if err == nil {
+			send(ctx, fmt.Sprintf("%.15g", float64(msats)/1000))
+		}
 	case opts["dollar"].(bool):
 		msats, err := parseSatoshis(opts)
 		if err == nil {

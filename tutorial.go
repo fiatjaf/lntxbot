@@ -13,8 +13,6 @@ func handleTutorial(ctx context.Context, section string) {
 	switch section {
 	case "wallet":
 		send(ctx, t.TUTORIALWALLET, t.T{"BotName": s.ServiceId})
-	case "apps":
-		send(ctx, t.TUTORIALAPPS, t.T{"BotName": s.ServiceId})
 	case "":
 		// do all sections
 		go func() {

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/rs/zerolog"
@@ -23,6 +25,115 @@ type Sats4AdsData struct {
 type Sats4AdsRateGroup struct {
 	NUsers   int `db:"nusers"`
 	UpToRate int `db:"uptorate"` // in msatoshi per character
+}
+
+func handleSats4Ads(ctx context.Context, u User, opts docopt.Opts) {
+	switch {
+	case opts["rate"].(bool):
+		rate, _ := getSats4AdsRate(u)
+		send(ctx, u, strconv.Itoa(rate)+" msatoshi per character.")
+		break
+	case opts["on"].(bool):
+		rate, err := opts.Int("<msat_per_character>")
+		if err != nil {
+			rate = 1
+		}
+		if rate > 1000 {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": "max = 1000, msatoshi"})
+			return
+		}
+
+		go u.track("sats4ads on", map[string]interface{}{"rate": rate})
+
+		err = turnSats4AdsOn(u, rate)
+		if err != nil {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+			return
+		}
+		send(ctx, u, t.SATS4ADSTOGGLE, t.T{"On": true, "Sats": float64(rate) / 1000})
+	case opts["off"].(bool):
+		err := turnSats4AdsOff(u)
+		if err != nil {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+			return
+		}
+
+		go u.track("sats4ads off", nil)
+
+		send(ctx, u, t.SATS4ADSTOGGLE, t.T{"On": false})
+	case opts["rates"].(bool):
+		rates, err := getSats4AdsRates()
+		if err != nil {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+			return
+		}
+
+		go u.track("sats4ads rates", nil)
+
+		send(ctx, u, t.SATS4ADSPRICETABLE, t.T{"Rates": rates})
+	case opts["broadcast"].(bool):
+		// check user banned
+		var data Sats4AdsData
+		err := u.getAppData("sats4ads", &data)
+		if err != nil {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+			return
+		}
+		if data.Banned {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": "user, banned"})
+			return
+		}
+
+		msats, err := parseSatoshis(opts)
+		if err != nil {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": err.Error()})
+			return
+		}
+		satoshis := int(msats / 1000)
+
+		go u.track("sats4ads broadcast", map[string]interface{}{"sats": satoshis})
+
+		contentMessage := getContentMessage(ctx, opts)
+		if contentMessage == nil {
+			handleHelp(ctx, "sats4ads")
+			return
+		}
+
+		// optional args
+		maxrate, _ := opts.Int("--max-rate")
+		offset, _ := opts.Int("--skip")
+
+		send(ctx, t.SATS4ADSSTART, ctx.Value("message"))
+
+		go func() {
+			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(ctx,
+				satoshis, contentMessage, maxrate, offset)
+			if err != nil {
+				log.Warn().Err(err).Stringer("user", &u).
+					Msg("sats4ads broadcast fail")
+				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
+				return
+			}
+
+			send(ctx, t.SATS4ADSBROADCAST, t.T{"NSent": nmessagesSent, "Sats": totalCost}, ctx.Value("message"))
+		}()
+	case opts["preview"].(bool):
+		go u.track("sats4ads preview", nil)
+
+		contentMessage := getContentMessage(ctx, opts)
+		if contentMessage == nil {
+			handleHelp(ctx, "sats4ads")
+			return
+		}
+
+		ad, _, _, _ := buildSats4AdsMessage(log, contentMessage, u, 0, nil)
+		if ad == nil {
+			send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": "invalid message used as ad content"})
+			return
+		}
+
+		bot.Send(ad)
+	}
 }
 
 func turnSats4AdsOn(user User, rate int) error {
@@ -137,7 +248,7 @@ OFFSET $3
 		// will be pending until the user clicks the "Viewed" button
 		targethash := hashString("%d:%s:%d",
 			contentMessage.MessageID, sourcehash, target.Id)
-		data := "x=s4a-v-" + targethash[:10]
+		data := "s4a=v-" + targethash[:10]
 
 		// build ad message based on the message that was replied to
 		ad, nchars, thisCostMsat, thisCostSatoshis := buildSats4AdsMessage(
@@ -426,4 +537,26 @@ func sats4adsCleanupRoutine() {
 
 func redisKeyUnviewedAd(userId int) string {
 	return fmt.Sprintf("sats4ads:unviewed:%d", userId)
+}
+
+func getContentMessage(ctx context.Context, opts docopt.Opts) *tgbotapi.Message {
+	// we'll use either a message passed as an argument...
+	var contentMessage *tgbotapi.Message
+	if imessage := ctx.Value("message"); imessage != nil {
+		if message, ok := imessage.(*tgbotapi.Message); ok {
+			contentMessage = message.ReplyToMessage
+		}
+	}
+
+	// or the contents of the message being replied to
+	if contentMessage == nil {
+		if itext, ok := opts["<text>"]; ok {
+			text := strings.Join(itext.([]string), " ")
+			if text != "" {
+				contentMessage = &tgbotapi.Message{Text: text}
+			}
+		}
+	}
+
+	return contentMessage
 }

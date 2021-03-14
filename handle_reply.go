@@ -35,22 +35,6 @@ func handleReply(ctx context.Context) {
 			handleLNURLPayAmount(ctx, msats, data)
 		case "lnurlpay-comment":
 			handleLNURLPayComment(ctx, message.Text, data)
-		case "bitrefill":
-			msats, err := parseAmountString(message.Text)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
-			}
-
-			// get item and package info
-			item, ok := bitrefillInventory[data.Get("item").String()]
-			if !ok {
-				send(ctx, u, t.ERROR, t.T{"App": "Bitrefill", "Err": "not found"})
-				return
-			}
-
-			phone := data.Get("phone").String()
-			handleProcessBitrefillOrder(ctx, item, BitrefillPackage{Value: msats / 1000},
-				&phone)
 		default:
 			log.Debug().Int("userId", u.Id).Int("message", inreplyto).Str("type", data.Get("type").String()).
 				Msg("reply to bot message unhandled procedure")

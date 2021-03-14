@@ -206,8 +206,6 @@ func server(p *plugin.Plugin) {
 	serveLNURL()
 	serveLNURLBalanceNotify()
 	servePages()
-	serveGiftsWebhook()
-	serveBitrefillWebhook()
 	router.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://t.me/lntxbot", http.StatusTemporaryRedirect)
 	})
@@ -215,9 +213,6 @@ func server(p *plugin.Plugin) {
 	// routines
 	go startKicking()
 	go sats4adsCleanupRoutine()
-	go initializeBitrefill()
-	go bitcloudsCheckingRoutine()
-	go startListeningToEtleneumContracts()
 
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))

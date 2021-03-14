@@ -122,52 +122,6 @@ const (
 	HIDDENMSGNOTFOUND    Key = "HiddenMsgNotFound"
 	HIDDENSHAREBTN       Key = "HiddenShareBtn"
 
-	ETLENEUMHELP          Key = "etleneumHelp"
-	ETLENEUMACCOUNT       Key = "EtleneumAccount"
-	ETLENEUMHISTORY       Key = "EtleneumHistory"
-	ETLENEUMCONTRACT      Key = "EtleneumContract"
-	ETLENEUMCONTRACTSTATE Key = "EtleneumContractState"
-	ETLENEUMCALL          Key = "EtleneumCall"
-	ETLENEUMCONTRACTS     Key = "EtleneumContracts"
-	ETLENEUMSUBSCRIBED    Key = "EtleneumSubscribed"
-	ETLENEUMCONTRACTEVENT Key = "EtleneumContractEvent"
-
-	BITREFILLHELP            Key = "bitrefillHelp"
-	BITREFILLINVENTORYHEADER Key = "BitrefillInventoryHeader"
-	BITREFILLPACKAGESHEADER  Key = "BitrefillPackagelHeader"
-	BITREFILLNOPROVIDERS     Key = "BitrefillNoProviders"
-	BITREFILLCONFIRMATION    Key = "BitrefillConfirmation"
-	BITREFILLFAILEDSAVE      Key = "BitrefillFailedToSave"
-	BITREFILLPURCHASEDONE    Key = "BitrefillPurchaseDone"
-	BITREFILLPURCHASEFAILED  Key = "BitrefillPurchaseFailed"
-	BITREFILLCOUNTRYSET      Key = "BitrefillCountrySet"
-	BITREFILLINVALIDCOUNTRY  Key = "BitrefillInvalidCountry"
-
-	SATELLITEHELP Key = "satelliteHelp"
-	SATELLITEPAID Key = "SatellitePaid"
-
-	FUNDBTCHELP   Key = "fundbtcHelp"
-	FUNDBTCFAIL   Key = "fundbtcFail"
-	FUNDBTCFINISH Key = "fundbtcFinish"
-
-	BITCLOUDSHELP           Key = "bitcloudsHelp"
-	BITCLOUDSCREATEHEADER   Key = "BitcloudsCreateHeader"
-	BITCLOUDSCREATED        Key = "BitcloudsCreated"
-	BITCLOUDSSTOPPEDWAITING Key = "BitcloudsStoppedWaiting"
-	BITCLOUDSNOHOSTS        Key = "BitcloudsNoHosts"
-	BITCLOUDSHOSTSHEADER    Key = "BitcloudsHostsHeader"
-	BITCLOUDSSTATUS         Key = "BitcloudsStatus"
-	BITCLOUDSREMINDER       Key = "BitcloudsReminder"
-
-	SKYPEHELP Key = "skypeHelp"
-	RUBHELP   Key = "rubHelp"
-
-	GIFTSHELP       Key = "giftsHelp"
-	GIFTSCREATED    Key = "GiftsCreated"
-	GIFTSFAILEDSAVE Key = "GiftsFailedSave"
-	GIFTSLIST       Key = "GiftsList"
-	GIFTSSPENTEVENT Key = "GiftsSpentEvent"
-
 	SATS4ADSHELP       Key = "sats4adsHelp"
 	SATS4ADSTOGGLE     Key = "Sats4adsToggle"
 	SATS4ADSBROADCAST  Key = "Sats4adsBroadcast"
@@ -175,8 +129,6 @@ const (
 	SATS4ADSPRICETABLE Key = "Sats4adsPriceTable"
 	SATS4ADSADFOOTER   Key = "Sats4adsAdFooter"
 	SATS4ADSVIEWED     Key = "Viewed"
-
-	ETLENEUMFAILEDTOPAY Key = "EtleneumFailedToPay"
 
 	TOGGLEHELP Key = "toggleHelp"
 

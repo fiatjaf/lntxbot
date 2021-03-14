@@ -100,39 +100,6 @@ var methods = []def{
 		inline_example: "reveal [hidden_message_id]",
 	},
 	def{
-		aliases: []string{"etleneum", "etl"},
-		argstr:  "[history | withdraw | (apps | contracts) | call <id> | <contract> [state [<jqfilter>] | subscribe | unsubscribe | <method> [<satoshis>] [<params>...]]]",
-	},
-	def{
-		aliases: []string{"satellite"},
-		argstr:  "<satoshis> [<message>...]",
-	},
-	// def{
-	// 	// golightning
-	// 	aliases: []string{"fundbtc"},
-	// 	argstr:  "<satoshis>",
-	// },
-	def{
-		aliases: []string{"bitclouds"},
-		argstr:  "[create | status [<host>] | topup <satoshis> [<host>] | adopt <host> | abandon <host>]",
-	},
-	def{
-		aliases: []string{"rub"},
-		argstr:  "<service> <account> [<rub>]",
-	},
-	def{
-		aliases: []string{"skype"},
-		argstr:  "<username> [<usd>]",
-	},
-	def{
-		aliases: []string{"bitrefill"},
-		argstr:  "(country <country_code> | <query> [<phone_number>])",
-	},
-	def{
-		aliases: []string{"gifts"},
-		argstr:  "(list | [<satoshis>])",
-	},
-	def{
 		aliases: []string{"sats4ads"},
 		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <satoshis> [<text>...] [--max-rate=<maxrate>] [--skip=<offset>] | preview)",
 	},
@@ -154,6 +121,10 @@ var methods = []def{
 	def{
 		aliases: []string{"toggle"},
 		argstr:  "(ticket [<price>] | renamable [<price>] | spammy | language [<lang>] | coinflips)",
+	},
+	def{
+		aliases: []string{"satoshis"},
+		argstr:  "<satoshis>",
 	},
 	def{
 		aliases: []string{"dollar"},
