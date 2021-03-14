@@ -1,8 +1,5 @@
-lntxbot: $(shell find . -name "*.go") bindata.go
+lntxbot: $(shell find . -name "*.go")
 	go build -ldflags="-s -w" -o ./lntxbot
-
-bindata.go: $(shell find templates) $(shell find static)
-	go-bindata -ignore=node_modules static/... templates/...
 
 deploy: lntxbot
 	rsync lntxbot hulsmann:.lightning1/plugins/lntxbot-new

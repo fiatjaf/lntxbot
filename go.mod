@@ -1,18 +1,14 @@
 module github.com/fiatjaf/lntxbot
 
-go 1.14
+go 1.16
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.2.0
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
-	github.com/arschles/assert v2.0.0+incompatible // indirect
-	github.com/arschles/go-bindata-html-template v0.0.0-20170123182818-839a6918b9ff
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
 	github.com/bwmarrin/discordgo v0.22.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/elazarl/go-bindata-assetfs v1.0.0
-	github.com/fiatjaf/eventsource v0.0.0-20200623030538-9845829a8ba8
 	github.com/fiatjaf/go-lnurl v1.1.0
 	github.com/fiatjaf/lightningd-gjson-rpc v1.1.0
 	github.com/fiatjaf/ln-decodepay v1.1.0

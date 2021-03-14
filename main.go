@@ -1,8 +1,10 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -12,9 +14,7 @@ import (
 	"strings"
 	"time"
 
-	template "github.com/arschles/go-bindata-html-template"
 	"github.com/bwmarrin/discordgo"
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
 	"github.com/fiatjaf/lntxbot/t"
@@ -79,10 +79,16 @@ var bot *tgbotapi.BotAPI
 var discord *discordgo.Session
 var amp *amplitude.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
-var tmpl = template.Must(template.New("", Asset).ParseFiles("templates/donation.html"))
 var router = mux.NewRouter()
 var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
 var bundle t.Bundle
+
+//go:embed templates
+var templates embed.FS
+var tmpl = template.Must(template.ParseFS(templates, "templates/*"))
+
+//go:embed static
+var static embed.FS
 
 func main() {
 	p := plugin.Plugin{
@@ -215,7 +221,7 @@ func server(p *plugin.Plugin) {
 	go sats4adsCleanupRoutine()
 
 	// random assets
-	router.PathPrefix("/static/").Handler(http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo}))
+	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
 
 	// start http server
 	srv := &http.Server{
