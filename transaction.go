@@ -119,13 +119,7 @@ func (t Transaction) Icon() string {
 		return "🔎"
 	case "sats4ads":
 		return "📢"
-	case "satellite":
-		return "📡"
-	case "golightning":
-		return "⛓️"
-	case "bitclouds":
-		return "☁️"
-	case "lntorub":
+	case "expensive":
 		return "💸"
 	default:
 		switch {
