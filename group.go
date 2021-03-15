@@ -1,12 +1,57 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	cmap "github.com/orcaman/concurrent-map"
 )
+
+func interceptMessage(message *tgbotapi.Message) (proceed bool) {
+	ctx := context.Background()
+
+	// check if ticket payments is pending
+	joinKey := fmt.Sprintf("%d:%d", message.From.ID, message.Chat.ID)
+	if _, isPending := pendingApproval.Get(joinKey); isPending {
+		log.Debug().Str("user", message.From.String()).Msg("user pending, can't speak")
+		return false
+	}
+
+	// check expensiveness
+	if sats := isExpensive(message.Chat.ID, message.Text); sats != 0 {
+		// take money out of the poor guy who sent the message
+		u, err := loadTelegramUser(message.From.ID)
+		if err != nil {
+			return false
+		}
+		if !u.checkBalanceFor(ctx, int64(sats)*1000, "expensive chat") {
+			return false
+		}
+
+		owner, err := getChatOwner(message.Chat.ID)
+		if err != nil {
+			return true
+		}
+
+		if owner.Id == u.Id {
+			return true
+		}
+
+		err = u.sendInternally(ctx, owner, false, int64(sats)*1000,
+			fmt.Sprintf("Expensive message on %d.", message.Chat.ID), "", "expensive")
+		if err == nil {
+			return true
+		}
+
+		return false
+	}
+
+	return true
+}
 
 /*
    ALL GROUP CHAT TELEGRAM IDS ARE NEGATIVE
@@ -93,6 +138,57 @@ UPDATE groupchat SET ticket = $2
 WHERE telegram_id = $1
     `, g.TelegramId, sat)
 	return
+}
+
+type expensiveness struct {
+	Price        int    `db:"expensive_price"`
+	Pattern      string `db:"expensive_pattern"`
+	patternRegex *regexp.Regexp
+}
+
+var expensive_cache = cmap.New()
+
+func (g GroupChat) setExpensive(sat int, pattern string) (err error) {
+	_, err = pg.Exec(`
+UPDATE groupchat SET expensive_price = $2, expensive_pattern = $3
+WHERE telegram_id = $1
+    `, g.TelegramId, sat, pattern)
+	if err != nil {
+		return err
+	}
+
+	regex, _ := regexp.Compile(pattern)
+	expensive_cache.Set(strconv.FormatInt(g.TelegramId, 10), expensiveness{
+		sat, pattern, regex,
+	})
+	return
+}
+
+func isExpensive(groupTelegramId int64, text string) (price int) {
+	var expensive expensiveness
+	if iexpensive, ok := expensive_cache.Get(strconv.FormatInt(groupTelegramId, 10)); ok {
+		expensive = iexpensive.(expensiveness)
+	} else {
+		pg.Get(&expensive, `
+SELECT expensive_price, expensive_pattern
+FROM groupchat
+WHERE telegram_id = $1
+        `, groupTelegramId)
+
+		regex, _ := regexp.Compile(expensive.Pattern)
+		expensive.patternRegex = regex
+		expensive_cache.Set(strconv.FormatInt(groupTelegramId, 10), expensive)
+	}
+
+	if expensive.Price == 0 {
+		return 0
+	}
+
+	if expensive.patternRegex.MatchString(text) {
+		return expensive.Price
+	}
+
+	return 0
 }
 
 func (g GroupChat) setRenamePrice(sat int) (err error) {

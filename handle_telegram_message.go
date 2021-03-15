@@ -573,41 +573,76 @@ parsed:
 			switch {
 			case opts["ticket"].(bool):
 				log.Info().Stringer("group", &g).Msg("toggling ticket")
-				price, err := opts.Int("<price>")
+				msats, err := parseSatoshis(opts)
 				if err != nil {
 					g.setTicketPrice(0)
 					send(ctx, g, t.FREEJOIN)
 				}
+				sats := int(msats / 1000)
 
 				go u.track("toggle ticket", map[string]interface{}{
 					"group": groupId,
-					"sats":  price,
+					"sats":  sats,
 				})
 
-				g.setTicketPrice(price)
-				if price > 0 {
+				g.setTicketPrice(sats)
+				if sats > 0 {
 					send(ctx, g, t.TICKETMSG, t.T{
-						"Sat":     price,
+						"Sat":     sats,
 						"BotName": s.ServiceId,
+					})
+				}
+			case opts["expensive"].(bool):
+				log.Info().Stringer("group", &g).Msg("toggling expensive")
+				msats, _ := parseSatoshis(opts)
+				pattern, _ := opts.String("<pattern>")
+				sats := int(msats / 1000)
+
+				if sats > 50 || sats < 5 {
+					send(ctx, g, t.ERROR, t.T{
+						"Err": "price per message must be between 5 and 50 sat."})
+					return
+				}
+
+				if sats == 0 {
+					g.setExpensive(0, "")
+					send(ctx, g, t.FREETALK)
+				} else if _, err := regexp.Compile(pattern); err != nil {
+					send(ctx, g, t.ERROR, t.T{"Err": err.Error()})
+					return
+				}
+
+				go u.track("toggle expensive", map[string]interface{}{
+					"group":   groupId,
+					"sats":    sats,
+					"pattern": pattern,
+				})
+
+				g.setExpensive(sats, pattern)
+				if sats > 0 {
+					send(ctx, g, t.EXPENSIVEMSG, t.T{
+						"Price":   sats,
+						"Pattern": pattern,
 					})
 				}
 			case opts["renamable"].(bool):
 				log.Info().Stringer("group", &g).Msg("toggling renamable")
-				price, err := opts.Int("<price>")
+				msats, err := parseSatoshis(opts)
 				if err != nil {
 					g.setTicketPrice(0)
 					send(ctx, g, t.FREEJOIN)
 				}
+				sats := int(msats / 1000)
 
 				go u.track("toggle renamable", map[string]interface{}{
 					"group": groupId,
-					"sats":  price,
+					"sats":  sats,
 				})
 
-				g.setRenamePrice(price)
-				if price > 0 {
+				g.setRenamePrice(sats)
+				if sats > 0 {
 					send(ctx, g, t.RENAMABLEMSG, t.T{
-						"Sat":     price,
+						"Sat":     sats,
 						"BotName": s.ServiceId,
 					})
 				}

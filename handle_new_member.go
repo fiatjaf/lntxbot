@@ -210,12 +210,3 @@ func startKicking() {
 		go waitToKick(ctx, joinKey, kickdata)
 	}
 }
-
-func interceptMessage(message *tgbotapi.Message) (proceed bool) {
-	joinKey := fmt.Sprintf("%d:%d", message.From.ID, message.Chat.ID)
-	if _, isPending := pendingApproval.Get(joinKey); isPending {
-		log.Debug().Str("user", message.From.String()).Msg("user pending, can't speak")
-		return false
-	}
-	return true
-}

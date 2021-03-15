@@ -32,7 +32,9 @@ CREATE TABLE groupchat (
   spammy boolean NOT NULL DEFAULT false,
   ticket int NOT NULL DEFAULT 0,
   renamable int NOT NULL DEFAULT 0,
-  coinflips bool NOT NULL DEFAULT true
+  coinflips bool NOT NULL DEFAULT true,
+  expensive_price int NOT NULL DEFAULT 0,
+  expensive_pattern text NOT NULL DEFAULT '',
 );
 
 CREATE TABLE lightning.transaction (

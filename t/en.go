@@ -57,7 +57,6 @@ lnurl-auth success!
 	LNURLPAYCOMMENT:           "Along with /tx_{{.HashFirstChars}} you got a message: \n\n<i>{{.Text}}</i>",
 	LNURLBALANCECHECKCANCELED: "Automatic balance checks from {{.Service}} are cancelled.",
 
-	TICKETMSG:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
 	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
 
@@ -84,7 +83,10 @@ lnurl-auth success!
 	SPAMMYMSG:           "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG: "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
 	LANGUAGEMSG:         "This chat language is set to <code>{{.Language}}</code>.",
+	TICKETMSG:           "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:            "This group is now free to join.",
+	EXPENSIVEMSG:        "Every message in this group{{with .Pattern}} containing the pattern <code>{{.}}</code>{{end}} will cost {{.Price}} sat.",
+	FREETALK:            "Messages are free again",
 
 	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
 

@@ -67,6 +67,8 @@ const (
 	LANGUAGEMSG         Key = "LanguageMsg"
 	TICKETMSG           Key = "TicketMsg"
 	FREEJOIN            Key = "FreeJoin"
+	EXPENSIVEMSG        Key = "ExpensiveMsg"
+	FREETALK            Key = "FreeTalk"
 
 	APPBALANCE Key = "AppBalance"
 
