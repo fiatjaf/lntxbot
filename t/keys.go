@@ -62,13 +62,14 @@ const (
 	PAYMENTRECEIVED      Key = "PaymentReceived"
 	FAILEDTOSAVERECEIVED Key = "FailedToSaveReceived"
 
-	SPAMMYMSG           Key = "SpammyMsg"
-	COINFLIPSENABLEDMSG Key = "CoinflipsEnabledMsg"
-	LANGUAGEMSG         Key = "LanguageMsg"
-	TICKETMSG           Key = "TicketMsg"
-	FREEJOIN            Key = "FreeJoin"
-	EXPENSIVEMSG        Key = "ExpensiveMsg"
-	FREETALK            Key = "FreeTalk"
+	SPAMMYMSG             Key = "SpammyMsg"
+	COINFLIPSENABLEDMSG   Key = "CoinflipsEnabledMsg"
+	LANGUAGEMSG           Key = "LanguageMsg"
+	TICKETMSG             Key = "TicketMsg"
+	FREEJOIN              Key = "FreeJoin"
+	EXPENSIVEMSG          Key = "ExpensiveMsg"
+	EXPENSIVENOTIFICATION Key = "ExpensiveNotification"
+	FREETALK              Key = "FreeTalk"
 
 	APPBALANCE Key = "AppBalance"
 
