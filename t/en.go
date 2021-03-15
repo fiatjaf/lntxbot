@@ -54,7 +54,8 @@ lnurl-auth success!
 <b>domain</b>: <i>{{.Domain}}</i>
 <b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
-	LNURLPAYCOMMENT: "Along with /tx_{{.HashFirstChars}} you got a message: \n\n<i>{{.Text}}</i>",
+	LNURLPAYCOMMENT:           "Along with /tx_{{.HashFirstChars}} you got a message: \n\n<i>{{.Text}}</i>",
+	LNURLBALANCECHECKCANCELED: "Automatic balance checks from {{.Service}} are cancelled.",
 
 	TICKETMSG:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",

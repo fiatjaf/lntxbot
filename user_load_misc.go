@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fiatjaf/go-lnurl"
 	"github.com/jmoiron/sqlx"
 	"github.com/msingleton/amplitude-go"
 )
@@ -277,33 +276,34 @@ RETURNING password;
 	return
 }
 
-func (u User) saveBalanceCheckURL(params lnurl.LNURLWithdrawResponse) {
-	log := log.With().
-		Str("service", params.CallbackURL.Host).
-		Stringer("user", &u).Str("url", params.BalanceCheck).
+func (u User) saveBalanceCheckURL(service string, balanceCheckURL string) error {
+	log := log.With().Str("service", service).
+		Stringer("user", &u).Str("url", balanceCheckURL).
 		Logger()
 
-	if b, err := url.Parse(params.BalanceCheck); err == nil && b.Host == params.CallbackURL.Host {
+	if b, err := url.Parse(balanceCheckURL); err == nil && b.Host == service {
 		_, err := pg.Exec(`
 INSERT INTO balance_check (service, account, url)
 VALUES ($1, $2, $3)
 ON CONFLICT (service, account) DO UPDATE SET url = $3
-        `, params.CallbackURL.Host, u.Id, params.BalanceCheck)
+        `, service, u.Id, balanceCheckURL)
 		if err == nil {
 			log.Info().Msg("saved balance_check")
 		} else {
 			log.Error().Err(err).Msg("failed to save balance_check")
 		}
+		return err
 	} else {
 		_, err := pg.Exec(`
 DELETE FROM balance_check
 WHERE service = $1 AND account = $2
-         `, params.CallbackURL.Host, u.Id)
+         `, service, u.Id)
 		if err == nil {
 			log.Info().Msg("deleted balance_check")
 		} else {
 			log.Error().Err(err).Msg("failed to delete balance_check")
 		}
+		return err
 	}
 }
 

@@ -47,15 +47,15 @@ func serveLNURLBalanceNotify() {
 
 		if balanceCheck != "" {
 			handleLNURL(context.WithValue(ctx, "initiator", u),
-				balanceCheck, handleLNURLOpts{isBalanceCheck: true})
+				balanceCheck, handleLNURLOpts{balanceCheckService: &service})
 		}
 	})
 }
 
 type handleLNURLOpts struct {
-	loginSilently      bool
-	payWithoutPromptIf *int64
-	isBalanceCheck     bool
+	loginSilently       bool
+	payWithoutPromptIf  *int64
+	balanceCheckService *string
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
@@ -72,11 +72,17 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 			send(ctx, u, t.ERROR, t.T{
 				"Err": fmt.Sprintf("failed to fetch lnurl params: %s", err.Error()),
 			})
-		}
-		return
-	}
 
-	if _, isW := iparams.(lnurl.LNURLWithdrawResponse); opts.isBalanceCheck && !isW {
+			// cancel automatic balance checks
+			if opts.balanceCheckService != nil {
+				err := u.saveBalanceCheckURL(*opts.balanceCheckService, "")
+				if err == nil {
+					send(ctx, u, t.LNURLBALANCECHECKCANCELED, t.T{
+						"Service": *opts.balanceCheckService,
+					})
+				}
+			}
+		}
 		return
 	}
 
@@ -151,11 +157,11 @@ func handleLNURLWithdraw(
 	params lnurl.LNURLWithdrawResponse,
 ) {
 	// if possible, save this
-	u.saveBalanceCheckURL(params)
+	u.saveBalanceCheckURL(params.CallbackURL.Host, params.BalanceCheck)
 
 	// modify description
 	desc := params.DefaultDescription
-	if opts.isBalanceCheck {
+	if opts.balanceCheckService != nil {
 		desc += " (automatic)"
 		log.Info().Stringer("user", &u).Str("service", params.CallbackURL.Host).
 			Msg("performing automatic balanceCheck")
@@ -464,10 +470,11 @@ func lnurlBalanceCheckRoutine() {
 		time.Sleep(time.Hour * 24)
 
 		var checks []struct {
-			UserID int    `db:"account"`
-			URL    string `db:"url"`
+			UserID  int    `db:"account"`
+			URL     string `db:"url"`
+			Service string `db:"service"`
 		}
-		err = pg.Get(&checks, `SELECT url FROM balance_check`)
+		err = pg.Get(&checks, `SELECT account, service, url FROM balance_check`)
 		if err == sql.ErrNoRows {
 			err = nil
 		}
@@ -484,7 +491,7 @@ func lnurlBalanceCheckRoutine() {
 			}
 
 			handleLNURL(context.WithValue(ctx, "initiator", u),
-				check.URL, handleLNURLOpts{isBalanceCheck: true})
+				check.URL, handleLNURLOpts{balanceCheckService: &check.Service})
 		}
 	}
 }
