@@ -813,7 +813,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}(u, txn.TriggerMessage, txn.Hash)
 	case strings.HasPrefix(cb.Data, "s4a="):
 		defer removeKeyboardButtons(ctx)
-		parts := strings.Split(cb.Data[2:], "-")
+		parts := strings.Split(cb.Data[4:], "-")
 		if parts[1] == "v" {
 			hashfirst10chars := parts[2]
 			go confirmAdViewed(u, hashfirst10chars)
