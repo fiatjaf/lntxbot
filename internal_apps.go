@@ -768,7 +768,7 @@ ensured:
 
 	// notify receiver
 	if receiver.hasPrivateChat() && !ctx.Value("spammy").(bool) {
-		// if possible (and we're not in a spammy group), privately
+		// if possible privately
 		if anonymous {
 			send(ctx, receiver, t.RECEIVEDSATSANON, t.T{"Sats": msats / 1000})
 		} else {
@@ -778,7 +778,9 @@ ensured:
 				"RawSats": amtraw,
 			})
 		}
-	} else {
+	}
+
+	if !receiver.hasPrivateChat() || ctx.Value("spammy").(bool) {
 		// publicly if the receiver doesn't have a chat or if the group is spammy
 		send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
 			"From": u.AtName(ctx),
