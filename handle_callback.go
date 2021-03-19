@@ -814,8 +814,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 	case strings.HasPrefix(cb.Data, "s4a="):
 		defer removeKeyboardButtons(ctx)
 		parts := strings.Split(cb.Data[4:], "-")
-		if parts[1] == "v" {
-			hashfirst10chars := parts[2]
+		if parts[0] == "v" {
+			hashfirst10chars := parts[1]
 			go confirmAdViewed(u, hashfirst10chars)
 			go u.track("sats4ads viewed", nil)
 		}
