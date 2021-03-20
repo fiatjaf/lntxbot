@@ -50,8 +50,15 @@ func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 			fmt.Sprintf("Expensive %s.", link), "", "expensive")
 		if err == nil {
 			send(ctx, u, t.EXPENSIVENOTIFICATION, t.T{
-				"Link":  link,
-				"Price": sats,
+				"Link":   link,
+				"Price":  sats,
+				"Sender": true,
+			})
+
+			send(ctx, owner, t.EXPENSIVENOTIFICATION, t.T{
+				"Link":   link,
+				"Price":  sats,
+				"Sender": false,
 			})
 
 			return true

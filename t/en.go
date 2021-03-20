@@ -86,7 +86,7 @@ lnurl-auth success!
 	TICKETMSG:             "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @{{.BotName}} as administrator for this to work).",
 	FREEJOIN:              "This group is now free to join.",
 	EXPENSIVEMSG:          "Every message in this group{{with .Pattern}} containing the pattern <code>{{.}}</code>{{end}} will cost {{.Price}} sat.",
-	EXPENSIVENOTIFICATION: "The message {{.Link}} just costed you {{.Price}} sat.",
+	EXPENSIVENOTIFICATION: "The message {{.Link}} just {{if .Sender}}costed{{else}}earned{{end}} you {{.Price}} sat.",
 	FREETALK:              "Messages are free again",
 
 	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
