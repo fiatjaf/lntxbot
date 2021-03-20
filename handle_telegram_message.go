@@ -596,6 +596,7 @@ parsed:
 				log.Info().Stringer("group", &g).Msg("toggling expensive")
 				msats, _ := parseSatoshis(opts)
 				pattern, _ := opts.String("<pattern>")
+				pattern = strings.ToLower(pattern)
 				sats := int(msats / 1000)
 
 				if sats > 50 || sats < 5 {

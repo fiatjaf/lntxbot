@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -193,7 +194,7 @@ WHERE telegram_id = $1
 		return 0
 	}
 
-	if expensive.patternRegex.MatchString(text) {
+	if expensive.patternRegex.MatchString(strings.ToLower(text)) {
 		return expensive.Price
 	}
 
