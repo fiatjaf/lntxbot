@@ -323,8 +323,7 @@ externalinvoice:
 	// it's an invoice from elsewhere, continue and
 	// actually send the lightning payment
 
-	err = u.actuallySendExternalPayment(ctx, bolt11, inv, amount,
-		paymentHasSucceeded, paymentHasFailed)
+	err = u.actuallySendExternalPayment(ctx, bolt11, inv, amount)
 	if err != nil {
 		return hash, err
 	}
@@ -337,20 +336,6 @@ func (u User) actuallySendExternalPayment(
 	bolt11 string,
 	inv Invoice,
 	msatoshi int64,
-	onSuccess func(
-		ctx context.Context,
-		u User,
-		msatoshi float64,
-		msatoshi_sent float64,
-		preimage string,
-		tag string,
-		hash string,
-	),
-	onFailure func(
-		ctx context.Context,
-		u User,
-		hash string,
-	),
 ) (err error) {
 	hash := inv.PaymentHash
 
@@ -419,134 +404,14 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 
 	// perform payment
 	go func() {
-		var tries []Try
-		var fallbackError Try
-
-		payment, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", params)
+		_, err := ln.CallWithCustomTimeout(time.Minute*1, "pay", params)
 		if err != nil {
 			if errw, ok := err.(lightning.ErrorCommand); ok {
-				fallbackError = Try{
-					Success: false,
-					Error:   errw.Message,
-					Route:   []Hop{},
-				}
+				send(ctx, t.ERROR, t.T{"Err": errw.Error()})
 			}
 		}
 
-		// save payment attempts for future counsultation
-		// only save the latest 10 tries for brevity
-		if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
-			for i, attempt := range status.Get("pay.0.attempts").Array() {
-				var errorMessage string
-				if attempt.Get("failure").Exists() {
-					if attempt.Get("failure.data").Exists() {
-						errorMessage = fmt.Sprintf("%s %s/%d %s",
-							attempt.Get("failure.data.failcodename").String(),
-							attempt.Get("failure.data.erring_channel").String(),
-							attempt.Get("failure.data.erring_direction").Int(),
-							attempt.Get("failure.data.erring_node").String(),
-						)
-					} else {
-						errorMessage = attempt.Get("failure.message").String()
-					}
-				}
-
-				route := attempt.Get("route").Array()
-				hops := make([]Hop, len(route))
-				for i, routehop := range route {
-					hops[i] = Hop{
-						Peer:      routehop.Get("id").String(),
-						Channel:   routehop.Get("channel").String(),
-						Direction: routehop.Get("direction").Int(),
-						Msatoshi:  routehop.Get("msatoshi").Int(),
-						Delay:     routehop.Get("delay").Int(),
-					}
-				}
-
-				tries = append(tries, Try{
-					Success: attempt.Get("success").Exists(),
-					Error:   errorMessage,
-					Route:   hops,
-				})
-
-				if i >= 9 {
-					break
-				}
-			}
-		} else {
-			// no 'paystatus' for this payment: it has failed before any attempt
-			// let's use the error message returned from 'pay'
-			tries = append(tries, fallbackError)
-		}
-
-		// save the payment tries here
-		if jsontries, err := json.Marshal(tries); err == nil {
-			rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
-		}
-
-		// check success (from the 'pay' call)
-		if payment.Get("status").String() == "complete" {
-			// payment successful!
-			go u.track("payment sent", map[string]interface{}{
-				"sats": msatoshi / 1000,
-			})
-			onSuccess(
-				ctx,
-				u,
-				payment.Get("msatoshi").Float(),
-				payment.Get("msatoshi_sent").Float(),
-				payment.Get("payment_preimage").String(),
-				"",
-				payment.Get("payment_hash").String(),
-			)
-			return
-		}
-
-		// check failure (by checking the 'listpays' command)
-		// that should be enough for us to be 100% sure
-		listpays, _ := ln.Call("listpays", bolt11)
-		payattempts := listpays.Get("pays.#").Int()
-		if payattempts == 1 {
-			status := listpays.Get("pays.0.status").String()
-
-			switch status {
-			case "failed":
-				go u.track("payment failed", map[string]interface{}{
-					"sats":  msatoshi / 1000,
-					"payee": inv.Payee,
-				})
-				log.Warn().Stringer("user", &u).
-					Interface("params", params).Interface("tries", tries).
-					Str("bolt11", bolt11).Str("hash", hash).
-					Msg("payment failed according to listpays")
-					// give the money back to the user
-				onFailure(ctx, u, hash)
-			case "success":
-				log.Debug().Str("bolt11", bolt11).
-					Msg("listpays success. we shouldn't reach this code ever.")
-				return
-			default:
-				// not a failure -- but also not a success
-				// we don't know what happened, maybe it's pending,
-				// so don't do anything
-				log.Debug().Str("bolt11", bolt11).
-					Msg("we don't know what happened with this payment")
-				return
-			}
-		}
-
-		// the payment wasn't even tried -- so it's a failure
-		if payattempts == 0 {
-			go u.track("payment failed", map[string]interface{}{
-				"sats":  msatoshi / 1000,
-				"payee": inv.Payee,
-			})
-			log.Warn().Stringer("user", &u).
-				Interface("params", params).Interface("tries", tries).Str("hash", hash).
-				Msg("payment wasn't even tried")
-				// give the money back to the user
-			onFailure(ctx, u, hash)
-		}
+		checkOutgoingPaymentStatus(ctx, hash)
 	}()
 
 	return nil
@@ -840,13 +705,24 @@ WHERE payment_hash = $3
 	}, ctx.Value("message"))
 }
 
-func paymentHasFailed(ctx context.Context, u User, hash string) {
-	send(ctx, u, t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
-
-	_, err := pg.Exec(
-		`DELETE FROM lightning.transaction WHERE payment_hash = $1`, hash)
+func paymentHasFailed(ctx context.Context, hash string) {
+	var userId int
+	err := pg.Get(&userId, `
+DELETE FROM lightning.transaction WHERE payment_hash = $1
+RETURNING from_id
+        `, hash)
 	if err != nil {
 		log.Error().Err(err).Str("hash", hash).
 			Msg("failed to cancel transaction after routing failure")
+		return
 	}
+
+	u, err := loadUser(userId)
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).Int("id", userId).
+			Msg("failed to load user after routing failure")
+		return
+	}
+
+	send(ctx, u, t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
 }

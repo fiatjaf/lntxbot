@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -550,4 +551,178 @@ func zipdata(filename string, content []byte) (zipped []byte, err error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func checkOutgoingPaymentStatus(ctx context.Context, hash string) {
+	log.Debug().Str("hash", hash).Msg("checking outgoing status")
+
+	// check failure (by checking the 'listpays' command)
+	// that should be enough for us to be 100% sure
+	listpays, err := ln.CallNamed("listpays", "payment_hash", hash)
+	if err != nil {
+		log.Error().Err(err).Msg("error calling listpays")
+	}
+
+	failed := false
+
+	// the payment wasn't even tried -- so it's a failure
+	if listpays.Get("pays.#").Int() == 0 {
+		failed = true
+	} else {
+		// check all possible results from the list
+		// I think this will always be a single result, but who knows
+		for _, entry := range listpays.Get("pays").Array() {
+			label := entry.Get("label").String()
+			bolt11 := entry.Get("bolt11").String()
+			status := entry.Get("status").String()
+			msatoshiStr := entry.Get("amount_msat").String()
+			msatoshiSentStr := entry.Get("amount_sent_msat").String()
+
+			go savePaymentAttemptLog(hash, bolt11)
+
+			// label will be "user=<id>"
+			spl := strings.Split(label, "=")
+			if len(spl) != 2 || spl[0] != "user" {
+				log.Debug().
+					Msg("skipping this check since it's not from lntxbot")
+				return
+			}
+			userId, err := strconv.Atoi(spl[1])
+			if err != nil {
+				log.Warn().Str("label", label).Msg("invalid label")
+				return
+			}
+
+			switch status {
+			case "failed":
+				failed = true
+			case "complete":
+				// payment successful!
+				failed = false
+
+				// fetch user
+				u, err := loadUser(userId)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to load user on success payment")
+					return
+				}
+
+				// msatoshi and msatoshi send are in the form "1000msat"
+				if !strings.HasSuffix(msatoshiStr, "msat") ||
+					!strings.HasSuffix(msatoshiSentStr, "msat") {
+					log.Debug().Str("msatoshi", msatoshiStr).
+						Str("msatoshi-sent", msatoshiSentStr).
+						Msg("invalid format for amounts, no 'msat' suffix")
+					return
+				}
+				msatoshi, err := strconv.ParseInt(
+					msatoshiStr[0:len(msatoshiStr)-4], 10, 64)
+				if err != nil {
+					log.Error().Str("msatoshi", msatoshiStr).
+						Msg("couldn't parse msatoshi")
+					return
+				}
+				msatoshiSent, err := strconv.ParseInt(
+					msatoshiSentStr[0:len(msatoshiSentStr)-4], 10, 64)
+				if err != nil {
+					log.Error().Str("msatoshi-sent", msatoshiSentStr).
+						Msg("couldn't parse msatoshi sent")
+					return
+				}
+				preimage := entry.Get("preimage").String()
+
+				go u.track("payment sent", map[string]interface{}{
+					"sats": msatoshi / 1000,
+				})
+				paymentHasSucceeded(
+					ctx,
+					u,
+					float64(msatoshi),
+					float64(msatoshiSent),
+					preimage,
+					"",
+					hash,
+				)
+				log.Debug().Str("hash", hash).Stringer("user", &u).
+					Msg("payment marked as succeeded after inspection")
+				go resolveWaitingPaymentSuccess(hash, preimage)
+
+				return
+			case "pending":
+				failed = false
+			default:
+				// not a failure -- but also not a success
+				// we don't know what happened, so don't do anything
+				failed = false
+				log.Debug().Str("bolt11", bolt11).
+					Msg("we don't know what happened with this payment")
+				return
+			}
+		}
+	}
+
+	// this happens only if all elements in the list above have failed
+	if failed {
+		log.Debug().Str("hash", hash).Str("listpays", listpays.String()).
+			Msg("payment marked as failed after inspection")
+		paymentHasFailed(ctx, hash)
+	}
+}
+
+func savePaymentAttemptLog(hash, bolt11 string) {
+	// save payment attempts for future counsultation
+	// only save the latest 10 tries for brevity
+	var tries []Try
+
+	if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
+		for i, attempt := range status.Get("pay.0.attempts").Array() {
+			var errorMessage string
+			if attempt.Get("failure").Exists() {
+				if attempt.Get("failure.data").Exists() {
+					errorMessage = fmt.Sprintf("%s %s/%d %s",
+						attempt.Get("failure.data.failcodename").String(),
+						attempt.Get("failure.data.erring_channel").String(),
+						attempt.Get("failure.data.erring_direction").Int(),
+						attempt.Get("failure.data.erring_node").String(),
+					)
+				} else {
+					errorMessage = attempt.Get("failure.message").String()
+				}
+			}
+
+			route := attempt.Get("route").Array()
+			hops := make([]Hop, len(route))
+			for i, routehop := range route {
+				hops[i] = Hop{
+					Peer:      routehop.Get("id").String(),
+					Channel:   routehop.Get("channel").String(),
+					Direction: routehop.Get("direction").Int(),
+					Msatoshi:  routehop.Get("msatoshi").Int(),
+					Delay:     routehop.Get("delay").Int(),
+				}
+			}
+
+			tries = append(tries, Try{
+				Success: attempt.Get("success").Exists(),
+				Error:   errorMessage,
+				Route:   hops,
+			})
+
+			if i >= 9 {
+				break
+			}
+		}
+	} else {
+		// no 'paystatus' for this payment: it has failed before any attempt
+		tries = append(tries, Try{
+			Success: false,
+			Error:   "Something was wrong so the payment wasn't even tried.",
+			Route:   []Hop{},
+		})
+	}
+
+	// save the payment tries here
+	if jsontries, err := json.Marshal(tries); err == nil {
+		rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
+	}
 }

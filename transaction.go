@@ -202,7 +202,7 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 	})
 
 	var actionPrompt interface{}
-	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
+	if txn.Status == "PENDING" {
 		// allow people to cancel pending if they're old enough
 		text = text + "\n\n" + translate(ctx, t.RECHECKPENDING)
 

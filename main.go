@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -107,7 +108,18 @@ func main() {
 				func(p *plugin.Plugin, params plugin.Params) {
 					hash := params.Get("sendpay_success.payment_hash").String()
 					preimage := params.Get("sendpay_success.payment_preimage").String()
+
 					go resolveWaitingPaymentSuccess(hash, preimage)
+					go checkOutgoingPaymentStatus(context.Background(), hash)
+				},
+			},
+			{
+				"sendpay_failure",
+				func(p *plugin.Plugin, params plugin.Params) {
+					hash := params.Get("sendpay_failure.data.payment_hash").String()
+
+					// check if it has really failed
+					go checkOutgoingPaymentStatus(context.Background(), hash)
 				},
 			},
 		},

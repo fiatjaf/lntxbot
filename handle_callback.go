@@ -775,42 +775,8 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			return
 		}
 		send(ctx, t.CHECKING, APPEND)
-
 		go u.track("check pending", nil)
-
-		go func(u User, messageId int, hash string) {
-			pays, err := ln.CallNamed("listpays", "payment_hash", hash)
-			if err != nil {
-				send(ctx, t.ERROR, t.T{"Err": err.Error()}, APPEND)
-				return
-			}
-
-			payment := pays.Get("pays.0")
-			if !payment.Exists() || payment.Get("status").String() == "failed" {
-				// payment failed
-				log.Debug().
-					Err(err).
-					Str("hash", hash).
-					Str("pay", payment.String()).
-					Msg("canceling failed payment")
-				paymentHasFailed(ctx, u, hash)
-				return
-			} else if payment.Get("status").String() == "pending" {
-				// command timed out, should try again later
-				send(ctx, t.TXPENDING, APPEND)
-			} else {
-				// payment succeeded
-				paymentHasSucceeded(
-					ctx,
-					u,
-					payment.Get("msatoshi").Float(),
-					payment.Get("msatoshi_sent").Float(),
-					payment.Get("payment_preimage").String(),
-					"",
-					payment.Get("payment_hash").String(),
-				)
-			}
-		}(u, txn.TriggerMessage, txn.Hash)
+		go checkOutgoingPaymentStatus(ctx, txn.Hash)
 	case strings.HasPrefix(cb.Data, "s4a="):
 		defer removeKeyboardButtons(ctx)
 		parts := strings.Split(cb.Data[4:], "-")
