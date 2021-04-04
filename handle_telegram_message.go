@@ -599,7 +599,7 @@ parsed:
 				pattern = strings.ToLower(pattern)
 				sats := int(msats / 1000)
 
-				if sats > 50 || sats < 5 {
+				if sats != 0 && (sats > 50 || sats < 5) {
 					send(ctx, g, t.ERROR, t.T{
 						"Err": "price per message must be between 5 and 50 sat."})
 					return
