@@ -72,7 +72,7 @@ lnurl-auth success!
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
 /tx_{{.ShortHash}} #tx`,
-	OVERQUOTA:           "You're over your {{.App}} daily quota.",
+	OVERQUOTA:           "You're over your {{.App}} weekly quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: `Insufficient balance for {{.Purpose}}. Needs {{.Sats | printf "%.15g"}} sat more.`,
