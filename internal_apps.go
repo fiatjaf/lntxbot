@@ -319,6 +319,10 @@ func canCreateGiveflip(initiatorId int) bool {
 		return false
 	}
 
+	if accountOldness(initiatorId) < 14 {
+		return false
+	}
+
 	return true
 }
 
@@ -334,6 +338,10 @@ WHERE account_id = $1
 
 	if err != nil {
 		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ngiveflips in last 24h")
+		return false
+	}
+
+	if accountOldness(joinerId) < 14 {
 		return false
 	}
 
@@ -386,6 +394,10 @@ func canCreateCoinflip(initiatorId int) bool {
 		return false
 	}
 
+	if accountOldness(initiatorId) < 14 {
+		return false
+	}
+
 	return true
 }
 
@@ -404,6 +416,10 @@ WHERE account_id = $1
 		return false
 	}
 
+	if accountOldness(joinerId) < 14 {
+		return false
+	}
+
 	// since we are not taking into account all coinflips that may be opened right now
 	// we'll consider a big time period so the user participation is averaged over time
 	// for example, if he joins 15 coinflips today but the quota is 5 it will be ok
@@ -411,6 +427,16 @@ WHERE account_id = $1
 	periodQuota := s.CoinflipDailyQuota * s.CoinflipAvgDays
 
 	return ncoinflipsjoined < periodQuota
+}
+
+func accountOldness(id int) (days int) {
+	pg.Get(&days, `
+SELECT extract('days' from (now() - time))
+FROM lightning.account_txn
+WHERE account_id = $1
+ORDER BY time LIMIT 1
+    `, id)
+	return
 }
 
 func settleCoinflip(
