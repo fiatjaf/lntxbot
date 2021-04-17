@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -685,7 +686,7 @@ func paymentHasSucceeded(
 
 	// TODO some fancy reaction for discord
 
-	_, err = pg.Exec(`
+	res, err := pg.Exec(`
 UPDATE lightning.transaction
 SET fees = $1, preimage = $2, pending = false, tag = $4
 WHERE payment_hash = $3
@@ -694,6 +695,16 @@ WHERE payment_hash = $3
 		log.Error().Err(err).Stringer("user", &u).Str("hash", hash).
 			Float64("fees", fees).Msg("failed to update transaction fees.")
 		send(ctx, u, t.DBERROR, ctx.Value("message"))
+	}
+
+	ra, raerr := res.RowsAffected()
+	log.Debug().Int64("rows-affected", ra).Err(raerr).Msg("payment updated")
+
+	if ra == 0 {
+		log.Error().Str("hash", hash).Msg("PAYMENT SHOULD BE MARKED AS NOT PENDING, BUT IT WAS NOT IN THE DATABASE ANYMORE!!!!!!!!!!!!!!!!!")
+		s.Banned[u.Id] = true
+		send(ctx, u, "A VERY SERIOUS ERROR HAPPENED, PLEASE CONTACT @fiatjaf")
+		return
 	}
 
 	send(ctx, u, t.PAIDMESSAGE, t.T{
@@ -725,4 +736,120 @@ RETURNING from_id
 	}
 
 	send(ctx, u, t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
+}
+
+func checkOutgoingPaymentStatus(ctx context.Context, hash string) {
+	log.Debug().Str("hash", hash).Msg("checking outgoing status")
+
+	// check failure (by checking the 'listpays' command)
+	// that should be enough for us to be 100% sure
+	listpays, err := ln.CallNamed("listpays", "payment_hash", hash)
+	if err != nil {
+		log.Error().Err(err).Msg("error calling listpays")
+	}
+
+	failed := false
+
+	// the payment wasn't even tried -- so it's a failure
+	if listpays.Get("pays.#").Int() == 0 {
+		failed = true
+	} else {
+		// check all possible results from the list
+		// I think this will always be a single result, but who knows
+		for _, entry := range listpays.Get("pays").Array() {
+			label := entry.Get("label").String()
+			bolt11 := entry.Get("bolt11").String()
+			status := entry.Get("status").String()
+			msatoshiStr := entry.Get("amount_msat").String()
+			msatoshiSentStr := entry.Get("amount_sent_msat").String()
+
+			go savePaymentAttemptLog(hash, bolt11)
+
+			// label will be "user=<id>"
+			spl := strings.Split(label, "=")
+			if len(spl) != 2 || spl[0] != "user" {
+				log.Debug().
+					Msg("skipping this check since it's not from lntxbot")
+				return
+			}
+			userId, err := strconv.Atoi(spl[1])
+			if err != nil {
+				log.Warn().Str("label", label).Msg("invalid label")
+				return
+			}
+
+			switch status {
+			case "failed":
+				failed = true
+			case "complete":
+				// payment successful!
+				failed = false
+
+				// fetch user
+				u, err := loadUser(userId)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to load user on success payment")
+					return
+				}
+
+				// msatoshi and msatoshi send are in the form "1000msat"
+				if !strings.HasSuffix(msatoshiStr, "msat") ||
+					!strings.HasSuffix(msatoshiSentStr, "msat") {
+					log.Debug().Str("msatoshi", msatoshiStr).
+						Str("msatoshi-sent", msatoshiSentStr).
+						Msg("invalid format for amounts, no 'msat' suffix")
+					return
+				}
+				msatoshi, err := strconv.ParseInt(
+					msatoshiStr[0:len(msatoshiStr)-4], 10, 64)
+				if err != nil {
+					log.Error().Str("msatoshi", msatoshiStr).
+						Msg("couldn't parse msatoshi")
+					return
+				}
+				msatoshiSent, err := strconv.ParseInt(
+					msatoshiSentStr[0:len(msatoshiSentStr)-4], 10, 64)
+				if err != nil {
+					log.Error().Str("msatoshi-sent", msatoshiSentStr).
+						Msg("couldn't parse msatoshi sent")
+					return
+				}
+				preimage := entry.Get("preimage").String()
+
+				go u.track("payment sent", map[string]interface{}{
+					"sats": msatoshi / 1000,
+				})
+				paymentHasSucceeded(
+					ctx,
+					u,
+					float64(msatoshi),
+					float64(msatoshiSent),
+					preimage,
+					"",
+					hash,
+				)
+				log.Debug().Str("hash", hash).Stringer("user", &u).
+					Msg("payment marked as succeeded after inspection")
+				go resolveWaitingPaymentSuccess(hash, preimage)
+
+				return
+			case "pending":
+				failed = false
+			default:
+				// not a failure -- but also not a success
+				// we don't know what happened, so don't do anything
+				failed = false
+				log.Debug().Str("bolt11", bolt11).
+					Msg("we don't know what happened with this payment")
+				return
+			}
+		}
+	}
+
+	// this happens only if all elements in the list above have failed
+	if failed {
+		log.Debug().Str("hash", hash).Str("listpays", listpays.String()).
+			Msg("payment marked as failed after inspection")
+		paymentHasFailed(ctx, hash)
+	}
 }
