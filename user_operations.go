@@ -160,7 +160,7 @@ func (u User) makeInvoice(
 		exp,
 		0,
 		0,
-		9,
+		40,
 		makeShadowChannelId(shadowData),
 	)
 	if err != nil {
