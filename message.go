@@ -365,7 +365,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 				err = errors.New(resp.Description)
 			}
 			if err != nil {
-				if err.Error() == "Bad Request: reply message not found" {
+				if err.Error() == "Bad Request: replied message not found" {
 					values.Del("reply_to_message_id")
 					resp, err = bot.MakeRequest(method, values)
 				}
