@@ -16,6 +16,12 @@ func handle(upd tgbotapi.Update) {
 			for _, newmember := range *upd.Message.NewChatMembers {
 				handleTelegramNewMember(ctx, upd.Message, newmember)
 			}
+			return
+		}
+
+		// people leaving
+		if upd.Message.LeftChatMember != nil {
+			return
 		}
 
 		// normal message
