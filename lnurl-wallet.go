@@ -159,6 +159,11 @@ func handleLNURLWithdraw(
 	// if possible, save this
 	u.saveBalanceCheckURL(params.CallbackURL.Host, params.BalanceCheck)
 
+	// stop here if zero
+	if params.MaxWithdrawable == 0 {
+		return
+	}
+
 	// modify description
 	desc := params.DefaultDescription
 	if opts.balanceCheckService != nil {
@@ -466,15 +471,14 @@ func lnurlBalanceCheckRoutine() {
 	ctx := context.WithValue(context.Background(), "origin", "background")
 
 	for {
-		// every day, check everybody's balance on other services
-		time.Sleep(time.Hour * 24)
+		log.Debug().Msg("doing global balanceCheck")
 
 		var checks []struct {
 			UserID  int    `db:"account"`
 			URL     string `db:"url"`
 			Service string `db:"service"`
 		}
-		err = pg.Get(&checks, `SELECT account, service, url FROM balance_check`)
+		err = pg.Select(&checks, `SELECT account, service, url FROM balance_check`)
 		if err == sql.ErrNoRows {
 			err = nil
 		}
@@ -490,8 +494,13 @@ func lnurlBalanceCheckRoutine() {
 				continue
 			}
 
+			log.Debug().Str("service", check.Service).Stringer("user", &u).
+				Msg("")
 			handleLNURL(context.WithValue(ctx, "initiator", u),
 				check.URL, handleLNURLOpts{balanceCheckService: &check.Service})
 		}
+
+		// every day, check everybody's balance on other services
+		time.Sleep(time.Hour * 24)
 	}
 }
