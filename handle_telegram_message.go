@@ -199,10 +199,6 @@ parsed:
 			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
 		}
-		if !canJoinGiveaway(u.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveaway"})
-			return
-		}
 		if !u.checkBalanceFor(ctx, msats, "giveaway") {
 			break
 		}
@@ -224,14 +220,6 @@ parsed:
 		if err != nil {
 			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
 			break
-		}
-		if !canCreateGiveflip(u.Id) {
-			send(ctx, u, t.RATELIMIT)
-			return
-		}
-		if !canJoinGiveflip(u.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
-			return
 		}
 		if !u.checkBalanceFor(ctx, msats, "giveflip") {
 			break
@@ -278,15 +266,6 @@ parsed:
 		if err != nil {
 			send(ctx, u, t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
 			break
-		}
-
-		if !canCreateCoinflip(u.Id) {
-			send(ctx, u, t.RATELIMIT)
-			return
-		}
-		if !canJoinCoinflip(u.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
-			return
 		}
 		if !u.checkBalanceFor(ctx, msats, "coinflip") {
 			break

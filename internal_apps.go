@@ -192,30 +192,6 @@ type GiveAwayData struct {
 	ToSpecific string
 }
 
-func canJoinGiveaway(joinerId int) bool {
-	var ngiveawaysjoined int
-	err := pg.Get(&ngiveawaysjoined, `
-SELECT count(*)
-FROM lightning.account_txn
-WHERE account_id = $1
-  AND tag = 'giveaway'
-  AND time > 'now'::timestamp - make_interval(days := $2)
-    `, joinerId, s.GiveawayAvgDays)
-
-	if err != nil {
-		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ngiveaways in last 24h")
-		return false
-	}
-
-	// since we are not taking into account all giveaways that may be opened right now
-	// we'll consider a big time period so the user participation is averaged over time
-	// for example, if he joins 15 giveaways today but the quota is 5 it will be ok
-	// but then he will be unable to join any for the next 3 day.
-	periodQuota := s.GiveawayDailyQuota * s.GiveawayAvgDays
-
-	return ngiveawaysjoined < periodQuota
-}
-
 func giveawayKeyboard(
 	ctx context.Context,
 	giverId int,
@@ -309,51 +285,6 @@ func giveflipKeyboard(
 	}
 }
 
-func canCreateGiveflip(initiatorId int) bool {
-	didagivefliprecently, err := rds.Exists(fmt.Sprintf("recentgiveflip:%d", initiatorId)).Result()
-	if err != nil {
-		log.Warn().Err(err).Int("initiator", initiatorId).Msg("failed to check recentgiveflip:")
-		return false
-	}
-	if didagivefliprecently {
-		return false
-	}
-
-	if accountOldness(initiatorId) < 14 {
-		return false
-	}
-
-	return true
-}
-
-func canJoinGiveflip(joinerId int) bool {
-	var ngiveflipsjoined int
-	err := pg.Get(&ngiveflipsjoined, `
-SELECT count(*)
-FROM lightning.account_txn
-WHERE account_id = $1
-  AND tag = 'giveflip'
-  AND time > 'now'::timestamp - make_interval(days := $2)
-    `, joinerId, s.GiveflipAvgDays)
-
-	if err != nil {
-		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ngiveflips in last 24h")
-		return false
-	}
-
-	if accountOldness(joinerId) < 14 {
-		return false
-	}
-
-	// since we are not taking into account all giveflips that may be opened right now
-	// we'll consider a big time period so the user participation is averaged over time
-	// for example, if he joins 15 giveflips today but the quota is 5 it will be ok
-	// but then he will be unable to join any for the next 3 day.
-	periodQuota := s.GiveflipDailyQuota * s.GiveflipAvgDays
-
-	return ngiveflipsjoined < periodQuota
-}
-
 // coinflip
 func coinflipKeyboard(
 	ctx context.Context,
@@ -382,61 +313,6 @@ func coinflipKeyboard(
 			},
 		},
 	}
-}
-
-func canCreateCoinflip(initiatorId int) bool {
-	didacoinfliprecently, err := rds.Exists(fmt.Sprintf("recentcoinflip:%d", initiatorId)).Result()
-	if err != nil {
-		log.Warn().Err(err).Int("initiator", initiatorId).Msg("failed to check recentcoinflip:")
-		return false
-	}
-	if didacoinfliprecently {
-		return false
-	}
-
-	if accountOldness(initiatorId) < 14 {
-		return false
-	}
-
-	return true
-}
-
-func canJoinCoinflip(joinerId int) bool {
-	var ncoinflipsjoined int
-	err := pg.Get(&ncoinflipsjoined, `
-SELECT count(*)
-FROM lightning.account_txn
-WHERE account_id = $1
-  AND tag = 'coinflip'
-  AND time > 'now'::timestamp - make_interval(days := $2)
-    `, joinerId, s.CoinflipAvgDays)
-
-	if err != nil {
-		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ncoinflips in last 24h")
-		return false
-	}
-
-	if accountOldness(joinerId) < 14 {
-		return false
-	}
-
-	// since we are not taking into account all coinflips that may be opened right now
-	// we'll consider a big time period so the user participation is averaged over time
-	// for example, if he joins 15 coinflips today but the quota is 5 it will be ok
-	// but then he will be unable to join any for the next 3 day.
-	periodQuota := s.CoinflipDailyQuota * s.CoinflipAvgDays
-
-	return ncoinflipsjoined < periodQuota
-}
-
-func accountOldness(id int) (days int) {
-	pg.Get(&days, `
-SELECT extract('days' from (now() - time))
-FROM lightning.account_txn
-WHERE account_id = $1
-ORDER BY time LIMIT 1
-    `, id)
-	return
 }
 
 func settleCoinflip(
@@ -477,8 +353,8 @@ func settleCoinflip(
 
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
-VALUES ($1, $2, $3, 'coinflip')
+INSERT INTO lightning.transaction (from_id, to_id, amount, fees, tag)
+VALUES ($1, $2, $3, 5000, 'coinflip')
     `, fromId, s.ProxyAccount, msats)
 		if err != nil {
 			return
@@ -770,6 +646,7 @@ ensured:
 		*receiver,
 		anonymous,
 		msats,
+		int64(float64(msats)*0.003),
 		strings.TrimSpace(description),
 		"",
 		"",

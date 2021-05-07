@@ -471,6 +471,7 @@ func (u User) sendInternally(
 	target User,
 	anonymous bool,
 	msats int64,
+	fees int64,
 	desc string,
 	hash string,
 	tag string,
@@ -506,8 +507,17 @@ func (u User) sendInternally(
 	}
 
 	_, err = txn.Exec(`
-INSERT INTO lightning.transaction
-  (from_id, to_id, anonymous, amount, description, tag, payment_hash, trigger_message)
+INSERT INTO lightning.transaction (
+  from_id,
+  to_id,
+  anonymous,
+  amount,
+  fees,
+  description,
+  tag,
+  payment_hash,
+  trigger_message
+)
 VALUES (
   $1,
   $2,
@@ -515,14 +525,16 @@ VALUES (
   $4,
   $5,
   $6,
-  CASE WHEN $7::text IS NOT NULL
-    THEN $7::text
+  $7,
+  CASE WHEN $8::text IS NOT NULL
+    THEN $8::text
     ELSE md5(random()::text) || md5(random()::text)
   END,
-  $8
+  $9
 )
-    `, u.Id, target.Id, anonymous, msats, descn, tagn, hashn, tgMessageId)
+    `, u.Id, target.Id, anonymous, msats, fees, descn, tagn, hashn, tgMessageId)
 	if err != nil {
+		log.Print(err)
 		return ErrDatabase
 	}
 
@@ -533,6 +545,7 @@ VALUES (
 
 	err = txn.Commit()
 	if err != nil {
+		log.Print(err)
 		return ErrDatabase
 	}
 
@@ -680,6 +693,9 @@ func paymentHasSucceeded(
 	// if it succeeds we mark the transaction as not pending anymore
 	// plus save fees and preimage
 	fees := msatoshi_sent - msatoshi
+	if fees < msatoshi*0.003 {
+		fees = msatoshi * 0.003
+	}
 
 	// if there's a tag we save that too, otherwise leave it null
 	tagn := sql.NullString{String: tag, Valid: tag != ""}

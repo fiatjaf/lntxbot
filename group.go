@@ -46,7 +46,7 @@ func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 		link := fmt.Sprintf("https://t.me/c/%s/%d",
 			strconv.FormatInt(message.Chat.ID, 10)[4:], message.MessageID)
 
-		err = u.sendInternally(ctx, owner, false, int64(sats)*1000,
+		err = u.sendInternally(ctx, owner, false, int64(sats)*1000, 0,
 			fmt.Sprintf("Expensive %s.", link), "", "expensive")
 		if err == nil {
 			send(ctx, u, t.EXPENSIVENOTIFICATION, t.T{

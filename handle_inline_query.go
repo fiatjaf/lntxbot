@@ -148,14 +148,6 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			break
 		}
 
-		if !canCreateCoinflip(u.Id) {
-			send(ctx, u, t.RATELIMIT)
-			return
-		}
-		if !canJoinCoinflip(u.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "coinflip"})
-			return
-		}
 		if !u.checkBalanceFor(ctx, int64(sats*1000), "coinflip") {
 			break
 		}
@@ -211,14 +203,6 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		}
 		sats := int(msats / 1000)
 
-		if !canCreateGiveflip(u.Id) {
-			send(ctx, u, t.RATELIMIT)
-			return
-		}
-		if !canJoinGiveflip(u.Id) {
-			send(ctx, u, t.OVERQUOTA, t.T{"App": "giveflip"})
-			return
-		}
 		if !u.checkBalanceFor(ctx, msats, "giveflip") {
 			break
 		}

@@ -94,10 +94,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				t.T{"BotOp": "Giveaway", "Err": "You're not " + to.AtName(ctx)})
 			saveGiveawayData(giveId, from.Id, sats, to.Username)
 			return
-		} else if !canJoinGiveaway(claimer.Id) {
-			send(ctx, t.OVERQUOTA, t.T{"App": "giveaway"}, WITHALERT)
-			saveGiveawayData(giveId, from.Id, sats, to.Username)
-			return
 		}
 		go u.track("giveaway joined", map[string]interface{}{"sats": sats})
 
@@ -106,6 +102,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			claimer,
 			false,
 			int64(sats)*1000,
+			1000,
 			"",
 			hashString(giveId),
 			"giveaway",
@@ -195,10 +192,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		joiner := u
 
-		if !canJoinCoinflip(joiner.Id) {
-			send(ctx, t.OVERQUOTA, t.T{"App": "coinflip"}, WITHALERT)
-			return
-		}
 		if !joiner.checkBalanceFor(ctx, msats, "coinflip") {
 			goto answerEmpty
 		}
@@ -322,10 +315,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 
 		joiner := u
 
-		if !canJoinGiveflip(joiner.Id) {
-			send(ctx, t.OVERQUOTA, t.T{"App": "giveflip"}, WITHALERT)
-			return
-		}
 		if joiner.Id == giverId {
 			// giver can't join
 			send(ctx, t.GIVERCANTJOIN, WITHALERT)
@@ -416,6 +405,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				winner,
 				false,
 				int64(sats)*1000,
+				1000,
 				"",
 				hashString(giveflipid),
 				"giveflip",
@@ -588,7 +578,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		hash := hashString(random)
 
 		err = u.sendInternally(
-			ctx, owner, false, int64(sats)*1000,
+			ctx, owner, false, int64(sats)*1000, 0,
 			fmt.Sprintf("Rename group %d to '%s'", chatId, name),
 			hash, "rename",
 		)
