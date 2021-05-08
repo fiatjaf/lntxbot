@@ -158,8 +158,8 @@ func (u User) makeInvoice(
 		&preimage,
 		&sk,
 		exp,
-		0,
-		0,
+		433,
+		917,
 		40,
 		makeShadowChannelId(shadowData),
 	)
