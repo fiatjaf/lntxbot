@@ -46,6 +46,7 @@ var menuItems = map[string]*big.Rat{
 	"piparote":   big.NewRat(88, 1),
 	"banana":     big.NewRat(777, 1),
 	"watermelon": big.NewRat(1214, 1),
+ 	"cow2":       big.NewRat(3000, 1),	
 }
 
 func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
