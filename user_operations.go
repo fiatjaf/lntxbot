@@ -700,36 +700,37 @@ func paymentHasSucceeded(
 	// if there's a tag we save that too, otherwise leave it null
 	tagn := sql.NullString{String: tag, Valid: tag != ""}
 
-	// TODO some fancy reaction for discord
-
-	res, err := pg.Exec(`
+	previouslyPending := false
+	err := pg.Get(&previouslyPending, `
 UPDATE lightning.transaction
 SET fees = $1, preimage = $2, pending = false, tag = $4
 WHERE payment_hash = $3
-    `, fees, preimage, hash, tagn)
-	if err != nil {
+RETURNING (SELECT pending FROM lightning.transaction WHERE payment_hash = $3)
+    `, int64(fees), preimage, hash, tagn)
+	if err != nil && err != sql.ErrNoRows {
 		log.Error().Err(err).Stringer("user", &u).Str("hash", hash).
 			Float64("fees", fees).Msg("failed to update transaction fees.")
 		send(ctx, u, t.DBERROR, ctx.Value("message"))
+		return
 	}
 
-	ra, raerr := res.RowsAffected()
-	log.Debug().Int64("rows-affected", ra).Err(raerr).Msg("payment updated")
-
-	if ra == 0 {
-		log.Error().Str("hash", hash).Msg("PAYMENT SHOULD BE MARKED AS NOT PENDING, BUT IT WAS NOT IN THE DATABASE ANYMORE!!!!!!!!!!!!!!!!!")
+	log.Debug().Bool("was-pending", previouslyPending).Err(err).Msg("payment updated")
+	if err == sql.ErrNoRows {
+		log.Error().Str("hash", hash).Msg("PAYMENT SHOULD BE MARKED AS NOT PENDING, BUT IT WAS NOT IN THE DATABASE ANYMORE")
 		s.Banned[u.Id] = true
 		send(ctx, u, "A VERY SERIOUS ERROR HAPPENED, PLEASE CONTACT @fiatjaf")
 		return
 	}
 
-	send(ctx, u, t.PAIDMESSAGE, t.T{
-		"Sats":      float64(msatoshi) / 1000,
-		"Fee":       fees / 1000,
-		"Hash":      hash,
-		"Preimage":  preimage,
-		"ShortHash": hash[:5],
-	}, ctx.Value("message"))
+	if previouslyPending {
+		send(ctx, u, t.PAIDMESSAGE, t.T{
+			"Sats":      float64(msatoshi) / 1000,
+			"Fee":       fees / 1000,
+			"Hash":      hash,
+			"Preimage":  preimage,
+			"ShortHash": hash[:5],
+		}, ctx.Value("message"))
+	}
 }
 
 func paymentHasFailed(ctx context.Context, hash string) {
