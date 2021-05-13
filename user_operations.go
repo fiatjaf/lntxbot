@@ -734,6 +734,8 @@ RETURNING (SELECT pending FROM lightning.transaction WHERE payment_hash = $3)
 }
 
 func paymentHasFailed(ctx context.Context, hash string) {
+	time.Sleep(1 * time.Minute)
+
 	var userId int
 	err := pg.Get(&userId, `
 DELETE FROM lightning.transaction WHERE payment_hash = $1
