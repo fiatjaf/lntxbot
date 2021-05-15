@@ -354,7 +354,7 @@ func settleCoinflip(
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
 INSERT INTO lightning.transaction (from_id, to_id, amount, fees, tag)
-VALUES ($1, $2, $3, 5000, 'coinflip')
+VALUES ($1, $2, $3, 9.999, 'coinflip')
     `, fromId, s.ProxyAccount, msats)
 		if err != nil {
 			return

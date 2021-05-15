@@ -405,7 +405,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				winner,
 				false,
 				int64(sats)*1000,
-				1000,
+				5000,
 				"",
 				hashString(giveflipid),
 				"giveflip",
