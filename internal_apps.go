@@ -334,7 +334,7 @@ func settleCoinflip(
 
 	// receiver must also have the necessary sats in his balance at the time
 	receiverBalance := getBalance(txn, toId)
-	if receiverBalance < msats {
+	if receiverBalance < msats+9999 {
 		err = errors.New("Receiver has insufficient balance.")
 		return
 	}
@@ -354,9 +354,16 @@ func settleCoinflip(
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
 INSERT INTO lightning.transaction (from_id, to_id, amount, fees, tag)
-VALUES ($1, $2, $3, 9.999, 'coinflip')
+VALUES ($1, $2, $3, 9999, 'coinflip')
     `, fromId, s.ProxyAccount, msats)
 		if err != nil {
+			return
+		}
+
+		// check sender balance
+		balance := getBalance(txn, fromId)
+		if balance < 0 {
+			err = errors.New("insufficient balance")
 			return
 		}
 
@@ -366,13 +373,6 @@ VALUES ($1, $2, $3, $4, 'coinflip')
 ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
     `, receiverHash, s.ProxyAccount, toId, msats)
 		if err != nil {
-			return
-		}
-
-		// check sender balance
-		balance := getBalance(txn, fromId)
-		if balance < 0 {
-			err = errors.New("insufficient balance")
 			return
 		}
 
