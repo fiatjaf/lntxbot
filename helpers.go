@@ -41,15 +41,15 @@ var dollarPrice = struct {
 }{time.Now(), 0}
 
 var menuItems = map[string]*big.Rat{
-	"bear":	      big.NewRat(5, 1),
+	"bear":       big.NewRat(5, 1),
 	"popcorn":    big.NewRat(27, 1),
 	"ziplock":    big.NewRat(50, 1),
 	"piparote":   big.NewRat(88, 1),
 	"coffee":     big.NewRat(525, 1),
 	"banana":     big.NewRat(777, 1),
 	"watermelon": big.NewRat(1214, 1),
- 	"cow":        big.NewRat(3000, 1),
-	"bull":	      big.NewRat(5000, 1),
+	"cow":        big.NewRat(3000, 1),
+	"bull":       big.NewRat(5000, 1),
 }
 
 func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
@@ -206,7 +206,7 @@ func nodeLink(nodeId string) string {
 		return `<code>` + nodeId + `</code>`
 	}
 
-	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s…%s</a>`,
+	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }
 
@@ -224,12 +224,12 @@ func nodeAliasLink(nodeId string) string {
 		alias = alias[:15] + "…"
 	}
 
-	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s</a>`,
+	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s</a>`,
 		nodeIdShortened, alias)
 }
 
 func channelLink(scid string) string {
-	return fmt.Sprintf(`<a href="http://ln.bigsun.xyz/%s">%s</a>`, scid, scid)
+	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s</a>`, scid, scid)
 }
 
 var scidRe = regexp.MustCompile(`\d+x\d+x\d+`)
