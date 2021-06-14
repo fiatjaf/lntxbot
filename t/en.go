@@ -371,7 +371,7 @@ For any questions or just to say hello you can join us at @lntxbot_dev (warning:
 	TUTORIALWALLET: `
 @{{.BotName}} is a Lightning wallet that works from your Telegram account.
 
-You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions. Also, it charges <b>zero fees</b>!
+You can use it to pay and receive Lightning invoices, it keeps track of your balances and a history of your transactions.
 
 - To pay invoices, just paste them in the bot chat
 - To generate invoices, use /invoice (see /help_invoice)
