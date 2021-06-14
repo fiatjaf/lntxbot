@@ -618,3 +618,11 @@ func savePaymentAttemptLog(hash, bolt11 string) {
 		rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
 	}
 }
+
+func getHost(r *http.Request) string {
+	if host := r.Header.Get("X-Forwarded-Host"); host != "" {
+		return host
+	} else {
+		return r.Host
+	}
+}

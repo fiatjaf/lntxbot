@@ -81,7 +81,7 @@ func serveLNURL() {
 		}
 
 		json.NewEncoder(w).Encode(lnurl.LNURLWithdrawResponse{
-			Callback:        fmt.Sprintf("%s/lnurl/withdraw/invoice", s.ServiceURL),
+			Callback:        fmt.Sprintf("https://%s/lnurl/withdraw/invoice", getHost(r)),
 			K1:              challenge,
 			MaxWithdrawable: 1000 * int64(chMax),
 			MinWithdrawable: 1000 * int64(chMax),
@@ -186,8 +186,8 @@ func serveLNURL() {
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
 			LNURLResponse: lnurl.OkResponse(),
 			Tag:           "payRequest",
-			Callback: fmt.Sprintf("%s/lnurl/pay/callback?%s",
-				s.ServiceURL, qs.Encode()),
+			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?%s",
+				getHost(r), qs.Encode()),
 			MaxSendable:     1000000000,
 			MinSendable:     100000,
 			EncodedMetadata: string(jmeta),
