@@ -151,7 +151,7 @@ func searchForInvoice(ctx context.Context) (bolt11, lnurltext string, ok bool) {
 	}
 
 	// receiving a picture, try to decode the qr code
-	if m, tk := message.(tgbotapi.Message); tk && m.Photo != nil && len(*m.Photo) > 0 {
+	if m, tk := message.(*tgbotapi.Message); tk && m.Photo != nil && len(*m.Photo) > 0 {
 		log.Debug().Msg("got photo, looking for qr code.")
 
 		photos := *m.Photo
