@@ -318,6 +318,8 @@ func (u User) payInvoice(
 		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(ctx, u, float64(amount), float64(amount),
 			shadowData.Preimage, shadowData.Tag, hash)
+
+		return hash, nil
 	}
 
 externalinvoice:
