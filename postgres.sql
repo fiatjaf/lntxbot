@@ -38,7 +38,7 @@ CREATE TABLE groupchat (
 );
 
 CREATE TABLE lightning.transaction (
-  time timestamp NOT NULL DEFAULT now(),
+  time timestamptz NOT NULL DEFAULT now(),
   from_id int REFERENCES account (id),
   to_id int REFERENCES account (id),
   amount numeric(13) NOT NULL, -- in msatoshis
@@ -65,8 +65,8 @@ CREATE INDEX ON lightning.transaction (proxied_with);
 CREATE VIEW lightning.account_txn AS
   SELECT
     time, account_id, anonymous, trigger_message, amount, pending,
-    CASE WHEN t.username != '@'
-      THEN coalesce(t.username, t.telegram_id::text)
+    CASE WHEN t.telegram_username != '@'
+      THEN coalesce(t.telegram_username, t.telegram_id::text)
       ELSE NULL
     END AS telegram_peer,
     status, fees, payment_hash, description, tag, preimage, payee_node
