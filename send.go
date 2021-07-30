@@ -89,15 +89,16 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 			}
 			goto ensured
 		}
-	default:
-		// maybe this is a lightning address like username@domain.com?
-		if _, _, ok := lnurl.ParseInternetIdentifier(username); ok {
-			handleLNURL(ctx, username, handleLNURLOpts{
-				payAmountWithoutPrompt: &msats,
-			})
-			// end here since the flow will proceed on handleLNURL
-			return
-		}
+	}
+
+	// maybe this is a lightning address like username@domain.com?
+	if _, _, ok := lnurl.ParseInternetIdentifier(username); ok {
+		handleLNURL(ctx, username, handleLNURLOpts{
+			payAmountWithoutPrompt: &msats,
+			forceSendComment:       description,
+		})
+		// end here since the flow will proceed on handleLNURL
+		return
 	}
 
 	// if we ever reach this point then it's because the receiver is missing.

@@ -55,8 +55,9 @@ func serveLNURLBalanceNotify() {
 type handleLNURLOpts struct {
 	loginSilently          bool
 	payWithoutPromptIf     *int64
-	payAmountWithoutPrompt *int64
 	balanceCheckService    *string
+	payAmountWithoutPrompt *int64
+	forceSendComment       string
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
@@ -211,6 +212,19 @@ func handleLNURLPay(
 	opts handleLNURLOpts,
 	params lnurl.LNURLPayResponse1,
 ) {
+	if opts.payAmountWithoutPrompt != nil {
+		// we will try to pay this amount and we don't care about anything else
+		lnurlpayFinish(
+			ctx,
+			u,
+			*opts.payAmountWithoutPrompt,
+			opts.forceSendComment,
+			params.Callback,
+			params.EncodedMetadata,
+		)
+		return
+	}
+
 	// display metadata and ask for amount
 	var fixedAmount int64 = 0
 	if params.MaxSendable == params.MinSendable {
