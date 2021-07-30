@@ -14,6 +14,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
+	"github.com/gorilla/mux"
 )
 
 func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
@@ -172,10 +173,12 @@ func serveLNURL() {
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
 
 		qs := r.URL.Query()
-		userid := qs.Get("userid")
 		username := qs.Get("username")
+		if username == "" {
+			username = qs.Get("userid")
+		}
 
-		u, jmeta, err := lnurlPayStuff(ctx, userid, username)
+		u, jmeta, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -186,8 +189,32 @@ func serveLNURL() {
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
 			LNURLResponse: lnurl.OkResponse(),
 			Tag:           "payRequest",
-			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?%s",
-				getHost(r), qs.Encode()),
+			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?username=%s",
+				getHost(r), username),
+			MaxSendable:     1000000000,
+			MinSendable:     100000,
+			EncodedMetadata: string(jmeta),
+			CommentAllowed:  422,
+		})
+	})
+
+	router.Path("/.well-known/lnurlp/{username}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
+
+		username := mux.Vars(r)["username"]
+		u, jmeta, err := lnurlPayUserMetadata(ctx, username)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
+			return
+		}
+
+		go u.track("incoming lnurl-pay attempt", nil)
+
+		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+			LNURLResponse: lnurl.OkResponse(),
+			Tag:           "payRequest",
+			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?username=%s",
+				getHost(r), username),
 			MaxSendable:     1000000000,
 			MinSendable:     100000,
 			EncodedMetadata: string(jmeta),
@@ -199,12 +226,11 @@ func serveLNURL() {
 		ctx := context.WithValue(context.Background(), "origin", "external")
 
 		qs := r.URL.Query()
-		userid := qs.Get("userid")
 		username := qs.Get("username")
 		apptag := qs.Get("apptag")
 		amount := qs.Get("amount")
 
-		receiver, jmeta, err := lnurlPayStuff(ctx, userid, username)
+		receiver, jmeta, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -246,19 +272,19 @@ func serveLNURL() {
 	})
 }
 
-func lnurlPayStuff(
+func lnurlPayUserMetadata(
 	ctx context.Context,
-	userid string,
 	username string,
 ) (receiver User, jmeta []byte, err error) {
-	if userid != "" {
-		var id int
-		id, err = strconv.Atoi(userid)
-		if err == nil {
-			receiver, err = loadUser(id)
-		}
-	} else if username != "" {
+	isTelegramUsername := false
+
+	if id, errx := strconv.Atoi(username); errx == nil {
+		// case in which username is a number
+		receiver, err = loadUser(id)
+	} else {
+		// case in which username is a real username
 		receiver, err = ensureTelegramUsername(username)
+		isTelegramUsername = true
 	}
 	if err != nil {
 		return
@@ -272,12 +298,19 @@ func lnurlPayStuff(
 		},
 	}
 
-	if username != "" { /* we may have only a userid */
-		if imageURL, err := getTelegramUserPictureURL(username); err == nil {
-			if b64, err := base64FileFromURL(imageURL); err == nil {
-				metadata = append(metadata, []string{"image/jpeg;base64", b64})
+	if isTelegramUsername {
+		// get user avatar from public t.me/ page
+		if url, err := getTelegramUserPictureURL(username); err == nil {
+			if b64, err := base64ImageFromURL(url); err == nil {
+				metadata = append(metadata,
+					[]string{"image/jpeg;base64", b64})
 			}
 		}
+
+		// add internet identifier
+		metadata = append(metadata,
+			[]string{"text/identifier", fmt.Sprintf("%s@%s",
+				username, s.ServiceURL[len("https://"):])})
 	}
 
 	jmeta, err = json.Marshal(metadata)

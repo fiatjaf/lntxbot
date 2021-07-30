@@ -12,7 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"image"
+	"image/jpeg"
 	"math/big"
 	"net/http"
 	"regexp"
@@ -28,6 +29,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/lithammer/fuzzysearch/fuzzy"
+	"github.com/nfnt/resize"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/soudy/mathcat"
 )
@@ -432,7 +434,7 @@ WHERE account_id = $1
 	}
 }
 
-func base64FileFromURL(url string) (string, error) {
+func base64ImageFromURL(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -443,12 +445,19 @@ func base64FileFromURL(url string) (string, error) {
 		return "", errors.New("image returned status " + strconv.Itoa(resp.StatusCode))
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	img, _, err := image.Decode(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decode image from %s: %w", url, err)
 	}
 
-	return base64.StdEncoding.EncodeToString(b), nil
+	img = resize.Resize(160, 0, img, resize.NearestNeighbor)
+	out := &bytes.Buffer{}
+	err = jpeg.Encode(out, img, &jpeg.Options{50})
+	if err != nil {
+		return "", fmt.Errorf("failed to encode image: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(out.Bytes()), nil
 }
 
 type BalanceGetter interface {

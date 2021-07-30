@@ -26,6 +26,7 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.0
 	github.com/lucsky/cuid v1.0.2
 	github.com/msingleton/amplitude-go v0.0.0-20200312121213-b7c11448c30e
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/rs/cors v1.7.0
 	github.com/rs/zerolog v1.20.0
