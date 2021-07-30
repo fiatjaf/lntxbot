@@ -37,16 +37,16 @@ import (
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
 
 var menuItems = map[string]*big.Rat{
-	"bear":       big.NewRat(5, 1),
-	"popcorn":    big.NewRat(27, 1),
-	"ziplock":    big.NewRat(50, 1),
-	"piparote":   big.NewRat(88, 1),
-	"coffee":     big.NewRat(525, 1),
-	"hamster":    big.NewRat(666, 1),
-	"banana":     big.NewRat(777, 1),
-	"watermelon": big.NewRat(1214, 1),
-	"cow":        big.NewRat(3000, 1),
-	"bull":       big.NewRat(5000, 1),
+	"bear":       big.NewRat(5000, 1),
+	"popcorn":    big.NewRat(27000, 1),
+	"ziplock":    big.NewRat(50000, 1),
+	"piparote":   big.NewRat(88000, 1),
+	"coffee":     big.NewRat(525000, 1),
+	"hamster":    big.NewRat(666000, 1),
+	"banana":     big.NewRat(777000, 1),
+	"watermelon": big.NewRat(1214000, 1),
+	"cow":        big.NewRat(3000000, 1),
+	"bull":       big.NewRat(5000000, 1),
 }
 
 func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
