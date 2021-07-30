@@ -53,9 +53,10 @@ func serveLNURLBalanceNotify() {
 }
 
 type handleLNURLOpts struct {
-	loginSilently       bool
-	payWithoutPromptIf  *int64
-	balanceCheckService *string
+	loginSilently          bool
+	payWithoutPromptIf     *int64
+	payAmountWithoutPrompt *int64
+	balanceCheckService    *string
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
