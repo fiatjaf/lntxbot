@@ -311,7 +311,6 @@ React with a :zap: to confirm.{{end}}
 Зарегистрировано: {{.Registered}}
     `,
 	INVALIDPARTNUMBER:  "Неверное количество участников: {{.Number}}",
-	INVALIDAMOUNT:      "Неверное количество: {{.Amount}}",
 	USERSENTTOUSER:     "{{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) отправлено {{.User}}{{if .ReceiverHasNoChat}} (не могу уведомить {{.User}} так как он не начал диалог с ботом{{end}}",
 	USERSENTYOUSATS:    "{{.User}} отправил вам {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} в ходе {{.BotOp}}{{end}}.",
 	RECEIVEDSATSANON:   "Кто-то отослал вам {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
@@ -323,7 +322,6 @@ React with a :zap: to confirm.{{end}}
 	CANTJOINTWICE:      "Нельзя участвовать снова!",
 	CANTCANCEL:         "У вас нет возможности отменить это.",
 	FAILEDINVOICE:      "Ошибка генерации счёта: {{.Err}}",
-	INVALIDAMT:         "Неверное количество: {{.Amount}}",
 	STOPNOTIFY:         "Оповещения выключены.",
 	WELCOME: `
 Добро пожаловать. Ваш аккаунт создан. С этого момента вы можете пополнить его биткоинами, изнутри Telegram. Пожалуйста, помните, что мы не можем гарантировать сохранность ваших средств в случае, если мы потеряем средства из-за программной ошибки или атаки хакеров. Не храните на балансе бота больше, чем вы можете позволить себе потерять.

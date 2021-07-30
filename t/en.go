@@ -322,7 +322,6 @@ Prize: {{.Prize}}
 Registered: {{.Registered}}
     `,
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
-	INVALIDAMOUNT:      "Invalid amount: {{.Amount}}",
 	USERSENTTOUSER:     "{{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
 	USERSENTYOUSATS:    "{{.User}} has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
 	RECEIVEDSATSANON:   "Someone has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
@@ -335,7 +334,6 @@ Registered: {{.Registered}}
 	CANTREVEALOWN:      "Can't reveal your own hidden message!",
 	CANTCANCEL:         "You don't have the powers to cancel this.",
 	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
-	INVALIDAMT:         "Invalid amount: {{.Amount}}",
 	STOPNOTIFY:         "Notifications stopped.",
 	WELCOME: `
 Welcome. Your account is created. You're now able to move Bitcoin into, from and inside Telegram. Please remember that we can't guarantee your funds in case we lose funds due to software bug or malicious hacker attacks. Don't keep a balance here greater than what you're willing to lose.

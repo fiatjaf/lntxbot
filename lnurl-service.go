@@ -21,7 +21,7 @@ func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc strin
 
 	maxMSats, err := parseSatoshis(opts)
 	if err != nil {
-		send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 		return
 	}
 	maxSats := maxMSats / 1000

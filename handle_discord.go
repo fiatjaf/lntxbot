@@ -133,12 +133,6 @@ parsed:
 	}
 
 	switch {
-	case opts["dollar"].(bool):
-		msats, err := parseSatoshis(opts)
-		if err == nil {
-			send(ctx, getDollarPrice(msats))
-		}
-		break
 	case opts["start"].(bool), opts["tutorial"].(bool):
 		if message.GuildID == "" {
 			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {

@@ -30,15 +30,9 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/soudy/mathcat"
-	"github.com/tidwall/gjson"
 )
 
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
-
-var dollarPrice = struct {
-	lastUpdate time.Time
-	rate       float64
-}{time.Now(), 0}
 
 var menuItems = map[string]*big.Rat{
 	"bear":       big.NewRat(5, 1),
@@ -64,8 +58,8 @@ func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
 
 func parseAmountString(amt string) (msats int64, err error) {
 	defer func() {
-		if msats < 1000 {
-			err = errors.New("too small")
+		if err == nil && msats < 1000 {
+			err = fmt.Errorf("amount too small: %dmsat", msats)
 		}
 	}()
 
@@ -85,41 +79,49 @@ func parseAmountString(amt string) (msats int64, err error) {
 	amt = strings.ReplaceAll(amt, "🐂", "bull")
 	amt = strings.ReplaceAll(amt, "🐹", "hamster")
 
-	// usd
-	usdMsat, err := getDollarRate()
-	if err != nil {
-		return 0, errors.New("couldn't get exchange rate")
-	}
+	// lowercase
+	amt = strings.ToLower(amt)
 
-	// is an expression
+	// prepare mathcat
 	p := mathcat.New()
+
+	// add emoji values
 	for k, v := range menuItems {
 		p.Variables[k] = v
 	}
-	usdRat := new(big.Rat).SetFloat64(usdMsat)
-	usdRat.Mul(usdRat, big.NewRat(1, 1000))
-	p.Variables["USD"] = usdRat
-	p.Variables["usd"] = usdRat
+
+	// add currency values
+	for _, currencyCode := range CURRENCIES {
+		lower := strings.ToLower(currencyCode)
+		if strings.Index(amt, lower) != -1 {
+			fiatMsat, err := getMsatsPerFiatUnit(currencyCode)
+			if err != nil {
+				return 0, err
+			}
+			fiatRat := new(big.Rat).SetInt64(fiatMsat)
+			p.Variables[lower] = fiatRat
+		}
+	}
+
+	// run mathcat
 	r, err := p.Run(amt)
 	if err == nil {
 		f, _ := r.Float64()
-		if f < 100000 {
-			return int64(f * 1000), nil
+		if f < 1000 {
+			return 0, errors.New("'satoshis' param invalid")
 		}
+		return int64(f), nil
 	} else {
-		log.Debug().Err(err).Str("expr", amt).Msg("invalid amt math expression")
+		return 0, fmt.Errorf("invalid math expression '%s': %w", amt, err)
 	}
+}
 
-	// is a fiat currency
-	if strings.HasSuffix(strings.ToUpper(amt), "USD") {
-		dollars, err := strconv.ParseFloat(amt[0:len(amt)-3], 64)
-		if err == nil {
-			msats := int64(dollars * usdMsat)
-			return msats, nil
-		}
+func getDollarPrice(msat int64) string {
+	rate, err := getMsatsPerFiatUnit("USD")
+	if err != nil {
+		return "~ USD"
 	}
-
-	return 0, errors.New("'satoshis' param invalid")
+	return fmt.Sprintf("%.2f USD", float64(msat)/float64(rate))
 }
 
 func searchForInvoice(ctx context.Context) (bolt11, lnurltext string, ok bool) {
@@ -246,42 +248,6 @@ func makeLinks(e string) string {
 	}
 
 	return e
-}
-
-func getDollarPrice(msats int64) string {
-	rate, err := getDollarRate()
-	if err != nil {
-		return "~ USD"
-	}
-	return fmt.Sprintf("%.2f USD", float64(msats)/rate)
-}
-
-func getDollarRate() (rate float64, err error) {
-begin:
-	if dollarPrice.rate > 0 && dollarPrice.lastUpdate.After(time.Now().Add(-time.Hour)) {
-		// it's fine
-		return dollarPrice.rate, nil
-	}
-
-	resp, err := http.Get("https://www.bitstamp.net/api/v2/ticker/btcusd")
-	if err != nil || resp.StatusCode >= 300 {
-		return
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	srate := gjson.GetBytes(b, "last").String()
-	btcrate, err := strconv.ParseFloat(srate, 64)
-	if err != nil {
-		return
-	}
-
-	// we want the msat -> dollar rate, not dollar -> btc
-	dollarPrice.rate = 1 / (btcrate / 100000000000)
-	dollarPrice.lastUpdate = time.Now()
-	goto begin
 }
 
 func randomPreimage() (string, error) {

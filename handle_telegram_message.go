@@ -196,7 +196,7 @@ parsed:
 	case opts["giveaway"].(bool):
 		msats, err := parseSatoshis(opts)
 		if err != nil {
-			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			break
 		}
 		if !u.checkBalanceFor(ctx, msats, "giveaway") {
@@ -218,7 +218,7 @@ parsed:
 	case opts["giveflip"].(bool):
 		msats, err := parseSatoshis(opts)
 		if err != nil {
-			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			break
 		}
 		if !u.checkBalanceFor(ctx, msats, "giveflip") {
@@ -264,7 +264,7 @@ parsed:
 		// open a lottery between a number of users in a group
 		msats, err := parseSatoshis(opts)
 		if err != nil {
-			send(ctx, u, t.INVALIDAMT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			break
 		}
 		if !u.checkBalanceFor(ctx, msats, "coinflip") {
@@ -300,7 +300,7 @@ parsed:
 		// many people join, we get all the money and transfer to the target
 		msats, err := parseSatoshis(opts)
 		if err != nil {
-			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			break
 		}
 		if !u.checkBalanceFor(ctx, msats, "fundraise") {
@@ -371,7 +371,7 @@ parsed:
 
 		msats, err := parseSatoshis(opts)
 		if err != nil || msats == 0 {
-			send(ctx, u, t.INVALIDAMOUNT, t.T{"Amount": opts["<satoshis>"]})
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
 		sats := int(msats / 1000)
@@ -685,11 +685,6 @@ parsed:
 		msats, err := parseSatoshis(opts)
 		if err == nil {
 			send(ctx, fmt.Sprintf("%.15g", float64(msats)/1000))
-		}
-	case opts["dollar"].(bool):
-		msats, err := parseSatoshis(opts)
-		if err == nil {
-			send(ctx, getDollarPrice(msats))
 		}
 	case opts["moon"].(bool):
 		moonURLs := []string{
