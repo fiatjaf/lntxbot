@@ -284,8 +284,16 @@ func handleLNURLPay(
 				params.Metadata.ImageBytes())
 		}
 
+		receiverName := params.CallbackURL.Host
+		if identifier := params.Metadata.Entry("text/email"); identifier != "" {
+			receiverName = identifier
+		}
+		if identifier := params.Metadata.Entry("text/identifier"); identifier != "" {
+			receiverName = identifier
+		}
+
 		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{
-			"Domain":      params.CallbackURL.Host,
+			"Domain":      receiverName,
 			"FixedAmount": float64(fixedAmount) / 1000,
 			"Max":         float64(params.MaxSendable) / 1000,
 			"Min":         float64(params.MinSendable) / 1000,
