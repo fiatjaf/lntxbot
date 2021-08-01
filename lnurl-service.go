@@ -187,10 +187,9 @@ func serveLNURL() {
 		go u.track("incoming lnurl-pay attempt", nil)
 
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-			LNURLResponse: lnurl.OkResponse(),
-			Tag:           "payRequest",
-			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?username=%s",
-				getHost(r), username),
+			LNURLResponse:   lnurl.OkResponse(),
+			Tag:             "payRequest",
+			Callback:        fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
 			MaxSendable:     1000000000,
 			MinSendable:     100000,
 			EncodedMetadata: string(jmeta),
@@ -199,36 +198,9 @@ func serveLNURL() {
 	})
 
 	router.Path("/.well-known/lnurlp/{username}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
-
-		username := mux.Vars(r)["username"]
-		u, jmeta, err := lnurlPayUserMetadata(ctx, username)
-		if err != nil {
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
-			return
-		}
-
-		go u.track("incoming lnurl-pay attempt", nil)
-
-		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-			LNURLResponse: lnurl.OkResponse(),
-			Tag:           "payRequest",
-			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?username=%s",
-				getHost(r), username),
-			MaxSendable:     1000000000,
-			MinSendable:     100000,
-			EncodedMetadata: string(jmeta),
-			CommentAllowed:  422,
-		})
-	})
-
-	router.Path("/lnurl/pay/callback").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(context.Background(), "origin", "external")
-
+		username := mux.Vars(r)["username"]
 		qs := r.URL.Query()
-		username := qs.Get("username")
-		apptag := qs.Get("apptag")
-		amount := qs.Get("amount")
 
 		receiver, jmeta, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
@@ -236,39 +208,52 @@ func serveLNURL() {
 			return
 		}
 
-		var tag string
-		if apptag == "golightning" {
-			tag = apptag
-		}
+		if qs.Get("amount") == "" {
+			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
 
-		msatoshi, err := strconv.ParseInt(amount, 10, 64)
-		if err != nil {
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
-			return
-		}
+			go receiver.track("incoming lnurl-pay attempt", nil)
 
-		hhash := sha256.Sum256(jmeta)
-		bolt11, _, err := receiver.makeInvoice(ctx, makeInvoiceArgs{
-			IgnoreInvoiceSizeLimit: true,
-			Msatoshi:               msatoshi,
-			DescHash:               hex.EncodeToString(hhash[:]),
-			Tag:                    tag,
-			Extra: map[string]interface{}{
-				"comment": qs.Get("comment"),
-			},
-		})
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
-			return
-		}
+			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+				LNURLResponse:   lnurl.OkResponse(),
+				Tag:             "payRequest",
+				Callback:        fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
+				MaxSendable:     1000000000,
+				MinSendable:     100000,
+				EncodedMetadata: string(jmeta),
+				CommentAllowed:  422,
+			})
+		} else {
+			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay second request")
 
-		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
-			LNURLResponse: lnurl.OkResponse(),
-			PR:            bolt11,
-			Routes:        make([][]lnurl.RouteInfo, 0),
-			Disposable:    lnurl.FALSE,
-		})
+			amount := qs.Get("amount")
+			msatoshi, err := strconv.ParseInt(amount, 10, 64)
+			if err != nil {
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
+				return
+			}
+
+			hhash := sha256.Sum256(jmeta)
+			bolt11, _, err := receiver.makeInvoice(ctx, makeInvoiceArgs{
+				IgnoreInvoiceSizeLimit: true,
+				Msatoshi:               msatoshi,
+				DescHash:               hex.EncodeToString(hhash[:]),
+				Extra: map[string]interface{}{
+					"comment": qs.Get("comment"),
+				},
+			})
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
+				return
+			}
+
+			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
+				LNURLResponse: lnurl.OkResponse(),
+				PR:            bolt11,
+				Routes:        make([][]lnurl.RouteInfo, 0),
+				Disposable:    lnurl.FALSE,
+			})
+		}
 	})
 }
 
