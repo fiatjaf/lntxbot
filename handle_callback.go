@@ -753,20 +753,6 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		})
 
 		break
-	case strings.HasPrefix(cb.Data, "check="):
-		// recheck transaction when for some reason it wasn't checked and
-		// either confirmed or deleted automatically
-		hashfirstchars := cb.Data[6:]
-		txn, err := u.getTransaction(hashfirstchars)
-		if err != nil {
-			log.Warn().Err(err).Str("hash", hashfirstchars).
-				Msg("failed to fetch transaction for checking")
-			send(ctx, t.ERROR, APPEND)
-			return
-		}
-		send(ctx, t.CHECKING, APPEND)
-		go u.track("check pending", nil)
-		go checkOutgoingPaymentStatus(ctx, txn.Hash)
 	case strings.HasPrefix(cb.Data, "s4a="):
 		defer removeKeyboardButtons(ctx)
 		parts := strings.Split(cb.Data[4:], "-")

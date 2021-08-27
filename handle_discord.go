@@ -29,6 +29,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// declaring stuff so we can use goto
 	var (
+		err         error
 		u           User
 		g           GroupChat
 		messageText string

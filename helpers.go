@@ -9,22 +9,20 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
+	"io/ioutil"
 	"math/big"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
@@ -32,6 +30,7 @@ import (
 	"github.com/nfnt/resize"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/soudy/mathcat"
+	"github.com/tidwall/gjson"
 )
 
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
@@ -391,36 +390,10 @@ func getVariadicFieldOrReplyToContent(ctx context.Context, opts docopt.Opts, opt
 	return ""
 }
 
-func waitPaymentSuccess(hash string) (preimage <-chan string) {
-	wait := make(chan string)
-	waitingPaymentSuccesses.Upsert(hash, wait,
-		func(exists bool, arr interface{}, v interface{}) interface{} {
-			if exists {
-				return append(arr.([]interface{}), v)
-			} else {
-				return []interface{}{v}
-			}
-		},
-	)
-	return wait
-}
-
-func resolveWaitingPaymentSuccess(hash string, preimage string) {
-	if chans, ok := waitingPaymentSuccesses.Get(hash); ok {
-		for _, ch := range chans.([]interface{}) {
-			select {
-			case ch.(chan string) <- preimage:
-			default:
-			}
-		}
-		waitingPaymentSuccesses.Remove(hash)
-	}
-}
-
 func checkProxyBalance(txn *sqlx.Tx) error {
 	// check proxy balance (should be always zero)
 	var proxybalance int64
-	err = txn.Get(&proxybalance, `
+	err := txn.Get(&proxybalance, `
 SELECT (coalesce(sum(amount), 0) - coalesce(sum(fees), 0))::numeric(13) AS balance
 FROM lightning.account_txn
 WHERE account_id = $1
@@ -466,7 +439,7 @@ type BalanceGetter interface {
 
 func getBalance(txn BalanceGetter, userId int) int64 {
 	var balance int64
-	err = txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", userId)
+	err := txn.Get(&balance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", userId)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Warn().Err(err).Int("account", userId).Msg("failed to fetch balance")
@@ -488,33 +461,23 @@ begin:
 		return "~"
 	}
 
-	res, err := ln.Call("listnodes", id)
+	resp, err := http.Get("https://ln.fiatjaf.com/nodes?select=alias&pubkey=eq." + id)
 	if err != nil {
 		return "~"
 	}
 
-	alias := res.Get("nodes.0.alias").String()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "~"
+	}
+
+	alias := gjson.ParseBytes(b).Get("0.alias").String()
 	if alias == "" {
 		alias = "~"
 	}
 
 	nodeAliases.Set(id, alias)
 	goto begin
-}
-
-func messageFromError(err error) string {
-	switch terr := err.(type) {
-	case lightning.ErrorTimeout:
-		return fmt.Sprintf("Operation has timed out after %d seconds.", terr.Seconds)
-	case lightning.ErrorCommand:
-		return terr.Message
-	case lightning.ErrorConnect, lightning.ErrorConnectionBroken:
-		return "Problem connecting to our node. Please try again in a minute."
-	case lightning.ErrorJSONDecode:
-		return "Error reading response from lightningd."
-	default:
-		return err.Error()
-	}
 }
 
 func zipdata(filename string, content []byte) (zipped []byte, err error) {
@@ -539,61 +502,7 @@ func zipdata(filename string, content []byte) (zipped []byte, err error) {
 }
 
 func savePaymentAttemptLog(hash, bolt11 string) {
-	// save payment attempts for future counsultation
-	// only save the latest 10 tries for brevity
-	var tries []Try
-
-	if status, _ := ln.Call("paystatus", bolt11); status.Get("pay.0").Exists() {
-		for i, attempt := range status.Get("pay.0.attempts").Array() {
-			var errorMessage string
-			if attempt.Get("failure").Exists() {
-				if attempt.Get("failure.data").Exists() {
-					errorMessage = fmt.Sprintf("%s %s/%d %s",
-						attempt.Get("failure.data.failcodename").String(),
-						attempt.Get("failure.data.erring_channel").String(),
-						attempt.Get("failure.data.erring_direction").Int(),
-						attempt.Get("failure.data.erring_node").String(),
-					)
-				} else {
-					errorMessage = attempt.Get("failure.message").String()
-				}
-			}
-
-			route := attempt.Get("route").Array()
-			hops := make([]Hop, len(route))
-			for i, routehop := range route {
-				hops[i] = Hop{
-					Peer:      routehop.Get("id").String(),
-					Channel:   routehop.Get("channel").String(),
-					Direction: routehop.Get("direction").Int(),
-					Msatoshi:  routehop.Get("msatoshi").Int(),
-					Delay:     routehop.Get("delay").Int(),
-				}
-			}
-
-			tries = append(tries, Try{
-				Success: attempt.Get("success").Exists(),
-				Error:   errorMessage,
-				Route:   hops,
-			})
-
-			if i >= 9 {
-				break
-			}
-		}
-	} else {
-		// no 'paystatus' for this payment: it has failed before any attempt
-		tries = append(tries, Try{
-			Success: false,
-			Error:   "Something was wrong so the payment wasn't even tried.",
-			Route:   []Hop{},
-		})
-	}
-
-	// save the payment tries here
-	if jsontries, err := json.Marshal(tries); err == nil {
-		rds.Set("tries:"+hash[:5], jsontries, time.Hour*24)
-	}
+	// TODO
 }
 
 func getHost(r *http.Request) string {

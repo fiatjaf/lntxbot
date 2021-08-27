@@ -2,15 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/docopt/docopt-go"
@@ -26,6 +21,26 @@ type Invoice struct {
 	decodepay.Bolt11
 
 	Preimage string `json:"preimage"`
+}
+
+type InvoiceData struct {
+	UserId    int
+	Origin    string // "telegram" or "discord"
+	MessageId interface{}
+	Preimage  string
+
+	makeInvoiceArgs
+}
+
+type makeInvoiceArgs struct {
+	Description            string
+	DescriptionHash        string
+	Msatoshi               int64
+	Expiry                 *time.Duration
+	Tag                    string
+	Extra                  map[string]interface{}
+	BlueWallet             bool
+	IgnoreInvoiceSizeLimit bool
 }
 
 func decodeInvoice(bolt11 string) (Invoice, error) {
@@ -66,78 +81,6 @@ func resolveWaitingInvoice(hash string, inv Invoice) {
 		}
 		waitingInvoices.Remove(hash)
 	}
-}
-
-// we make a short channel id that contains an id to an object on redis with all things.
-// besides storing these important values, this secret will also be used to build the
-// preimage.
-type ShadowChannelData struct {
-	UserId          int
-	Origin          string // "telegram" or "discord"
-	MessageId       interface{}
-	Tag             string
-	Msatoshi        int64
-	Description     string
-	DescriptionHash string
-	Preimage        string
-	SecretKey       string
-	Extra           map[string]interface{}
-}
-
-func makeShadowChannelId(data ShadowChannelData) uint64 {
-	secret := make([]byte, 8)
-	rand.Read(secret)
-
-	key := hex.EncodeToString(secret)
-	j, _ := json.Marshal(data)
-	rds.Set(key, string(j), time.Hour*24*7)
-
-	return binary.BigEndian.Uint64(secret)
-}
-
-func extractDataFromShadowChannelId(channelId uint64) (d ShadowChannelData, err error) {
-	bin := make([]byte, 8)
-	binary.BigEndian.PutUint64(bin, channelId)
-
-	key := hex.EncodeToString(bin)
-	j, err := rds.Get(key).Result()
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal([]byte(j), &d)
-	if err != nil {
-		return
-	}
-
-	return d, nil
-}
-
-func deleteDataAssociatedWithShadowChannelId(channelId uint64) error {
-	bin := make([]byte, 8)
-	binary.BigEndian.PutUint64(bin, channelId)
-
-	key := hex.EncodeToString(bin)
-	return rds.Del(key).Err()
-}
-
-func decodeShortChannelId(scid string) (uint64, error) {
-	spl := strings.Split(scid, "x")
-
-	x, err := strconv.ParseUint(spl[0], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	y, err := strconv.ParseUint(spl[1], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	z, err := strconv.ParseUint(spl[2], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return ((x & 0xFFFFFF) << 40) | ((y & 0xFFFFFF) << 16) | (z & 0xFFFF), nil
 }
 
 // creating too many small invoices is forbidden
@@ -222,16 +165,30 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 		go u.track("make invoice", map[string]interface{}{"sats": msats / 1000})
 
 		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
-			Msatoshi: msats,
-			Desc:     desc,
+			Msatoshi:    msats,
+			Description: desc,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
-			send(ctx, u, t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+			send(ctx, u, t.FAILEDINVOICE, t.T{"Err": err.Error()})
 			return
 		}
 
 		// send invoice with qr code
 		send(ctx, qrURL(bolt11), bolt11)
 	}
+}
+
+func saveInvoiceData(hash string, data InvoiceData) error {
+	b, _ := json.Marshal(data)
+	return rds.Set("invdata:"+hash, string(b), *data.Expiry).Err()
+}
+
+func loadInvoiceData(hash string) (data InvoiceData, err error) {
+	b, err := rds.Get("invdata:" + hash).Result()
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(b), &data)
+	return
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
+	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	"github.com/gorilla/mux"
 )
@@ -141,13 +142,13 @@ func serveLNURL() {
 			return
 		}
 
-		inv, err := ln.Call("decodepay", bolt11)
+		inv, err := decodepay.Decodepay(bolt11)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid payment request."))
 			return
 		}
 
-		if inv.Get("msatoshi").Int() > int64(chMax)*1000 {
+		if inv.MSatoshi > int64(chMax)*1000 {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Amount too big."))
 			return
 		}
@@ -156,7 +157,7 @@ func serveLNURL() {
 		send(ctx, payer, bolt11, ctx.Value("message"))
 
 		go payer.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
-			"sats": inv.Get("msatoshi").Float() / 1000,
+			"sats": float64(inv.MSatoshi) / 1000,
 		})
 
 		// do the pay flow with these odd opts and fake message.
@@ -236,7 +237,7 @@ func serveLNURL() {
 			bolt11, _, err := receiver.makeInvoice(ctx, makeInvoiceArgs{
 				IgnoreInvoiceSizeLimit: true,
 				Msatoshi:               msatoshi,
-				DescHash:               hex.EncodeToString(hhash[:]),
+				DescriptionHash:        hex.EncodeToString(hhash[:]),
 				Extra: map[string]interface{}{
 					"comment": qs.Get("comment"),
 				},

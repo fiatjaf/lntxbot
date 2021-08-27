@@ -178,7 +178,7 @@ func handleLNURLWithdraw(
 	bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: false,
 		Msatoshi:               params.MaxWithdrawable,
-		Desc:                   desc,
+		Description:            desc,
 	})
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -501,7 +501,7 @@ func lnurlBalanceCheckRoutine() {
 			URL     string `db:"url"`
 			Service string `db:"service"`
 		}
-		err = pg.Select(&checks, `SELECT account, service, url FROM balance_check`)
+		err := pg.Select(&checks, `SELECT account, service, url FROM balance_check`)
 		if err == sql.ErrNoRows {
 			err = nil
 		}

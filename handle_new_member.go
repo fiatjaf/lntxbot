@@ -76,7 +76,7 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 	bolt11, hash, err := chatOwner.makeInvoice(ctx, makeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: true,
 		Msatoshi:               int64(g.Ticket) * 1000,
-		Desc: fmt.Sprintf(
+		Description: fmt.Sprintf(
 			"ticket for %s to join %s (%d).",
 			username, joinMessage.Chat.Title, joinMessage.Chat.ID,
 		),

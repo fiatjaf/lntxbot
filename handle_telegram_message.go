@@ -91,6 +91,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	ctx = context.WithValue(ctx, "group", g)
 
 	var (
+		err         error
 		opts        = make(docopt.Opts)
 		isCommand   = false
 		messageText = strings.ReplaceAll(
