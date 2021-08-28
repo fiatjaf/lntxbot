@@ -245,8 +245,8 @@ func paymentHasSucceeded(
 	tagn := sql.NullString{String: tag, Valid: tag != ""}
 
 	var res struct {
-		UserId         int `json:"from_id"`
-		TriggerMessage int `json:"trigger_message"`
+		UserId         int `db:"from_id"`
+		TriggerMessage int `db:"trigger_message"`
 	}
 	err := pg.Get(&res, `
 UPDATE lightning.transaction
@@ -281,8 +281,8 @@ RETURNING from_id, trigger_message
 
 func paymentHasFailed(ctx context.Context, hash string) {
 	var res struct {
-		UserId         int `json:"from_id"`
-		TriggerMessage int `json:"trigger_message"`
+		UserId         int `db:"from_id"`
+		TriggerMessage int `db:"trigger_message"`
 	}
 	err := pg.Get(&res, `
 DELETE FROM lightning.transaction WHERE payment_hash = $1

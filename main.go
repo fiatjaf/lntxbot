@@ -208,7 +208,7 @@ func main() {
 	setupCommands()
 
 	// setup eclair
-	ln := &eclair.Client{
+	ln = &eclair.Client{
 		Host:     s.EclairHost,
 		Password: s.EclairPassword,
 	}
@@ -273,6 +273,12 @@ func handleEclairWebsocket(ws <-chan gjson.Result) {
 	for event := range ws {
 		switch event.Get("type").String() {
 		case "payment-received":
+			hash := event.Get("paymentHash").String()
+			var msatoshi int64 = 0
+			for _, part := range event.Get("parts").Array() {
+				msatoshi += part.Get("amount").Int()
+			}
+			go paymentReceived(ctx, hash, msatoshi)
 		case "payment-sent":
 			hash := event.Get("paymentHash").String()
 			preimage := event.Get("paymentPreimage").String()
@@ -294,7 +300,7 @@ func handleEclairWebsocket(ws <-chan gjson.Result) {
 			)
 		case "payment-failed":
 			hash := event.Get("paymentHash").String()
-			paymentHasFailed(
+			go paymentHasFailed(
 				ctx,
 				hash,
 			)

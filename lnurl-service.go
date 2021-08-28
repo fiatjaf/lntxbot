@@ -234,7 +234,7 @@ func serveLNURL() {
 			}
 
 			hhash := sha256.Sum256(jmeta)
-			bolt11, _, err := receiver.makeInvoice(ctx, makeInvoiceArgs{
+			bolt11, _, err := receiver.makeInvoice(ctx, &MakeInvoiceArgs{
 				IgnoreInvoiceSizeLimit: true,
 				Msatoshi:               msatoshi,
 				DescriptionHash:        hex.EncodeToString(hhash[:]),

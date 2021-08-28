@@ -19,8 +19,6 @@ import (
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx/types"
-	cmap "github.com/orcaman/concurrent-map"
-	"gopkg.in/antage/eventsource.v1"
 )
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {
@@ -68,7 +66,7 @@ func (u User) invoicePrivateKey() *btcec.PrivateKey {
 
 func (u User) makeInvoice(
 	ctx context.Context,
-	args makeInvoiceArgs,
+	args *MakeInvoiceArgs,
 ) (bolt11 string, hash string, err error) {
 	msatoshi := args.Msatoshi
 
@@ -87,11 +85,8 @@ func (u User) makeInvoice(
 	log.Debug().Stringer("user", &u).Str("desc", args.Description).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
-	var exp *time.Duration
 	if args.Expiry == nil {
-		exp = &s.InvoiceTimeout
-	} else {
-		exp = args.Expiry
+		args.Expiry = &s.InvoiceTimeout
 	}
 
 	preimage := make([]byte, 32)
@@ -102,7 +97,7 @@ func (u User) makeInvoice(
 
 	params := eclair.Params{
 		"amountMsat":      msatoshi,
-		"expireIn":        exp.Seconds(),
+		"expireIn":        int((*args.Expiry).Seconds()),
 		"paymentPreimage": hex.EncodeToString(preimage),
 	}
 
@@ -135,7 +130,7 @@ func (u User) makeInvoice(
 		MessageId: messageId,
 		Preimage:  hex.EncodeToString(preimage),
 
-		makeInvoiceArgs: args,
+		MakeInvoiceArgs: args,
 	})
 
 	if args.BlueWallet {
@@ -144,64 +139,12 @@ func (u User) makeInvoice(
 			"bolt11": bolt11,
 			"desc":   args.Description,
 			"amount": msatoshi / 1000,
-			"expiry": int(*exp),
+			"expiry": int((*args.Expiry)),
 		})
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
 	}
 
 	return bolt11, hash, nil
-}
-
-// what happens when a payment is received
-var userPaymentStream = cmap.New() // make(map[int]eventsource.EventSource)
-
-func (u User) onReceivedInvoicePayment(ctx context.Context, hash string, data InvoiceData) {
-	u.track("got payment", map[string]interface{}{
-		"sats": float64(data.Msatoshi) / 1000,
-	})
-
-	// send to user stream if the user is listening
-	if ies, ok := userPaymentStream.Get(strconv.Itoa(u.Id)); ok {
-		go ies.(eventsource.EventSource).SendEventMessage(
-			`{"payment_hash": "`+hash+`", "msatoshi": `+
-				strconv.FormatInt(data.Msatoshi, 10)+`}`,
-			"payment-received", "")
-	}
-
-	// is there a comment associated with this?
-	go func() {
-		time.Sleep(2 * time.Second)
-		if comment, ok := data.Extra["comment"]; ok && comment != "" {
-			send(ctx, u, t.LNURLPAYCOMMENT, t.T{
-				"Text":           comment,
-				"HashFirstChars": hash[:5],
-			})
-		}
-	}()
-
-	// proceed to compute an incoming payment for this user
-	if err := u.paymentReceived(
-		int(data.Msatoshi),
-		data.Description,
-		hash,
-		data.Preimage,
-		data.Tag,
-	); err != nil {
-		send(ctx, u, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
-		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
-		}
-		return
-	}
-
-	send(ctx, u, t.PAYMENTRECEIVED, t.T{
-		"Sats": data.Msatoshi / 1000,
-		"Hash": hash[:5],
-	})
-
-	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
-	}
 }
 
 func (u User) payInvoice(
@@ -263,15 +206,7 @@ func (u User) payInvoice(
 
 		inv.Preimage = data.Preimage
 
-		receiver, err := loadUser(data.UserId)
-		if err != nil {
-			log.Warn().Err(err).Interface("data", data).
-				Msg("failed to load receiver on internal invoice")
-			return hash,
-				errors.New("Internal error loading the receiver for this invoice.")
-		}
-
-		go receiver.onReceivedInvoicePayment(ctx, hash, data)
+		go paymentReceived(ctx, hash, data.Msatoshi)
 		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(ctx, amount, 0, data.Preimage, data.Tag, hash)
 
@@ -322,7 +257,7 @@ func (u User) actuallySendExternalPayment(
 INSERT INTO lightning.transaction
   (from_id, amount, fees, description, payment_hash, pending,
    trigger_message, remote_node)
-VALUES ($1, $2, $3, $4, $5, true, $7, $8)
+VALUES ($1, $2, $3, $4, $5, true, $6, $7)
     `, u.Id, msatoshi, int64(fee_reserve), inv.Description,
 		hash, tgMessageId, inv.Payee)
 	if err != nil {
@@ -394,8 +329,8 @@ func (u User) addInternalPendingInvoice(
 	_, err = txn.Exec(`
 INSERT INTO lightning.transaction
   (from_id, to_id, amount, description, payment_hash, pending, trigger_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, u.Id, targetId, msats, desc, hash, true, tgMessageId)
+VALUES ($1, $2, $3, $4, $5, true, $6)
+    `, u.Id, targetId, msats, desc, hash, tgMessageId)
 	if err != nil {
 		log.Debug().Err(err).Msg("database error inserting transaction")
 		return errors.New("Payment already in course.")
@@ -575,30 +510,6 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	}
 
 	return "", nil
-}
-
-func (u User) paymentReceived(
-	amount int,
-	desc string,
-	hash string,
-	preimage string,
-	tag string,
-) (err error) {
-	tagn := sql.NullString{String: tag, Valid: tag != ""}
-
-	_, err = pg.Exec(`
-INSERT INTO lightning.transaction
-  (to_id, amount, description, payment_hash, preimage, tag)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
-    `, u.Id, amount, desc, hash, preimage, tagn)
-	if err != nil {
-		log.Error().Err(err).
-			Stringer("user", &u).Str("hash", hash).
-			Msg("failed to save payment received.")
-	}
-
-	return
 }
 
 func (u User) setAppData(appname string, data interface{}) (err error) {

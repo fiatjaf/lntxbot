@@ -73,7 +73,7 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 
 	expiration := time.Minute * 15
 
-	bolt11, hash, err := chatOwner.makeInvoice(ctx, makeInvoiceArgs{
+	bolt11, hash, err := chatOwner.makeInvoice(ctx, &MakeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: true,
 		Msatoshi:               int64(g.Ticket) * 1000,
 		Description: fmt.Sprintf(

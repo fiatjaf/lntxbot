@@ -55,7 +55,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
+		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 			Msatoshi: msats,
 		})
 		if err != nil {

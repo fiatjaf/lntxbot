@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/docopt/docopt-go"
@@ -15,6 +17,7 @@ import (
 	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 type Invoice struct {
@@ -29,10 +32,10 @@ type InvoiceData struct {
 	MessageId interface{}
 	Preimage  string
 
-	makeInvoiceArgs
+	*MakeInvoiceArgs
 }
 
-type makeInvoiceArgs struct {
+type MakeInvoiceArgs struct {
 	Description            string
 	DescriptionHash        string
 	Msatoshi               int64
@@ -164,7 +167,7 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 
 		go u.track("make invoice", map[string]interface{}{"sats": msats / 1000})
 
-		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
+		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 			Msatoshi:    msats,
 			Description: desc,
 		})
@@ -177,6 +180,81 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 		// send invoice with qr code
 		send(ctx, qrURL(bolt11), bolt11)
 	}
+}
+
+// what happens when a payment is received
+var userPaymentStream = cmap.New() // make(map[int]eventsource.EventSource)
+
+func paymentReceived(
+	ctx context.Context,
+	hash string,
+	amount int64,
+) (user User, err error) {
+	data, err := loadInvoiceData(hash)
+	if err != nil {
+		log.Debug().Err(err).Interface("hash", hash).
+			Msg("no invoice stored for this hash, not a bot invoice?")
+		return
+	}
+
+	user, err = loadUser(data.UserId)
+	if err != nil {
+		log.Error().Err(err).Int("user-id", data.UserId).Interface("data", data).
+			Msg("couldn't load user on paymentReceived")
+		return
+	}
+
+	_, err = pg.Exec(`
+INSERT INTO lightning.transaction
+  (to_id, amount, description, payment_hash, preimage, tag)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
+    `, user.Id, amount, data.Description, hash,
+		data.Preimage, sql.NullString{String: data.Tag, Valid: data.Tag != ""})
+	if err != nil {
+		log.Error().Err(err).
+			Stringer("user", &user).Str("hash", hash).
+			Msg("failed to save payment received.")
+		send(ctx, user, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
+		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
+		}
+		return
+	}
+
+	user.track("got payment", map[string]interface{}{
+		"sats": amount / 1000,
+	})
+
+	// send to user stream if the user is listening
+	if ies, ok := userPaymentStream.Get(strconv.Itoa(user.Id)); ok {
+		go ies.(eventsource.EventSource).SendEventMessage(
+			`{"payment_hash": "`+hash+`", "msatoshi": `+
+				strconv.FormatInt(data.Msatoshi, 10)+`}`,
+			"payment-received", "")
+	}
+
+	// is there a comment associated with this?
+	go func() {
+		time.Sleep(2 * time.Second)
+		if comment, ok := data.Extra["comment"]; ok && comment != "" {
+			send(ctx, user, t.LNURLPAYCOMMENT, t.T{
+				"Text":           comment,
+				"HashFirstChars": hash[:5],
+			})
+		}
+	}()
+
+	send(ctx, user, t.PAYMENTRECEIVED, t.T{
+		"Sats": data.Msatoshi / 1000,
+		"Hash": hash[:5],
+	})
+
+	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
+	}
+
+	return
 }
 
 func saveInvoiceData(hash string, data InvoiceData) error {
