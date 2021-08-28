@@ -153,7 +153,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			"To":               claimer.AtName(ctx),
 			"Sats":             sats,
 			"ClaimerHasNoChat": claimer.TelegramChatId == 0,
-			"BotName":          s.ServiceId,
 		}, ctx.Value("message"), editAction)
 
 		goto answerEmpty
@@ -429,7 +428,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				"Sender":            giver.AtName(ctx),
 				"Losers":            strings.Join(loserNames, " "),
 				"ReceiverHasNoChat": winner.TelegramChatId == 0,
-				"BotName":           s.ServiceId,
 			}, EDIT)
 		}
 

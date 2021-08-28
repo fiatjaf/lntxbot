@@ -138,9 +138,13 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 
 		go u.track("make invoice", map[string]interface{}{"sats": msats / 1000})
 
+		if desc == "" {
+			desc = "to @lntxbot"
+		}
+
 		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 			Msatoshi:    msats,
-			Description: desc,
+			Description: u.Username + ":  " + desc,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")

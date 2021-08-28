@@ -159,7 +159,6 @@ ensured:
 			"Sats": msats / 1000,
 			"ClaimerHasNoChat": receiver.TelegramChatId == 0 &&
 				receiver.DiscordChannelId == "",
-			"BotName": s.ServiceId,
 		}, ctx.Value("message"), FORCESPAMMY)
 	}
 }

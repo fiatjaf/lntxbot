@@ -160,16 +160,9 @@ parsed:
 	}
 
 	switch {
-	case opts["start"].(bool), opts["tutorial"].(bool):
-		if message.Chat.Type == "private" {
-			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
-				handleTutorial(ctx, tutorial)
-			} else {
-				send(ctx, u, t.WELCOME)
-				handleTutorial(ctx, "")
-			}
-			go u.track("start", nil)
-		}
+	case opts["start"].(bool):
+		handleStart(ctx)
+		go u.track("start", nil)
 		break
 	case opts["stop"].(bool):
 		if message.Chat.Type == "private" {
@@ -567,10 +560,7 @@ parsed:
 
 				g.setTicketPrice(sats)
 				if sats > 0 {
-					send(ctx, g, t.TICKETMSG, t.T{
-						"Sat":     sats,
-						"BotName": s.ServiceId,
-					})
+					send(ctx, g, t.TICKETMSG, t.T{"Sat": sats})
 				}
 			case opts["expensive"].(bool):
 				log.Info().Stringer("group", &g).Msg("toggling expensive")
@@ -622,10 +612,7 @@ parsed:
 
 				g.setRenamePrice(sats)
 				if sats > 0 {
-					send(ctx, g, t.RENAMABLEMSG, t.T{
-						"Sat":     sats,
-						"BotName": s.ServiceId,
-					})
+					send(ctx, g, t.RENAMABLEMSG, t.T{"Sat": sats})
 				}
 			case opts["spammy"].(bool):
 				log.Debug().Stringer("group", &g).Msg("toggling spammy")

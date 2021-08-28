@@ -21,13 +21,12 @@ func (d def) help(ctx context.Context) string {
 	if _, ok := t.EN[key]; !ok {
 		return ""
 	}
-	return translateTemplate(ctx, key, t.T{"BotName": s.ServiceId})
+	return translateTemplate(ctx, key, t.T{})
 }
 
 var methods = []def{
 	def{
-		aliases: []string{"start", "tutorial"},
-		argstr:  "[<tutorial>]",
+		aliases: []string{"start"},
 	},
 	def{
 		aliases: []string{"lnurl"},

@@ -63,22 +63,15 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		resultphoto := tgbotapi.NewInlineQueryResultPhoto(
-			"inv-"+argv[1]+"-photo", bolt11)
-		resultphoto.Title = argv[1] + " sat"
-		resultphoto.Description = translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]})
-		resultphoto.ThumbURL = qrURL(bolt11).String()
-		resultphoto.Caption = bolt11
-
-		resultnophoto := tgbotapi.NewInlineQueryResultArticleHTML(
-			"inv-"+argv[1]+"-nophoto",
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
+			"inv-"+argv[1],
 			translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]}),
 			bolt11,
 		)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
-			Results:       []interface{}{resultnophoto, resultphoto},
+			Results:       []interface{}{result},
 			IsPersonal:    true,
 		})
 
