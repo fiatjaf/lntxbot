@@ -7,5 +7,9 @@ import (
 )
 
 func handleStart(ctx context.Context) {
-	send(ctx, t.START, t.T{})
+	yourname := ctx.Value("initiator").(User).Username
+	if yourname == "" {
+		yourname = "yourname"
+	}
+	send(ctx, t.START, t.T{"YourName": yourname})
 }

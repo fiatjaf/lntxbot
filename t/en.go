@@ -340,14 +340,14 @@ Registered: {{.Registered}}
 🕹️  <b>Basic Commands</b>
 <b>&lt;invoice&gt;</b> - Just paste an invoice or an LNURL to decode or pay it.
 <b>/balance</b> - Shows your balance.
-<b>/tip &ltamount;&gt;</b> - Send this in reply to another message in a group to tip.
+<b>/tip &lt;amount;&gt;</b> - Send this in reply to another message in a group to tip.
 <b>/invoice &lt;amount&gt; &lt;description&gt;</b> - Generates a Lightning invoice: <code>/invoice 400 'split coffee'</code>.
-<b>/send &ltamount;&gt; &lt;user&gt;</b> - Sends some satoshis to another user: <code>/send 100 @fiatjaf</code>
+<b>/send &lt;amount;&gt; &lt;user&gt;</b> - Sends some satoshis to another user: <code>/send 100 @fiatjaf</code>
 
-🫒 <b>Other things you can do</b>
+🍎 <b>Other things you can do</b>
 - Use <b>/send</b> to send money to any <a href="https://lightningaddress.com">Lightning Address</a>.
 - Use <b>/withdraw lnurl &lt;amount&gt;</b> to create an LNURL-withdraw voucher.
-- Receive money at yourname@lntxbot.com or at https://lntxbot.com/@yourname.
+- Receive money at {{ .YourName }}@lntxbot.com or at https://lntxbot.com/@{{ .YourName }}.
 
 🎮 <b>Fun or useful commands</b>
 <b>/sats4ads</b> Get paid to receive spam messages, you control how much -- or send ads to everybody. Big conversion rates! 
@@ -355,22 +355,23 @@ Registered: {{.Registered}}
 <b>/hide</b> - Hide a message, people will have to pay to see it. Multiple ways of revealing: public, private, crowdfunded.
 <b>/coinflip &lt;amount&gt; &lt;number_of_participants&gt;</b> - Creates a lottery anyone can join <i>(costs 10sat fee)</i>.
 
-🪕 <b>Inline Commands</b> - <i>Can be used in any chat, even if the bot is not present</i>
+🐟 <b>Inline Commands</b> - <i>Can be used in any chat, even if the bot is not present</i>
 <b>@lntxbot give &lt;amount&gt;</b> - Creates a button in a private chat to give money to the other side.
-<b>@lntxbot coinflip/giveflip/giveaway &lt;amount&gt; &lt;number_of_participants&gt;</b> - Same as the slash-command version, but can be used in groups without @lntxbot.
+<b>@lntxbot coinflip/giveflip/giveaway</b> - Same as the slash-command version, but can be used in groups without @lntxbot.
 <b>@lntxbot invoice &lt;amount&gt;</b> - Makes an invoice and sends it to chat.
 
-🫕 <b>Advanced Commands</b>
+🏖  <b>Advanced Commands</b>
 <b>/bluewallet</b> - Connect BlueWallet or Zeus to your @lntxbot account.
 <b>/transactions</b> - Lists all your transactions, paginated.
 <b>/help &ltcommand;&gt;</b> - Shows detailed help for a specific command.
 <b>/paynow &lt;invoice&gt;</b> - Pays an invoice without asking.
-<b>/sendnonymously &lt;amount&gt; &lt;user&gt;</b> - Like /send, but anonymous.
+<b>/sendanonymously &lt;amount&gt; &lt;user&gt;</b> - Like /send, but anonymous.
 
-🫓 <b>Group Administration</b>
+🏛  <b>Group Administration</b>
 <b>/toggle ticket &lt;amount&gt;</b> - Put a price in satoshis for joining your group. Great antispam! Money goes to group owner.
 <b>/toggle renamable &lt;amount&gt;</b> - Allows people to use /rename to rename your group and you get paid.
 <b>/toggle expensive &lt;amount&gt; &lt;regex pattern&gt;</b> - Charge people for saying the wrong words in your group (or left blank to charge for all messages).
+
 ---
 
 There are other commands, but learning them is left as an exercise to the user.
