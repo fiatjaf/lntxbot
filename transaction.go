@@ -302,3 +302,22 @@ func handleLogView(ctx context.Context, opts docopt.Opts) {
 	go u.track("view log", nil)
 	send(ctx, u, renderLogInfo(ctx, hash))
 }
+
+func checkAllOutgoingPayments(ctx context.Context) {
+	var hashes []string
+	err := pg.Select(&hashes,
+		"SELECT payment_hash FROM lightning.transaction WHERE pending")
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get all pending outgoing payment hashes")
+		return
+	}
+
+	log.Debug().Int("n", len(hashes)).Msg("checking pending outgoing payments")
+	for _, hash := range hashes {
+		log.Debug().Str("hash", hash).Msg("checking outgoing")
+		checkOutgoingPayment(ctx, hash)
+	}
+}

@@ -149,7 +149,7 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 		}
 
 		// send invoice with qr code
-		send(ctx, qrURL(bolt11), bolt11)
+		send(ctx, qrURL(bolt11), "<pre>"+bolt11+"</pre>")
 	}
 }
 

@@ -165,6 +165,9 @@ func main() {
 	go startKicking()
 	go sats4adsCleanupRoutine()
 	go lnurlBalanceCheckRoutine()
+	go checkAllOutgoingPayments(
+		context.WithValue(context.Background(), "origin", "routine"),
+	)
 
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
