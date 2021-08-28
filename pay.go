@@ -10,6 +10,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/eclair-go"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -260,6 +261,8 @@ RETURNING from_id, trigger_message
 		return
 	}
 
+	go resolveWaitingPaymentSuccess(hash, preimage)
+
 	user, err := loadUser(res.UserId)
 	if err != nil {
 		log.Error().Err(err).Int("id", res.UserId).Msg("no user with id on pay success")
@@ -303,4 +306,28 @@ RETURNING from_id, trigger_message
 
 	send(ctx, user, res.TriggerMessage,
 		t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
+}
+
+func checkOutgoingPayment(ctx context.Context, hash string) {
+	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).Msg("failed to getsentinfo")
+		return
+	}
+
+	for _, attempt := range info.Array() {
+		if attempt.Get("status.type").String() == "sent" {
+			go paymentHasSucceeded(
+				ctx,
+				info.Get("recipientAmount").Int(),
+				info.Get("status.feesPaid").Int(),
+				info.Get("status.paymentPreimage").String(),
+				"",
+				hash,
+			)
+			break
+		} else {
+			log.Print(info.String())
+		}
+	}
 }

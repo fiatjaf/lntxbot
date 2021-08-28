@@ -139,13 +139,9 @@ func (u User) payInvoice(
 	bolt11 string,
 	manuallySpecifiedMsatoshi int64,
 ) (hash string, err error) {
-	invd, err := decodepay.Decodepay(bolt11)
+	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
 		return "", errors.New("Failed to decode invoice: " + err.Error())
-	}
-	inv := Invoice{
-		Bolt11:   invd,
-		Preimage: "",
 	}
 
 	if u.TelegramChatId != 0 {
@@ -191,29 +187,26 @@ func (u User) payInvoice(
 					data.Msatoshi)
 		}
 
-		inv.Preimage = data.Preimage
-
 		go paymentReceived(ctx, hash, data.Msatoshi)
-		go resolveWaitingInvoice(hash, inv)
 		go paymentHasSucceeded(ctx, amount, 0, data.Preimage, data.Tag, hash)
 
 		return hash, nil
-	}
+	} else {
+		// it's an invoice from elsewhere, continue and
+		// actually send the lightning payment
+		err = u.actuallySendExternalPayment(ctx, bolt11, inv, amount)
+		if err != nil {
+			return hash, err
+		}
 
-	// it's an invoice from elsewhere, continue and
-	// actually send the lightning payment
-	err = u.actuallySendExternalPayment(ctx, bolt11, inv, amount)
-	if err != nil {
-		return hash, err
+		return hash, nil
 	}
-
-	return hash, nil
 }
 
 func (u User) actuallySendExternalPayment(
 	ctx context.Context,
 	bolt11 string,
-	inv Invoice,
+	inv decodepay.Bolt11,
 	msatoshi int64,
 ) (err error) {
 	hash := inv.PaymentHash

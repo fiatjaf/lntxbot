@@ -103,9 +103,9 @@ func registerAPIMethods() {
 		select {
 		case inv := <-waitInvoice(hash):
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"hash":     inv.PaymentHash,
+				"hash":     inv.Hash(),
 				"preimage": inv.Preimage,
-				"amount":   inv.MSatoshi,
+				"amount":   inv.Msatoshi,
 			})
 			return
 		case <-time.After(180 * time.Second):

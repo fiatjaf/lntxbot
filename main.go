@@ -280,7 +280,6 @@ func handleEclairWebsocket(ws <-chan gjson.Result) {
 				feesPaid += part.Get("feesPaid").Int()
 			}
 
-			go resolveWaitingPaymentSuccess(hash, preimage)
 			go paymentHasSucceeded(
 				ctx,
 				msatoshi,

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,19 +13,12 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
 	"gopkg.in/antage/eventsource.v1"
 )
-
-type Invoice struct {
-	decodepay.Bolt11
-
-	Preimage string `json:"preimage"`
-}
 
 type InvoiceData struct {
 	UserId    int
@@ -32,6 +27,17 @@ type InvoiceData struct {
 	Preimage  string
 
 	*MakeInvoiceArgs
+}
+
+func (inv InvoiceData) Hash() string {
+	preimage, err := hex.DecodeString(inv.Preimage)
+	if err != nil {
+		log.Error().Err(err).Interface("data", inv).
+			Msg("failed to decode preimage on InvoiceData")
+		return ""
+	}
+	hash := sha256.Sum256(preimage)
+	return hex.EncodeToString(hash[:])
 }
 
 type MakeInvoiceArgs struct {
@@ -45,22 +51,10 @@ type MakeInvoiceArgs struct {
 	IgnoreInvoiceSizeLimit bool
 }
 
-func decodeInvoice(bolt11 string) (Invoice, error) {
-	inv, err := decodepay.Decodepay(bolt11)
-	if err != nil {
-		return Invoice{}, err
-	}
-
-	return Invoice{
-		Bolt11:   inv,
-		Preimage: "",
-	}, nil
-}
-
 var waitingInvoices = cmap.New() // make(map[string][]chan Invoice)
 
-func waitInvoice(hash string) (inv <-chan Invoice) {
-	wait := make(chan Invoice)
+func waitInvoice(hash string) (inv <-chan InvoiceData) {
+	wait := make(chan InvoiceData)
 	waitingInvoices.Upsert(hash, wait,
 		func(exists bool, arr interface{}, v interface{}) interface{} {
 			if exists {
@@ -73,11 +67,11 @@ func waitInvoice(hash string) (inv <-chan Invoice) {
 	return wait
 }
 
-func resolveWaitingInvoice(hash string, inv Invoice) {
+func resolveWaitingInvoice(hash string, inv InvoiceData) {
 	if chans, ok := waitingInvoices.Get(hash); ok {
 		for _, ch := range chans.([]interface{}) {
 			select {
-			case ch.(chan Invoice) <- inv:
+			case ch.(chan InvoiceData) <- inv:
 			default:
 			}
 		}
@@ -198,6 +192,8 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 		}
 		return
 	}
+
+	go resolveWaitingInvoice(hash, data)
 
 	user.track("got payment", map[string]interface{}{
 		"sats": amount / 1000,
