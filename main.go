@@ -116,7 +116,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// setup eclair
-	ln := &eclair.Client{
+	ln = &eclair.Client{
 		Host:     s.EclairHost,
 		Password: s.EclairPassword,
 	}
