@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -96,10 +97,37 @@ func main() {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
 	}
 
+	// setup logger
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	log = log.With().Timestamp().Logger()
+
 	// http client
 	http.DefaultClient.CheckRedirect = func(r *http.Request, via []*http.Request) error {
 		return fmt.Errorf("target '%s' has returned a redirect", r.URL)
 	}
+
+	// translations and templates
+	bundle, err = createLocalizerBundle()
+	if err != nil {
+		log.Fatal().Err(err).Msg("error initializing localization")
+	}
+
+	// seed the random generator
+	rand.Seed(time.Now().UnixNano())
+
+	// setup eclair
+	ln := &eclair.Client{
+		Host:     s.EclairHost,
+		Password: s.EclairPassword,
+	}
+	s.NodeId = probeEclair()
+
+	// eclair websocket
+	ws, err := ln.Websocket()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to open eclair websocket")
+	}
+	go handleEclairWebsocket(ws)
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
@@ -124,12 +152,29 @@ func main() {
 		amp = amplitude.New(s.AmplitudeKey)
 	}
 
+	// setup commands
+	setupCommands()
+
 	// create telegram bot
 	bot, err = tgbotapi.NewBotAPI(s.TelegramBotToken)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
 	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
+
+	// setup telegram webhook
+	go func() {
+		time.Sleep(1 * time.Second)
+		// set webhook
+		_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to set webhook")
+		}
+		_, err := bot.GetWebhookInfo()
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to get webhook info")
+		}
+	}()
 
 	// discord bot session
 	if s.DiscordBotToken != "" {
@@ -148,6 +193,32 @@ func main() {
 		defer discord.Close()
 	}
 
+	// bot stuff
+	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
+	if err != nil || lastTelegramUpdate < 10 {
+		log.Error().Err(err).Int64("got", lastTelegramUpdate).
+			Msg("failed to get lasttelegramupdate from redis")
+		lastTelegramUpdate = -1
+	}
+
+	// routines
+	go startKicking()
+	go sats4adsCleanupRoutine()
+	go lnurlBalanceCheckRoutine()
+	go checkAllOutgoingPayments(
+		context.WithValue(context.Background(), "origin", "routine"),
+	)
+
+	// routes
+	//
+	// telegram webhooks
+	router.Path("/" + bot.Token).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bytes, _ := ioutil.ReadAll(r.Body)
+		var update tgbotapi.Update
+		json.Unmarshal(bytes, &update)
+		handle(update)
+	})
+
 	// lndhub-compatible routes
 	registerAPIMethods()
 
@@ -161,14 +232,6 @@ func main() {
 		http.Redirect(w, r, "https://t.me/lntxbot", http.StatusTemporaryRedirect)
 	})
 
-	// routines
-	go startKicking()
-	go sats4adsCleanupRoutine()
-	go lnurlBalanceCheckRoutine()
-	go checkAllOutgoingPayments(
-		context.WithValue(context.Background(), "origin", "routine"),
-	)
-
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
 
@@ -179,60 +242,8 @@ func main() {
 		WriteTimeout: 300 * time.Second,
 		ReadTimeout:  300 * time.Second,
 	}
-	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
-			log.Error().Err(err).Msg("error serving http")
-		}
-	}()
-
-	bundle, err = createLocalizerBundle()
-	if err != nil {
-		log.Fatal().Err(err).Msg("error initializing localization")
-	}
-
-	// setup logger
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	log = log.With().Timestamp().Logger()
-
-	// seed the random generator
-	rand.Seed(time.Now().UnixNano())
-
-	// setup commands
-	setupCommands()
-
-	// setup eclair
-	ln = &eclair.Client{
-		Host:     s.EclairHost,
-		Password: s.EclairPassword,
-	}
-	s.NodeId = probeEclair()
-
-	// eclair websocket
-	ws, err := ln.Websocket()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to open eclair websocket")
-	}
-	go handleEclairWebsocket(ws)
-
-	// bot stuff
-	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
-	if err != nil || lastTelegramUpdate < 10 {
-		log.Error().Err(err).Int64("got", lastTelegramUpdate).
-			Msg("failed to get lasttelegramupdate from redis")
-		lastTelegramUpdate = -1
-	}
-
-	u := tgbotapi.NewUpdate(int(lastTelegramUpdate + 1))
-	u.Timeout = 60
-	updates, err := bot.GetUpdatesChan(u)
-	if err != nil {
-		log.Error().Err(err).Msg("telegram getupdates fail")
-	}
-	for update := range updates {
-		lastTelegramUpdate = int64(update.UpdateID)
-		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		handle(update)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error().Err(err).Msg("error serving http")
 	}
 }
 
