@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -100,28 +99,6 @@ type RateLimiterPolicy struct {
 	Key             string `json:"key"`
 	TimeUnit        string `json:"time_unit"`
 	RequestsPerUnit int    `json:"requests_per_unit"`
-}
-
-func setupInvoiceRateLimiter() error {
-	auth := req.Header{"X-API-Key": s.RateBucketKey}
-
-	var resp *req.Resp
-	var err error
-
-	for key, invMsat := range INVOICESPAMLIMITS {
-		maxEvents := int(math.Pow(float64(invMsat)/1000, 0.7))
-
-		resp, err = req.Post("https://api.ratebucket.io/v1/policy/fixed_window", auth,
-			req.BodyJSON(RateLimiterPolicy{key, "hour", maxEvents}))
-		if err == nil && resp.Response().StatusCode >= 300 {
-			err = errors.New(resp.String())
-		}
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func checkInvoiceRateLimit(key string, userId int) bool {

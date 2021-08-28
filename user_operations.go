@@ -69,19 +69,6 @@ func (u User) makeInvoice(
 	args *MakeInvoiceArgs,
 ) (bolt11 string, hash string, err error) {
 	msatoshi := args.Msatoshi
-
-	// limit number of small invoices people can make every day
-	if !args.IgnoreInvoiceSizeLimit && msatoshi != 0 && s.RateBucketKey != "" {
-		for key, limit := range INVOICESPAMLIMITS {
-			if msatoshi <= limit {
-				if !checkInvoiceRateLimit(key, u.Id) {
-					return "", "", errors.New(
-						"Creating too many small invoices, please wait one hour.")
-				}
-			}
-		}
-	}
-
 	log.Debug().Stringer("user", &u).Str("desc", args.Description).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
