@@ -246,6 +246,11 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 				continue
 			}
 
+			if hiddenmessage.CopyMessage != nil && hiddenmessage.Public {
+				// copyMessages can't be sent in public groups through the inline thing
+				continue
+			}
+
 			result := tgbotapi.NewInlineQueryResultArticleHTML(
 				fmt.Sprintf("reveal-%s", hiddenkey),
 				translateTemplate(ctx, t.INLINEHIDDENRESULT, t.T{

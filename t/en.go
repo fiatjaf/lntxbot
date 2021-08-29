@@ -206,19 +206,13 @@ API Base URL: <code>{{.ServiceURL}}/</code>
 Keep these tokens secret. If they leak for some reason call /api_refresh to replace all.
     `,
 
-	HIDEHELP: `Hides a message so it can be unlocked later with a payment. The special character "~" is used to split the message into a preview and the actual message ("click here to see a secret! ~ this is the secret.")
+	HIDEHELP: `Hides a message so it can be unlocked later with a payment.
+<code>/hide 500 'teaser showed on prompt'</code>, send this in reply to any message, with video, audio, images or text, and it will be hidden behind a 500 satoshis paywall.
 
-<code>/hide 500 'top secret message here'</code> hides "top secret message" and returns an id for it. Later one will be able to make a reveal prompt for it using either /reveal &lt;hidden_message_id&gt;
-<code>/hide 2500 'only the rich will be able to see this message' ~ 'congratulations, you are very rich!'</code>: in this case instead of the default preview message potential revealers will see the custom teaser written before the "~".
-
-Anyone can reveal any message (after paying) by typing <code>/reveal &lt;hidden_message_id&gt;</code> in their private chat with the bot, but the id is only known to the message creator unless it shares it.
-
-The basic way to share the message, however, is to click the "share" button and use the inline query in a group or chat. That will post the message preview to the chat along with a button people can click to pay and reveal.  You can control if the message will be revealed in-place for the entire group to see or privately just to the payer using the <code>--public</code> flag. By default it's private.
-
-You can also control how many people will be allowed to reveal it privately using the <code>--revealers</code> argument or how many will be required to pay before it is revealed publicly with the <code>--crowdfund</code> argument.
-
-<code>/hide 100 'three people have paid for this message to be revealed' --crowdfund 3</code>: the message will be revealed publicly once 3 people pay 100 satoshis.
-<code>/hide 321 'only 3 people can see this message' ~ "you're one among 3 privileged" --revealers 3</code>: the message will be revealed privately to the first 3 people who click.
+Modifiers:
+  <code>--crowdfund &lt;number&gt;</code> enables public crowdfunding of hidden messages.
+  <code>--private</code> reveals the hidden message privately to the payer instead of in the group.
+  <code>--revealers &lt;number&gt;</code> only allows the first <code>&lt;number&gt;</code> participants to see the hidden the message, then the prompt expires.
     `,
 	REVEALHELP: `Reveals a message that was previously hidden. The author of the hidden message is never disclosed. Once a message is hidden it is available to be revealed globally, but only by those who know its hidden id.
 
@@ -226,13 +220,16 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 
 <code>/reveal 5c0b2rh4x</code> creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENREVEALBUTTON:   `{{.Sats}} sat to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
-	HIDDENWITHID:         "Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.",
-	HIDDENSOURCEMSG:      "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You got {{.Sats}} sat.",
-	HIDDENREVEALMSG:      "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
-	HIDDENMSGNOTFOUND:    "Hidden message not found.",
-	HIDDENSHAREBTN:       "Share in another chat",
+	HIDDENWITHID: `Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.
+
+{{if .WithInstructions}}Call /reveal_{{.HiddenId}} on a group to share it there.{{end}}
+    `,
+	HIDDENSOURCEMSG:   "Hidden message <code>{{.Id}}</code> revealed by {{.Revealers}}. You got {{.Sats}} sat.",
+	HIDDENREVEALMSG:   "{{.Sats}} sat paid to reveal the message <code>{{.Id}}</code>.",
+	HIDDENMSGNOTFOUND: "Hidden message not found.",
+	HIDDENSHAREBTN:    "Share in another chat",
 
 	TOGGLEHELP: `Toggles bot features in groups on/off. In supergroups it can only be run by admins.
 
@@ -346,19 +343,20 @@ Registered: {{.Registered}}
 
 🍎 <b>Other things you can do</b>
 - Use <b>/send</b> to send money to any <a href="https://lightningaddress.com">Lightning Address</a>.
-- Use <b>/withdraw lnurl &lt;amount&gt;</b> to create an LNURL-withdraw voucher.
 - Receive money at {{ .YourName }}@lntxbot.com or at https://lntxbot.com/@{{ .YourName }}.
+- Do calculations like <code>4*usd</code> or <code>eur*rand()</code> whenever you would specify an amount in satoshis.
+- Use <b>/withdraw lnurl &lt;amount&gt;</b> to create an LNURL-withdraw voucher.
 
 🎮 <b>Fun or useful commands</b>
 <b>/sats4ads</b> Get paid to receive spam messages, you control how much -- or send ads to everybody. Big conversion rates! 
 <b>/giveaway</b> and <b>/giveflip</b> - Give money away in groups!
-<b>/hide</b> - Hide a message, people will have to pay to see it. Multiple ways of revealing: public, private, crowdfunded.
+<b>/hide</b> - Hide a message, people will have to pay to see it. Multiple ways of revealing: public, private, crowdfunded. Multimedia supported.
 <b>/coinflip &lt;amount&gt; &lt;number_of_participants&gt;</b> - Creates a lottery anyone can join <i>(costs 10sat fee)</i>.
 
 🐟 <b>Inline Commands</b> - <i>Can be used in any chat, even if the bot is not present</i>
-<b>@lntxbot give &lt;amount&gt;</b> - Creates a button in a private chat to give money to the other side.
-<b>@lntxbot coinflip/giveflip/giveaway</b> - Same as the slash-command version, but can be used in groups without @lntxbot.
-<b>@lntxbot invoice &lt;amount&gt;</b> - Makes an invoice and sends it to chat.
+<code>@lntxbot give &lt;amount&gt;</code> - Creates a button in a private chat to give money to the other side.
+<code>@lntxbot coinflip/giveflip/giveaway</code> - Same as the slash-command version, but can be used in groups without @lntxbot.
+<code>@lntxbot invoice &lt;amount&gt;</code> - Makes an invoice and sends it to chat.
 
 🏖  <b>Advanced Commands</b>
 <b>/bluewallet</b> - Connect BlueWallet or Zeus to your @lntxbot account.
@@ -399,7 +397,7 @@ Good luck! 🍽️
 {{end}}
     `,
 	TXLOG: `<b>Routes tried</b>:
-{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠<code>{{msatToSat .Msatoshi | printf "%.15g"}}</code>➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
+{{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
 {{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}
     `,

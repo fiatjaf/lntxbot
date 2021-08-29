@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -296,6 +297,8 @@ RETURNING from_id, trigger_message
 			Msg("failed to cancel transaction after routing failure")
 		return
 	}
+
+	rds.Set("hash:"+strconv.Itoa(res.UserId)+":"+hash[0:5], hash, time.Hour*24*2)
 
 	user, err := loadUser(res.UserId)
 	if err != nil {

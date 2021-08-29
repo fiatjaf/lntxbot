@@ -18,16 +18,13 @@ import (
 
 // hide and reveal
 type HiddenMessage struct {
-	Preview   string `json:"preview"`
-	Content   string `json:"content"`
-	Times     int    `json:"times"`
-	Crowdfund int    `json:"crowdfund"`
-	Public    bool   `json:"public"`
-	Satoshis  int    `json:"satoshis"`
-}
-
-func (h HiddenMessage) revealed() string {
-	return strings.TrimSpace(h.Preview) + "\n~\n" + strings.TrimSpace(h.Content)
+	Preview     string               `json:"preview"`
+	Content     string               `json:"content"`
+	CopyMessage *TelegramCopyMessage `json:"copyMessage"`
+	Times       int                  `json:"times"`
+	Crowdfund   int                  `json:"crowdfund"`
+	Public      bool                 `json:"public"`
+	Satoshis    int                  `json:"satoshis"`
 }
 
 func getHiddenId(message *tgbotapi.Message) string {

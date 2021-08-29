@@ -23,14 +23,21 @@ const (
 	FORCESPAMMY MessageModifier = "FORCESPAMMY"
 )
 
+type TelegramCopyMessage struct {
+	ChatID    int64
+	MessageID int
+}
+
 func send(ctx context.Context, things ...interface{}) (id interface{}) {
-	var edit bool
-	var justAppend bool
-	var template t.Key
-	var templateData t.T
-	var text string
-	var pictureURL string
-	var documentURL string
+	var (
+		edit         bool
+		text         string
+		template     t.Key
+		pictureURL   string
+		justAppend   bool
+		documentURL  string
+		templateData t.T
+	)
 
 	log := log.With().Interface("origin", ctx.Value("origin")).Logger()
 
@@ -63,14 +70,17 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 
 	// only telegram
-	var chatId int64
-	var keyboard *tgbotapi.InlineKeyboardMarkup
-	var mustSendAnActualMessage bool
-	var forceReply *tgbotapi.ForceReply
-	var replyToId int                     // will be sent in reply to this -- or if editing will edit this
-	var telegramMessage *tgbotapi.Message // unless this is provided, this has precedence in edition priotiry
-	var alert bool
-	var callbackQuery *tgbotapi.CallbackQuery
+	var (
+		alert                   bool
+		chatId                  int64
+		keyboard                *tgbotapi.InlineKeyboardMarkup
+		replyToId               int // will be sent in reply to this -- or if editing will edit this
+		forceReply              *tgbotapi.ForceReply
+		copyMessage             *TelegramCopyMessage
+		callbackQuery           *tgbotapi.CallbackQuery
+		telegramMessage         *tgbotapi.Message // unless this is provided, this has precedence in edition priotiry
+		mustSendAnActualMessage bool
+	)
 
 	if icb := ctx.Value("callbackQuery"); icb != nil {
 		callbackQuery = icb.(*tgbotapi.CallbackQuery)
@@ -142,6 +152,12 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		case *discordgo.Message:
 			discordMessage = thing
 			origin = "discord"
+		case *TelegramCopyMessage:
+			copyMessage = thing
+			origin = "telegram"
+		case TelegramCopyMessage:
+			copyMessage = &thing
+			origin = "telegram"
 		case MessageModifier:
 			switch thing {
 			case WITHALERT:
@@ -341,7 +357,12 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 						telegramMessage.MessageID))
 				}
 
-				if pictureURL == "" && documentURL == "" {
+				if copyMessage != nil {
+					method = "copyMessage"
+					values.Set("from_chat_id", strconv.FormatInt(
+						copyMessage.ChatID, 10))
+					values.Set("message_id", strconv.Itoa(copyMessage.MessageID))
+				} else if pictureURL == "" && documentURL == "" {
 					method = "sendMessage"
 					values.Set("text", text)
 				} else if pictureURL != "" {

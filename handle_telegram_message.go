@@ -331,35 +331,41 @@ parsed:
 	case opts["hide"].(bool):
 		hiddenid := getHiddenId(message) // deterministic
 
-		var content string
-		var preview string
+		hiddenmessage := HiddenMessage{
+			Public: true,
+		}
 
-		// if there's a replyto, use that as the content
+		// if there's a replyto, use that as a forward/copy
 		if message.ReplyToMessage != nil {
-			content = message.ReplyToMessage.Text
+			hiddenmessage.CopyMessage = &TelegramCopyMessage{
+				MessageID: message.ReplyToMessage.MessageID,
+				ChatID:    message.Chat.ID,
+			}
 		}
 
 		// or use the inline message
 		// -- or if there's a replyo and inline, the inline part is the preview
 		if icontent, ok := opts["<message>"]; ok {
 			message := strings.Join(icontent.([]string), " ")
-			if content != "" {
-				// if we are using the text from the replyto as the content,
+			if hiddenmessage.CopyMessage != nil {
+				// if we are using the replyto forward,
 				// this is the preview
-				preview = message
+				hiddenmessage.Preview = message
 			} else {
 				// otherwise parse the ~ thing
 				contentparts := strings.SplitN(message, "~", 2)
 				if len(contentparts) == 2 {
-					preview = contentparts[0]
-					content = contentparts[1]
+					hiddenmessage.Preview = contentparts[0]
+					hiddenmessage.Content = contentparts[1]
 				} else {
-					content = message
+					hiddenmessage.Content = message
 				}
 			}
-		} else if message.ReplyToMessage == nil {
+		}
+
+		if hiddenmessage.Content == "" && hiddenmessage.CopyMessage == nil {
 			// no content found
-			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+			send(ctx, u, t.ERROR, t.T{"Err": "No content to hide."})
 			return
 		}
 
@@ -368,37 +374,27 @@ parsed:
 			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}
-		sats := int(msats / 1000)
-
-		public := true
+		hiddenmessage.Satoshis = int(msats / 1000)
 
 		if private := opts["--private"].(bool); private {
-			public = false
+			hiddenmessage.Public = false
 		}
 
-		crowdfund, _ := opts.Int("--crowdfund")
-		if crowdfund > 1 {
-			public = true
+		hiddenmessage.Crowdfund, _ = opts.Int("--crowdfund")
+		if hiddenmessage.Crowdfund > 1 {
+			hiddenmessage.Public = true
 		} else {
-			crowdfund = 1
+			hiddenmessage.Crowdfund = 1
 		}
 
-		payabletimes, _ := opts.Int("--revealers")
-		if payabletimes > 1 {
-			public = false
-			crowdfund = 1
+		hiddenmessage.Times, _ = opts.Int("--revealers")
+		if hiddenmessage.Times > 1 {
+			hiddenmessage.Public = false
+			hiddenmessage.Crowdfund = 1
 		} else {
-			payabletimes = 0
+			hiddenmessage.Times = 0
 		}
 
-		hiddenmessage := HiddenMessage{
-			Preview:   preview,
-			Content:   content,
-			Times:     payabletimes,
-			Crowdfund: crowdfund,
-			Public:    public,
-			Satoshis:  sats,
-		}
 		hiddenmessagejson, err := json.Marshal(hiddenmessage)
 		if err != nil {
 			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -411,20 +407,32 @@ parsed:
 			return
 		}
 
-		siq := "reveal " + hiddenid
-		send(ctx, u, t.HIDDENWITHID, t.T{
+		var templateParams = t.T{
 			"HiddenId": hiddenid,
 			"Message":  hiddenmessage,
-		}, &tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				{
-					tgbotapi.InlineKeyboardButton{
-						Text:              translate(ctx, t.HIDDENSHAREBTN),
-						SwitchInlineQuery: &siq,
+		}
+
+		var shareKeyboard interface{}
+		if hiddenmessage.CopyMessage != nil && hiddenmessage.Public {
+			// copyMessages can't be sent in public groups through the inline thing
+			// so don't show the keyboard in this case
+			templateParams["WithInstructions"] = true
+		} else {
+			// normal flow, has the share button (that creates an inline query)
+			siq := "reveal " + hiddenid
+			shareKeyboard = &tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					{
+						tgbotapi.InlineKeyboardButton{
+							Text:              translate(ctx, t.HIDDENSHAREBTN),
+							SwitchInlineQuery: &siq,
+						},
 					},
 				},
-			},
-		}, message.MessageID)
+			}
+		}
+
+		send(ctx, u, t.HIDDENWITHID, templateParams, shareKeyboard, message.MessageID)
 
 		go u.track("hide", map[string]interface{}{
 			"sats":      hiddenmessage.Satoshis,
@@ -450,7 +458,8 @@ parsed:
 				return
 			}
 
-			send(ctx, u, hidden.Preview, revealKeyboard(ctx, redisKey, hidden, 0))
+			send(ctx, u, g, FORCESPAMMY,
+				hidden.Preview, revealKeyboard(ctx, redisKey, hidden, 0))
 		}()
 	case opts["transactions"].(bool):
 		go handleTransactionList(ctx, opts)
