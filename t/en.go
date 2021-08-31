@@ -276,6 +276,8 @@ Each ad costs the above prices <i>per character</i> + <code>1 sat</code> for eac
 	PAYPROMPT: `
 {{if .Sats}}<i>{{.Sats}} sat</i> ({{dollar .Sats}})
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
+{{if .ReceiverName}}
+<b>Receiver</b>: {{.ReceiverName}}{{end}}
 <b>Hash</b>: <code>{{.Hash}}</code>{{if ne .Currency "bc"}}
 <b>Chain</b>: {{.Currency}}{{end}}
 <b>Created at</b>: {{.Created}}

@@ -50,6 +50,7 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 			"Description":     escapeHTML(inv.Description),
 			"DescriptionHash": escapeHTML(inv.DescriptionHash),
 			"Hash":            hash,
+			"ReceiverName":    extractNameFromDesc(inv.Description),
 			"Payee":           inv.Payee,
 			"Created": time.Unix(int64(inv.CreatedAt), 0).
 				Format("Mon Jan 2 15:04"),
