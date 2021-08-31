@@ -57,6 +57,8 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 
 		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 			Msatoshi: msats,
+			Description: fmt.Sprintf("%s:  inline invoice for %d satoshis",
+				u.Username, msats/1000),
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")

@@ -220,7 +220,7 @@ A reveal prompt can also be created in a group or chat by clicking the "share" b
 
 <code>/reveal 5c0b2rh4x</code> creates a prompt to reveal the hidden message 5c0b2rh4x, if it exists.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} sat to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}Crowdfunding: {{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Revealers allowed: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENREVEALBUTTON:   `{{.Sats}} sat to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}{{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Left: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "A message is hidden here. {{.Sats}} sat needed to unlock.",
 	HIDDENWITHID: `Message hidden with id <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Will be revealed publicly once {{.Message.Crowdfund}} people pay {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Will be revealed privately to the first {{.Message.Times}} payers{{else if .Message.Public}}Will be revealed publicly once one person pays {{.Message.Satoshis}}{{else}}Will be revealed privately to any payer{{end}}.
 
@@ -363,7 +363,7 @@ Registered: {{.Registered}}
 🏖  <b>Advanced Commands</b>
 <b>/bluewallet</b> - Connect BlueWallet or Zeus to your @lntxbot account.
 <b>/transactions</b> - Lists all your transactions, paginated.
-<b>/help &ltcommand;&gt;</b> - Shows detailed help for a specific command.
+<b>/help &lt;command;&gt;</b> - Shows detailed help for a specific command.
 <b>/paynow &lt;invoice&gt;</b> - Pays an invoice without asking.
 <b>/sendanonymously &lt;amount&gt; &lt;user&gt;</b> - Like /send, but anonymous.
 

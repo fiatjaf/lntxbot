@@ -486,7 +486,7 @@ func lnurlpayFinish(
 			}
 		}()
 	} else {
-		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId.(int))
+		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId)
 	}
 }
 
