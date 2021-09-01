@@ -53,9 +53,11 @@ func serveLNURLBalanceNotify() {
 }
 
 type handleLNURLOpts struct {
-	loginSilently       bool
-	payWithoutPromptIf  *int64
-	balanceCheckService *string
+	loginSilently          bool
+	payWithoutPromptIf     *int64
+	balanceCheckService    *string
+	payAmountWithoutPrompt *int64
+	forceSendComment       string
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
@@ -173,10 +175,10 @@ func handleLNURLWithdraw(
 	}
 
 	// lnurl-withdraw: make an invoice with the highest possible value and send
-	bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
+	bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: false,
 		Msatoshi:               params.MaxWithdrawable,
-		Desc:                   desc,
+		Description:            desc,
 	})
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -210,6 +212,19 @@ func handleLNURLPay(
 	opts handleLNURLOpts,
 	params lnurl.LNURLPayResponse1,
 ) {
+	if opts.payAmountWithoutPrompt != nil {
+		// we will try to pay this amount and we don't care about anything else
+		lnurlpayFinish(
+			ctx,
+			u,
+			*opts.payAmountWithoutPrompt,
+			opts.forceSendComment,
+			params.Callback,
+			params.EncodedMetadata,
+		)
+		return
+	}
+
 	// display metadata and ask for amount
 	var fixedAmount int64 = 0
 	if params.MaxSendable == params.MinSendable {
@@ -269,8 +284,16 @@ func handleLNURLPay(
 				params.Metadata.ImageBytes())
 		}
 
+		receiverName := params.CallbackURL.Host
+		if identifier := params.Metadata.Entry("text/email"); identifier != "" {
+			receiverName = identifier
+		}
+		if identifier := params.Metadata.Entry("text/identifier"); identifier != "" {
+			receiverName = identifier
+		}
+
 		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{
-			"Domain":      params.CallbackURL.Host,
+			"Domain":      receiverName,
 			"FixedAmount": float64(fixedAmount) / 1000,
 			"Max":         float64(params.MaxSendable) / 1000,
 			"Min":         float64(params.MinSendable) / 1000,
@@ -463,7 +486,7 @@ func lnurlpayFinish(
 			}
 		}()
 	} else {
-		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId.(int))
+		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId)
 	}
 }
 
@@ -478,7 +501,7 @@ func lnurlBalanceCheckRoutine() {
 			URL     string `db:"url"`
 			Service string `db:"service"`
 		}
-		err = pg.Select(&checks, `SELECT account, service, url FROM balance_check`)
+		err := pg.Select(&checks, `SELECT account, service, url FROM balance_check`)
 		if err == sql.ErrNoRows {
 			err = nil
 		}

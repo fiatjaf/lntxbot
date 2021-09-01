@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
+	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 )
 
@@ -80,11 +81,11 @@ func registerBluewalletMethods() {
 			Str("memo", params.Memo).Stringer("user", &user).
 			Msg("bluewallet addinvoice")
 
-		bolt11, hash, err := user.makeInvoice(ctx, makeInvoiceArgs{
+		bolt11, hash, err := user.makeInvoice(ctx, &MakeInvoiceArgs{
 			IgnoreInvoiceSizeLimit: true,
 			Msatoshi:               1000 * satoshi,
-			Desc:                   params.Memo,
-			DescHash:               params.DescriptionHash,
+			Description:            params.Memo,
+			DescriptionHash:        params.DescriptionHash,
 			BlueWallet:             true,
 		})
 		if err != nil {
@@ -382,22 +383,22 @@ type LndHubDecoded struct {
 }
 
 func decodeInvoiceAsLndHub(bolt11 string) (LndHubDecoded, error) {
-	inv, err := ln.Call("decodepay", bolt11)
+	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
 		return LndHubDecoded{}, err
 	}
 
 	return LndHubDecoded{
-		Destination:     inv.Get("payee").String(),
-		PaymentHash:     inv.Get("payment_hash").String(),
-		NumSatoshis:     strconv.Itoa(int(inv.Get("msatoshi").Float() / 1000.0)),
-		Timestamp:       inv.Get("created_at").String(),
-		Expiry:          inv.Get("expiry").String(),
-		Description:     inv.Get("description").String(),
-		DescriptionHash: inv.Get("description_hash").String(),
-		FallbackAddr:    inv.Get("fallbacks.0.addr").String(),
-		CLTVExpiry:      inv.Get("min_final_cltv_expiry").String(),
-		RouteHints:      inv.Get("routes").Value(),
+		Destination:     inv.Payee,
+		PaymentHash:     inv.PaymentHash,
+		NumSatoshis:     strconv.Itoa(int(float64(inv.MSatoshi) / 1000.0)),
+		Timestamp:       strconv.Itoa(inv.CreatedAt),
+		Expiry:          strconv.Itoa(inv.Expiry),
+		Description:     inv.Description,
+		DescriptionHash: inv.DescriptionHash,
+		FallbackAddr:    "",
+		CLTVExpiry:      strconv.Itoa(inv.MinFinalCLTVExpiry),
+		RouteHints:      inv.Route,
 	}, nil
 }
 
@@ -419,6 +420,7 @@ func handleBlueWallet(ctx context.Context, opts docopt.Opts) {
 		"refresh": opts["refresh"].(bool),
 	})
 
+	var err error
 	password := u.Password
 	if opts["refresh"].(bool) {
 		password, err = u.updatePassword()

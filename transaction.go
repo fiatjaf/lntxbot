@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/eclair-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -144,31 +144,36 @@ type Try struct {
 }
 
 type Hop struct {
-	Peer      string
-	Channel   string
-	Direction int64
-	Msatoshi  int64
-	Delay     int64
+	Peer    string
+	Channel string
 }
 
 func renderLogInfo(ctx context.Context, hash string) (logInfo string) {
-	if len(hash) < 5 {
-		return ""
-	}
-
-	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
+	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
 	if err != nil {
-		return ""
+		return translateTemplate(ctx, t.ERROR, t.T{"Err": err})
 	}
 
-	var tries []Try
-	err = json.Unmarshal([]byte(lastCall), &tries)
-	if err != nil {
-		return translateTemplate(ctx, t.ERROR, t.T{"Err": "failed to parse log"})
+	if info.Get("#").Int() == 0 {
+		return translateTemplate(ctx, t.ERROR, t.T{"Err": "payment not attempted"})
 	}
 
-	if len(tries) == 0 {
-		return translateTemplate(ctx, t.ERROR, t.T{"Err": "no routes attempted"})
+	tries := make([]Try, info.Get("#").Int())
+	for i, attempt := range info.Array() {
+		route := make([]Hop, attempt.Get("route.#").Int())
+
+		for r, hop := range attempt.Get("route").Array() {
+			route[r] = Hop{
+				Peer:    hop.Get("nextNodeId").String(),
+				Channel: hop.Get("shortChannelId").String(),
+			}
+		}
+
+		tries[i] = Try{
+			Success: attempt.Get("status.type").String() == "sent",
+			Error:   attempt.Get("status.failures.0.failureMessage").String(),
+			Route:   route,
+		}
 	}
 
 	return translateTemplate(ctx, t.TXLOG, t.T{
@@ -294,11 +299,45 @@ func displayTransactionList(ctx context.Context, page int, tag string, filter In
 func handleLogView(ctx context.Context, opts docopt.Opts) {
 	// query failed transactions (only available in the first 24h after the failure)
 	u := ctx.Value("initiator").(User)
-	hash := opts["<hash>"].(string)
-	if len(hash) < 5 {
+	hashfirstchars := opts["<hash>"].(string)
+	if len(hashfirstchars) < 5 {
 		send(ctx, u, t.ERROR, t.T{"Err": "hash too small."})
 		return
 	}
 	go u.track("view log", nil)
+
+	hash := hashfirstchars
+	if len(hash) == 64 {
+		// continue
+	} else if txn, err := u.getTransaction(hashfirstchars); err == nil {
+		hash = txn.Hash
+	} else {
+		hash, err = rds.Get("hash:" + strconv.Itoa(u.Id) + ":" + hashfirstchars).Result()
+		if err != nil {
+			send(ctx, u, t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars},
+				ctx.Value("message"))
+			return
+		}
+	}
+
 	send(ctx, u, renderLogInfo(ctx, hash))
+}
+
+func checkAllOutgoingPayments(ctx context.Context) {
+	var hashes []string
+	err := pg.Select(&hashes,
+		"SELECT payment_hash FROM lightning.transaction WHERE pending")
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get all pending outgoing payment hashes")
+		return
+	}
+
+	log.Debug().Int("n", len(hashes)).Msg("checking pending outgoing payments")
+	for _, hash := range hashes {
+		log.Debug().Str("hash", hash).Msg("checking outgoing")
+		checkOutgoingPayment(ctx, hash)
+	}
 }

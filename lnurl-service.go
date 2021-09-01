@@ -13,7 +13,9 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
+	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
+	"github.com/gorilla/mux"
 )
 
 func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
@@ -140,13 +142,13 @@ func serveLNURL() {
 			return
 		}
 
-		inv, err := ln.Call("decodepay", bolt11)
+		inv, err := decodepay.Decodepay(bolt11)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid payment request."))
 			return
 		}
 
-		if inv.Get("msatoshi").Int() > int64(chMax)*1000 {
+		if inv.MSatoshi > int64(chMax)*1000 {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Amount too big."))
 			return
 		}
@@ -155,7 +157,7 @@ func serveLNURL() {
 		send(ctx, payer, bolt11, ctx.Value("message"))
 
 		go payer.track("outgoing lnurl-withdraw redeemed", map[string]interface{}{
-			"sats": inv.Get("msatoshi").Float() / 1000,
+			"sats": float64(inv.MSatoshi) / 1000,
 		})
 
 		// do the pay flow with these odd opts and fake message.
@@ -172,10 +174,12 @@ func serveLNURL() {
 		log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
 
 		qs := r.URL.Query()
-		userid := qs.Get("userid")
 		username := qs.Get("username")
+		if username == "" {
+			username = qs.Get("userid")
+		}
 
-		u, jmeta, err := lnurlPayStuff(ctx, userid, username)
+		u, jmeta, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -184,10 +188,9 @@ func serveLNURL() {
 		go u.track("incoming lnurl-pay attempt", nil)
 
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-			LNURLResponse: lnurl.OkResponse(),
-			Tag:           "payRequest",
-			Callback: fmt.Sprintf("https://%s/lnurl/pay/callback?%s",
-				getHost(r), qs.Encode()),
+			LNURLResponse:   lnurl.OkResponse(),
+			Tag:             "payRequest",
+			Callback:        fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
 			MaxSendable:     1000000000,
 			MinSendable:     100000,
 			EncodedMetadata: string(jmeta),
@@ -195,70 +198,79 @@ func serveLNURL() {
 		})
 	})
 
-	router.Path("/lnurl/pay/callback").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/.well-known/lnurlp/{username}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(context.Background(), "origin", "external")
-
+		username := mux.Vars(r)["username"]
 		qs := r.URL.Query()
-		userid := qs.Get("userid")
-		username := qs.Get("username")
-		apptag := qs.Get("apptag")
-		amount := qs.Get("amount")
 
-		receiver, jmeta, err := lnurlPayStuff(ctx, userid, username)
+		receiver, jmeta, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
 		}
 
-		var tag string
-		if apptag == "golightning" {
-			tag = apptag
-		}
+		if qs.Get("amount") == "" {
+			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
 
-		msatoshi, err := strconv.ParseInt(amount, 10, 64)
-		if err != nil {
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
-			return
-		}
+			go receiver.track("incoming lnurl-pay attempt", nil)
 
-		hhash := sha256.Sum256(jmeta)
-		bolt11, _, err := receiver.makeInvoice(ctx, makeInvoiceArgs{
-			IgnoreInvoiceSizeLimit: true,
-			Msatoshi:               msatoshi,
-			DescHash:               hex.EncodeToString(hhash[:]),
-			Tag:                    tag,
-			Extra: map[string]interface{}{
-				"comment": qs.Get("comment"),
-			},
-		})
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
-			return
-		}
+			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+				LNURLResponse:   lnurl.OkResponse(),
+				Tag:             "payRequest",
+				Callback:        fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
+				MaxSendable:     1000000000,
+				MinSendable:     100000,
+				EncodedMetadata: string(jmeta),
+				CommentAllowed:  422,
+			})
+		} else {
+			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay second request")
 
-		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
-			LNURLResponse: lnurl.OkResponse(),
-			PR:            bolt11,
-			Routes:        make([][]lnurl.RouteInfo, 0),
-			Disposable:    lnurl.FALSE,
-		})
+			amount := qs.Get("amount")
+			msatoshi, err := strconv.ParseInt(amount, 10, 64)
+			if err != nil {
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
+				return
+			}
+
+			hhash := sha256.Sum256(jmeta)
+			bolt11, _, err := receiver.makeInvoice(ctx, &MakeInvoiceArgs{
+				IgnoreInvoiceSizeLimit: true,
+				Msatoshi:               msatoshi,
+				DescriptionHash:        hex.EncodeToString(hhash[:]),
+				Extra: map[string]interface{}{
+					"comment": qs.Get("comment"),
+				},
+			})
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
+				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
+				return
+			}
+
+			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
+				LNURLResponse: lnurl.OkResponse(),
+				PR:            bolt11,
+				Routes:        make([][]lnurl.RouteInfo, 0),
+				Disposable:    lnurl.FALSE,
+			})
+		}
 	})
 }
 
-func lnurlPayStuff(
+func lnurlPayUserMetadata(
 	ctx context.Context,
-	userid string,
 	username string,
 ) (receiver User, jmeta []byte, err error) {
-	if userid != "" {
-		var id int
-		id, err = strconv.Atoi(userid)
-		if err == nil {
-			receiver, err = loadUser(id)
-		}
-	} else if username != "" {
+	isTelegramUsername := false
+
+	if id, errx := strconv.Atoi(username); errx == nil {
+		// case in which username is a number
+		receiver, err = loadUser(id)
+	} else {
+		// case in which username is a real username
 		receiver, err = ensureTelegramUsername(username)
+		isTelegramUsername = true
 	}
 	if err != nil {
 		return
@@ -272,12 +284,19 @@ func lnurlPayStuff(
 		},
 	}
 
-	if username != "" { /* we may have only a userid */
-		if imageURL, err := getTelegramUserPictureURL(username); err == nil {
-			if b64, err := base64FileFromURL(imageURL); err == nil {
-				metadata = append(metadata, []string{"image/jpeg;base64", b64})
+	if isTelegramUsername {
+		// get user avatar from public t.me/ page
+		if url, err := getTelegramUserPictureURL(username); err == nil {
+			if b64, err := base64ImageFromURL(url); err == nil {
+				metadata = append(metadata,
+					[]string{"image/jpeg;base64", b64})
 			}
 		}
+
+		// add internet identifier
+		metadata = append(metadata,
+			[]string{"text/identifier", fmt.Sprintf("%s@%s",
+				username, s.ServiceURL[len("https://"):])})
 	}
 
 	jmeta, err = json.Marshal(metadata)

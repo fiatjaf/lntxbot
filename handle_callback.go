@@ -153,7 +153,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			"To":               claimer.AtName(ctx),
 			"Sats":             sats,
 			"ClaimerHasNoChat": claimer.TelegramChatId == 0,
-			"BotName":          s.ServiceId,
 		}, ctx.Value("message"), editAction)
 
 		goto answerEmpty
@@ -237,6 +236,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 				goto answerEmpty
 			}
+			log.Debug().Int("nparticipants", len(sparticipants)).Msg("resolving coinflip")
 			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
 
 			// winner id
@@ -429,7 +429,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				"Sender":            giver.AtName(ctx),
 				"Losers":            strings.Join(loserNames, " "),
 				"ReceiverHasNoChat": winner.TelegramChatId == 0,
-				"BotName":           s.ServiceId,
 			}, EDIT)
 		}
 
@@ -721,38 +720,49 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}
 
 		// actually reveal
-		if message := ctx.Value("message"); message != nil {
-			// called in the bot's chat
-			removeKeyboardButtons(ctx)
-			send(ctx, revealer, hiddenMessage.Content, message)
-		} else {
-			if hiddenMessage.Public {
-				// reveal message in-place
-				send(ctx, hiddenMessage.revealed(), EDIT)
+		revealedText := strings.TrimSpace(hiddenMessage.Preview) + "\n~ <code> 👁" +
+			hiddenId + "</code>\n" + strings.TrimSpace(hiddenMessage.Content)
+
+		if hiddenMessage.Public {
+			// reveal message in-place
+			if hiddenMessage.CopyMessage != nil && cb.Message != nil {
+				send(ctx, EDIT,
+					hiddenMessage.Preview+"\n\n~ <code>"+hiddenId+"</code> 👁")
+				send(ctx, cb.Message, cb.Message.Chat.ID, FORCESPAMMY,
+					hiddenMessage.CopyMessage)
 			} else {
-				// reveal message privately
-				send(ctx, revealer, hiddenMessage.revealed())
-				if hiddenMessage.Times == 0 || hiddenMessage.Times > totalRevealers {
-					// more people can still pay for this
-					// buttons are kept so others still can pay, but updated
-					send(ctx, EDIT, hiddenMessage.Preview,
-						revealKeyboard(ctx, hiddenkey, hiddenMessage, totalRevealers))
-				} else {
-					// end of quota. no more people can reveal.
-					send(ctx, EDIT, "A hidden message prompt once lived here.")
-					removeKeyboardButtons(ctx)
-				}
+				send(ctx, EDIT, revealedText)
+			}
+		} else {
+			// reveal message privately
+			if hiddenMessage.CopyMessage != nil {
+				send(ctx, revealer, hiddenMessage.CopyMessage)
+			} else {
+				send(ctx, revealer, revealedText)
+			}
+
+			// adjust prompt message
+			if hiddenMessage.Times == 0 || hiddenMessage.Times > totalRevealers {
+				// more people can still pay for this
+				// buttons are kept so others still can pay, but updated
+				send(ctx, EDIT, hiddenMessage.Preview,
+					revealKeyboard(ctx, hiddenkey, hiddenMessage, totalRevealers))
+			} else {
+				// end of quota. no more people can reveal.
+				send(ctx, EDIT, "A hidden message prompt once lived here.")
+				removeKeyboardButtons(ctx)
 			}
 		}
 
-		go u.track("reveal", map[string]interface{}{
-			"sats":      hiddenMessage.Satoshis,
-			"times":     hiddenMessage.Times,
-			"crowdfund": hiddenMessage.Crowdfund,
-			"public":    hiddenMessage.Public,
-		})
-
 		break
+	case strings.HasPrefix(cb.Data, "s4a="):
+		defer removeKeyboardButtons(ctx)
+		parts := strings.Split(cb.Data[4:], "-")
+		if parts[0] == "v" {
+			hashfirst10chars := parts[1]
+			go confirmAdViewed(u, hashfirst10chars)
+			go u.track("sats4ads viewed", nil)
+		}
 	case strings.HasPrefix(cb.Data, "check="):
 		// recheck transaction when for some reason it wasn't checked and
 		// either confirmed or deleted automatically
@@ -766,15 +776,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		}
 		send(ctx, t.CHECKING, APPEND)
 		go u.track("check pending", nil)
-		go checkOutgoingPaymentStatus(ctx, txn.Hash)
-	case strings.HasPrefix(cb.Data, "s4a="):
-		defer removeKeyboardButtons(ctx)
-		parts := strings.Split(cb.Data[4:], "-")
-		if parts[0] == "v" {
-			hashfirst10chars := parts[1]
-			go confirmAdViewed(u, hashfirst10chars)
-			go u.track("sats4ads viewed", nil)
-		}
+		go checkOutgoingPayment(ctx, txn.Hash)
 	}
 
 answerEmpty:

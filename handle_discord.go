@@ -29,6 +29,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// declaring stuff so we can use goto
 	var (
+		err         error
 		u           User
 		g           GroupChat
 		messageText string
@@ -133,16 +134,8 @@ parsed:
 	}
 
 	switch {
-	case opts["start"].(bool), opts["tutorial"].(bool):
-		if message.GuildID == "" {
-			if tutorial, err := opts.String("<tutorial>"); err != nil || tutorial == "" {
-				handleTutorial(ctx, tutorial)
-			} else {
-				send(ctx, u, t.WELCOME)
-				handleTutorial(ctx, "")
-			}
-			go u.track("start", nil)
-		}
+	case opts["start"].(bool):
+		handleStart(ctx)
 		break
 	case opts["stop"].(bool):
 		if message.GuildID == "" {

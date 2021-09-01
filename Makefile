@@ -2,5 +2,7 @@ lntxbot: $(shell find . -name "*.go")
 	go build -ldflags="-s -w" -o ./lntxbot
 
 deploy: lntxbot
-	rsync lntxbot hulsmann:.lightning1/plugins/lntxbot-new
-	ssh hulsmann 'ln1 plugin stop lntxbot; mv .lightning1/plugins/lntxbot-new .lightning1/plugins/lntxbot; ln1 plugin start $$HOME/.lightning1/plugins/lntxbot'
+	rsync lntxbot hulsmann:lntxbot/lntxbot-new
+	ssh root@hulsmann 'systemctl stop lntxbot'
+	ssh hulsmann 'mv lntxbot/lntxbot-new lntxbot/lntxbot'
+	ssh root@hulsmann 'systemctl start lntxbot'

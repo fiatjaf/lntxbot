@@ -160,7 +160,7 @@ const (
 	CANTCANCEL         Key = "CantCancel"
 	FAILEDINVOICE      Key = "FailedInvoice"
 	STOPNOTIFY         Key = "StopNotify"
-	WELCOME            Key = "Welcome"
+	START              Key = "Start"
 	WRONGCOMMAND       Key = "WrongCommand"
 	RETRACTQUESTION    Key = "RetractQuestion"
 	RECHECKPENDING     Key = "RecheckPending"
@@ -169,9 +169,4 @@ const (
 	TXINFO     Key = "TxInfo"
 	TXLIST     Key = "TxList"
 	TXLOG      Key = "TxLog"
-
-	TUTORIALWALLET  Key = "TutorialWallet"
-	TUTORIALBLUE    Key = "TutorialBlue"
-	TUTORIALAPPS    Key = "TutorialApps"
-	TUTORIALTWITTER Key = "TutorialTwitter"
 )

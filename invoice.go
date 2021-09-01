@@ -2,48 +2,59 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"math/rand"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
-	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
+	"gopkg.in/antage/eventsource.v1"
 )
 
-type Invoice struct {
-	decodepay.Bolt11
+type InvoiceData struct {
+	UserId    int
+	Origin    string // "telegram" or "discord"
+	MessageId interface{}
+	Preimage  string
 
-	Preimage string `json:"preimage"`
+	*MakeInvoiceArgs
 }
 
-func decodeInvoice(bolt11 string) (Invoice, error) {
-	inv, err := decodepay.Decodepay(bolt11)
+func (inv InvoiceData) Hash() string {
+	preimage, err := hex.DecodeString(inv.Preimage)
 	if err != nil {
-		return Invoice{}, err
+		log.Error().Err(err).Interface("data", inv).
+			Msg("failed to decode preimage on InvoiceData")
+		return ""
 	}
+	hash := sha256.Sum256(preimage)
+	return hex.EncodeToString(hash[:])
+}
 
-	return Invoice{
-		Bolt11:   inv,
-		Preimage: "",
-	}, nil
+type MakeInvoiceArgs struct {
+	Description            string
+	DescriptionHash        string
+	Msatoshi               int64
+	Expiry                 *time.Duration
+	Tag                    string
+	Extra                  map[string]interface{}
+	BlueWallet             bool
+	IgnoreInvoiceSizeLimit bool
 }
 
 var waitingInvoices = cmap.New() // make(map[string][]chan Invoice)
 
-func waitInvoice(hash string) (inv <-chan Invoice) {
-	wait := make(chan Invoice)
+func waitInvoice(hash string) (inv <-chan InvoiceData) {
+	wait := make(chan InvoiceData)
 	waitingInvoices.Upsert(hash, wait,
 		func(exists bool, arr interface{}, v interface{}) interface{} {
 			if exists {
@@ -56,88 +67,16 @@ func waitInvoice(hash string) (inv <-chan Invoice) {
 	return wait
 }
 
-func resolveWaitingInvoice(hash string, inv Invoice) {
+func resolveWaitingInvoice(hash string, inv InvoiceData) {
 	if chans, ok := waitingInvoices.Get(hash); ok {
 		for _, ch := range chans.([]interface{}) {
 			select {
-			case ch.(chan Invoice) <- inv:
+			case ch.(chan InvoiceData) <- inv:
 			default:
 			}
 		}
 		waitingInvoices.Remove(hash)
 	}
-}
-
-// we make a short channel id that contains an id to an object on redis with all things.
-// besides storing these important values, this secret will also be used to build the
-// preimage.
-type ShadowChannelData struct {
-	UserId          int
-	Origin          string // "telegram" or "discord"
-	MessageId       interface{}
-	Tag             string
-	Msatoshi        int64
-	Description     string
-	DescriptionHash string
-	Preimage        string
-	SecretKey       string
-	Extra           map[string]interface{}
-}
-
-func makeShadowChannelId(data ShadowChannelData) uint64 {
-	secret := make([]byte, 8)
-	rand.Read(secret)
-
-	key := hex.EncodeToString(secret)
-	j, _ := json.Marshal(data)
-	rds.Set(key, string(j), time.Hour*24*7)
-
-	return binary.BigEndian.Uint64(secret)
-}
-
-func extractDataFromShadowChannelId(channelId uint64) (d ShadowChannelData, err error) {
-	bin := make([]byte, 8)
-	binary.BigEndian.PutUint64(bin, channelId)
-
-	key := hex.EncodeToString(bin)
-	j, err := rds.Get(key).Result()
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal([]byte(j), &d)
-	if err != nil {
-		return
-	}
-
-	return d, nil
-}
-
-func deleteDataAssociatedWithShadowChannelId(channelId uint64) error {
-	bin := make([]byte, 8)
-	binary.BigEndian.PutUint64(bin, channelId)
-
-	key := hex.EncodeToString(bin)
-	return rds.Del(key).Err()
-}
-
-func decodeShortChannelId(scid string) (uint64, error) {
-	spl := strings.Split(scid, "x")
-
-	x, err := strconv.ParseUint(spl[0], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	y, err := strconv.ParseUint(spl[1], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	z, err := strconv.ParseUint(spl[2], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return ((x & 0xFFFFFF) << 40) | ((y & 0xFFFFFF) << 16) | (z & 0xFFFF), nil
 }
 
 // creating too many small invoices is forbidden
@@ -154,28 +93,6 @@ type RateLimiterPolicy struct {
 	Key             string `json:"key"`
 	TimeUnit        string `json:"time_unit"`
 	RequestsPerUnit int    `json:"requests_per_unit"`
-}
-
-func setupInvoiceRateLimiter() error {
-	auth := req.Header{"X-API-Key": s.RateBucketKey}
-
-	var resp *req.Resp
-	var err error
-
-	for key, invMsat := range INVOICESPAMLIMITS {
-		maxEvents := int(math.Pow(float64(invMsat)/1000, 0.7))
-
-		resp, err = req.Post("https://api.ratebucket.io/v1/policy/fixed_window", auth,
-			req.BodyJSON(RateLimiterPolicy{key, "hour", maxEvents}))
-		if err == nil && resp.Response().StatusCode >= 300 {
-			err = errors.New(resp.String())
-		}
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func checkInvoiceRateLimit(key string, userId int) bool {
@@ -221,17 +138,112 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 
 		go u.track("make invoice", map[string]interface{}{"sats": msats / 1000})
 
-		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
-			Msatoshi: msats,
-			Desc:     desc,
+		if desc == "" {
+			desc = "to @lntxbot"
+		}
+
+		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
+			Msatoshi:    msats,
+			Description: u.Username + ":  " + desc,
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
-			send(ctx, u, t.FAILEDINVOICE, t.T{"Err": messageFromError(err)})
+			send(ctx, u, t.FAILEDINVOICE, t.T{"Err": err.Error()})
 			return
 		}
 
 		// send invoice with qr code
-		send(ctx, qrURL(bolt11), bolt11)
+		send(ctx, qrURL(bolt11), "<pre>"+bolt11+"</pre>")
 	}
+}
+
+// what happens when a payment is received
+var userPaymentStream = cmap.New() // make(map[int]eventsource.EventSource)
+
+func paymentReceived(
+	ctx context.Context,
+	hash string,
+	amount int64,
+) (user User, err error) {
+	data, err := loadInvoiceData(hash)
+	if err != nil {
+		log.Debug().Err(err).Interface("hash", hash).
+			Msg("no invoice stored for this hash, not a bot invoice?")
+		return
+	}
+
+	user, err = loadUser(data.UserId)
+	if err != nil {
+		log.Error().Err(err).Int("user-id", data.UserId).Interface("data", data).
+			Msg("couldn't load user on paymentReceived")
+		return
+	}
+
+	_, err = pg.Exec(`
+INSERT INTO lightning.transaction
+  (to_id, amount, description, payment_hash, preimage, tag)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
+    `, user.Id, amount, data.Description, hash,
+		data.Preimage, sql.NullString{String: data.Tag, Valid: data.Tag != ""})
+	if err != nil {
+		log.Error().Err(err).
+			Stringer("user", &user).Str("hash", hash).
+			Msg("failed to save payment received.")
+		send(ctx, user, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
+		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
+		}
+		return
+	}
+
+	go resolveWaitingInvoice(hash, data)
+
+	user.track("got payment", map[string]interface{}{
+		"sats": amount / 1000,
+	})
+
+	// send to user stream if the user is listening
+	if ies, ok := userPaymentStream.Get(strconv.Itoa(user.Id)); ok {
+		go ies.(eventsource.EventSource).SendEventMessage(
+			`{"payment_hash": "`+hash+`", "msatoshi": `+
+				strconv.FormatInt(data.Msatoshi, 10)+`}`,
+			"payment-received", "")
+	}
+
+	// is there a comment associated with this?
+	go func() {
+		time.Sleep(2 * time.Second)
+		if comment, ok := data.Extra["comment"]; ok && comment != "" {
+			send(ctx, user, t.LNURLPAYCOMMENT, t.T{
+				"Text":           comment,
+				"HashFirstChars": hash[:5],
+			})
+		}
+	}()
+
+	send(ctx, user, t.PAYMENTRECEIVED, t.T{
+		"Sats": data.Msatoshi / 1000,
+		"Hash": hash[:5],
+	})
+
+	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
+		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
+	}
+
+	return
+}
+
+func saveInvoiceData(hash string, data InvoiceData) error {
+	b, _ := json.Marshal(data)
+	return rds.Set("invdata:"+hash, string(b), *data.Expiry).Err()
+}
+
+func loadInvoiceData(hash string) (data InvoiceData, err error) {
+	b, err := rds.Get("invdata:" + hash).Result()
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(b), &data)
+	return
 }

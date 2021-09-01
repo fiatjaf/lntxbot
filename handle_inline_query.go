@@ -55,30 +55,25 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		bolt11, _, err := u.makeInvoice(ctx, makeInvoiceArgs{
+		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 			Msatoshi: msats,
+			Description: fmt.Sprintf("%s:  inline invoice for %d satoshis",
+				u.Username, msats/1000),
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty
 		}
 
-		resultphoto := tgbotapi.NewInlineQueryResultPhoto(
-			"inv-"+argv[1]+"-photo", bolt11)
-		resultphoto.Title = argv[1] + " sat"
-		resultphoto.Description = translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]})
-		resultphoto.ThumbURL = qrURL(bolt11).String()
-		resultphoto.Caption = bolt11
-
-		resultnophoto := tgbotapi.NewInlineQueryResultArticleHTML(
-			"inv-"+argv[1]+"-nophoto",
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
+			"inv-"+argv[1],
 			translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]}),
 			bolt11,
 		)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
-			Results:       []interface{}{resultnophoto, resultphoto},
+			Results:       []interface{}{result},
 			IsPersonal:    true,
 		})
 
@@ -250,6 +245,11 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 		for i, hiddenkey := range hiddenkeys {
 			_, hiddenid, hiddenmessage, err := getHiddenMessage(ctx, hiddenkey)
 			if err != nil {
+				continue
+			}
+
+			if hiddenmessage.CopyMessage != nil && hiddenmessage.Public {
+				// copyMessages can't be sent in public groups through the inline thing
 				continue
 			}
 

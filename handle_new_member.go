@@ -32,7 +32,8 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 			return
 		}
 
-		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).Msg("error fetching group chat on new member")
+		log.Error().Err(err).Str("chat", joinMessage.Chat.Title).
+			Msg("error fetching group chat on new member")
 		return
 	}
 
@@ -73,10 +74,10 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 
 	expiration := time.Minute * 15
 
-	bolt11, hash, err := chatOwner.makeInvoice(ctx, makeInvoiceArgs{
+	bolt11, hash, err := chatOwner.makeInvoice(ctx, &MakeInvoiceArgs{
 		IgnoreInvoiceSizeLimit: true,
 		Msatoshi:               int64(g.Ticket) * 1000,
-		Desc: fmt.Sprintf(
+		Description: fmt.Sprintf(
 			"ticket for %s to join %s (%d).",
 			username, joinMessage.Chat.Title, joinMessage.Chat.ID,
 		),
@@ -95,7 +96,7 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 		return
 	}
 
-	invoiceMessageId := send(ctx, g, qrURL(bolt11), bolt11)
+	invoiceMessageId := send(ctx, g, qrURL(bolt11), "<code>"+bolt11+"</code>")
 	if invoiceMessageId == nil {
 		log.Error().Stringer("group", &g).
 			Msg("failed to send invoice message on new member")

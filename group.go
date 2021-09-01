@@ -244,7 +244,7 @@ func setLanguage(chatId int64, lang string) (err error) {
 	}
 
 	table := "account"
-	field := "chat_id"
+	field := "telegram_chat_id"
 	id := chatId
 	taint := ", manual_locale = true"
 	if chatId < 0 {

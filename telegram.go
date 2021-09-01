@@ -89,12 +89,12 @@ func getTelegramUserPictureURL(username string) (string, error) {
 		return "", err
 	}
 
-	image, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
+	url, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
 	if !ok {
 		return "", errors.New("no image available for this user")
 	}
 
-	return image, nil
+	return url, nil
 }
 
 func examineTelegramUsername(username string) (*User, error) {

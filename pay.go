@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/eclair-go"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -27,7 +30,7 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 	// decode invoice
 	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
-		send(ctx, payer, t.FAILEDDECODE, t.T{"Err": messageFromError(err)})
+		send(ctx, payer, t.FAILEDDECODE, t.T{"Err": err.Error()})
 		return err
 	}
 
@@ -47,6 +50,7 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 			"Description":     escapeHTML(inv.Description),
 			"DescriptionHash": escapeHTML(inv.DescriptionHash),
 			"Hash":            hash,
+			"ReceiverName":    extractNameFromDesc(inv.Description),
 			"Payee":           inv.Payee,
 			"Created": time.Unix(int64(inv.CreatedAt), 0).
 				Format("Mon Jan 2 15:04"),
@@ -198,4 +202,136 @@ func handlePayVariableAmount(ctx context.Context, msatoshi int64, data gjson.Res
 		"amountless": true,
 		"sats":       msatoshi / 1000,
 	})
+}
+
+func waitPaymentSuccess(hash string) (preimage <-chan string) {
+	wait := make(chan string)
+	waitingPaymentSuccesses.Upsert(hash, wait,
+		func(exists bool, arr interface{}, v interface{}) interface{} {
+			if exists {
+				return append(arr.([]interface{}), v)
+			} else {
+				return []interface{}{v}
+			}
+		},
+	)
+	return wait
+}
+
+func resolveWaitingPaymentSuccess(hash string, preimage string) {
+	if chans, ok := waitingPaymentSuccesses.Get(hash); ok {
+		for _, ch := range chans.([]interface{}) {
+			select {
+			case ch.(chan string) <- preimage:
+			default:
+			}
+		}
+		waitingPaymentSuccesses.Remove(hash)
+	}
+}
+
+func paymentHasSucceeded(
+	ctx context.Context,
+	msatoshi int64,
+	feesPaid int64,
+	preimage string,
+	tag string,
+	hash string,
+) {
+	// if it succeeds we mark the transaction as not pending anymore
+	// plus save fees and preimage
+	if feesPaid < int64(float64(msatoshi)*0.003) {
+		feesPaid = int64(float64(msatoshi) * 0.003)
+	}
+
+	// if there's a tag we save that too, otherwise leave it null
+	tagn := sql.NullString{String: tag, Valid: tag != ""}
+
+	var res struct {
+		UserId         int `db:"from_id"`
+		TriggerMessage int `db:"trigger_message"`
+	}
+	err := pg.Get(&res, `
+UPDATE lightning.transaction
+SET fees = $1, preimage = $2, pending = false, tag = $4
+WHERE payment_hash = $3 AND pending
+RETURNING from_id, trigger_message
+    `, feesPaid, preimage, hash, tagn)
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).
+			Int64("fees", feesPaid).Msg("failed to update transaction paid status")
+		return
+	}
+
+	go resolveWaitingPaymentSuccess(hash, preimage)
+
+	user, err := loadUser(res.UserId)
+	if err != nil {
+		log.Error().Err(err).Int("id", res.UserId).Msg("no user with id on pay success")
+		return
+	}
+
+	go user.track("payment sent", map[string]interface{}{
+		"sats": msatoshi / 1000,
+	})
+
+	send(ctx, user, res.TriggerMessage, t.PAIDMESSAGE, t.T{
+		"Sats":      float64(msatoshi) / 1000,
+		"Fee":       feesPaid / 1000,
+		"Hash":      hash,
+		"Preimage":  preimage,
+		"ShortHash": hash[:5],
+	}, ctx.Value("message"))
+}
+
+func paymentHasFailed(ctx context.Context, hash string) {
+	var res struct {
+		UserId         int `db:"from_id"`
+		TriggerMessage int `db:"trigger_message"`
+	}
+	err := pg.Get(&res, `
+DELETE FROM lightning.transaction WHERE payment_hash = $1
+RETURNING from_id, trigger_message
+    `, hash)
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).
+			Msg("failed to cancel transaction after routing failure")
+		return
+	}
+
+	rds.Set("hash:"+strconv.Itoa(res.UserId)+":"+hash[0:5], hash, time.Hour*24*2)
+
+	user, err := loadUser(res.UserId)
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).Int("id", res.UserId).
+			Msg("failed to load user after routing failure")
+		return
+	}
+
+	send(ctx, user, res.TriggerMessage,
+		t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
+}
+
+func checkOutgoingPayment(ctx context.Context, hash string) {
+	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
+	if err != nil {
+		log.Error().Err(err).Str("hash", hash).Msg("failed to getsentinfo")
+		return
+	}
+
+	for _, attempt := range info.Array() {
+		if attempt.Get("status.type").String() == "sent" {
+			go paymentHasSucceeded(
+				ctx,
+				info.Get("recipientAmount").Int(),
+				info.Get("status.feesPaid").Int(),
+				info.Get("status.paymentPreimage").String(),
+				"",
+				hash,
+			)
+			break
+		} else {
+			log.Print(info.String())
+		}
+	}
 }

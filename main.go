@@ -6,29 +6,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
+	"github.com/fiatjaf/eclair-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/msingleton/amplitude-go"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
+	"github.com/tidwall/gjson"
 	"gopkg.in/redis.v5"
 )
 
@@ -42,13 +41,15 @@ type Settings struct {
 	RedisURL         string `envconfig:"REDIS_URL" required:"true"`
 	DiscordBotToken  string `envconfig:"DISCORD_BOT_TOKEN" required:"false"`
 
+	EclairHost     string `envconfig:"ECLAIR_HOST" required:"true"`
+	EclairPassword string `envconfig:"ECLAIR_PASSWORD" required:"true"`
+
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 
 	LNPayKey           string `envconfig:"LNPAY_KEY"`
 	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
 	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
-	RateBucketKey      string `envconfig:"RATEBUCKET_KEY"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"480h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"10m`
@@ -71,10 +72,9 @@ type Settings struct {
 	Usage  string
 }
 
-var err error
 var s Settings
 var pg *sqlx.DB
-var ln *lightning.Client
+var ln *eclair.Client
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var discord *discordgo.Session
@@ -92,73 +92,42 @@ var tmpl = template.Must(template.ParseFS(templates, "templates/*"))
 var static embed.FS
 
 func main() {
-	p := plugin.Plugin{
-		Name:    "lntxbot",
-		Version: "v1.0",
-		Dynamic: true,
-		Hooks: []plugin.Hook{
-			{
-				"htlc_accepted",
-				htlc_accepted,
-			},
-		},
-		Subscriptions: []plugin.Subscription{
-			{
-				"sendpay_success",
-				func(p *plugin.Plugin, params plugin.Params) {
-					hash := params.Get("sendpay_success.payment_hash").String()
-					preimage := params.Get("sendpay_success.payment_preimage").String()
-
-					go resolveWaitingPaymentSuccess(hash, preimage)
-					go checkOutgoingPaymentStatus(context.Background(), hash)
-				},
-			},
-			{
-				"sendpay_failure",
-				func(p *plugin.Plugin, params plugin.Params) {
-					hash := params.Get("sendpay_failure.data.payment_hash").String()
-
-					// check if it has really failed
-					go checkOutgoingPaymentStatus(context.Background(), hash)
-				},
-			},
-		},
-		OnInit: server,
-	}
-
-	p.Run()
-}
-
-func server(p *plugin.Plugin) {
-	// globalize the lightning rpc client
-	ln = p.Client
-
-	// load values from envfile (hack)
-	envpath := "lntxbot.env"
-	if !filepath.IsAbs(envpath) {
-		// expand tlspath from lightning dir
-		godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
-	} else {
-		godotenv.Load(envpath)
-	}
-	err = envconfig.Process("", &s)
+	err := envconfig.Process("", &s)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
 	}
-
-	bundle, err = createLocalizerBundle()
-	if err != nil {
-		log.Fatal().Err(err).Msg("error initializing localization")
-	}
-
-	setupCommands()
 
 	// setup logger
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
 
+	// http client
+	http.DefaultClient.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+		return fmt.Errorf("target '%s' has returned a redirect", r.URL)
+	}
+
+	// translations and templates
+	bundle, err = createLocalizerBundle()
+	if err != nil {
+		log.Fatal().Err(err).Msg("error initializing localization")
+	}
+
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
+
+	// setup eclair
+	ln = &eclair.Client{
+		Host:     s.EclairHost,
+		Password: s.EclairPassword,
+	}
+	s.NodeId = probeEclair()
+
+	// eclair websocket
+	ws, err := ln.Websocket()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to open eclair websocket")
+	}
+	go handleEclairWebsocket(ws)
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
@@ -183,13 +152,8 @@ func server(p *plugin.Plugin) {
 		amp = amplitude.New(s.AmplitudeKey)
 	}
 
-	// rate limiter for invoices
-	if s.RateBucketKey != "" {
-		err := setupInvoiceRateLimiter()
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to setup ratebucket.io")
-		}
-	}
+	// setup commands
+	setupCommands()
 
 	// create telegram bot
 	bot, err = tgbotapi.NewBotAPI(s.TelegramBotToken)
@@ -197,6 +161,20 @@ func server(p *plugin.Plugin) {
 		log.Fatal().Err(err).Msg("")
 	}
 	log.Info().Str("username", bot.Self.UserName).Msg("telegram bot authorized")
+
+	// setup telegram webhook
+	go func() {
+		time.Sleep(1 * time.Second)
+		// set webhook
+		_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to set webhook")
+		}
+		_, err := bot.GetWebhookInfo()
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to get webhook info")
+		}
+	}()
 
 	// discord bot session
 	if s.DiscordBotToken != "" {
@@ -215,6 +193,32 @@ func server(p *plugin.Plugin) {
 		defer discord.Close()
 	}
 
+	// bot stuff
+	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
+	if err != nil || lastTelegramUpdate < 10 {
+		log.Error().Err(err).Int64("got", lastTelegramUpdate).
+			Msg("failed to get lasttelegramupdate from redis")
+		lastTelegramUpdate = -1
+	}
+
+	// routines
+	go startKicking()
+	go sats4adsCleanupRoutine()
+	go lnurlBalanceCheckRoutine()
+	go checkAllOutgoingPayments(
+		context.WithValue(context.Background(), "origin", "routine"),
+	)
+
+	// routes
+	//
+	// telegram webhooks
+	router.Path("/" + bot.Token).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bytes, _ := ioutil.ReadAll(r.Body)
+		var update tgbotapi.Update
+		json.Unmarshal(bytes, &update)
+		handle(update)
+	})
+
 	// lndhub-compatible routes
 	registerAPIMethods()
 
@@ -228,11 +232,6 @@ func server(p *plugin.Plugin) {
 		http.Redirect(w, r, "https://t.me/lntxbot", http.StatusTemporaryRedirect)
 	})
 
-	// routines
-	go startKicking()
-	go sats4adsCleanupRoutine()
-	go lnurlBalanceCheckRoutine()
-
 	// random assets
 	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
 
@@ -243,53 +242,74 @@ func server(p *plugin.Plugin) {
 		WriteTimeout: 300 * time.Second,
 		ReadTimeout:  300 * time.Second,
 	}
-	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
-			log.Error().Err(err).Msg("error serving http")
-		}
-	}()
-
-	// pause here until lightningd works
-	s.NodeId = probeLightningd()
-
-	// bot stuff
-	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
-	if err != nil || lastTelegramUpdate < 10 {
-		log.Error().Err(err).Int64("got", lastTelegramUpdate).
-			Msg("failed to get lasttelegramupdate from redis")
-		lastTelegramUpdate = -1
-	}
-
-	u := tgbotapi.NewUpdate(int(lastTelegramUpdate + 1))
-	u.Timeout = 60
-	updates, err := bot.GetUpdatesChan(u)
-	if err != nil {
-		log.Error().Err(err).Msg("telegram getupdates fail")
-	}
-	for update := range updates {
-		lastTelegramUpdate = int64(update.UpdateID)
-		go rds.Set("lasttelegramupdate", lastTelegramUpdate, 0)
-		handle(update)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error().Err(err).Msg("error serving http")
 	}
 }
 
-func probeLightningd() string {
-	nodeinfo, err := ln.Call("getinfo")
-	if err != nil {
-		log.Warn().Err(err).Msg("can't talk to lightningd. retrying.")
-		time.Sleep(time.Second * 5)
-		return probeLightningd()
-	}
-	log.Info().
-		Str("id", nodeinfo.Get("id").String()).
-		Str("alias", nodeinfo.Get("alias").String()).
-		Int64("channels", nodeinfo.Get("num_active_channels").Int()).
-		Int64("blockheight", nodeinfo.Get("blockheight").Int()).
-		Str("version", nodeinfo.Get("version").String()).
-		Msg("lightning node connected")
+func probeEclair() string {
+	var err error
 
-	return nodeinfo.Get("id").String()
+	for i := 0; i < 30; i++ {
+		nodeinfo, err := ln.Call("getinfo", nil)
+		if err != nil {
+			log.Warn().Err(err).Msg("can't talk to eclair. retrying.")
+			time.Sleep(time.Second * 5)
+			continue
+		}
+
+		log.Info().
+			Str("nodeId", nodeinfo.Get("nodeId").String()).
+			Str("alias", nodeinfo.Get("alias").String()).
+			Int64("blockHeight", nodeinfo.Get("blockHeight").Int()).
+			Str("version", nodeinfo.Get("version").String()).
+			Msg("lightning node connected")
+
+		return nodeinfo.Get("nodeId").String()
+	}
+
+	log.Fatal().Err(err).Msg("failed to connect to eclair after 30 attempts")
+	return ""
+}
+
+func handleEclairWebsocket(ws <-chan gjson.Result) {
+	ctx := context.WithValue(context.Background(), "origin", "eclair")
+
+	for event := range ws {
+		switch event.Get("type").String() {
+		case "payment-received":
+			hash := event.Get("paymentHash").String()
+			var msatoshi int64 = 0
+			for _, part := range event.Get("parts").Array() {
+				msatoshi += part.Get("amount").Int()
+			}
+			go paymentReceived(ctx, hash, msatoshi)
+		case "payment-sent":
+			hash := event.Get("paymentHash").String()
+			preimage := event.Get("paymentPreimage").String()
+			msatoshi := event.Get("recipientAmount").Int()
+
+			var feesPaid int64 = 0
+			for _, part := range event.Get("parts").Array() {
+				feesPaid += part.Get("feesPaid").Int()
+			}
+
+			go paymentHasSucceeded(
+				ctx,
+				msatoshi,
+				feesPaid,
+				preimage,
+				"",
+				hash,
+			)
+		case "payment-failed":
+			hash := event.Get("paymentHash").String()
+			go paymentHasFailed(
+				ctx,
+				hash,
+			)
+		}
+	}
 }
 
 func createLocalizerBundle() (t.Bundle, error) {
