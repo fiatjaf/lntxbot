@@ -77,7 +77,12 @@ lnurl-auth success!
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: `Insufficient balance for {{.Purpose}}. Needs {{.Sats | printf "%.15g"}} sat more.`,
 
-	PAYMENTRECEIVED:      "Payment received: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}} #tx",
+	PAYMENTRECEIVED: `
+      Payment received{{if .SenderName}} from <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
+      {{if .Comment}}
+        <i>{{.Comment}}</i>
+      {{end}}
+    `,
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Hash}}</code>",
 
 	SPAMMYMSG:             "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
@@ -365,7 +370,7 @@ Registered: {{.Registered}}
 <b>/transactions</b> - Lists all your transactions, paginated.
 <b>/help &lt;command;&gt;</b> - Shows detailed help for a specific command.
 <b>/paynow &lt;invoice&gt;</b> - Pays an invoice without asking.
-<b>/sendanonymously &lt;amount&gt; &lt;user&gt;</b> - Like /send, but anonymous.
+<b>/send --anonymous &lt;amount&gt; &lt;user&gt;</b> - The receiver doesn't know who sent them sats.
 
 🏛  <b>Group Administration</b>
 <b>/toggle ticket &lt;amount&gt;</b> - Put a price in satoshis for joining your group. Great antispam! Money goes to group owner.

@@ -24,7 +24,11 @@ type KickData struct {
 	Sats             int                       `json:"sats"`
 }
 
-func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message, newmember tgbotapi.User) {
+func handleTelegramNewMember(
+	ctx context.Context,
+	joinMessage *tgbotapi.Message,
+	newmember tgbotapi.User,
+) {
 	g, err := loadTelegramGroup(joinMessage.Chat.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -81,11 +85,8 @@ func handleTelegramNewMember(ctx context.Context, joinMessage *tgbotapi.Message,
 			"ticket for %s to join %s (%d).",
 			username, joinMessage.Chat.Title, joinMessage.Chat.ID,
 		),
-		Tag: "ticket",
-		Extra: map[string]interface{}{
-			"member": newmember.ID,
-			"chat":   joinMessage.Chat.ID,
-		},
+		Tag:    "ticket",
+		Extra:  InvoiceExtra{Message: joinMessage},
 		Expiry: &expiration,
 	})
 	if err != nil {

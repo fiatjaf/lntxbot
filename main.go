@@ -193,14 +193,6 @@ func main() {
 		defer discord.Close()
 	}
 
-	// bot stuff
-	lastTelegramUpdate, err := rds.Get("lasttelegramupdate").Int64()
-	if err != nil || lastTelegramUpdate < 10 {
-		log.Error().Err(err).Int64("got", lastTelegramUpdate).
-			Msg("failed to get lasttelegramupdate from redis")
-		lastTelegramUpdate = -1
-	}
-
 	// routines
 	go startKicking()
 	go sats4adsCleanupRoutine()
@@ -407,6 +399,10 @@ func createLocalizerBundle() (t.Bundle, error) {
 		}
 
 		return satShow
+	})
+	bundle.AddFunc("messageLink", func(message *tgbotapi.Message) string {
+		return fmt.Sprintf("https://t.me/c/%s/%d",
+			strconv.FormatInt(message.Chat.ID, 10)[4:], message.MessageID)
 	})
 
 	err := bundle.AddLanguage("en", t.EN)

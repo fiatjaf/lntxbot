@@ -238,13 +238,14 @@ func serveLNURL() {
 				IgnoreInvoiceSizeLimit: true,
 				Msatoshi:               msatoshi,
 				DescriptionHash:        hex.EncodeToString(hhash[:]),
-				Extra: map[string]interface{}{
-					"comment": qs.Get("comment"),
+				Extra: InvoiceExtra{
+					Comment: qs.Get("comment"),
 				},
 			})
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to generate lnurl-pay invoice")
-				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to generate invoice."))
+				json.NewEncoder(w).Encode(
+					lnurl.ErrorResponse("Failed to generate invoice."))
 				return
 			}
 

@@ -14,6 +14,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tidwall/gjson"
@@ -46,9 +47,16 @@ type MakeInvoiceArgs struct {
 	Msatoshi               int64
 	Expiry                 *time.Duration
 	Tag                    string
-	Extra                  map[string]interface{}
+	Extra                  InvoiceExtra
 	BlueWallet             bool
 	IgnoreInvoiceSizeLimit bool
+}
+
+type InvoiceExtra struct {
+	// lnurlpay comment
+	Comment string
+
+	Message *tgbotapi.Message
 }
 
 var waitingInvoices = cmap.New() // make(map[string][]chan Invoice)
@@ -145,6 +153,7 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
 			Msatoshi:    msats,
 			Description: u.Username + ":  " + desc,
+			Extra:       InvoiceExtra{Message: ctx.Value("message").(*tgbotapi.Message)},
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to generate invoice")
@@ -211,21 +220,22 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 			"payment-received", "")
 	}
 
-	// is there a comment associated with this?
-	go func() {
-		time.Sleep(2 * time.Second)
-		if comment, ok := data.Extra["comment"]; ok && comment != "" {
-			send(ctx, user, t.LNURLPAYCOMMENT, t.T{
-				"Text":           comment,
-				"HashFirstChars": hash[:5],
-			})
-		}
-	}()
-
-	send(ctx, user, t.PAYMENTRECEIVED, t.T{
+	tmplParams := t.T{
 		"Sats": data.Msatoshi / 1000,
 		"Hash": hash[:5],
-	})
+	}
+
+	if comment := data.Extra.Comment; comment != "" {
+		name := extractNameFromDesc(comment)
+		if name != "" {
+			tmplParams["SenderName"] = name
+			tmplParams["Comment"] = comment[len(name)+3:]
+		} else {
+			tmplParams["Comment"] = comment
+		}
+	}
+
+	send(ctx, user, t.PAYMENTRECEIVED, tmplParams)
 
 	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
 		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")

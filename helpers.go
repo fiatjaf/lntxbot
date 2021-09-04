@@ -519,7 +519,7 @@ func getHost(r *http.Request) string {
 	}
 }
 
-var NameDesc = regexp.MustCompile(`^([\w_\-.@+]{1,40}):  \w`)
+var NameDesc = regexp.MustCompile(`^([\w_\-.@+]{1,40}):  \S`)
 
 func extractNameFromDesc(invoiceDescription string) string {
 	res := NameDesc.FindStringSubmatch(invoiceDescription)

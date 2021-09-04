@@ -49,6 +49,23 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 		description = strings.Join(extra, " ")
 	}
 
+	// maybe this is a lightning address like username@domain.com?
+	if _, _, ok := lnurl.ParseInternetIdentifier(username); ok {
+		if !anonymous && u.Username != "" {
+			if description == "" {
+				description = "[empty]"
+			}
+			description = u.Username + ":  " + description
+		}
+
+		handleLNURL(ctx, username, handleLNURLOpts{
+			payAmountWithoutPrompt: &msats,
+			forceSendComment:       description,
+		})
+		// end here since the flow will proceed on handleLNURL
+		return
+	}
+
 	switch message := ctx.Value("message").(type) {
 	case *discordgo.Message: // discord
 		receiver, err = examineDiscordUsername(username)
@@ -89,16 +106,6 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 			}
 			goto ensured
 		}
-	}
-
-	// maybe this is a lightning address like username@domain.com?
-	if _, _, ok := lnurl.ParseInternetIdentifier(username); ok {
-		handleLNURL(ctx, username, handleLNURLOpts{
-			payAmountWithoutPrompt: &msats,
-			forceSendComment:       description,
-		})
-		// end here since the flow will proceed on handleLNURL
-		return
 	}
 
 	// if we ever reach this point then it's because the receiver is missing.
