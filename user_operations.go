@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"time"
 
@@ -77,10 +78,12 @@ func (u User) makeInvoice(
 	}
 
 	preimage := make([]byte, 32)
-	_, err = rand.Read(preimage)
-	if err != nil {
-		return "", "", fmt.Errorf("can't create random bytes: %w", err)
+	if _, err := rand.Read(preimage); err != nil {
+		return "", "", fmt.Errorf("can't create random preimage: %w", err)
 	}
+
+	// hide the user id inside the preimage (first 4 bytes)
+	binary.BigEndian.PutUint32(preimage, uint32(u.Id))
 
 	params := eclair.Params{
 		"amountMsat":      msatoshi,

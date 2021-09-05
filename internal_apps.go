@@ -111,7 +111,7 @@ func settleReveal(
 
 	msats := sats * 1000
 
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}
@@ -334,7 +334,7 @@ func settleCoinflip(
 		return
 	}
 
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}
@@ -450,7 +450,7 @@ func settleFundraise(
 
 	msats := sats * 1000
 
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}

@@ -204,7 +204,7 @@ func broadcastSats4Ads(
 
 	// decide on a unique hash for the source payment (so payments can be aggregated
 	// like Payer-3->Proxy, then Proxy-1->TargetA, Proxy-2->TargetB, Proxy-3->TargetC)
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}

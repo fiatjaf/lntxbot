@@ -40,15 +40,15 @@ var menuItems = map[string]*big.Rat{
 	"popcorn":    big.NewRat(27000, 1),
 	"ziplock":    big.NewRat(50000, 1),
 	"piparote":   big.NewRat(88000, 1),
-	"coffee":      big.NewRat(525000, 1),
-	"beer":       big.NewRat(525000, 1),	
-	"ramen":      big.NewRat(888000, 1),		
+	"coffee":     big.NewRat(525000, 1),
+	"beer":       big.NewRat(525000, 1),
+	"ramen":      big.NewRat(888000, 1),
 	"hamster":    big.NewRat(666000, 1),
 	"banana":     big.NewRat(777000, 1),
 	"watermelon": big.NewRat(1214000, 1),
 	"cow":        big.NewRat(3000000, 1),
 	"bull":       big.NewRat(5000000, 1),
-	"crown":      big.NewRat(10000000, 1),	
+	"crown":      big.NewRat(10000000, 1),
 }
 
 func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
@@ -84,7 +84,7 @@ func parseAmountString(amt string) (msats int64, err error) {
 	amt = strings.ReplaceAll(amt, "🍜", "ramen")
 	amt = strings.ReplaceAll(amt, "🐂", "bull")
 	amt = strings.ReplaceAll(amt, "🐹", "hamster")
-	amt = strings.ReplaceAll(amt, "👑", "crown")	
+	amt = strings.ReplaceAll(amt, "👑", "crown")
 
 	// lowercase
 	amt = strings.ToLower(amt)
@@ -257,11 +257,11 @@ func makeLinks(e string) string {
 	return e
 }
 
-func randomPreimage() (string, error) {
+func randomHex() (string, error) {
 	data := make([]byte, 32)
 	_, err := rand.Read(data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("can't create random bytes: %w", err)
 	}
 	return hex.EncodeToString(data), nil
 }

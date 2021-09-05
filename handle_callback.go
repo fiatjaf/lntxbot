@@ -254,7 +254,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			}
 
 			// all participants
-			participants := make([]int, nregistered+1)
+			participants := make([]int, len(sparticipants))
 			for i, spart := range sparticipants {
 				part, err := strconv.Atoi(spart)
 				if err != nil {
@@ -572,7 +572,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			return
 		}
 
-		random, err := randomPreimage()
+		random, err := randomHex()
 		if err != nil {
 			send(ctx, t.ERROR, APPEND)
 			log.Warn().Err(err).Str("app", "rename").Msg("failed to generate random")
