@@ -201,9 +201,14 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 
+	logInfo := renderLogInfo(ctx, txn.Hash)
+	if txn.Payee.Valid {
+		logInfo = renderLogInfo(ctx, txn.Hash)
+	}
+
 	text := translateTemplate(ctx, t.TXINFO, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(ctx, txn.Hash),
+		"LogInfo": logInfo,
 	})
 
 	var actionPrompt interface{}
