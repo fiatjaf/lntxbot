@@ -324,8 +324,12 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 		return
 	}
 
+	failed := true
 	for _, attempt := range info.Array() {
-		if attempt.Get("status.type").String() == "sent" {
+		log.Print(hash, " ", attempt.Get("status.type").String())
+
+		switch attempt.Get("status.type").String() {
+		case "sent":
 			go paymentHasSucceeded(
 				ctx,
 				info.Get("recipientAmount").Int(),
@@ -334,7 +338,21 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 				"",
 				hash,
 			)
+
+			// end it here
 			return
+		case "failed":
+		// this one failed, but what about the others?
+		case "pending":
+			failed = false
+		default:
+			// what is this?
+			failed = false
 		}
+	}
+
+	if failed {
+		go paymentHasFailed(ctx, hash)
+		return
 	}
 }
