@@ -319,6 +319,11 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 		return
 	}
 
+	if info.Get("#").Int() == 0 {
+		go paymentHasFailed(ctx, hash)
+		return
+	}
+
 	for _, attempt := range info.Array() {
 		if attempt.Get("status.type").String() == "sent" {
 			go paymentHasSucceeded(
@@ -329,9 +334,7 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 				"",
 				hash,
 			)
-			break
-		} else {
-			log.Print(info.String())
+			return
 		}
 	}
 }
