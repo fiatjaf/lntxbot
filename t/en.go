@@ -403,7 +403,7 @@ Good luck! 🍽️
 <i>No transactions made yet.</i>
 {{end}}
     `,
-	TXLOG: `<b>Routes tried</b>:
+	TXLOG: `<b>Routes tried{{if .PaymentHash}} for _{{.PaymentHash}}_{{end}}</b>:
 {{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
 {{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}

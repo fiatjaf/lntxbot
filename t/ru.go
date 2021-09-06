@@ -341,7 +341,7 @@ React with a :zap: to confirm.{{end}}
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
     `,
-	TXLOG: `<b>Попытки маршрутов</b>
+	TXLOG: `<b>Попытки маршрутов{{if .PaymentHash}} ({{.PaymentHash}}){{end}}</b>:
 {{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
 {{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}

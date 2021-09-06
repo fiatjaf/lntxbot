@@ -148,7 +148,7 @@ type Hop struct {
 	Channel string
 }
 
-func renderLogInfo(ctx context.Context, hash string) (logInfo string) {
+func renderLogInfo(ctx context.Context, hash string, showHash bool) (logInfo string) {
 	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
 	if err != nil {
 		return translateTemplate(ctx, t.ERROR, t.T{"Err": err})
@@ -176,9 +176,12 @@ func renderLogInfo(ctx context.Context, hash string) (logInfo string) {
 		}
 	}
 
-	return translateTemplate(ctx, t.TXLOG, t.T{
-		"Tries": tries,
-	})
+	params := t.T{"Tries": tries}
+	if showHash {
+		params["PaymentHash"] = hash
+	}
+
+	return translateTemplate(ctx, t.TXLOG, params)
 }
 
 func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
@@ -201,9 +204,9 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 
-	logInfo := renderLogInfo(ctx, txn.Hash)
+	logInfo := ""
 	if txn.Payee.Valid {
-		logInfo = renderLogInfo(ctx, txn.Hash)
+		logInfo = renderLogInfo(ctx, txn.Hash, false)
 	}
 
 	text := translateTemplate(ctx, t.TXINFO, t.T{
@@ -325,7 +328,7 @@ func handleLogView(ctx context.Context, opts docopt.Opts) {
 		}
 	}
 
-	send(ctx, u, renderLogInfo(ctx, hash))
+	send(ctx, u, renderLogInfo(ctx, hash, true))
 }
 
 func checkAllOutgoingPayments(ctx context.Context) {
