@@ -249,8 +249,7 @@ VALUES ($1, $2, $3, $4, $5, true, $6, $7)
 		return errors.New("Payment already in course.")
 	}
 
-	balance := getBalance(txn, u.Id)
-	if balance < 0 {
+	if balance := getBalance(txn, u.Id); balance < 0 {
 		return errors.New("Insufficient balance.")
 	}
 

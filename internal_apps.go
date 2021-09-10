@@ -143,18 +143,15 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check sender balance
-		balance := getBalance(txn, fromId)
-		if balance < 0 {
+		if balance := getBalance(txn, fromId); balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		proxybalance := getBalance(txn, s.ProxyAccount)
-		if proxybalance != 0 {
-			log.Error().Err(err).Int64("balance", proxybalance).
-				Msg("proxy balance isn't 0")
-			err = errors.New("proxy balance isn't 0")
+		if errW := checkProxyBalance(txn); err != nil {
+			err = errW
+			log.Error().Err(err).Msg("proxy balance check on reveal")
 			return
 		}
 
@@ -356,8 +353,7 @@ VALUES ($1, $2, $3, 9999, 'coinflip')
 		}
 
 		// check sender balance
-		balance := getBalance(txn, fromId)
-		if balance < 0 {
+		if balance := getBalance(txn, fromId); balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
@@ -372,11 +368,9 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check proxy balance (should be always zero)
-		proxybalance := getBalance(txn, s.ProxyAccount)
-		if proxybalance != 0 {
-			log.Error().Err(err).Int64("balance", proxybalance).
-				Msg("proxy balance isn't 0")
-			err = errors.New("proxy balance isn't 0")
+		if errW := checkProxyBalance(txn); err != nil {
+			err = errW
+			log.Error().Err(err).Msg("proxy balance check on coinflip")
 			return
 		}
 
@@ -486,11 +480,9 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check proxy balance (should be always zero)
-		proxybalance := getBalance(txn, s.ProxyAccount)
-		if proxybalance != 0 {
-			log.Error().Err(err).Int64("balance", proxybalance).
-				Msg("proxy balance isn't 0")
-			err = errors.New("proxy balance isn't 0")
+		if errW := checkProxyBalance(txn); err != nil {
+			err = errW
+			log.Error().Err(err).Msg("proxy balance check on fundraise")
 			return
 		}
 

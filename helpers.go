@@ -25,7 +25,6 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/jmoiron/sqlx"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nfnt/resize"
 	cmap "github.com/orcaman/concurrent-map"
@@ -396,23 +395,6 @@ func getVariadicFieldOrReplyToContent(ctx context.Context, opts docopt.Opts, opt
 	return ""
 }
 
-func checkProxyBalance(txn *sqlx.Tx) error {
-	// check proxy balance (should be always zero)
-	var proxybalance int64
-	err := txn.Get(&proxybalance, `
-SELECT (coalesce(sum(amount), 0) - coalesce(sum(fees), 0))::numeric(13) AS balance
-FROM lightning.account_txn
-WHERE account_id = $1
-    `, s.ProxyAccount)
-	if err != nil {
-		return err
-	} else if proxybalance != 0 {
-		return errors.New("proxy balance isn't 0")
-	} else {
-		return nil
-	}
-}
-
 func base64ImageFromURL(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -453,6 +435,19 @@ func getBalance(txn BalanceGetter, userId int) int64 {
 		return 0
 	}
 	return balance
+}
+
+func checkProxyBalance(txn BalanceGetter) error {
+	// check proxy balance (should be always zero)
+	var proxybalance int64
+	err := txn.Get(&proxybalance, "SELECT balance::numeric(13) FROM lightning.balance WHERE account_id = $1", s.ProxyAccount)
+	if err != nil {
+		return err
+	} else if proxybalance != 0 {
+		return errors.New("proxy balance isn't 0")
+	} else {
+		return nil
+	}
 }
 
 var nodeAliases = cmap.New()
