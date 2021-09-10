@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/eclair-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -256,4 +257,48 @@ func loadInvoiceData(hash string) (data InvoiceData, err error) {
 	}
 	err = json.Unmarshal([]byte(b), &data)
 	return
+}
+
+func checkAllIncomingPayments(ctx context.Context) {
+	from := time.Now().AddDate(0, 0, -7)
+
+	var lastInvoiceTime time.Time
+	err := pg.Get(&lastInvoiceTime, `
+    SELECT max(time) FROM lightning.transaction WHERE from_id IS NULL
+  `)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get last invoice time from db")
+	}
+
+	if lastInvoiceTime.Before(from) {
+		from = lastInvoiceTime
+	}
+
+	res, err := ln.Call("audit", eclair.Params{"from": from.Unix()})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to call 'audit'")
+		return
+	}
+
+	log.Debug().Time("from", from).Int64("n", res.Get("received.#").Int()).
+		Msg("checking incoming payments")
+	for _, recv := range res.Get("received").Array() {
+		hash := recv.Get("paymentHash").String()
+		var exists bool
+		if err := pg.Get(&exists, `
+            SELECT true FROM lightning.transaction
+            WHERE payment_hash = $1
+        `, hash); err != nil && err != sql.ErrNoRows {
+			log.Error().Err(err).Str("hash", hash).Msg("checking existence of invoice hash")
+			continue
+		}
+
+		if !exists {
+			var amount int64 = 0
+			for _, part := range recv.Get("parts").Array() {
+				amount += part.Get("amount").Int()
+			}
+			go paymentReceived(ctx, hash, amount)
+		}
+	}
 }
