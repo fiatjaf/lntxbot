@@ -174,10 +174,23 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 			goto answerEmpty
 		}
 
-		nparticipants, err1 := strconv.Atoi(params[0])
-		msats, err2 := parseAmountString(params[1])
-		if err1 != nil || err2 != nil {
-			log.Warn().Err(err1).Err(err2).Msg("coinflip error")
+		nparticipants, err := strconv.Atoi(params[0])
+		if err != nil {
+			log.Error().Err(err).Str("data", cb.Data).
+				Msg("failed to parse npartipants  on coinflip")
+			removeKeyboardButtons(ctx)
+			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
+			goto answerEmpty
+		}
+		if nregistered >= nparticipants {
+			// this new guy is not allowed to participate (terminate race condition here)
+			goto answerEmpty
+		}
+
+		msats, err := parseAmountString(params[1])
+		if err != nil {
+			log.Error().Err(err).Str("data", cb.Data).
+				Msg("failed to parse amount on coinflip")
 			removeKeyboardButtons(ctx)
 			send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Coinflip"}, APPEND)
 			goto answerEmpty
@@ -190,7 +203,6 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		})
 
 		joiner := u
-
 		if !joiner.checkBalanceFor(ctx, msats, "coinflip") {
 			goto answerEmpty
 		}
