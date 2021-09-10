@@ -65,22 +65,22 @@ lnurl-auth success!
 	GROUPNOTRENAMABLE: "This group is not renamable!",
 
 	INTERNALPAYMENTUNEXPECTED: "Something odd has happened. If this is an internal invoice it will fail. Maybe the invoice has expired or something else we don't know. If it is an external invoice ignore this warning.",
-	PAYMENTFAILED:             "Payment failed. /log_{{.ShortHash}}",
-	PAIDMESSAGE: `Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
+	PAYMENTFAILED:             "❌ Payment failed. /log_{{.ShortHash}}",
+	PAIDMESSAGE: `✅ Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
-/tx_{{.ShortHash}} #tx`,
+/tx_{{.ShortHash}} ⚡️ #tx`,
 	OVERQUOTA:           "You're over your {{.App}} weekly quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
 	INSUFFICIENTBALANCE: `Insufficient balance for {{.Purpose}}. Needs {{.Sats | printf "%.15g"}} sat more.`,
 
 	PAYMENTRECEIVED: `
-      Payment received{{if .SenderName}} from <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
+      ⚡️ Payment received{{if .SenderName}} from <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
       {{if .Comment}}
-        <i>{{.Comment}}</i>
+📨 <i>{{.Comment}}</i>
       {{end}}
     `,
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Hash}}</code>",
@@ -325,9 +325,9 @@ Prize: {{.Prize}}
 Registered: {{.Registered}}
     `,
 	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
-	USERSENTTOUSER:     "{{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
-	USERSENTYOUSATS:    "{{.User}} has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "Someone has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
+	USERSENTTOUSER:     "💛 {{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
+	USERSENTYOUSATS:    "💛 {{.User}} has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:   "💛 Someone has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
 	FAILEDSEND:         "Failed to send: ",
 	QRCODEFAIL:         "QR code reading unsuccessful: {{.Err}}",
 	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
@@ -403,7 +403,7 @@ Good luck! 🍽️
 <i>No transactions made yet.</i>
 {{end}}
     `,
-	TXLOG: `<b>Routes tried{{if .PaymentHash}} for _{{.PaymentHash}}_{{end}}</b>:
+	TXLOG: `<b>Routes tried</b>{{if .PaymentHash}} for <code>{{.PaymentHash}}</code>{{end}}:
 {{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
 {{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}

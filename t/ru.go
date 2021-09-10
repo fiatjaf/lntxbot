@@ -62,13 +62,13 @@ lnurl-auth успех!
 	RENAMEPROMPT:      "Заплатить <b>{{.Sats}} сат</b> за переименование группы в <i>{{.Name}}</i>?",
 	GROUPNOTRENAMABLE: "Эту группу невозможно переименовать!",
 
-	PAYMENTFAILED: "Платёж не состоялся. /log_{{.ShortHash}}",
-	PAIDMESSAGE: `Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> комиссия). 
+	PAYMENTFAILED: "❌ Платёж не состоялся. /log_{{.ShortHash}}",
+	PAIDMESSAGE: `✅ Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> комиссия). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
-/tx_{{.ShortHash}} #tx`,
+/tx_{{.ShortHash}} ⚡️ #tx`,
 	OVERQUOTA:           "Вы превысили квоту {{.App}}.",
 	RATELIMIT:           "Пожалуйста, подождите 30 минут.",
 	DBERROR:             "Ошибка базы данных: не могу отметить транзакцию как не обрабатывающуюся.",
@@ -309,9 +309,9 @@ React with a :zap: to confirm.{{end}}
 Зарегистрировано: {{.Registered}}
     `,
 	INVALIDPARTNUMBER:  "Неверное количество участников: {{.Number}}",
-	USERSENTTOUSER:     "{{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) отправлено {{.User}}{{if .ReceiverHasNoChat}} (не могу уведомить {{.User}} так как он не начал диалог с ботом{{end}}",
-	USERSENTYOUSATS:    "{{.User}} отправил вам {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} в ходе {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "Кто-то отослал вам {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
+	USERSENTTOUSER:     "💛 {{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) отправлено {{.User}}{{if .ReceiverHasNoChat}} (не могу уведомить {{.User}} так как он не начал диалог с ботом{{end}}",
+	USERSENTYOUSATS:    "💛 {{.User}} отправил вам {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} в ходе {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:   "💛 Кто-то отослал вам {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
 	FAILEDSEND:         "Ошибка отправки: ",
 	QRCODEFAIL:         "QR код не был прочитан: {{.Err}}",
 	SAVERECEIVERFAIL:   "Ошибка сохранения получателя. Это вероятно баг.",
@@ -341,7 +341,7 @@ React with a :zap: to confirm.{{end}}
 <i>Ещё нет ни одной транзакции</i>
 {{end}}
     `,
-	TXLOG: `<b>Попытки маршрутов{{if .PaymentHash}} ({{.PaymentHash}}){{end}}</b>:
+	TXLOG: `<b>Попытки маршрутов</b>{{if .PaymentHash}} (<code>{{.PaymentHash}}</code>){{end}}:
 {{range $t, $try := .Tries}}{{if $try.Success}}✅{{else}}❌{{end}} {{range $h, $hop := $try.Route}}➠{{.Channel | channelLink}}{{end}}{{with $try.Error}}{{if $try.Route}}
 {{else}} {{end}}<i>{{. | makeLinks}}</i>
 {{end}}{{end}}

@@ -432,5 +432,5 @@ func handleBlueWallet(ctx context.Context, opts docopt.Opts) {
 		send(ctx, t.COMPLETED)
 	}
 	blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
-	send(ctx, qrURL(blueURL), "<pre>"+blueURL+"</pre>")
+	send(ctx, qrURL(blueURL), "<code>"+blueURL+"</code>")
 }

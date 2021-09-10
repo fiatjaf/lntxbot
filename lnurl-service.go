@@ -41,7 +41,7 @@ func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc strin
 		return
 	}
 
-	send(ctx, u, qrURL(enc), `<a href="lightning:`+enc+`">`+enc+"</a>")
+	send(ctx, u, qrURL(enc), `<code>`+enc+"</code>")
 	return
 }
 
