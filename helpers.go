@@ -130,12 +130,12 @@ func getDollarPrice(msat int64) string {
 	return fmt.Sprintf("%.2f USD", float64(msat)/float64(rate))
 }
 
-func searchForInvoice(ctx context.Context) (bolt11, lnurltext string, ok bool) {
+func searchForInvoice(ctx context.Context) (bolt11, lnurltext, address string, ok bool) {
 	var message interface{}
 	if imessage := ctx.Value("message"); imessage != nil {
 		message = imessage
 	} else {
-		return "", "", false
+		return "", "", "", false
 	}
 
 	var text string
@@ -155,6 +155,12 @@ func searchForInvoice(ctx context.Context) (bolt11, lnurltext string, ok bool) {
 	}
 
 	if lnurltext, ok = lnurl.FindLNURLInText(text); ok {
+		return
+	}
+
+	if name, domain, okW := lnurl.ParseInternetIdentifier(text); okW {
+		address = name + "@" + domain
+		ok = okW
 		return
 	}
 

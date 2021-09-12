@@ -44,6 +44,7 @@ lnurl-auth success!
 {{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
     `,
 	LNURLPAYPROMPTCOMMENT: `<code>{{.Domain}}</code> expects some text:`,
+	LNURLPAYAMOUNTSNOTICE: `<code>{{.Domain}}</code> expected {{if .Exact}}{{.Min}}{{else if .NoMax}}at least{{.Min}}{{else}}between {{.Min}} and {{.Max}}{{end}} sat.`,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
 {{.Text}}
 {{if .DecipherError}}Failed to decipher ({{.DecipherError}}):

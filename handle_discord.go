@@ -39,7 +39,7 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 	)
 
 	if message.Content[0] != '$' {
-		if bolt11, lnurltext, ok := searchForInvoice(ctx); ok {
+		if bolt11, lnurltext, address, ok := searchForInvoice(ctx); ok {
 			if bolt11 != "" {
 				commandName = "$pay"
 				opts, _, err = parse("/pay " + bolt11)
@@ -51,6 +51,14 @@ func handleDiscordMessage(dgs *discordgo.Session, m *discordgo.MessageCreate) {
 			if lnurltext != "" {
 				commandName = "$lnurl"
 				opts, _, err = parse("/lnurl " + lnurltext)
+				if err != nil {
+					return
+				}
+				goto parsed
+			}
+			if address != "" {
+				commandName = "$lnurl"
+				opts, _, err = parse("/lnurl " + address)
 				if err != nil {
 					return
 				}

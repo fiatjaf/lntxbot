@@ -103,7 +103,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	// when receiving a forwarded invoice (from messages from other people?)
 	// or just the full text of a an invoice (shared from a phone wallet?)
 	if !strings.HasPrefix(messageText, "/") {
-		if bolt11, lnurltext, ok := searchForInvoice(ctx); ok {
+		if bolt11, lnurltext, address, ok := searchForInvoice(ctx); ok {
 			if bolt11 != "" {
 				opts, _, err = parse("/pay " + bolt11)
 				if err != nil {
@@ -113,6 +113,14 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			}
 			if lnurltext != "" {
 				opts, _, err = parse("/lnurl " + lnurltext)
+				if err != nil {
+					return
+				}
+				goto parsed
+			}
+
+			if address != "" {
+				opts, _, err = parse("/lnurl " + address)
 				if err != nil {
 					return
 				}

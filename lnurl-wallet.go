@@ -212,8 +212,27 @@ func handleLNURLPay(
 	opts handleLNURLOpts,
 	params lnurl.LNURLPayResponse1,
 ) {
+	receiverName := params.CallbackURL.Host
+	if identifier := params.Metadata.LightningAddress(); identifier != "" {
+		receiverName = identifier
+	}
+
 	if opts.payAmountWithoutPrompt != nil {
 		// we will try to pay this amount and we don't care about anything else
+
+		// except we check for amount between limits
+		if *opts.payAmountWithoutPrompt < params.MinSendable || *opts.payAmountWithoutPrompt > params.MaxSendable {
+			send(ctx, u, t.LNURLPAYAMOUNTSNOTICE, t.T{
+				"Domain": receiverName,
+				"Min":    params.MinSendable / 1000,
+				"Max":    params.MaxSendable / 1000,
+				"Exact":  params.MinSendable == params.MaxSendable,
+				"NoMax":  params.MaxSendable > 1000000000,
+			})
+			return
+		}
+
+		// ok, now proceed to pay
 		lnurlpayFinish(
 			ctx,
 			u,
@@ -282,14 +301,6 @@ func handleLNURLPay(
 		if params.Metadata.ImageExtension() != "" {
 			imageURL = tempAssetURL("."+params.Metadata.ImageExtension(),
 				params.Metadata.ImageBytes())
-		}
-
-		receiverName := params.CallbackURL.Host
-		if identifier := params.Metadata.Entry("text/email"); identifier != "" {
-			receiverName = identifier
-		}
-		if identifier := params.Metadata.Entry("text/identifier"); identifier != "" {
-			receiverName = identifier
 		}
 
 		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{

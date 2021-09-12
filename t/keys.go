@@ -39,6 +39,7 @@ const (
 	LNURLAUTHSUCCESS          Key = "LnurlAuthSuccess"
 	LNURLPAYPROMPT            Key = "LnurlPayPrompt"
 	LNURLPAYPROMPTCOMMENT     Key = "LnurlPayPromptComment"
+	LNURLPAYAMOUNTSNOTICE     Key = "LnurlPayAmountsNotice"
 	LNURLPAYSUCCESS           Key = "LnurlPaySuccess"
 	LNURLPAYMETADATA          Key = "LnurlPayMetadata"
 	LNURLPAYCOMMENT           Key = "LnurlPayComment"
