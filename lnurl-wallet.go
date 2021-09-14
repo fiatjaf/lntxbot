@@ -224,8 +224,8 @@ func handleLNURLPay(
 		if *opts.payAmountWithoutPrompt < params.MinSendable || *opts.payAmountWithoutPrompt > params.MaxSendable {
 			send(ctx, u, t.LNURLPAYAMOUNTSNOTICE, t.T{
 				"Domain": receiverName,
-				"Min":    params.MinSendable / 1000,
-				"Max":    params.MaxSendable / 1000,
+				"Min":    float64(params.MinSendable) / 1000,
+				"Max":    float64(params.MaxSendable) / 1000,
 				"Exact":  params.MinSendable == params.MaxSendable,
 				"NoMax":  params.MaxSendable > 1000000000,
 			})
