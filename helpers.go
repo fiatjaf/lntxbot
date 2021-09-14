@@ -472,6 +472,7 @@ begin:
 	if err != nil {
 		return "~"
 	}
+	defer resp.Body.Close()
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
