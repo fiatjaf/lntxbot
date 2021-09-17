@@ -53,7 +53,7 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 	if _, _, ok := lnurl.ParseInternetIdentifier(username); ok {
 		if !anonymous && u.Username != "" {
 			if description == "" {
-				description = "[empty]"
+				description = "_"
 			}
 			description = u.Username + ":  " + description
 		}
