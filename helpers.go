@@ -450,7 +450,7 @@ func checkProxyBalance(txn BalanceGetter) error {
 	if err != nil {
 		return err
 	} else if proxybalance != 0 {
-		return errors.New("proxy balance isn't 0")
+		return fmt.Errorf("proxy balance isn't 0, but %d", proxybalance)
 	} else {
 		return nil
 	}

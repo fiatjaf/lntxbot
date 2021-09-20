@@ -373,6 +373,11 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 				send(ctx, t.CALLBACKERROR, t.T{"BotOp": "Giveflip"}, APPEND)
 				goto answerEmpty
 			}
+
+			log.Debug().Int("nparticipants", len(sparticipants)).Msg("resolving giveflip")
+			if len(sparticipants) <= 0 {
+				goto answerEmpty
+			}
 			swinnerId := sparticipants[rand.Intn(len(sparticipants))]
 
 			// winner
