@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -289,6 +290,7 @@ OFFSET $3
 
 		// commit payment (pending for receiver)
 		errMsg, err = user.sendThroughProxy(
+			ctx,
 			sourcehash,
 			targethash,
 			contentMessage.MessageID,
@@ -463,7 +465,7 @@ func cleanupUnviewedAds() {
 	// for every person who has received an ad over 3 days ago and haven't seen it
 	// we will cancel that payment (which is pending) and remove that person from
 	// the sats4ads list
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return
 	}

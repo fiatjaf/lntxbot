@@ -215,7 +215,7 @@ func (u User) actuallySendExternalPayment(
 	hash := inv.PaymentHash
 
 	// insert payment as pending
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
 		return ErrDatabase
@@ -292,7 +292,7 @@ func (u User) addInternalPendingInvoice(
 	desc interface{},
 ) (err error) {
 	// insert payment as pending
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
 		return ErrDatabase
@@ -357,7 +357,7 @@ func (u User) sendInternally(
 		hashn = sql.NullString{String: hash, Valid: hash != ""}
 	)
 
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return ErrDatabase
 	}
@@ -419,6 +419,7 @@ VALUES (
 }
 
 func (u User) sendThroughProxy(
+	ctx context.Context,
 	// these must be unique across payments that must be combined, otherwise different
 	sourcehash string,
 	targethash string,
@@ -439,7 +440,7 @@ func (u User) sendThroughProxy(
 	)
 
 	// start transaction
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return "Database error.", err
 	}

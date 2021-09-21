@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -100,7 +101,7 @@ func settleReveal(
 	toId int,
 	fromIds []int,
 ) (receiver User, err error) {
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return
 	}
@@ -313,7 +314,7 @@ func settleCoinflip(
 	toId int,
 	fromIds []int,
 ) (receiver User, err error) {
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return
 	}
@@ -433,7 +434,7 @@ func settleFundraise(
 	toId int,
 	fromIds []int,
 ) (receiver User, err error) {
-	txn, err := pg.Beginx()
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return
 	}
