@@ -334,7 +334,7 @@ func handleLogView(ctx context.Context, opts docopt.Opts) {
 func checkAllOutgoingPayments(ctx context.Context) {
 	var hashes []string
 	err := pg.Select(&hashes,
-		"SELECT payment_hash FROM lightning.transaction WHERE pending")
+		"SELECT payment_hash FROM lightning.transaction WHERE pending AND to_id IS NULL")
 	if err == sql.ErrNoRows {
 		err = nil
 	}

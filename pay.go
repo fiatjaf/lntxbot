@@ -290,7 +290,8 @@ func paymentHasFailed(ctx context.Context, hash string) {
 		TriggerMessage int `db:"trigger_message"`
 	}
 	err := pg.Get(&res, `
-DELETE FROM lightning.transaction WHERE payment_hash = $1
+DELETE FROM lightning.transaction
+WHERE payment_hash = $1 AND to_id IS NULL
 RETURNING from_id, trigger_message
     `, hash)
 	if err != nil {
