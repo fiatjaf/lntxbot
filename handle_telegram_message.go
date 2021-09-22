@@ -686,10 +686,10 @@ parsed:
 		}()
 	case opts["sats4ads"].(bool):
 		handleSats4Ads(ctx, u, opts)
-	case opts["satoshis"].(bool):
+	case opts["satoshis"].(bool), opts["calc"].(bool):
 		msats, err := parseSatoshis(opts)
 		if err == nil {
-			send(ctx, fmt.Sprintf("%.15g", float64(msats)/1000))
+			send(ctx, fmt.Sprintf("%.15g sat", float64(msats)/1000))
 		}
 	case opts["moon"].(bool):
 		moonURLs := []string{

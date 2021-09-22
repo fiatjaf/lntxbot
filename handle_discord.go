@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -189,7 +190,11 @@ parsed:
 		command, _ := opts.String("<command>")
 		go u.track("help", map[string]interface{}{"command": command})
 		go handleHelp(ctx, command)
-		break
+	case opts["satoshis"].(bool), opts["calc"].(bool):
+		msats, err := parseSatoshis(opts)
+		if err == nil {
+			send(ctx, fmt.Sprintf("%.15g sat", float64(msats)/1000))
+		}
 	default:
 		send(ctx, u, t.ERROR, t.T{"Err": "not implemented on Discord yet."})
 	}

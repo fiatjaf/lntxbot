@@ -122,12 +122,8 @@ var methods = []def{
 		argstr:  "(ticket [<satoshis>] | renamable [<satoshis>] | spammy | expensive [<satoshis> <pattern>] | language [<lang>] | coinflips)",
 	},
 	def{
-		aliases: []string{"satoshis"},
-		argstr:  "<satoshis>",
-	},
-	def{
-		aliases: []string{"dollar"},
-		argstr:  "<satoshis>",
+		aliases: []string{"satoshis", "calc"},
+		argstr:  "<expression>",
 	},
 	def{
 		aliases: []string{"moon"},
