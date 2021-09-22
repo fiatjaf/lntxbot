@@ -335,8 +335,12 @@ func handleAPI(ctx context.Context, opts docopt.Opts) {
 	case opts["url"].(bool):
 		send(ctx, qrURL(s.ServiceURL+"/"), s.ServiceURL+"/")
 	case opts["refresh"].(bool):
-		opts["bluewallet"] = true
-		send(ctx, u, t.COMPLETED)
+		if _, err := u.updatePassword(); err != nil {
+			log.Warn().Err(err).Stringer("user", &u).Msg("error updating password")
+			send(ctx, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+			return
+		}
+		send(ctx, t.COMPLETED)
 	default:
 		send(ctx, u, t.APICREDENTIALS, t.T{
 			"Full":       tokenFull,
