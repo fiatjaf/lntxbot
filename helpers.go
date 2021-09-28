@@ -34,6 +34,12 @@ import (
 var bolt11regex = regexp.MustCompile(`.*?((lnbcrt|lntb|lnbc)([0-9]{1,}[a-z0-9]+){1})`)
 
 var menuItems = map[string]*big.Rat{
+	"msat":  big.NewRat(1, 1),
+	"msats": big.NewRat(1, 1),
+	"sat":   big.NewRat(1000, 1),
+	"sats":  big.NewRat(1000, 1),
+	"btc":   big.NewRat(100000000000, 1),
+
 	"bear":       big.NewRat(5000, 1),
 	"popcorn":    big.NewRat(27000, 1),
 	"ziplock":    big.NewRat(50000, 1),
