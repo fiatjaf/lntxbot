@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -83,7 +82,7 @@ func serveLNURL() {
 		}
 
 		json.NewEncoder(w).Encode(lnurl.LNURLWithdrawResponse{
-			Callback:        fmt.Sprintf("https://%s/lnurl/withdraw/invoice", getHost(r)),
+			Callback:        fmt.Sprintf("%s/lnurl/withdraw/invoice", s.ServiceURL),
 			K1:              challenge,
 			MaxWithdrawable: 1000 * int64(chMax),
 			MinWithdrawable: 1000 * int64(chMax),
@@ -179,7 +178,7 @@ func serveLNURL() {
 			username = qs.Get("userid")
 		}
 
-		u, jmeta, err := lnurlPayUserMetadata(ctx, username)
+		u, metadata, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -188,12 +187,13 @@ func serveLNURL() {
 		go u.track("incoming lnurl-pay attempt", nil)
 
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-			LNURLResponse:  lnurl.OkResponse(),
-			Tag:            "payRequest",
-			Callback:       fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
+			LNURLResponse: lnurl.OkResponse(),
+			Tag:           "payRequest",
+			Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
+				s.ServiceURL, username),
 			MaxSendable:    1000000000,
 			MinSendable:    100000,
-			Metadata:       lnurl.Metadata{Encoded: string(jmeta)},
+			Metadata:       metadata,
 			CommentAllowed: 422,
 		})
 	})
@@ -203,7 +203,7 @@ func serveLNURL() {
 		username := mux.Vars(r)["username"]
 		qs := r.URL.Query()
 
-		receiver, jmeta, err := lnurlPayUserMetadata(ctx, username)
+		receiver, metadata, err := lnurlPayUserMetadata(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -215,12 +215,13 @@ func serveLNURL() {
 			go receiver.track("incoming lnurl-pay attempt", nil)
 
 			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-				LNURLResponse:  lnurl.OkResponse(),
-				Tag:            "payRequest",
-				Callback:       fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
+				LNURLResponse: lnurl.OkResponse(),
+				Tag:           "payRequest",
+				Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
+					s.ServiceURL, username),
 				MaxSendable:    1000000000,
 				MinSendable:    100000,
-				Metadata:       lnurl.Metadata{Encoded: string(jmeta)},
+				Metadata:       metadata,
 				CommentAllowed: 422,
 			})
 		} else {
@@ -233,7 +234,7 @@ func serveLNURL() {
 				return
 			}
 
-			hhash := sha256.Sum256(jmeta)
+			hhash := metadata.Hash()
 			bolt11, _, err := receiver.makeInvoice(ctx, &MakeInvoiceArgs{
 				IgnoreInvoiceSizeLimit: true,
 				Msatoshi:               msatoshi,
@@ -262,7 +263,7 @@ func serveLNURL() {
 func lnurlPayUserMetadata(
 	ctx context.Context,
 	username string,
-) (receiver User, jmeta []byte, err error) {
+) (receiver User, metadata lnurl.Metadata, err error) {
 	isTelegramUsername := false
 
 	if id, errx := strconv.Atoi(username); errx == nil {
@@ -276,8 +277,6 @@ func lnurlPayUserMetadata(
 	if err != nil {
 		return
 	}
-
-	var metadata lnurl.Metadata
 
 	metadata.Description = fmt.Sprintf("Fund %s account on t.me/%s.",
 		receiver.AtName(ctx), s.ServiceId)
@@ -294,7 +293,7 @@ func lnurlPayUserMetadata(
 
 		// add internet identifier
 		metadata.LightningAddress = fmt.Sprintf("%s@%s",
-			username, strings.Split(s.ServiceURL, "://")[1])
+			username, getHost())
 	}
 
 	// we want all your data
@@ -302,6 +301,5 @@ func lnurlPayUserMetadata(
 	metadata.PayerIDs.LightningAddress = true
 	metadata.PayerIDs.Email = true
 
-	jmeta, err = json.Marshal(metadata)
 	return
 }

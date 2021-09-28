@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fiatjaf/go-lnurl"
@@ -395,15 +394,15 @@ func lnurlpayFinish(
 		params.Set("comment", comment)
 	}
 
+	var m lnurl.Metadata
+	json.Unmarshal([]byte(metadata), &m)
+
 	// add payerid
 	if !anonymous {
-		var m lnurl.Metadata
-		json.Unmarshal([]byte(metadata), &m)
-
 		payerIDs := [][]string{}
 		if m.PayerIDs.LightningAddress {
 			payerIDs = append(payerIDs, []string{"text/identifier",
-				u.Username + "@" + strings.Split(s.ServiceURL, "://")[1]})
+				u.Username + "@" + getHost()})
 		}
 		if m.PayerIDs.FreeName {
 			payerIDs = append(payerIDs, []string{"text/plain", u.Username})
@@ -458,8 +457,13 @@ func lnurlpayFinish(
 		return
 	}
 
-	if inv.DescriptionHash != hashString(metadata) {
-		send(ctx, u, t.ERROR, t.T{"Err": "Got invoice with wrong description_hash"})
+	hhash := m.Hash()
+	if inv.DescriptionHash != hex.EncodeToString(hhash[:]) {
+		send(ctx, u, t.ERROR, t.T{"Err": fmt.Sprintf(
+			"Wrong description_hash (expected: %s, got: %s)",
+			hex.EncodeToString(hhash[:]),
+			inv.DescriptionHash,
+		)})
 		return
 	}
 

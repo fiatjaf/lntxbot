@@ -518,12 +518,8 @@ func savePaymentAttemptLog(hash, bolt11 string) {
 	// TODO
 }
 
-func getHost(r *http.Request) string {
-	if host := r.Header.Get("X-Forwarded-Host"); host != "" {
-		return host
-	} else {
-		return r.Host
-	}
+func getHost() string {
+	return strings.Split(s.ServiceURL, "://")[1]
 }
 
 var NameDesc = regexp.MustCompile(`^([\w_\-.@+]{1,40}):  \S`)
