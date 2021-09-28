@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -401,30 +400,30 @@ func getVariadicFieldOrReplyToContent(ctx context.Context, opts docopt.Opts, opt
 	return ""
 }
 
-func base64ImageFromURL(url string) (string, error) {
+func imageBytesFromURL(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return "", errors.New("image returned status " + strconv.Itoa(resp.StatusCode))
+		return nil, errors.New("image returned status " + strconv.Itoa(resp.StatusCode))
 	}
 
 	img, _, err := image.Decode(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode image from %s: %w", url, err)
+		return nil, fmt.Errorf("failed to decode image from %s: %w", url, err)
 	}
 
 	img = resize.Resize(160, 0, img, resize.NearestNeighbor)
 	out := &bytes.Buffer{}
 	err = jpeg.Encode(out, img, &jpeg.Options{50})
 	if err != nil {
-		return "", fmt.Errorf("failed to encode image: %w", err)
+		return nil, fmt.Errorf("failed to encode image: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(out.Bytes()), nil
+	return out.Bytes(), nil
 }
 
 type BalanceGetter interface {

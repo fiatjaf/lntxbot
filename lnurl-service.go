@@ -188,13 +188,13 @@ func serveLNURL() {
 		go u.track("incoming lnurl-pay attempt", nil)
 
 		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-			LNURLResponse:   lnurl.OkResponse(),
-			Tag:             "payRequest",
-			Callback:        fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
-			MaxSendable:     1000000000,
-			MinSendable:     100000,
-			EncodedMetadata: string(jmeta),
-			CommentAllowed:  422,
+			LNURLResponse:  lnurl.OkResponse(),
+			Tag:            "payRequest",
+			Callback:       fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
+			MaxSendable:    1000000000,
+			MinSendable:    100000,
+			Metadata:       lnurl.Metadata{Encoded: string(jmeta)},
+			CommentAllowed: 422,
 		})
 	})
 
@@ -215,13 +215,13 @@ func serveLNURL() {
 			go receiver.track("incoming lnurl-pay attempt", nil)
 
 			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
-				LNURLResponse:   lnurl.OkResponse(),
-				Tag:             "payRequest",
-				Callback:        fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
-				MaxSendable:     1000000000,
-				MinSendable:     100000,
-				EncodedMetadata: string(jmeta),
-				CommentAllowed:  422,
+				LNURLResponse:  lnurl.OkResponse(),
+				Tag:            "payRequest",
+				Callback:       fmt.Sprintf("https://%s/.well-known/lnurlp/%s", getHost(r), username),
+				MaxSendable:    1000000000,
+				MinSendable:    100000,
+				Metadata:       lnurl.Metadata{Encoded: string(jmeta)},
+				CommentAllowed: 422,
 			})
 		} else {
 			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay second request")
@@ -277,28 +277,30 @@ func lnurlPayUserMetadata(
 		return
 	}
 
-	metadata := [][]string{
-		[]string{
-			"text/plain",
-			fmt.Sprintf("Fund %s account on t.me/%s.",
-				receiver.AtName(ctx), s.ServiceId),
-		},
-	}
+	var metadata lnurl.Metadata
+
+	metadata.Description = fmt.Sprintf("Fund %s account on t.me/%s.",
+		receiver.AtName(ctx), s.ServiceId)
 
 	if isTelegramUsername {
 		// get user avatar from public t.me/ page
 		if url, err := getTelegramUserPictureURL(username); err == nil {
-			if b64, err := base64ImageFromURL(url); err == nil {
-				metadata = append(metadata,
-					[]string{"image/jpeg;base64", b64})
+			var err error
+			metadata.Image.Bytes, err = imageBytesFromURL(url)
+			if err == nil {
+				metadata.Image.Ext = "jpeg"
 			}
 		}
 
 		// add internet identifier
-		metadata = append(metadata,
-			[]string{"text/identifier", fmt.Sprintf("%s@%s",
-				username, s.ServiceURL[len("https://"):])})
+		metadata.LightningAddress = fmt.Sprintf("%s@%s",
+			username, strings.Split(s.ServiceURL, "://")[1])
 	}
+
+	// we want all your data
+	metadata.PayerIDs.FreeName = true
+	metadata.PayerIDs.LightningAddress = true
+	metadata.PayerIDs.Email = true
 
 	jmeta, err = json.Marshal(metadata)
 	return

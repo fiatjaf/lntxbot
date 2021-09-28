@@ -51,16 +51,10 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 	// maybe this is a lightning address like username@domain.com?
 	if _, _, ok := lnurl.ParseInternetIdentifier(username); ok {
-		if !anonymous && u.Username != "" {
-			if description == "" {
-				description = "_"
-			}
-			description = u.Username + ":  " + description
-		}
-
 		handleLNURL(ctx, username, handleLNURLOpts{
 			payAmountWithoutPrompt: &msats,
 			forceSendComment:       description,
+			anonymous:              anonymous,
 		})
 		// end here since the flow will proceed on handleLNURL
 		return

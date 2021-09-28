@@ -400,7 +400,6 @@ VALUES (
 )
     `, u.Id, target.Id, anonymous, msats, fees, descn, tagn, hashn, tgMessageId)
 	if err != nil {
-		log.Print(err)
 		return ErrDatabase
 	}
 
@@ -411,7 +410,6 @@ VALUES (
 
 	err = txn.Commit()
 	if err != nil {
-		log.Print(err)
 		return ErrDatabase
 	}
 

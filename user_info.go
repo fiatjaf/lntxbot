@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"strconv"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 )
@@ -22,6 +26,33 @@ type Info struct {
 type TaggedBalance struct {
 	Tag     string  `db:"tag"`
 	Balance float64 `db:"balance"`
+}
+
+func (u User) LinkingKey(domain string) (*btcec.PrivateKey, *btcec.PublicKey) {
+	seedhash := sha256.Sum256([]byte(
+		fmt.Sprintf("lnurlkeyseed:%s:%d:%s",
+			domain, u.Id, s.TelegramBotToken)))
+	return btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
+}
+
+func (u User) SignKeyAuth(domain string, k1hex string) (key string, sig string, err error) {
+	// lnurl-auth: create a key based on the user id and sign with it
+	sk, pk := u.LinkingKey(domain)
+
+	k1, err := hex.DecodeString(k1hex)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid k1 hex '%s': %w", k1hex, err)
+	}
+
+	signature, err := sk.Sign(k1)
+	if err != nil {
+		return "", "", fmt.Errorf("error signing k1: %w", err)
+	}
+
+	sig = hex.EncodeToString(signature.Serialize())
+	key = hex.EncodeToString(pk.SerializeCompressed())
+
+	return key, sig, nil
 }
 
 func (u User) getInfo() (info Info, err error) {

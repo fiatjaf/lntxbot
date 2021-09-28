@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -10,9 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/fiatjaf/go-lnurl"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
@@ -58,6 +57,7 @@ type handleLNURLOpts struct {
 	balanceCheckService    *string
 	payAmountWithoutPrompt *int64
 	forceSendComment       string
+	anonymous              bool
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
@@ -108,27 +108,16 @@ func handleLNURLAuth(
 	opts handleLNURLOpts,
 	params lnurl.LNURLAuthParams,
 ) {
-	// lnurl-auth: create a key based on the user id and sign with it
-	seedhash := sha256.Sum256([]byte(fmt.Sprintf("lnurlkeyseed:%s:%d:%s", params.Host, u.Id, s.TelegramBotToken)))
-	sk, pk := btcec.PrivKeyFromBytes(btcec.S256(), seedhash[:])
-	k1, err := hex.DecodeString(params.K1)
+	key, sig, err := u.SignKeyAuth(params.Host, params.K1)
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 		return
 	}
-	sig, err := sk.Sign(k1)
-	if err != nil {
-		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-
-	signature := hex.EncodeToString(sig.Serialize())
-	pubkey := hex.EncodeToString(pk.SerializeCompressed())
 
 	var sentsigres lnurl.LNURLResponse
 	_, err = napping.Get(params.Callback, &url.Values{
-		"sig": {signature},
-		"key": {pubkey},
+		"key": {key},
+		"sig": {sig},
 	}, &sentsigres, &sentsigres)
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -145,7 +134,7 @@ func handleLNURLAuth(
 	if !opts.loginSilently {
 		send(ctx, u, t.LNURLAUTHSUCCESS, t.T{
 			"Host":      params.Host,
-			"PublicKey": pubkey,
+			"PublicKey": key,
 		})
 
 		go u.track("lnurl-auth", map[string]interface{}{"domain": params.Host})
@@ -184,7 +173,8 @@ func handleLNURLWithdraw(
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 		return
 	}
-	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Msg("sending invoice to lnurl callback")
+	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).
+		Msg("sending invoice to lnurl callback")
 	var sentinvres lnurl.LNURLResponse
 	_, err = napping.Get(params.Callback, &url.Values{
 		"k1": {params.K1},
@@ -213,8 +203,8 @@ func handleLNURLPay(
 	params lnurl.LNURLPayResponse1,
 ) {
 	receiverName := params.CallbackURL.Host
-	if identifier := params.Metadata.LightningAddress(); identifier != "" {
-		receiverName = identifier
+	if params.Metadata.LightningAddress != "" {
+		receiverName = params.Metadata.LightningAddress
 	}
 
 	if opts.payAmountWithoutPrompt != nil {
@@ -239,7 +229,8 @@ func handleLNURLPay(
 			*opts.payAmountWithoutPrompt,
 			opts.forceSendComment,
 			params.Callback,
-			params.EncodedMetadata,
+			params.Metadata.Encoded,
+			opts.anonymous,
 		)
 		return
 	}
@@ -265,7 +256,7 @@ func handleLNURLPay(
 		if params.CommentAllowed > 0 {
 			// need a comment
 			lnurlpayAskForComment(ctx, u, params.Callback,
-				params.EncodedMetadata, fixedAmount)
+				params.Metadata.Encoded, fixedAmount)
 		} else {
 			// we have everything, proceed to pay
 			lnurlpayFinish(
@@ -274,7 +265,8 @@ func handleLNURLPay(
 				fixedAmount,
 				"",
 				params.Callback,
-				params.EncodedMetadata,
+				params.Metadata.Encoded,
+				opts.anonymous,
 			)
 		}
 	} else {
@@ -298,9 +290,9 @@ func handleLNURLPay(
 		}
 
 		var imageURL interface{}
-		if params.Metadata.ImageExtension() != "" {
-			imageURL = tempAssetURL("."+params.Metadata.ImageExtension(),
-				params.Metadata.ImageBytes())
+		if params.Metadata.Image.Ext != "" {
+			imageURL = tempAssetURL("."+params.Metadata.Image.Ext,
+				params.Metadata.Image.Bytes)
 		}
 
 		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{
@@ -308,7 +300,8 @@ func handleLNURLPay(
 			"FixedAmount": float64(fixedAmount) / 1000,
 			"Max":         float64(params.MaxSendable) / 1000,
 			"Min":         float64(params.MinSendable) / 1000,
-			"Text":        params.Metadata.Description(),
+			"Text":        params.Metadata.Description,
+			"Long":        params.Metadata.LongDescription,
 		}, ctx.Value("message"), actionPrompt, imageURL)
 		if sent == nil {
 			return
@@ -320,7 +313,7 @@ func handleLNURLPay(
 			Metadata     string `json:"metadata"`
 			URL          string `json:"url"`
 			NeedsComment bool   `json:"needs_comment"`
-		}{"lnurlpay-amount", params.EncodedMetadata, params.Callback,
+		}{"lnurlpay-amount", params.Metadata.Encoded, params.Callback,
 			params.CommentAllowed > 0})
 		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 	}
@@ -343,7 +336,7 @@ func handleLNURLPayAmount(
 		lnurlpayAskForComment(ctx, u, callback, metadata, msats)
 	} else {
 		// proceed to fetch invoice and pay
-		lnurlpayFinish(ctx, u, msats, "", callback, metadata)
+		lnurlpayFinish(ctx, u, msats, "", callback, metadata, false)
 	}
 }
 
@@ -356,7 +349,7 @@ func handleLNURLPayComment(ctx context.Context, comment string, data gjson.Resul
 	msats := data.Get("msatoshi").Int()
 
 	// proceed to fetch invoice and pay
-	lnurlpayFinish(ctx, u, msats, comment, callback, metadata)
+	lnurlpayFinish(ctx, u, msats, comment, callback, metadata, false)
 }
 
 func lnurlpayAskForComment(
@@ -390,12 +383,50 @@ func lnurlpayFinish(
 	comment string,
 	callback string,
 	metadata string,
+	anonymous bool,
 ) {
+	// add amount
 	params := &url.Values{
 		"amount": {fmt.Sprintf("%d", msats)},
 	}
+
+	// add comment
 	if comment != "" {
 		params.Set("comment", comment)
+	}
+
+	// add payerid
+	if !anonymous {
+		var m lnurl.Metadata
+		json.Unmarshal([]byte(metadata), &m)
+
+		payerIDs := [][]string{}
+		if m.PayerIDs.LightningAddress {
+			payerIDs = append(payerIDs, []string{"text/identifier",
+				u.Username + "@" + strings.Split(s.ServiceURL, "://")[1]})
+		}
+		if m.PayerIDs.FreeName {
+			payerIDs = append(payerIDs, []string{"text/plain", u.Username})
+		}
+		if m.PayerIDs.KeyAuth.Allowed {
+			callbackURL, err := url.Parse(callback)
+			if err != nil {
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+				return
+			}
+
+			key, sig, err := u.SignKeyAuth(callbackURL.Host, m.PayerIDs.KeyAuth.K1)
+			if err != nil {
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+				return
+			}
+
+			payerIDs = append(payerIDs, []string{"application/lnurl-auth",
+				key, sig})
+		}
+
+		jpayerIDs, _ := json.Marshal(payerIDs)
+		params.Set("payerid", string(jpayerIDs))
 	}
 
 	// call callback with params and get invoice

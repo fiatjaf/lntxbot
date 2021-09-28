@@ -105,7 +105,6 @@ type RateLimiterPolicy struct {
 }
 
 func checkInvoiceRateLimit(key string, userId int) bool {
-	log.Print(key, " ", userId)
 	resp, err := req.Get(
 		fmt.Sprintf("https://api.ratebucket.io/v1/increment/%s/%d", key, userId))
 	if err == nil && resp.Response().StatusCode >= 300 {
@@ -117,7 +116,6 @@ func checkInvoiceRateLimit(key string, userId int) bool {
 		return true
 	}
 
-	log.Print(resp.String())
 	if gjson.Parse(resp.String()).Get("requests_remaining").Int() < 0 {
 		return false
 	}

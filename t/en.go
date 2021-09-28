@@ -39,7 +39,11 @@ lnurl-auth success!
 `,
 	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
 
-{{if .Text}}<code>{{.Text | html}}</code>{{end}}
+{{if .Text}}<code>{{.Text | html}}</code>{{end}}{{if .Long}}
+
+---
+
+<code>{{.Long | html}}</code>{{end}}
 
 {{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
     `,
