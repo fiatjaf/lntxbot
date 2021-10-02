@@ -1,6 +1,8 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/hex"
@@ -11,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/fiatjaf/go-lnurl"
-	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/tidwall/gjson"
@@ -92,7 +94,7 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 		handleLNURLAuth(ctx, u, opts, params)
 	case lnurl.LNURLWithdrawResponse:
 		handleLNURLWithdraw(ctx, u, opts, params)
-	case lnurl.LNURLPayResponse1:
+	case lnurl.LNURLPayParams:
 		handleLNURLPay(ctx, u, opts, params)
 	default:
 		send(ctx, u, t.LNURLUNSUPPORTED, ctx.Value("message"))
@@ -199,9 +201,9 @@ func handleLNURLPay(
 	ctx context.Context,
 	u User,
 	opts handleLNURLOpts,
-	params lnurl.LNURLPayResponse1,
+	params lnurl.LNURLPayParams,
 ) {
-	receiverName := params.CallbackURL.Host
+	receiverName := params.CallbackURL().Host
 	if params.Metadata.LightningAddress != "" {
 		receiverName = params.Metadata.LightningAddress
 	}
@@ -225,10 +227,9 @@ func handleLNURLPay(
 		lnurlpayFinish(
 			ctx,
 			u,
+			params,
 			*opts.payAmountWithoutPrompt,
 			opts.forceSendComment,
-			params.Callback,
-			params.Metadata.Encoded,
 			opts.anonymous,
 		)
 		return
@@ -241,7 +242,7 @@ func handleLNURLPay(
 	}
 
 	go u.track("lnurl-pay", map[string]interface{}{
-		"domain": params.CallbackURL.Host,
+		"domain": params.CallbackURL().Host,
 		"fixed":  float64(fixedAmount) / 1000,
 		"max":    float64(params.MaxSendable) / 1000,
 		"min":    float64(params.MinSendable) / 1000,
@@ -254,17 +255,15 @@ func handleLNURLPay(
 
 		if params.CommentAllowed > 0 {
 			// need a comment
-			lnurlpayAskForComment(ctx, u, params.Callback,
-				params.Metadata.Encoded, fixedAmount)
+			lnurlpayAskForComment(ctx, u, params, fixedAmount)
 		} else {
 			// we have everything, proceed to pay
 			lnurlpayFinish(
 				ctx,
 				u,
+				params,
 				fixedAmount,
 				"",
-				params.Callback,
-				params.Metadata.Encoded,
 				opts.anonymous,
 			)
 		}
@@ -308,12 +307,9 @@ func handleLNURLPay(
 
 		sentId, _ := sent.(int)
 		data, _ := json.Marshal(struct {
-			Type         string `json:"type"`
-			Metadata     string `json:"metadata"`
-			URL          string `json:"url"`
-			NeedsComment bool   `json:"needs_comment"`
-		}{"lnurlpay-amount", params.Metadata.Encoded, params.Callback,
-			params.CommentAllowed > 0})
+			Type   string               `json:"type"`
+			Params lnurl.LNURLPayParams `json:"params"`
+		}{"lnurlpay-amount", params})
 		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 	}
 }
@@ -326,16 +322,15 @@ func handleLNURLPayAmount(
 	u := ctx.Value("initiator").(User)
 
 	// get data from redis object
-	callback := data.Get("url").String()
-	metadata := data.Get("metadata").String()
-	needsComment := data.Get("needs_comment").Bool()
+	var params lnurl.LNURLPayParams
+	json.Unmarshal([]byte(data.Get("params").String()), &params)
 
-	if needsComment {
+	if params.CommentAllowed > 0 {
 		// ask for comment
-		lnurlpayAskForComment(ctx, u, callback, metadata, msats)
+		lnurlpayAskForComment(ctx, u, params, msats)
 	} else {
 		// proceed to fetch invoice and pay
-		lnurlpayFinish(ctx, u, msats, "", callback, metadata, false)
+		lnurlpayFinish(ctx, u, params, msats, "", false)
 	}
 }
 
@@ -343,132 +338,89 @@ func handleLNURLPayComment(ctx context.Context, comment string, data gjson.Resul
 	u := ctx.Value("initiator").(User)
 
 	// get data from redis object
-	callback := data.Get("url").String()
-	metadata := data.Get("metadata").String()
+	var params lnurl.LNURLPayParams
+	json.Unmarshal([]byte(data.Get("params").String()), &params)
+
 	msats := data.Get("msatoshi").Int()
 
 	// proceed to fetch invoice and pay
-	lnurlpayFinish(ctx, u, msats, comment, callback, metadata, false)
+	lnurlpayFinish(ctx, u, params, msats, comment, false)
 }
 
 func lnurlpayAskForComment(
 	ctx context.Context,
 	u User,
-	callback,
-	metadata string,
+	params lnurl.LNURLPayParams,
 	msats int64,
 ) {
-	callbackURL, _ := url.Parse(callback)
 	sent := send(ctx, u, ctx.Value("message"), &tgbotapi.ForceReply{ForceReply: true},
-		t.LNURLPAYPROMPTCOMMENT, t.T{"Domain": callbackURL.Host})
+		t.LNURLPAYPROMPTCOMMENT, t.T{"Domain": params.CallbackURL().Host})
 	if sent == nil {
 		return
 	}
 	sentId, _ := sent.(int)
 
 	data, _ := json.Marshal(struct {
-		Type     string `json:"type"`
-		Metadata string `json:"metadata"`
-		MSatoshi int64  `json:"msatoshi"`
-		URL      string `json:"url"`
-	}{"lnurlpay-comment", metadata, msats, callback})
+		Type     string               `json:"type"`
+		Params   lnurl.LNURLPayParams `json:"params"`
+		MSatoshi int64                `json:"msatoshi"`
+	}{"lnurlpay-comment", params, msats})
 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 }
 
 func lnurlpayFinish(
 	ctx context.Context,
 	u User,
+	params lnurl.LNURLPayParams,
 	msats int64,
 	comment string,
-	callback string,
-	metadata string,
 	anonymous bool,
 ) {
-	// add amount
-	params := &url.Values{
-		"amount": {fmt.Sprintf("%d", msats)},
-	}
+	var payerdata *lnurl.PayerDataValues
+	var proofOfPayerKey *btcec.PrivateKey
 
-	// add comment
-	if comment != "" {
-		params.Set("comment", comment)
-	}
+	if !anonymous && params.PayerData.Exists() {
+		payerdata = &lnurl.PayerDataValues{}
 
-	var m lnurl.Metadata
-	json.Unmarshal([]byte(metadata), &m)
-
-	// add payerid
-	if !anonymous {
-		payerIDs := [][]string{}
-		if m.PayerIDs.LightningAddress {
-			payerIDs = append(payerIDs, []string{"text/identifier",
-				u.Username + "@" + getHost()})
+		if params.PayerData.LightningAddress != nil {
+			payerdata.LightningAddress = u.Username + "@" + getHost()
 		}
-		if m.PayerIDs.FreeName {
-			payerIDs = append(payerIDs, []string{"text/plain", u.Username})
+		if params.PayerData.FreeName != nil {
+			payerdata.FreeName = u.Username
 		}
-		if m.PayerIDs.KeyAuth.Allowed {
-			callbackURL, err := url.Parse(callback)
+		if params.PayerData.KeyAuth != nil {
+			key, sig, err := u.SignKeyAuth(
+				params.CallbackURL().Host, params.PayerData.KeyAuth.K1)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 				return
 			}
 
-			key, sig, err := u.SignKeyAuth(callbackURL.Host, m.PayerIDs.KeyAuth.K1)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-				return
+			payerdata.KeyAuth = &lnurl.PayerDataKeyAuthValues{
+				K1:  params.PayerData.KeyAuth.K1,
+				Key: key,
+				Sig: sig,
 			}
+		}
+		if params.PayerData.PubKey != nil {
+			proofOfPayerKey, _ = btcec.NewPrivateKey(btcec.S256())
+			payerdata.PubKey = hex.EncodeToString(
+				proofOfPayerKey.PubKey().SerializeCompressed(),
+			)
+		}
+	}
 
-			payerIDs = append(payerIDs, []string{"application/lnurl-auth",
-				key, sig})
+	// call callback with params and get invoice (already verified)
+	res, err := params.Call(msats, comment, payerdata)
+	if err != nil {
+		if lnurlerr, ok := err.(lnurl.LNURLErrorResponse); ok {
+			send(ctx, u, t.LNURLERROR, t.T{
+				"Host":   params.CallbackURL().Host,
+				"Reason": lnurlerr.Reason,
+			})
 		}
 
-		jpayerIDs, _ := json.Marshal(payerIDs)
-		params.Set("payerid", string(jpayerIDs))
-	}
-
-	// call callback with params and get invoice
-	var res lnurl.LNURLPayResponse2
-	_, err := napping.Get(callback, params, &res, &res)
-	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-	if res.Status == "ERROR" {
-		callbackURL, _ := url.Parse(callback)
-		if callbackURL == nil {
-			callbackURL = &url.URL{Host: "<unknown>"}
-		}
-
-		send(ctx, u, t.LNURLERROR, t.T{
-			"Host":   callbackURL.Host,
-			"Reason": res.Reason,
-		})
-		return
-	}
-
-	log.Debug().Interface("res", res).Msg("got lnurl-pay values")
-
-	// check invoice amount
-	inv, err := decodepay.Decodepay(res.PR)
-	if err != nil {
-		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-		return
-	}
-
-	hhash := m.Hash()
-	if inv.DescriptionHash != hex.EncodeToString(hhash[:]) {
-		send(ctx, u, t.ERROR, t.T{"Err": fmt.Sprintf(
-			"Wrong description_hash (expected: %s, got: %s)",
-			hex.EncodeToString(hhash[:]),
-			inv.DescriptionHash,
-		)})
-		return
-	}
-
-	if int64(inv.MSatoshi) != msats {
-		send(ctx, u, t.ERROR, t.T{"Err": "Got invoice with wrong amount."})
 		return
 	}
 
@@ -486,10 +438,49 @@ func lnurlpayFinish(
 		go func() {
 			preimage := <-waitPaymentSuccess(hash)
 			bpreimage, _ := hex.DecodeString(preimage)
-			callbackURL, _ := url.Parse(callback)
 
-			// send raw metadata, for later checking with the description_hash
-			zippedmeta, err := zipdata(hashString(metadata)+".json", []byte(metadata))
+			// send all metadata about this payment as a file to be kept on telegram
+			zipbuf := new(bytes.Buffer)
+			zip := zip.NewWriter(zipbuf)
+
+			if f, err := zip.Create("metadata.json"); err != nil {
+				goto zipfinished
+			} else {
+				if _, err = f.Write([]byte(params.Metadata.Encoded)); err != nil {
+					goto zipfinished
+				}
+			}
+
+			if payerdata != nil {
+				if f, err := zip.Create("payerdata.json"); err != nil {
+					goto zipfinished
+				} else {
+					if _, err = f.Write([]byte(res.PayerDataJSON)); err != nil {
+						goto zipfinished
+					}
+				}
+
+				if proofOfPayerKey != nil {
+					if f, err := zip.Create("proof-of-payer.key"); err != nil {
+						goto zipfinished
+					} else {
+						if _, err = f.Write(proofOfPayerKey.Serialize()); err != nil {
+							goto zipfinished
+						}
+					}
+				}
+			}
+
+			err = zip.Close()
+			if err != nil {
+				goto zipfinished
+			}
+			//zippedmeta, err := zipfiles(res.ParsedInvoice.DescriptionHash+".json",
+			//    "metadata.json", []byte(params.Metadata.Encoded),
+			//    "payerdata.json", []byte(res.PayerDataJSON),
+			//    ".json", []byte(res.PayerDataJSON),
+			//)
+		zipfinished:
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to zip metadata")
 				send(ctx, u, t.ERROR, t.T{
@@ -498,10 +489,10 @@ func lnurlpayFinish(
 			}
 
 			send(ctx, u, t.LNURLPAYMETADATA, t.T{
-				"Domain":         callbackURL.Host,
-				"Hash":           inv.PaymentHash,
-				"HashFirstChars": inv.PaymentHash[:5],
-			}, tempAssetURL(".zip", zippedmeta))
+				"Domain":         params.CallbackURL().Host,
+				"Hash":           res.ParsedInvoice.PaymentHash,
+				"HashFirstChars": res.ParsedInvoice.PaymentHash[:5],
+			}, tempAssetURL(".zip", zipbuf.Bytes()))
 
 			// notify user with success action end applicable
 			if res.SuccessAction != nil {
@@ -523,7 +514,7 @@ func lnurlpayFinish(
 				time.Sleep(2 * time.Second)
 
 				send(ctx, u, t.LNURLPAYSUCCESS, t.T{
-					"Domain":        callbackURL.Host,
+					"Domain":        params.CallbackURL().Host,
 					"Text":          text,
 					"Value":         value,
 					"URL":           res.SuccessAction.URL,

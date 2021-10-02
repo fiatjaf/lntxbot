@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -491,27 +490,6 @@ begin:
 
 	nodeAliases.Set(id, alias)
 	goto begin
-}
-
-func zipdata(filename string, content []byte) (zipped []byte, err error) {
-	buf := new(bytes.Buffer)
-	w := zip.NewWriter(buf)
-
-	f, err := w.Create(filename)
-	if err != nil {
-		return
-	}
-	_, err = f.Write(content)
-	if err != nil {
-		return
-	}
-
-	err = w.Close()
-	if err != nil {
-		return
-	}
-
-	return buf.Bytes(), nil
 }
 
 func savePaymentAttemptLog(hash, bolt11 string) {

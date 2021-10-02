@@ -57,6 +57,9 @@ type InvoiceExtra struct {
 	// lnurlpay comment
 	Comment string
 
+	// lnurlpay payerdata
+	PayerData lnurl.PayerDataValues
+
 	Message *tgbotapi.Message
 }
 

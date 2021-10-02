@@ -186,7 +186,7 @@ func serveLNURL() {
 
 		go u.track("incoming lnurl-pay attempt", nil)
 
-		json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+		json.NewEncoder(w).Encode(lnurl.LNURLPayParams{
 			LNURLResponse: lnurl.OkResponse(),
 			Tag:           "payRequest",
 			Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
@@ -214,7 +214,7 @@ func serveLNURL() {
 
 			go receiver.track("incoming lnurl-pay attempt", nil)
 
-			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
+			json.NewEncoder(w).Encode(lnurl.LNURLPayParams{
 				LNURLResponse: lnurl.OkResponse(),
 				Tag:           "payRequest",
 				Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
@@ -223,6 +223,11 @@ func serveLNURL() {
 				MinSendable:    100000,
 				Metadata:       metadata,
 				CommentAllowed: 422,
+				PayerData: lnurl.PayerDataSpec{
+					FreeName:         &lnurl.PayerDataItemSpec{},
+					LightningAddress: &lnurl.PayerDataItemSpec{},
+					Email:            &lnurl.PayerDataItemSpec{},
+				},
 			})
 		} else {
 			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay second request")
@@ -234,13 +239,24 @@ func serveLNURL() {
 				return
 			}
 
-			hhash := metadata.Hash()
+			var hhash [32]byte
+			payerdata := qs.Get("payerdata")
+			if payerdata == "" {
+				hhash = metadata.Hash()
+			} else {
+				hhash = metadata.HashWithPayerData(payerdata)
+			}
+
+			var payerData lnurl.PayerDataValues
+			json.Unmarshal([]byte(payerdata), &payerData)
+
 			bolt11, _, err := receiver.makeInvoice(ctx, &MakeInvoiceArgs{
 				IgnoreInvoiceSizeLimit: true,
 				Msatoshi:               msatoshi,
 				DescriptionHash:        hex.EncodeToString(hhash[:]),
 				Extra: InvoiceExtra{
-					Comment: qs.Get("comment"),
+					Comment:   qs.Get("comment"),
+					PayerData: payerData,
 				},
 			})
 			if err != nil {
@@ -250,10 +266,10 @@ func serveLNURL() {
 				return
 			}
 
-			json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
+			json.NewEncoder(w).Encode(lnurl.LNURLPayValues{
 				LNURLResponse: lnurl.OkResponse(),
 				PR:            bolt11,
-				Routes:        make([][]lnurl.RouteInfo, 0),
+				Routes:        []struct{}{},
 				Disposable:    lnurl.FALSE,
 			})
 		}
@@ -295,11 +311,6 @@ func lnurlPayUserMetadata(
 		metadata.LightningAddress = fmt.Sprintf("%s@%s",
 			username, getHost())
 	}
-
-	// we want all your data
-	metadata.PayerIDs.FreeName = true
-	metadata.PayerIDs.LightningAddress = true
-	metadata.PayerIDs.Email = true
 
 	return
 }
