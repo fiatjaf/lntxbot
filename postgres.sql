@@ -3,9 +3,9 @@ CREATE SCHEMA lightning;
 CREATE TABLE account (
   id serial PRIMARY KEY,
 
-  telegram_id int UNIQUE,
+  telegram_id bigint UNIQUE,
   telegram_username text UNIQUE,
-  telegram_chat_id int, -- telegram private chat id
+  telegram_chat_id bigint, -- telegram private chat id
 
   discord_id text UNIQUE,
   discord_username text UNIQUE,

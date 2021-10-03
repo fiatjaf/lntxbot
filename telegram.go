@@ -68,7 +68,7 @@ func getChatOwner(chatId int64) (User, error) {
 
 	for _, admin := range admins {
 		if admin.Status == "creator" {
-			user, tcase, err := ensureTelegramUser(admin.User.ID, admin.User.UserName, admin.User.LanguageCode)
+			user, tcase, err := ensureTelegramUser(&tgbotapi.Message{From: admin.User})
 			if err != nil {
 				log.Warn().Err(err).Int("case", tcase).
 					Str("username", admin.User.UserName).

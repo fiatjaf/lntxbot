@@ -84,18 +84,16 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 			description = username + " " + description
 
 			log.Debug().Str("desc", description).Msg("it's a reply-tip")
-			reply := message.ReplyToMessage
 
 			var cas int
-			rec, cas, err := ensureTelegramUser(
-				reply.From.ID, reply.From.UserName, reply.From.LanguageCode)
+			rec, cas, err := ensureTelegramUser(message.ReplyToMessage)
 			receiver = &rec
 			if err != nil {
 				send(ctx, g, u, t.SAVERECEIVERFAIL)
 				log.Warn().Err(err).Int("case", cas).
-					Str("username", reply.From.UserName).
-					Int("id", reply.From.ID).
-					Msg("failed to ensure user on reply-tip")
+					Str("username", message.ReplyToMessage.From.UserName).
+					Int("id", message.ReplyToMessage.From.ID).
+					Msg("failed to ensure user on message.ReplyToMessage-tip")
 				return
 			}
 			goto ensured

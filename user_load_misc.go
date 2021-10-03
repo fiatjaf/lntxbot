@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 	"github.com/msingleton/amplitude-go"
 )
@@ -16,7 +17,7 @@ import (
 type User struct {
 	Id               int    `db:"id"`
 	Username         string `db:"username"`
-	TelegramId       int    `db:"telegram_id"`
+	TelegramId       int64  `db:"telegram_id"`
 	DiscordId        string `db:"discord_id"`
 	TelegramChatId   int64  `db:"telegram_chat_id"`
 	DiscordChannelId string `db:"discord_channel_id"`
@@ -92,8 +93,21 @@ WHERE discord_id = $1
 	return
 }
 
-func ensureTelegramUser(telegramId int, username string, locale string) (u User, tcase int, err error) {
-	username = strings.ToLower(username)
+func ensureTelegramUser(message *tgbotapi.Message) (u User, tcase int, err error) {
+	var username string
+	var telegramId int64
+	var locale = "en"
+
+	switch isChannelOrGroupUser(message.From) {
+	case true:
+		telegramId = message.Chat.ID
+		username = strings.ToLower(message.Chat.UserName)
+	case false:
+		telegramId = int64(message.From.ID)
+		username = strings.ToLower(message.From.UserName)
+		locale = message.From.LanguageCode
+	}
+
 	vusername := sql.NullString{String: username, Valid: username != ""}
 	var userRows []User
 
@@ -215,6 +229,12 @@ func (u *User) setChat(id int64) error {
 	_, err := pg.Exec(
 		`UPDATE account SET telegram_chat_id = $1 WHERE id = $2`,
 		id, u.Id)
+
+	if err != nil {
+		log.Warn().Err(err).Stringer("user", u).Int64("chat", id).
+			Msg("failed to set chat id")
+	}
+
 	return err
 }
 

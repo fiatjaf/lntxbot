@@ -16,8 +16,7 @@ import (
 func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 	ctx = context.WithValue(ctx, "callbackQuery", cb)
 
-	u, tcase, err := ensureTelegramUser(
-		cb.From.ID, cb.From.UserName, cb.From.LanguageCode)
+	u, tcase, err := ensureTelegramUser(&tgbotapi.Message{From: cb.From})
 	if err != nil {
 		log.Warn().Err(err).Int("case", tcase).
 			Str("username", cb.From.UserName).

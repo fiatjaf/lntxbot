@@ -174,11 +174,7 @@ func ticketPaid(ctx context.Context, joinKey string, kickdata KickData) {
 	// delete the invoice message
 	deleteMessage(&kickdata.InvoiceMessage)
 
-	user, _, _ := ensureTelegramUser(
-		kickdata.NewMember.ID,
-		kickdata.NewMember.UserName,
-		kickdata.NewMember.LanguageCode,
-	)
+	user := User{Id: kickdata.NewMember.ID, Username: kickdata.NewMember.UserName}
 
 	// replace caption
 	send(ctx, EDIT, g, &kickdata.NotifyMessage, t.USERALLOWED,

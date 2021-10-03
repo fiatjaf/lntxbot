@@ -21,30 +21,19 @@ import (
 func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	ctx = context.WithValue(ctx, "message", message)
 
-	var u User
-	if message.Chat.Type == "channel" {
-		u = User{
-			TelegramChatId: message.Chat.ID,
-			Locale:         "en",
-		}
-	} else {
-		user, tcase, err := ensureTelegramUser(
-			message.From.ID, message.From.UserName, message.From.LanguageCode)
-		if err != nil {
-			log.Warn().Err(err).Int("case", tcase).
-				Str("username", message.From.UserName).
-				Int("id", message.From.ID).
-				Msg("failed to ensure telegram user")
-			return
-		}
+	u, tcase, err := ensureTelegramUser(message)
+	if err != nil {
+		log.Warn().Err(err).Int("case", tcase).
+			Str("username", message.From.UserName).
+			Int("id", message.From.ID).
+			Msg("failed to ensure telegram user")
+		return
+	}
 
-		u = user
-
-		// stop if temporarily banned
-		if _, ok := s.Banned[u.Id]; ok {
-			log.Debug().Int("id", u.Id).Msg("got request from banned user")
-			return
-		}
+	// stop if temporarily banned
+	if _, ok := s.Banned[u.Id]; ok {
+		log.Debug().Int("id", u.Id).Msg("got request from banned user")
+		return
 	}
 
 	ctx = context.WithValue(ctx, "initiator", u)
@@ -63,7 +52,13 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		// receive payment notifications and so on, as not all people will
 		// remember to call /start
 		u.setChat(message.Chat.ID)
-	} else {
+	} else if isChannelOrGroupUser(message.From) {
+		// if the user is not a real user, but instead a channel/group entity
+		// make their chat be this one even though it's public
+		u.setChat(message.Chat.ID)
+	}
+
+	if message.Chat.Type != "private" {
 		// when we're in a group, load the group
 		loadedGroup, err := loadTelegramGroup(message.Chat.ID)
 		if err != nil {
@@ -91,7 +86,6 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 	ctx = context.WithValue(ctx, "group", g)
 
 	var (
-		err         error
 		opts        = make(docopt.Opts)
 		isCommand   = false
 		messageText = strings.ReplaceAll(

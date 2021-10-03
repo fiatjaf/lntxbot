@@ -13,6 +13,26 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 )
 
+// special telegram user ids
+const (
+	CHANNEL_GROUP_POSTER = 10736
+	CHANNEL_RECEIVER     = 777000
+	GROUP_ANONYMOUS_BOT  = 1087968824
+)
+
+func isChannelOrGroupUser(user *tgbotapi.User) bool {
+	if user == nil {
+		return true
+	}
+
+	switch user.ID {
+	case CHANNEL_RECEIVER, CHANNEL_GROUP_POSTER, GROUP_ANONYMOUS_BOT:
+		return true
+	}
+
+	return false
+}
+
 func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 	ctx := context.Background()
 
