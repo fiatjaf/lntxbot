@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -84,7 +85,22 @@ func getChatOwner(chatId int64) (User, error) {
 }
 
 func getTelegramUserPictureURL(username string) (string, error) {
-	doc, err := goquery.NewDocument("https://t.me/" + username)
+	client := &http.Client{}
+
+	// use tor proxy to bypass telegram rate-limiting
+	if s.TorProxyURL != nil && s.TorProxyURL.Host != "" {
+		client.Transport = &http.Transport{
+			Proxy: http.ProxyURL(s.TorProxyURL),
+		}
+	}
+
+	resp, err := client.Get("https://t.me/" + username)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return "", err
 	}

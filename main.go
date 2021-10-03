@@ -32,14 +32,15 @@ import (
 )
 
 type Settings struct {
-	ServiceId        string `envconfig:"SERVICE_ID" default:"lntxbot"`
-	ServiceURL       string `envconfig:"SERVICE_URL" required:"true"`
-	Host             string `envconfig:"HOST" default:"0.0.0.0"`
-	Port             string `envconfig:"PORT" required:"true"`
-	TelegramBotToken string `envconfig:"TELEGRAM_BOT_TOKEN" required:"true"`
-	PostgresURL      string `envconfig:"DATABASE_URL" required:"true"`
-	RedisURL         string `envconfig:"REDIS_URL" required:"true"`
-	DiscordBotToken  string `envconfig:"DISCORD_BOT_TOKEN" required:"false"`
+	ServiceId        string   `envconfig:"SERVICE_ID" default:"lntxbot"`
+	ServiceURL       string   `envconfig:"SERVICE_URL" required:"true"`
+	Host             string   `envconfig:"HOST" default:"0.0.0.0"`
+	Port             string   `envconfig:"PORT" required:"true"`
+	TorProxyURL      *url.URL `envconfig:"TOR_PROXY_URL"`
+	TelegramBotToken string   `envconfig:"TELEGRAM_BOT_TOKEN" required:"true"`
+	PostgresURL      string   `envconfig:"DATABASE_URL" required:"true"`
+	RedisURL         string   `envconfig:"REDIS_URL" required:"true"`
+	DiscordBotToken  string   `envconfig:"DISCORD_BOT_TOKEN" required:"false"`
 
 	EclairHost     string `envconfig:"ECLAIR_HOST" required:"true"`
 	EclairPassword string `envconfig:"ECLAIR_PASSWORD" required:"true"`
