@@ -17,6 +17,10 @@ import (
 	"github.com/lucsky/cuid"
 )
 
+const (
+	COINFLIP_TAX = 9999
+)
+
 // hide and reveal
 type HiddenMessage struct {
 	Preview     string               `json:"preview"`
@@ -327,7 +331,7 @@ func settleCoinflip(
 
 	// receiver must also have the necessary sats in his balance at the time
 	receiverBalance := getBalance(txn, toId)
-	if receiverBalance < msats+9999 {
+	if receiverBalance < msats+COINFLIP_TAX {
 		err = errors.New("Receiver has insufficient balance.")
 		return
 	}
@@ -347,8 +351,8 @@ func settleCoinflip(
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
 INSERT INTO lightning.transaction (from_id, to_id, amount, fees, tag)
-VALUES ($1, $2, $3, 9999, 'coinflip')
-    `, fromId, s.ProxyAccount, msats)
+VALUES ($1, $2, $3, $4, 'coinflip')
+    `, fromId, s.ProxyAccount, msats, COINFLIP_TAX)
 		if err != nil {
 			return
 		}

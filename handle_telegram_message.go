@@ -263,7 +263,7 @@ parsed:
 			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 			break
 		}
-		if !u.checkBalanceFor(ctx, msats, "coinflip") {
+		if !u.checkBalanceFor(ctx, msats+COINFLIP_TAX, "coinflip") {
 			break
 		}
 

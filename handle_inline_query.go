@@ -143,7 +143,7 @@ func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 			break
 		}
 
-		if !u.checkBalanceFor(ctx, int64(sats*1000), "coinflip") {
+		if !u.checkBalanceFor(ctx, int64(sats*1000)+COINFLIP_TAX, "coinflip") {
 			break
 		}
 

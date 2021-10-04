@@ -202,7 +202,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		})
 
 		joiner := u
-		if !joiner.checkBalanceFor(ctx, msats, "coinflip") {
+		if !joiner.checkBalanceFor(ctx, msats+COINFLIP_TAX, "coinflip") {
 			goto answerEmpty
 		}
 
