@@ -10,7 +10,6 @@ import (
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/tidwall/gjson"
 )
 
 func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
@@ -74,8 +73,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
 		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
 		if val, err := rds.Get(key).Result(); err == nil {
-			data := gjson.Parse(val)
-			handleLNURLPayAmount(ctx, msats, data)
+			handleLNURLPayAmount(ctx, msats, val)
 		}
 		return
 	case strings.HasPrefix(cb.Data, "give="):

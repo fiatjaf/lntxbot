@@ -178,7 +178,7 @@ func serveLNURL() {
 			username = qs.Get("userid")
 		}
 
-		u, metadata, err := lnurlPayUserMetadata(ctx, username)
+		u, params, err := lnurlPayUserParams(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -186,16 +186,7 @@ func serveLNURL() {
 
 		go u.track("incoming lnurl-pay attempt", nil)
 
-		json.NewEncoder(w).Encode(lnurl.LNURLPayParams{
-			LNURLResponse: lnurl.OkResponse(),
-			Tag:           "payRequest",
-			Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
-				s.ServiceURL, username),
-			MaxSendable:    1000000000,
-			MinSendable:    100000,
-			Metadata:       metadata,
-			CommentAllowed: 422,
-		})
+		json.NewEncoder(w).Encode(params)
 	})
 
 	router.Path("/.well-known/lnurlp/{username}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +194,7 @@ func serveLNURL() {
 		username := mux.Vars(r)["username"]
 		qs := r.URL.Query()
 
-		receiver, metadata, err := lnurlPayUserMetadata(ctx, username)
+		receiver, params, err := lnurlPayUserParams(ctx, username)
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -214,21 +205,7 @@ func serveLNURL() {
 
 			go receiver.track("incoming lnurl-pay attempt", nil)
 
-			json.NewEncoder(w).Encode(lnurl.LNURLPayParams{
-				LNURLResponse: lnurl.OkResponse(),
-				Tag:           "payRequest",
-				Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
-					s.ServiceURL, username),
-				MaxSendable:    1000000000,
-				MinSendable:    100000,
-				Metadata:       metadata,
-				CommentAllowed: 422,
-				PayerData: lnurl.PayerDataSpec{
-					FreeName:         &lnurl.PayerDataItemSpec{},
-					LightningAddress: &lnurl.PayerDataItemSpec{},
-					Email:            &lnurl.PayerDataItemSpec{},
-				},
-			})
+			json.NewEncoder(w).Encode(params)
 		} else {
 			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay second request")
 
@@ -242,9 +219,9 @@ func serveLNURL() {
 			var hhash [32]byte
 			payerdata := qs.Get("payerdata")
 			if payerdata == "" {
-				hhash = metadata.Hash()
+				hhash = params.HashMetadata()
 			} else {
-				hhash = metadata.HashWithPayerData(payerdata)
+				hhash = params.HashWithPayerData(payerdata)
 			}
 
 			var payerData lnurl.PayerDataValues
@@ -276,10 +253,10 @@ func serveLNURL() {
 	})
 }
 
-func lnurlPayUserMetadata(
+func lnurlPayUserParams(
 	ctx context.Context,
 	username string,
-) (receiver User, metadata lnurl.Metadata, err error) {
+) (receiver User, params lnurl.LNURLPayParams, err error) {
 	isTelegramUsername := false
 
 	if id, errx := strconv.Atoi(username); errx == nil {
@@ -293,6 +270,8 @@ func lnurlPayUserMetadata(
 	if err != nil {
 		return
 	}
+
+	var metadata lnurl.Metadata
 
 	metadata.Description = fmt.Sprintf("Fund %s account on t.me/%s.",
 		receiver.AtName(ctx), s.ServiceId)
@@ -311,6 +290,24 @@ func lnurlPayUserMetadata(
 		metadata.LightningAddress = fmt.Sprintf("%s@%s",
 			username, getHost())
 	}
+
+	params = lnurl.LNURLPayParams{
+		LNURLResponse: lnurl.OkResponse(),
+		Tag:           "payRequest",
+		Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
+			s.ServiceURL, username),
+		MaxSendable:    1000000000,
+		MinSendable:    100000,
+		Metadata:       metadata,
+		CommentAllowed: 422,
+		PayerData: lnurl.PayerDataSpec{
+			FreeName:         &lnurl.PayerDataItemSpec{},
+			LightningAddress: &lnurl.PayerDataItemSpec{},
+			Email:            &lnurl.PayerDataItemSpec{},
+		},
+	}
+
+	params.EncodedMetadata = params.MetadataEncoded()
 
 	return
 }

@@ -19,24 +19,24 @@ func handleReply(ctx context.Context) {
 		log.Debug().Int("userId", u.Id).Int("message", inreplyto).
 			Msg("reply to bot message doesn't have a stored procedure")
 	} else {
-		data := gjson.Parse(val)
-		switch data.Get("type").String() {
+		switch gjson.Parse(val).Get("type").String() {
 		case "pay":
 			msats, err := parseAmountString(message.Text)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handlePayVariableAmount(ctx, msats, data)
+			handlePayVariableAmount(ctx, msats, val)
 		case "lnurlpay-amount":
 			msats, err := parseAmountString(message.Text)
 			if err != nil {
 				send(ctx, u, t.ERROR, t.T{"Err": "Invalid satoshi amount."})
 			}
-			handleLNURLPayAmount(ctx, msats, data)
+			handleLNURLPayAmount(ctx, msats, val)
 		case "lnurlpay-comment":
-			handleLNURLPayComment(ctx, message.Text, data)
+			handleLNURLPayComment(ctx, message.Text, val)
 		default:
-			log.Debug().Int("userId", u.Id).Int("message", inreplyto).Str("type", data.Get("type").String()).
+			log.Debug().Int("userId", u.Id).Int("message", inreplyto).
+				Str("type", gjson.Parse(val).Get("type").String()).
 				Msg("reply to bot message unhandled procedure")
 		}
 	}

@@ -17,7 +17,6 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/tidwall/gjson"
 	"gopkg.in/jmcvetta/napping.v3"
 )
 
@@ -197,6 +196,12 @@ func handleLNURLWithdraw(
 	go u.track("lnurl-withdraw", map[string]interface{}{"sats": params.MaxWithdrawable})
 }
 
+type RedisPayParams struct {
+	Type     string               `json:"type"`
+	Params   lnurl.LNURLPayParams `json:"params"`
+	MSatoshi int64                `json:"msatoshi"`
+}
+
 func handleLNURLPay(
 	ctx context.Context,
 	u User,
@@ -251,100 +256,92 @@ func handleLNURLPay(
 	if fixedAmount > 0 &&
 		opts.payWithoutPromptIf != nil &&
 		fixedAmount < *opts.payWithoutPromptIf+3000 {
-		// we have the amount already
+		// we have everything, proceed to pay
+		lnurlpayFinish(
+			ctx,
+			u,
+			params,
+			fixedAmount,
+			"",
+			opts.anonymous,
+		)
+		return
+	}
 
-		if params.CommentAllowed > 0 {
-			// need a comment
-			lnurlpayAskForComment(ctx, u, params, fixedAmount)
-		} else {
-			// we have everything, proceed to pay
-			lnurlpayFinish(
-				ctx,
-				u,
-				params,
-				fixedAmount,
-				"",
-				opts.anonymous,
-			)
-		}
-	} else {
-		// must ask for amount or confirmation
-		var actionPrompt interface{}
-		if fixedAmount > 0 {
-			keyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(
-						translate(ctx, t.CANCEL),
-						fmt.Sprintf("cancel=%d", u.Id)),
-					tgbotapi.NewInlineKeyboardButtonData(
-						translateTemplate(ctx, t.PAYAMOUNT,
-							t.T{"Sats": float64(fixedAmount) / 1000}),
-						fmt.Sprintf("lnurlpay=%d", fixedAmount)),
-				),
-			)
-			actionPrompt = &keyboard
-		} else {
-			actionPrompt = &tgbotapi.ForceReply{ForceReply: true}
-		}
+	// must ask for amount, comment or confirmation
+	var actionPrompt interface{}
+	if fixedAmount == 0 {
+		// need the amount
+		actionPrompt = &tgbotapi.ForceReply{ForceReply: true}
+	} else if params.CommentAllowed == 0 {
+		// need a confirmation
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(
+					translate(ctx, t.CANCEL),
+					fmt.Sprintf("cancel=%d", u.Id)),
+				tgbotapi.NewInlineKeyboardButtonData(
+					translateTemplate(ctx, t.PAYAMOUNT,
+						t.T{"Sats": float64(fixedAmount) / 1000}),
+					fmt.Sprintf("lnurlpay=%d", fixedAmount)),
+			),
+		)
+		actionPrompt = &keyboard
+	}
 
-		var imageURL interface{}
-		if params.Metadata.Image.Ext != "" {
-			imageURL = tempAssetURL("."+params.Metadata.Image.Ext,
-				params.Metadata.Image.Bytes)
-		}
+	var imageURL interface{}
+	if params.Metadata.Image.Ext != "" {
+		imageURL = tempAssetURL("."+params.Metadata.Image.Ext,
+			params.Metadata.Image.Bytes)
+	}
 
-		sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{
-			"Domain":      receiverName,
-			"FixedAmount": float64(fixedAmount) / 1000,
-			"Max":         float64(params.MaxSendable) / 1000,
-			"Min":         float64(params.MinSendable) / 1000,
-			"Text":        params.Metadata.Description,
-			"Long":        params.Metadata.LongDescription,
-		}, ctx.Value("message"), actionPrompt, imageURL)
-		if sent == nil {
-			return
-		}
+	sent := send(ctx, u, t.LNURLPAYPROMPT, t.T{
+		"Domain":      receiverName,
+		"FixedAmount": float64(fixedAmount) / 1000,
+		"Max":         float64(params.MaxSendable) / 1000,
+		"Min":         float64(params.MinSendable) / 1000,
+		"Text":        params.Metadata.Description,
+		"Long":        params.Metadata.LongDescription,
+	}, ctx.Value("message"), actionPrompt, imageURL)
+	if sent == nil {
+		return
+	}
 
-		sentId, _ := sent.(int)
-		data, _ := json.Marshal(struct {
-			Type   string               `json:"type"`
-			Params lnurl.LNURLPayParams `json:"params"`
-		}{"lnurlpay-amount", params})
-		rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
+	sentId, _ := sent.(int)
+	data, _ := json.Marshal(RedisPayParams{Type: "lnurlpay-amount", Params: params})
+	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
+
+	if fixedAmount > 0 && params.CommentAllowed > 0 {
+		// need a comment
+		lnurlpayAskForComment(ctx, u, params, fixedAmount)
 	}
 }
 
-func handleLNURLPayAmount(
-	ctx context.Context,
-	msats int64,
-	data gjson.Result,
-) {
+func handleLNURLPayAmount(ctx context.Context, msats int64, raw string) {
 	u := ctx.Value("initiator").(User)
 
 	// get data from redis object
-	var params lnurl.LNURLPayParams
-	json.Unmarshal([]byte(data.Get("params").String()), &params)
+	var data RedisPayParams
+	json.Unmarshal([]byte(raw), &data)
 
-	if params.CommentAllowed > 0 {
+	if data.Params.CommentAllowed > 0 {
 		// ask for comment
-		lnurlpayAskForComment(ctx, u, params, msats)
+		lnurlpayAskForComment(ctx, u, data.Params, msats)
 	} else {
 		// proceed to fetch invoice and pay
-		lnurlpayFinish(ctx, u, params, msats, "", false)
+		lnurlpayFinish(ctx, u, data.Params, msats, "", false)
 	}
 }
 
-func handleLNURLPayComment(ctx context.Context, comment string, data gjson.Result) {
+func handleLNURLPayComment(ctx context.Context, comment string, raw string) {
 	u := ctx.Value("initiator").(User)
 
 	// get data from redis object
-	var params lnurl.LNURLPayParams
-	json.Unmarshal([]byte(data.Get("params").String()), &params)
-
-	msats := data.Get("msatoshi").Int()
+	var data RedisPayParams
+	json.Unmarshal([]byte(raw), &data)
 
 	// proceed to fetch invoice and pay
-	lnurlpayFinish(ctx, u, params, msats, comment, false)
+	lnurlpayFinish(ctx, u, data.Params, data.MSatoshi, comment, false)
 }
 
 func lnurlpayAskForComment(
@@ -360,11 +357,11 @@ func lnurlpayAskForComment(
 	}
 	sentId, _ := sent.(int)
 
-	data, _ := json.Marshal(struct {
-		Type     string               `json:"type"`
-		Params   lnurl.LNURLPayParams `json:"params"`
-		MSatoshi int64                `json:"msatoshi"`
-	}{"lnurlpay-comment", params, msats})
+	data, _ := json.Marshal(RedisPayParams{
+		Type:     "lnurlpay-comment",
+		Params:   params,
+		MSatoshi: msats,
+	})
 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 }
 
@@ -446,7 +443,7 @@ func lnurlpayFinish(
 			if f, err := zip.Create("metadata.json"); err != nil {
 				goto zipfinished
 			} else {
-				if _, err = f.Write([]byte(params.Metadata.Encoded)); err != nil {
+				if _, err = f.Write([]byte(params.MetadataEncoded())); err != nil {
 					goto zipfinished
 				}
 			}

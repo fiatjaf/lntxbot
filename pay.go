@@ -15,7 +15,6 @@ import (
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/tidwall/gjson"
 )
 
 func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
@@ -188,11 +187,15 @@ func handlePayCallback(ctx context.Context) {
 	go u.track("pay confirm", map[string]interface{}{"amountless": false})
 }
 
-func handlePayVariableAmount(ctx context.Context, msatoshi int64, data gjson.Result) {
+func handlePayVariableAmount(ctx context.Context, msatoshi int64, raw string) {
 	u := ctx.Value("initiator").(User)
 
-	bolt11 := data.Get("bolt11").String()
-	_, err := u.payInvoice(ctx, bolt11, msatoshi)
+	var data struct {
+		Invoice string `json:"bolt11"`
+	}
+	json.Unmarshal([]byte(raw), &data)
+
+	_, err := u.payInvoice(ctx, data.Invoice, msatoshi)
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, ctx.Value("message"))
 		return
