@@ -233,7 +233,7 @@ func serveLNURL() {
 				DescriptionHash:        hex.EncodeToString(hhash[:]),
 				Extra: InvoiceExtra{
 					Comment:   qs.Get("comment"),
-					PayerData: payerData,
+					PayerData: &payerData,
 				},
 			})
 			if err != nil {

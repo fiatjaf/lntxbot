@@ -58,7 +58,7 @@ type InvoiceExtra struct {
 	Comment string
 
 	// lnurlpay payerdata
-	PayerData lnurl.PayerDataValues
+	PayerData *lnurl.PayerDataValues
 
 	Message *tgbotapi.Message
 }
@@ -228,13 +228,11 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 	}
 
 	if comment := data.Extra.Comment; comment != "" {
-		name := extractNameFromDesc(comment)
-		if name != "" {
-			tmplParams["SenderName"] = name
-			tmplParams["Comment"] = comment[len(name)+3:]
-		} else {
-			tmplParams["Comment"] = comment
-		}
+		tmplParams["Comment"] = comment
+	}
+
+	if payer := data.Extra.PayerData; payer != nil {
+		tmplParams["SenderName"] = senderNameFromPayerData(*payer)
 	}
 
 	send(ctx, user, t.PAYMENTRECEIVED, tmplParams)

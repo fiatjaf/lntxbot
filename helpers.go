@@ -509,3 +509,22 @@ func extractNameFromDesc(invoiceDescription string) string {
 	}
 	return ""
 }
+
+func senderNameFromPayerData(payer lnurl.PayerDataValues) string {
+	if payer.LightningAddress != "" {
+		return payer.LightningAddress
+	}
+	if payer.Email != "" {
+		return payer.Email
+	}
+	if payer.FreeName != "" {
+		return payer.FreeName
+	}
+	if payer.KeyAuth != nil {
+		return payer.KeyAuth.Key
+	}
+	if payer.PubKey != "" {
+		return payer.PubKey
+	}
+	return ""
+}
