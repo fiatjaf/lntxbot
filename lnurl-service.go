@@ -278,12 +278,9 @@ func lnurlPayUserParams(
 
 	if isTelegramUsername {
 		// get user avatar from public t.me/ page
-		if url, err := getTelegramUserPictureURL(username); err == nil {
-			var err error
-			metadata.Image.Bytes, err = imageBytesFromURL(url)
-			if err == nil {
-				metadata.Image.Ext = "jpeg"
-			}
+		if b, err := getTelegramUserPicture(username); err == nil {
+			metadata.Image.Bytes = b
+			metadata.Image.Ext = "jpeg"
 		}
 
 		// add internet identifier

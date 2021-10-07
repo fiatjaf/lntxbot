@@ -7,6 +7,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message string) (id interface{}) {
@@ -82,6 +83,27 @@ func getChatOwner(chatId int64) (User, error) {
 	}
 
 	return User{}, errors.New("chat has no owner")
+}
+
+var pictureCache, _ = lru.NewARC(25)
+
+func getTelegramUserPicture(username string) ([]byte, error) {
+	if i, ok := pictureCache.Get(username); ok {
+		return i.([]byte), nil
+	}
+
+	url, err := getTelegramUserPictureURL(username)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := imageBytesFromURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	pictureCache.Add(username, b)
+	return b, nil
 }
 
 func getTelegramUserPictureURL(username string) (string, error) {
