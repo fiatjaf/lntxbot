@@ -197,9 +197,10 @@ func handleLNURLWithdraw(
 }
 
 type RedisPayParams struct {
-	Type     string               `json:"type"`
-	Params   lnurl.LNURLPayParams `json:"params"`
-	MSatoshi int64                `json:"msatoshi"`
+	Type      string               `json:"type"`
+	Params    lnurl.LNURLPayParams `json:"params"`
+	MSatoshi  int64                `json:"msatoshi"`
+	Anonymous bool                 `json:"anonymous"`
 }
 
 func handleLNURLPay(
@@ -302,18 +303,26 @@ func handleLNURLPay(
 		"Min":         float64(params.MinSendable) / 1000,
 		"Text":        params.Metadata.Description,
 		"Long":        params.Metadata.LongDescription,
+		"WillSendPayerData": !opts.anonymous &&
+			(params.PayerData.FreeName != nil ||
+				params.PayerData.LightningAddress != nil ||
+				params.PayerData.KeyAuth != nil),
 	}, ctx.Value("message"), actionPrompt, imageURL)
 	if sent == nil {
 		return
 	}
 
 	sentId, _ := sent.(int)
-	data, _ := json.Marshal(RedisPayParams{Type: "lnurlpay-amount", Params: params})
+	data, _ := json.Marshal(RedisPayParams{
+		Type:      "lnurlpay-amount",
+		Params:    params,
+		Anonymous: opts.anonymous,
+	})
 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 
 	if fixedAmount > 0 && params.CommentAllowed > 0 {
 		// need a comment
-		lnurlpayAskForComment(ctx, u, params, fixedAmount)
+		lnurlpayAskForComment(ctx, u, params, fixedAmount, opts.anonymous)
 	}
 }
 
@@ -326,10 +335,10 @@ func handleLNURLPayAmount(ctx context.Context, msats int64, raw string) {
 
 	if data.Params.CommentAllowed > 0 {
 		// ask for comment
-		lnurlpayAskForComment(ctx, u, data.Params, msats)
+		lnurlpayAskForComment(ctx, u, data.Params, msats, data.Anonymous)
 	} else {
 		// proceed to fetch invoice and pay
-		lnurlpayFinish(ctx, u, data.Params, msats, "", false)
+		lnurlpayFinish(ctx, u, data.Params, msats, "", data.Anonymous)
 	}
 }
 
@@ -341,7 +350,7 @@ func handleLNURLPayComment(ctx context.Context, comment string, raw string) {
 	json.Unmarshal([]byte(raw), &data)
 
 	// proceed to fetch invoice and pay
-	lnurlpayFinish(ctx, u, data.Params, data.MSatoshi, comment, false)
+	lnurlpayFinish(ctx, u, data.Params, data.MSatoshi, comment, data.Anonymous)
 }
 
 func lnurlpayAskForComment(
@@ -349,6 +358,7 @@ func lnurlpayAskForComment(
 	u User,
 	params lnurl.LNURLPayParams,
 	msats int64,
+	anonymous bool,
 ) {
 	sent := send(ctx, u, ctx.Value("message"), &tgbotapi.ForceReply{ForceReply: true},
 		t.LNURLPAYPROMPTCOMMENT, t.T{"Domain": params.CallbackURL().Host})
@@ -358,9 +368,10 @@ func lnurlpayAskForComment(
 	sentId, _ := sent.(int)
 
 	data, _ := json.Marshal(RedisPayParams{
-		Type:     "lnurlpay-comment",
-		Params:   params,
-		MSatoshi: msats,
+		Type:      "lnurlpay-comment",
+		Params:    params,
+		MSatoshi:  msats,
+		Anonymous: anonymous,
 	})
 	rds.Set(fmt.Sprintf("reply:%d:%d", u.Id, sentId), data, time.Hour*1)
 }
@@ -376,34 +387,39 @@ func lnurlpayFinish(
 	var payerdata *lnurl.PayerDataValues
 	var proofOfPayerKey *btcec.PrivateKey
 
-	if !anonymous && params.PayerData.Exists() {
+	if params.PayerData.Exists() {
 		payerdata = &lnurl.PayerDataValues{}
 
-		if params.PayerData.LightningAddress != nil {
-			payerdata.LightningAddress = u.Username + "@" + getHost()
-		}
-		if params.PayerData.FreeName != nil {
-			payerdata.FreeName = u.Username
-		}
-		if params.PayerData.KeyAuth != nil {
-			key, sig, err := u.SignKeyAuth(
-				params.CallbackURL().Host, params.PayerData.KeyAuth.K1)
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-				return
-			}
-
-			payerdata.KeyAuth = &lnurl.PayerDataKeyAuthValues{
-				K1:  params.PayerData.KeyAuth.K1,
-				Key: key,
-				Sig: sig,
-			}
-		}
+		// always include pubkey if possible, as it's still anonymous
 		if params.PayerData.PubKey != nil {
 			proofOfPayerKey, _ = btcec.NewPrivateKey(btcec.S256())
 			payerdata.PubKey = hex.EncodeToString(
 				proofOfPayerKey.PubKey().SerializeCompressed(),
 			)
+		}
+
+		// other non-anonymous data
+		if !anonymous {
+			if params.PayerData.LightningAddress != nil {
+				payerdata.LightningAddress = u.Username + "@" + getHost()
+			}
+			if params.PayerData.FreeName != nil {
+				payerdata.FreeName = u.Username
+			}
+			if params.PayerData.KeyAuth != nil {
+				key, sig, err := u.SignKeyAuth(
+					params.CallbackURL().Host, params.PayerData.KeyAuth.K1)
+				if err != nil {
+					send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+					return
+				}
+
+				payerdata.KeyAuth = &lnurl.PayerDataKeyAuthValues{
+					K1:  params.PayerData.KeyAuth.K1,
+					Key: key,
+					Sig: sig,
+				}
+			}
 		}
 	}
 
@@ -472,11 +488,7 @@ func lnurlpayFinish(
 			if err != nil {
 				goto zipfinished
 			}
-			//zippedmeta, err := zipfiles(res.ParsedInvoice.DescriptionHash+".json",
-			//    "metadata.json", []byte(params.Metadata.Encoded),
-			//    "payerdata.json", []byte(res.PayerDataJSON),
-			//    ".json", []byte(res.PayerDataJSON),
-			//)
+
 		zipfinished:
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to zip metadata")

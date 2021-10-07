@@ -11,7 +11,7 @@ var RU = map[Key]string{
 	FAILURE:    "Сбой.",
 	PROCESSING: "Обрабатываю...",
 	WITHDRAW:   "Вывести?",
-	ERROR:      "{{if .App}}#{{.App | lower}} {{end}}Ошибка{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "🔴 {{if .App}}#{{.App | lower}} {{end}}Ошибка{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Проверка...",
 	TXPENDING:  "Платёж ещё осуществляется, пожалуйста, проверьте позже.",
 	TXCANCELED: "Транзакция отменена.",
@@ -37,12 +37,6 @@ lnurl-auth успех!
 <b>Домен</b>: <i>{{.Host}}</i>
 <b>Публичный Ключ</b>: <i>{{.PublicKey}}</i>
 `,
-	LNURLPAYPROMPT: `<code>{{.Domain}}</code> ожидает {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} сат</i>{{else}}количество между <i>{{.Min | printf "%.15g"}}</i> и <i>{{.Max | printf "%.15g"}} сат</i>{{end}} для оплаты:
-
-{{if .Text}}<code>{{.Text | html}}</code>{{end}}
-
-{{if not .FixedAmount}}<b>Ответьте с неким количеством для подтверждения.</b>{{end}}
-    `,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> ответил:
 {{.Text}}
 {{if .DecipherError}}Ошибка расшифровки ({{.DecipherError}}):
@@ -281,7 +275,7 @@ React with a :zap: to confirm.{{end}}
 {{end}}
     `,
 	FAILEDDECODE: "Ошибка декодирования счёта: {{.Err}}",
-	BALANCEMSG: `
+	BALANCEMSG: `🏛
 <b>Полный баланс</b>: {{printf "%.15g" .Sats}} сат ({{dollar .Sats}})
 <b>Доступный баланс</b>: {{printf "%.15g" .Sats}} сат ({{dollar .Usable}})
 <b>Всего получено</b>: {{printf "%.15g" .Received}} сат

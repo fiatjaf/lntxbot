@@ -11,7 +11,7 @@ var EN = map[Key]string{
 	FAILURE:    "Failure.",
 	PROCESSING: "Processing...",
 	WITHDRAW:   "Withdraw?",
-	ERROR:      "{{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	ERROR:      "🔴 {{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Checking...",
 	TXPENDING:  "Payment still in flight, please try checking again later.",
 	TXCANCELED: "Transaction canceled.",
@@ -37,17 +37,21 @@ lnurl-auth success!
 <b>Domain</b>: <i>{{.Host}}</i>
 <b>Public Key</b>: <i>{{.PublicKey}}</i>
 `,
-	LNURLPAYPROMPT: `<code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
+	LNURLPAYPROMPT: `🟢 <code>{{.Domain}}</code> expects {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}}a value between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
 
-{{if .Text}}<code>{{.Text | html}}</code>{{end}}{{if .Long}}
+<code>{{if .Long}}{{.Long | html}}{{else}}{{.Text | html}}{{end}}</code>{{if .WillSendPayerData}}
 
 ---
 
-<code>{{.Long | html}}</code>{{end}}
+- Your name and/or auth keys will be sent to the payee.
+- To prevent that, use <code>/lnurl --anonymous &lt;lnurl&gt;</code>.
+{{end}}
 
-{{if not .FixedAmount}}<b>Reply with the amount to confirm.</b>{{end}}
+{{if not .FixedAmount}}<b>Reply with the amount (in satoshis, between <i>{{.Min | printf "%.15g"}}</i> and <i>{{.Max | printf "%.15g"}}</i>) to confirm.</b>{{end}}
     `,
-	LNURLPAYPROMPTCOMMENT: `<code>{{.Domain}}</code> expects some text:`,
+	LNURLPAYPROMPTCOMMENT: `📨 <code>{{.Domain}}</code> expects a comment.
+
+<b>To confirm the payment, reply with some text</b>`,
 	LNURLPAYAMOUNTSNOTICE: `<code>{{.Domain}}</code> expected {{if .Exact}}{{.Min | printf "%.3f"}}{{else if .NoMax}}at least{{.Min | printf "%.0f"}}{{else}}between {{.Min | printf "%.0f"}} and {{.Max | printf "%.0f"}}{{end}} sat.`,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> says:
 {{.Text}}
@@ -59,7 +63,6 @@ lnurl-auth success!
 <b>domain</b>: <i>{{.Domain}}</i>
 <b>transaction</b>: /tx_{{.HashFirstChars}}
     `,
-	LNURLPAYCOMMENT:           "Along with /tx_{{.HashFirstChars}} you got a message: \n\n<i>{{.Text}}</i>",
 	LNURLBALANCECHECKCANCELED: "Automatic balance checks from {{.Service}} are cancelled.",
 
 	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
@@ -302,7 +305,7 @@ React with a :zap: to confirm.{{end}}
 {{end}}
     `,
 	FAILEDDECODE: "Failed to decode invoice: {{.Err}}",
-	BALANCEMSG: `
+	BALANCEMSG: `🏛
 <b>Full Balance</b>: {{printf "%.15g" .Sats}} sat ({{dollar .Sats}})
 <b>Usable Balance</b>: {{printf "%.15g" .Usable}} sat ({{dollar .Usable}})
 <b>Total received</b>: {{printf "%.15g" .Received}} sat

@@ -42,7 +42,6 @@ const (
 	LNURLPAYAMOUNTSNOTICE     Key = "LnurlPayAmountsNotice"
 	LNURLPAYSUCCESS           Key = "LnurlPaySuccess"
 	LNURLPAYMETADATA          Key = "LnurlPayMetadata"
-	LNURLPAYCOMMENT           Key = "LnurlPayComment"
 	LNURLBALANCECHECKCANCELED Key = "LnurlBalanceCheckCanceled"
 
 	USERALLOWED       Key = "UserAllowed"

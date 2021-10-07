@@ -179,7 +179,9 @@ parsed:
 		desc, _ := opts.String("<description>")
 		go handleInvoice(ctx, opts, desc)
 	case opts["lnurl"].(bool):
-		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
+		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{
+			anonymous: opts["--anonymous"].(bool),
+		})
 	case opts["send"].(bool), opts["tip"].(bool):
 		go u.track("send", map[string]interface{}{
 			"group":     groupId,

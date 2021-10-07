@@ -479,7 +479,9 @@ parsed:
 		desc := getVariadicFieldOrReplyToContent(ctx, opts, "<description>")
 		go handleInvoice(ctx, opts, desc)
 	case opts["lnurl"].(bool):
-		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{})
+		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{
+			anonymous: opts["--anonymous"].(bool),
+		})
 	case opts["rename"].(bool):
 		go func() {
 			ctx = context.WithValue(ctx, "spammy", true)

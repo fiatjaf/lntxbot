@@ -30,7 +30,7 @@ var methods = []def{
 	},
 	def{
 		aliases: []string{"lnurl"},
-		argstr:  "<lnurl>",
+		argstr:  "[--anonymous] <lnurl>",
 	},
 	def{
 		aliases:        []string{"receive", "invoice", "fund"},
