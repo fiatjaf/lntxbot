@@ -200,22 +200,24 @@ func serveLNURL() {
 			return
 		}
 
-		if qs.Get("amount") == "" {
+		if amount := qs.Get("amount"); amount == "" {
 			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay first request")
 
 			go receiver.track("incoming lnurl-pay attempt", nil)
 
 			json.NewEncoder(w).Encode(params)
 		} else {
-			log.Debug().Str("url", r.URL.String()).Msg("lnurl-pay second request")
+			log.Debug().Str("url", r.URL.String()).Str("amount", amount).
+				Msg("lnurl-pay second request")
 
-			amount := qs.Get("amount")
+				// amount
 			msatoshi, err := strconv.ParseInt(amount, 10, 64)
 			if err != nil {
 				json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid msatoshi amount."))
 				return
 			}
 
+			// payer data
 			var hhash [32]byte
 			payerdata := qs.Get("payerdata")
 			if payerdata == "" {
@@ -223,9 +225,11 @@ func serveLNURL() {
 			} else {
 				hhash = params.HashWithPayerData(payerdata)
 			}
-
 			var payerData lnurl.PayerDataValues
 			json.Unmarshal([]byte(payerdata), &payerData)
+
+			// webhook
+			webhook := qs.Get("webhook")
 
 			bolt11, _, err := receiver.makeInvoice(ctx, &MakeInvoiceArgs{
 				IgnoreInvoiceSizeLimit: true,
@@ -234,6 +238,7 @@ func serveLNURL() {
 				Extra: InvoiceExtra{
 					Comment:   qs.Get("comment"),
 					PayerData: &payerData,
+					Webhook:   webhook,
 				},
 			})
 			if err != nil {
@@ -297,6 +302,7 @@ func lnurlPayUserParams(
 		MinSendable:    100000,
 		Metadata:       metadata,
 		CommentAllowed: 422,
+		WebhookAllowed: true,
 		PayerData: lnurl.PayerDataSpec{
 			FreeName:         &lnurl.PayerDataItemSpec{},
 			LightningAddress: &lnurl.PayerDataItemSpec{},

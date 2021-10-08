@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -59,6 +61,9 @@ type InvoiceExtra struct {
 
 	// lnurlpay payerdata
 	PayerData *lnurl.PayerDataValues
+
+	// webhook
+	Webhook string
 
 	Message *tgbotapi.Message
 }
@@ -235,8 +240,17 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 		tmplParams["SenderName"] = senderNameFromPayerData(*payer)
 	}
 
-	send(ctx, user, t.PAYMENTRECEIVED, tmplParams)
+	// send webhook if it is set (lud-22)
+	if url := data.Extra.Webhook; url != "" {
+		b := &bytes.Buffer{}
+		json.NewEncoder(b).Encode(lnurl.LNURLPayWebhookPayload{
+			Preimage: data.Preimage,
+			Status:   "settled",
+		})
+		(&http.Client{Timeout: 2 * time.Second}).Post(url, "application/json", b)
+	}
 
+	send(ctx, user, t.PAYMENTRECEIVED, tmplParams)
 	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
 		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
 	}
