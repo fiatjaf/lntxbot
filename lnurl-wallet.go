@@ -67,7 +67,7 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 	if err != nil {
 		if lnurlerr, ok := err.(lnurl.LNURLErrorResponse); ok {
 			send(ctx, u, t.LNURLERROR, t.T{
-				"Host":   lnurlerr.URL.Host,
+				"Host":   lnurlerr.URL.Hostname(),
 				"Reason": lnurlerr.Reason,
 			})
 		} else {
@@ -148,7 +148,7 @@ func handleLNURLWithdraw(
 	params lnurl.LNURLWithdrawResponse,
 ) {
 	// if possible, save this
-	u.saveBalanceCheckURL(params.CallbackURL.Host, params.BalanceCheck)
+	u.saveBalanceCheckURL(params.CallbackURL.Hostname(), params.BalanceCheck)
 
 	// stop here if zero
 	if params.MaxWithdrawable == 0 {
@@ -159,7 +159,7 @@ func handleLNURLWithdraw(
 	desc := params.DefaultDescription
 	if opts.balanceCheckService != nil {
 		desc += " (automatic)"
-		log.Info().Stringer("user", &u).Str("service", params.CallbackURL.Host).
+		log.Info().Stringer("user", &u).Str("service", params.CallbackURL.Hostname()).
 			Msg("performing automatic balanceCheck")
 	}
 
@@ -180,7 +180,7 @@ func handleLNURLWithdraw(
 		"k1": {params.K1},
 		"pr": {bolt11},
 		"balanceNotify": {fmt.Sprintf("%s/lnurl/withdraw/notify?service=%s&user=%d",
-			s.ServiceURL, params.CallbackURL.Host, u.Id)},
+			s.ServiceURL, params.CallbackURL.Hostname(), u.Id)},
 	}, &sentinvres, &sentinvres)
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
@@ -188,7 +188,7 @@ func handleLNURLWithdraw(
 	}
 	if sentinvres.Status == "ERROR" {
 		send(ctx, u, t.LNURLERROR, t.T{
-			"Host":   params.CallbackURL.Host,
+			"Host":   params.CallbackURL.Hostname(),
 			"Reason": sentinvres.Reason,
 		})
 		return
@@ -209,7 +209,7 @@ func handleLNURLPay(
 	opts handleLNURLOpts,
 	params lnurl.LNURLPayParams,
 ) {
-	receiverName := params.CallbackURL().Host
+	receiverName := params.CallbackURL().Hostname()
 	if params.Metadata.LightningAddress != "" {
 		receiverName = params.Metadata.LightningAddress
 	}
@@ -248,7 +248,7 @@ func handleLNURLPay(
 	}
 
 	go u.track("lnurl-pay", map[string]interface{}{
-		"domain": params.CallbackURL().Host,
+		"domain": params.CallbackURL().Hostname(),
 		"fixed":  float64(fixedAmount) / 1000,
 		"max":    float64(params.MaxSendable) / 1000,
 		"min":    float64(params.MinSendable) / 1000,
@@ -361,7 +361,7 @@ func lnurlpayAskForComment(
 	anonymous bool,
 ) {
 	sent := send(ctx, u, ctx.Value("message"), &tgbotapi.ForceReply{ForceReply: true},
-		t.LNURLPAYPROMPTCOMMENT, t.T{"Domain": params.CallbackURL().Host})
+		t.LNURLPAYPROMPTCOMMENT, t.T{"Domain": params.CallbackURL().Hostname()})
 	if sent == nil {
 		return
 	}
@@ -408,7 +408,7 @@ func lnurlpayFinish(
 			}
 			if params.PayerData.KeyAuth != nil {
 				key, sig, err := u.SignKeyAuth(
-					params.CallbackURL().Host, params.PayerData.KeyAuth.K1)
+					params.CallbackURL().Hostname(), params.PayerData.KeyAuth.K1)
 				if err != nil {
 					send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
 					return
@@ -428,7 +428,7 @@ func lnurlpayFinish(
 	if err != nil {
 		if lnurlerr, ok := err.(lnurl.LNURLErrorResponse); ok {
 			send(ctx, u, t.LNURLERROR, t.T{
-				"Host":   params.CallbackURL().Host,
+				"Host":   params.CallbackURL().Hostname(),
 				"Reason": lnurlerr.Reason,
 			})
 		}
@@ -498,7 +498,7 @@ func lnurlpayFinish(
 			}
 
 			send(ctx, u, t.LNURLPAYMETADATA, t.T{
-				"Domain":         params.CallbackURL().Host,
+				"Domain":         params.CallbackURL().Hostname(),
 				"Hash":           res.ParsedInvoice.PaymentHash,
 				"HashFirstChars": res.ParsedInvoice.PaymentHash[:5],
 			}, tempAssetURL(".zip", zipbuf.Bytes()))
@@ -523,7 +523,7 @@ func lnurlpayFinish(
 				time.Sleep(2 * time.Second)
 
 				send(ctx, u, t.LNURLPAYSUCCESS, t.T{
-					"Domain":        params.CallbackURL().Host,
+					"Domain":        params.CallbackURL().Hostname(),
 					"Text":          text,
 					"Value":         value,
 					"URL":           res.SuccessAction.URL,
