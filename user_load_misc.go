@@ -356,7 +356,7 @@ func (u User) AtName(ctx context.Context) string {
 		if u.DiscordId != "" {
 			return u.Username + "@discord"
 		} else {
-			return u.Username
+			return "@" + u.Username
 		}
 	} else if origin.(string) == "telegram" {
 		if u.Username != "" {
