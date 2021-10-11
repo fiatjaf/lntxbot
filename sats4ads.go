@@ -465,7 +465,7 @@ func cleanupUnviewedAds() {
 	// for every person who has received an ad over 3 days ago and haven't seen it
 	// we will cancel that payment (which is pending) and remove that person from
 	// the sats4ads list
-	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
 	}

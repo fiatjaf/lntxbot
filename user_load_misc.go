@@ -153,7 +153,7 @@ RETURNING `+USERFIELDS,
 	case 2:
 		// user has 2 accounts, one with the username, other with the telegram_id
 		var txn *sqlx.Tx
-		txn, err = pg.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelSerializable})
+		txn, err = pg.BeginTxx(context.Background(), &sql.TxOptions{})
 		if err != nil {
 			return
 		}

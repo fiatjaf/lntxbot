@@ -292,7 +292,7 @@ func (u User) addInternalPendingInvoice(
 	desc interface{},
 ) (err error) {
 	// insert payment as pending
-	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		log.Debug().Err(err).Msg("database error starting transaction")
 		return ErrDatabase
