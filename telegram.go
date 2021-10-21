@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -109,10 +110,12 @@ func getTelegramUserPicture(username string) ([]byte, error) {
 func getTelegramUserPictureURL(username string) (string, error) {
 	client := &http.Client{}
 
-	// use tor proxy to bypass telegram rate-limiting
-	if s.TorProxyURL != nil && s.TorProxyURL.Host != "" {
-		client.Transport = &http.Transport{
-			Proxy: http.ProxyURL(s.TorProxyURL),
+	if rand.Intn(100) < 25 {
+		// use tor proxy sometimes to bypass telegram rate-limiting
+		if s.TorProxyURL != nil && s.TorProxyURL.Host != "" {
+			client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(s.TorProxyURL),
+			}
 		}
 	}
 
