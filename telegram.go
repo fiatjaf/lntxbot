@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"math/rand"
 	"net/http"
 	"strings"
 
@@ -93,9 +92,24 @@ func getTelegramUserPicture(username string) ([]byte, error) {
 		return i.([]byte), nil
 	}
 
-	url, err := getTelegramUserPictureURL(username)
+	url, err := getTelegramUserPictureURL(http.DefaultClient, username)
 	if err != nil {
 		return nil, err
+	}
+
+	if url == "https://telegram.org/img/t_logo.png" {
+		// got the default telegram logo, try using tor instead
+		if s.TorProxyURL != nil && s.TorProxyURL.Host != "" {
+			client := &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyURL(s.TorProxyURL),
+				},
+			}
+			url, err = getTelegramUserPictureURL(client, username)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	b, err := imageBytesFromURL(url)
@@ -107,18 +121,7 @@ func getTelegramUserPicture(username string) ([]byte, error) {
 	return b, nil
 }
 
-func getTelegramUserPictureURL(username string) (string, error) {
-	client := &http.Client{}
-
-	if rand.Intn(100) < 25 {
-		// use tor proxy sometimes to bypass telegram rate-limiting
-		if s.TorProxyURL != nil && s.TorProxyURL.Host != "" {
-			client.Transport = &http.Transport{
-				Proxy: http.ProxyURL(s.TorProxyURL),
-			}
-		}
-	}
-
+func getTelegramUserPictureURL(client *http.Client, username string) (string, error) {
 	resp, err := client.Get("https://t.me/" + username)
 	if err != nil {
 		return "", err
