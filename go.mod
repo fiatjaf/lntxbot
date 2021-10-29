@@ -9,11 +9,11 @@ require (
 	github.com/bwmarrin/discordgo v0.22.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/fiatjaf/eclair-go v0.2.2
-	github.com/fiatjaf/go-lnurl v1.7.3
+	github.com/fiatjaf/go-lnurl v1.8.1
 	github.com/fiatjaf/ln-decodepay v1.1.0
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/gorilla/mux v1.7.4
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/imroc/req v0.3.0
 	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff // indirect
 	github.com/jmoiron/sqlx v1.2.0
@@ -37,7 +37,5 @@ require (
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
 	gopkg.in/redis.v5 v5.2.9
 )
-
-replace github.com/fiatjaf/go-lnurl => /home/fiatjaf/comp/go-lnurl
 
 replace github.com/fiatjaf/eclair-go => /home/fiatjaf/comp/eclair-go
