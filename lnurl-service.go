@@ -302,7 +302,6 @@ func lnurlPayUserParams(
 		MinSendable:    100000,
 		Metadata:       metadata,
 		CommentAllowed: 422,
-		WebhookAllowed: true,
 		PayerData: lnurl.PayerDataSpec{
 			FreeName:         &lnurl.PayerDataItemSpec{},
 			LightningAddress: &lnurl.PayerDataItemSpec{},

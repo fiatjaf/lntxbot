@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -9,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -238,16 +236,6 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 
 	if payer := data.Extra.PayerData; payer != nil {
 		tmplParams["SenderName"] = senderNameFromPayerData(*payer)
-	}
-
-	// send webhook if it is set (lud-22)
-	if url := data.Extra.Webhook; url != "" {
-		b := &bytes.Buffer{}
-		json.NewEncoder(b).Encode(lnurl.LNURLPayWebhookPayload{
-			Preimage: data.Preimage,
-			Status:   "settled",
-		})
-		(&http.Client{Timeout: 2 * time.Second}).Post(url, "application/json", b)
 	}
 
 	send(ctx, user, t.PAYMENTRECEIVED, tmplParams)
