@@ -414,6 +414,10 @@ func createLocalizerBundle() (t.Bundle, error) {
 	if err != nil {
 		return bundle, err
 	}
+	err = bundle.AddLanguage("de", t.DE)
+	if err != nil {
+		return bundle, err
+	}
 
 	// print an annoying message if keys are missing from translations
 	for lang, missing := range bundle.Check() {
