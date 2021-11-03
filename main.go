@@ -17,6 +17,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/fiatjaf/eclair-go"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/gorilla/mux"
@@ -97,6 +98,9 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
 	}
+
+	// increase default lnurl client timeout because people are using tor unfortunately
+	lnurl.Client = &http.Client{Timeout: 25 * time.Second}
 
 	// setup logger
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
