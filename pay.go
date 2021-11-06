@@ -324,7 +324,7 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 	}
 
 	if info.Get("#").Int() == 0 {
-		go paymentHasFailed(ctx, hash)
+		log.Warn().Str("hash", hash).Msg("getsentinfo returned [], indeterminate")
 		return
 	}
 
@@ -346,7 +346,7 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 			// end it here
 			return
 		case "failed":
-		// this one failed, but what about the others?
+			// this one failed, but what about the others?
 		case "pending":
 			failed = false
 		default:

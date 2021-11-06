@@ -65,9 +65,6 @@ type Settings struct {
 	GiveawayDailyQuota int `envconfig:"GIVEAWAY_DAILY_QUOTA" default:"5"`
 	GiveawayAvgDays    int `envconfig:"GIVEAWAY_AVG_DAYS" default:"7"`
 
-	TutorialWalletVideoId string `envconfig:"TUTORIAL_WALLET_VIDEO_ID"`
-	TutorialBlueVideoId   string `envconfig:"TUTORIAL_BLUE_VIDEO_ID"`
-
 	Banned map[int]bool `envconfig:"BANNED"`
 
 	NodeId string
