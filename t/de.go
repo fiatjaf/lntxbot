@@ -9,8 +9,8 @@ var DE = map[Key]string{
 	CONFIRM:    "Bestätigen",
 	PAYAMOUNT:  `Zahle Betrag an Sats {{.Sats | printf "%.15g"}}`,
 	FAILURE:    "Fehlschlag.",
-	PROCESSING: "Verarbeitend...",
-	WITHDRAW:   "Widerrufen?",
+	PROCESSING: "Wird verarbeitet...",
+	WITHDRAW:   "Sats abheben?",
 	ERROR:      "🔴 {{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
 	CHECKING:   "Prüfend...",
 	TXPENDING:  "Zahlung noch unterwegs, bitte später erneut prüfen.",
@@ -368,7 +368,7 @@ Registrierte Teilnehmer: {{.Registered}}
 <b>/hide</b> - Verstecke eine Nachricht, Personen müssen bezahlen, um sie lesen zu können. Mehrere Möglichkeiten der Enthüllung: öffentlich, privat, crowdfunded. Zahlreiche Medien unterstützt.
 <b>/coinflip &lt;amount&gt; &lt;number_of_participants&gt;</b> - Erstellt einen Münzwurf, bei dem jeder mitmachen kann <i>(costs 10sat fee)</i>.
 
-🐟 <b>Inline Commands</b> - <i>Can be used in any chat, even if the bot is not present</i> kann in jedem Chat verwendet werden, selbst dann, wenn der Bot nicht vorhanden ist.
+🐟 <b>Inline Commands</b> - <i>Können in jedem Chat verwendet werden, selbst dann, wenn der Bot nicht vorhanden ist.</i>
 <code>@lntxbot give &lt;amount&gt;</code> - Kreiert in einem privaten Chat einen Button, um dem anderen Geld zu geben.
 <code>@lntxbot coinflip/giveflip/giveaway</code> - Das Gleiche wie die slash-command Version, kann aber in Gruppen verwendet werden, die keinen @lntxbot installiert hat.
 <code>@lntxbot invoice &lt;amount&gt;</code> - Erstellt eine Rechnung und sendet diese an einen Chat.
@@ -380,7 +380,7 @@ Registrierte Teilnehmer: {{.Registered}}
 <b>/paynow &lt;invoice&gt;</b> -  bezahlt eine Rechnung, ohne vorher zu fragen.
 <b>/send --anonymous &lt;amount&gt; &lt;user&gt;</b> - Der Empfänger weiß nicht, wer ihm/ihr Sats gesendet hat.
 
-🏛  <b>Group Administration</b>
+🏛  <b>Gruppenverwaltung</b>
 <b>/toggle ticket &lt;amount&gt;</b> - Lege einen Eintrittspreis in Satoshi zum Betreten der Gruppe fest. Gut gegen Spammer! Das Geld geht an den Gruppeninhaber.
 <b>/toggle renamable &lt;amount&gt;</b> - Erlaubt Personen deine Gruppe umzubennen und Du wirst dafür bezahlt. 
 <b>/toggle expensive &lt;amount&gt; &lt;regex pattern&gt;</b> - Berechne Personen etwas, wenn sie die falschen Wörter in deiner Gruppe verwenden (oder lassen es frei, damit jede Nachricht kostenpflichtig ist).
