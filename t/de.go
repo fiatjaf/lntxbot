@@ -176,7 +176,7 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 /giveflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis vom Initiator/Befehlsgeber.
     `,
 	GIVEFLIPMSG:       "{{.User}} Nutzer gibt {{.Sats}} Sats weg an eine glückliche Person aus X Teilnehmern {{.Participants}}!",
-	GIVEFLIPAD:        "{{.Sats}} werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! {{.SpotsLeft}} X Plätze {{.MaxPlayers}} von X Plätzen{{s .SpotsLeft}} verfügbar!",
+	GIVEFLIPAD:        "{{.Sats}} werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen verfügbar!",
 	GIVEFLIPJOIN:      "Versuche zu gewinnen!",
 	GIVEFLIPWINNERMSG: "{{.Sender}} Versender hat Sats gesendet {{.Sats}} an {{.Receiver}}. Diese Personen haben nicht bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}} Um Dein Guthaben zu managen/bearbeiten, starte eine Konversation with @lntxbot.{{end}}",
 
