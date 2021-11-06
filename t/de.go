@@ -26,7 +26,7 @@ var DE = map[Key]string{
 	INLINEINVOICERESULT:  "Zahlungsanfrage für {{.Sats}} X Sats.",
 	INLINEGIVEAWAYRESULT: "Verschenke {{.Sats}} Sats {{if .Receiver}}an @{{.Receiver}}{{else}}her{{end}}",
 	INLINEGIVEFLIPRESULT: "Verschenke {{.Sats}} Sats an einen von {{.MaxPlayers}} X Teilnehmern",
-	INLINECOINFLIPRESULT: "Lotterie mit einem Eintrittspreis von {{.Sats}} Sats für {{.MaxPlayers}} maximal X Teilnehmer",
+	INLINECOINFLIPRESULT: "Lotterie mit einem Eintrittspreis von {{.Sats}} Sats für maximal {{.MaxPlayers}} Teilnehmer",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
 
 	LNURLUNSUPPORTED: "Diese Art von lnurl wird hier nicht unterstützt.",
@@ -86,7 +86,7 @@ lnurl-auth success!
 	INSUFFICIENTBALANCE: `Unzureichendes Guthaben für {{.Purpose}}. Benötigt {{.Sats | printf "%.15g"}} Sats mehr.`,
 
 	PAYMENTRECEIVED: `
-      ⚡️ Zahlung erhalten{{if .SenderName}} from <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
+      ⚡️ Zahlung erhalten{{if .SenderName}} von <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
       {{if .Comment}}
 📨 <i>{{.Comment}}</i>
       {{end}}
@@ -167,18 +167,18 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
     `,
 	COINFLIPWINNERMSG:      "Du bist der Gewinner eines Münzwurfes mit einem Preisgeld von {{.TotalSats}} sat. Die Verlierer sind: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "Du hast {{.IndividualSats}} bei einem Münzwurf verloren. Der Gewinner ist {{.Receiver}}.",
-	COINFLIPAD:             "Zahle {{.Sats}} und habe die Chance folgenden Betrag zu gewinnen {{.Prize}}! {{.SpotsLeft}} unter Anzahl Teilnehmer {{.MaxPlayers}} Anzahl Plätze {{s .SpotsLeft}} übrig!",
+	COINFLIPAD:             "Zahle {{.Sats}} Satoshi und habe die Chance, {{.Prize}} Satoshi zu gewinnen! {{.SpotsLeft}} von {{.MaxPlayers}} Plätzen {{s .SpotsLeft}} übrig!",
 	COINFLIPJOIN:           "Nehme an der Lotterie teil!",
 	CALLBACKCOINFLIPWINNER: "Münzwurf Gewinner: {{.Winner}}",
 
-	GIVEFLIPHELP: `Startet ein Geschenk, aber anstatt es der ersten Person zu geben, die klickt, wird der Betrag zwischen den ersten x Teilnehmern verlost. 
+	GIVEFLIPHELP: `Startet ein Geschenk, aber anstatt es der ersten Person die klickt zu geben, wird der Betrag zwischen den ersten x Teilnehmern verlost. 
 
 /giveflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis vom Initiator/Befehlsgeber.
     `,
 	GIVEFLIPMSG:       "{{.User}} Nutzer gibt {{.Sats}} Sats weg an eine glückliche Person aus X Teilnehmern {{.Participants}}!",
 	GIVEFLIPAD:        "{{.Sats}} werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen verfügbar!",
 	GIVEFLIPJOIN:      "Versuche zu gewinnen!",
-	GIVEFLIPWINNERMSG: "{{.Sender}} Versender hat Sats gesendet {{.Sats}} an {{.Receiver}}. Diese Personen haben nicht bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}} Um Dein Guthaben zu managen/bearbeiten, starte eine Konversation with @lntxbot.{{end}}",
+	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}} Sats gesendet. Diese Personen haben nicht bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}} Um Dein Guthaben zu managen/bearbeiten, starte eine Konversation with @lntxbot.{{end}}",
 
 	FUNDRAISEHELP: `Starte ein Crowdfunding mit einer festgelegten Zahl an Teilnehmern und Spendenbetrag. Wenn die vorgegebene Zahl an Teilnehmern erreicht wird, wird es angewendet. Ansonsten wird es nach einigen Stunden storniert.
 
@@ -199,7 +199,7 @@ Folgende Personen haben beigesteuert: {{.Registered}}
 
 Für eine spezifische Dokumention zum Aufsetzen mit dem @lntxbot besuche <a href="https://docs.lightningatm.me/lightningatm-setup/wallet-setup/lntxbot">the lntxbot setup tutorial</a> (there's also <a href="https://docs.lightningatm.me/faq-and-common-problems/wallet-communication#talking-to-an-api-in-practice">a more detailed and technical background</a>).
   `,
-	BLUEWALLETHELP: `Gibt deine Zugangsdaten für den Import deiner Bot Wallet zur BlueWallet zurück. Du kannst den gleichen Zugang für beide Accounts nutzen.
+	BLUEWALLETHELP: `Gibt deine Zugangsdaten für den Import deiner Bot-Wallet zur BlueWallet zurück. Du kannst den gleichen Zugang für beide Accounts nutzen.
 
 /bluewallet druckt einen String/eine Zeichenkette wie bspw. "lndhub://&lt;login&gt;:&lt;password&gt;@&lt;url&gt;" die kopiert werden muss und im Bluewallet Import Bildschirm eingefügt werden muss.
 /bluewallet_refresh löscht dein vorheriges Passwort und druckt einen neuen String/eine neue Zeichenkette. Danach musst die die Zugangsdaten in der BlueWallet wieder einfügen. Mache dies nur, wenn deine vorherigen Zugangsdaten kompromittiert waren.
@@ -249,7 +249,7 @@ Eine Anforderung zur Enthüllung kann in einer Gruppe oder einem Chat auch kreie
 /toggle_ticket_10 beginnt für alle neuen Gruppeneintritte Gebühren zu erheben. Als Anti-Spamfunktion nützlich. Das Geld geht an den Gruppenbesitzer.
 /toggle_ticket stoppt die Gebühr für neue Gruppeneintritte. 
 /toggle_language_ru ändert die Chatsprache in russisch, /toggle_language zeigt die Chatsprache an, das funktioniert auch in privaten Chats.
-/toggle_spammy schaltet 'spammy' Modus ein. 'spammy' Modus ist standardmäßig deaktiviert. Wenn dies eingeschaltet wird, werden Benachrichtigungen zu Trinkgeldern in der Gruppe öffentlic angezeigt, statt privat übermittelt.
+/toggle_spammy schaltet 'spammy' Modus ein. 'spammy' Modus ist standardmäßig deaktiviert. Wenn dies eingeschaltet wird, werden Benachrichtigungen zu Trinkgeldern in der Gruppe öffentlich angezeigt, statt privat übermittelt.
     `,
 
 	SATS4ADSHELP: `
@@ -257,7 +257,7 @@ Sats4ads ist ein Anzeigen Marketplace auf Telegram. Zahle Geld, um anderen Perso
 
 Die Preise für jeden Nutzer sind in msatoshi-pro Zeichen. Der maximale Preis sind 1000 msat.
 Jede Anzeige beinhaltet eine festgelegte Gebühr von 1 Sat.
-Bilder und Videos werden so eingepreist bzw. behandelt als hätten sie 100 Zeichen.
+Bilder und Videos werden so behandelt als hätten sie 100 Zeichen.
 Bei Links werden zusätzlich 300 Zeichen berechnet, weil sie über eine ärgerliche Voransicht verfügen.
 
 Um eine Anzeige zu übertragen, musst du an den Bot eine Nachricht mit dem Anzeigeninhalt senden, und dann wie beschrieben so antworten <code>/sats4ads broadcast ...</code> . Du kannst den Code <code>--max-rate=500</code> und den Code <code>--skip=0</code> nutzen, um eine bessere Kontrolle zu haben wie die Anzeige veröffentlich wird. Das sind Standardeinstellungen.
