@@ -83,8 +83,6 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 			// but it can part of the tip description
 			description = username + " " + description
 
-			log.Debug().Str("desc", description).Msg("it's a reply-tip")
-
 			var cas int
 			rec, cas, err := ensureTelegramUser(message.ReplyToMessage)
 			receiver = &rec
@@ -93,7 +91,7 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 				log.Warn().Err(err).Int("case", cas).
 					Str("username", message.ReplyToMessage.From.UserName).
 					Int("id", message.ReplyToMessage.From.ID).
-					Msg("failed to ensure user on message.ReplyToMessage-tip")
+					Msg("failed to ensure user on reply-tip")
 				return
 			}
 			goto ensured
@@ -104,17 +102,28 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 	if err != nil {
 		log.Warn().Err(err).Str("username", username).Msg("error parsing username")
 	}
-	send(ctx, g, u, t.CANTSENDNORECEIVER, t.T{"Sats": opts["<satoshis>"]})
+	send(ctx, g, u, t.MISSINGRECEIVER)
 	return
 
 ensured:
+	trimmedDescription := strings.TrimSpace(description)
+
+	if m := ctx.Value("message"); m != nil && !anonymous {
+		message := m.(*tgbotapi.Message)
+		if message.Chat.Type != "private" {
+			trimmedDescription = strings.TrimSpace(
+				trimmedDescription + " (" + telegramMessageLink(message) + ")",
+			)
+		}
+	}
+
 	err = u.sendInternally(
 		ctx,
 		*receiver,
 		anonymous,
 		msats,
 		int64(float64(msats)*0.003),
-		strings.TrimSpace(description),
+		trimmedDescription,
 		"",
 		"",
 	)

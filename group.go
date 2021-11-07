@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -19,6 +21,19 @@ const (
 	CHANNEL_RECEIVER     = 777000
 	GROUP_ANONYMOUS_BOT  = 1087968824
 )
+
+type KickData struct {
+	Kind             string                    `json:"kind"`
+	InvoiceMessage   *tgbotapi.Message         `json:"invoice_message"`
+	NotifyMessage    *tgbotapi.Message         `json:"notify_message"`
+	JoinMessage      *tgbotapi.Message         `json:"join_message"`
+	ChatMemberConfig tgbotapi.ChatMemberConfig `json:"chat_member_config"`
+	ChatOwner        User                      `json:"owner"`
+	TargetId         int                       `json:"new_member_id"`
+	TargetUsername   string                    `json:"new_member_username"`
+	Hash             string                    `json:"hash"`
+	Sats             int                       `json:"sats"`
+}
 
 func isChannelOrGroupUser(user *tgbotapi.User) bool {
 	if user == nil {
@@ -275,4 +290,47 @@ func setLanguage(chatId int64, lang string) (err error) {
 
 	_, err = pg.Exec("UPDATE "+table+" SET locale = $2"+taint+" WHERE "+field+" = $1", id, lang)
 	return
+}
+
+func startKicking() {
+	data, err := rds.HGetAll("ticket-pending").Result()
+	if err != nil {
+		log.Warn().Err(err).Msg("error getting tickets pending")
+		return
+	}
+
+	ctx := context.WithValue(context.Background(), "origin", "background")
+
+	for joinKey, kickdatastr := range data {
+		var kickdata KickData
+		err := json.Unmarshal([]byte(kickdatastr), &kickdata)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to unmarshal kickdata from redis")
+			continue
+		}
+
+		log.Debug().Msg("restarted kick invoice wait")
+		pendingApproval.Set(joinKey, kickdata)
+		go waitToKick(ctx, joinKey, kickdata)
+	}
+}
+
+func waitToKick(ctx context.Context, joinKey string, kickdata KickData) {
+	log.Debug().Str("join-key", joinKey).Msg("waiting to kick")
+	select {
+	case <-waitInvoice(kickdata.Hash):
+		switch kickdata.Kind {
+		case "ticket":
+			ticketPaid(ctx, joinKey, kickdata)
+		case "fine":
+			finePaid(ctx, joinKey, kickdata)
+		}
+	case <-time.After(15 * time.Minute):
+		switch kickdata.Kind {
+		case "ticket":
+			ticketNotPaid(ctx, joinKey, kickdata)
+		case "fine":
+			fineNotPaid(ctx, joinKey, kickdata)
+		}
+	}
 }

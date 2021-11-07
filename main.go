@@ -402,10 +402,7 @@ func createLocalizerBundle() (t.Bundle, error) {
 
 		return satShow
 	})
-	bundle.AddFunc("messageLink", func(message *tgbotapi.Message) string {
-		return fmt.Sprintf("https://t.me/c/%s/%d",
-			strconv.FormatInt(message.Chat.ID, 10)[4:], message.MessageID)
-	})
+	bundle.AddFunc("messageLink", telegramMessageLink)
 
 	err := bundle.AddLanguage("en", t.EN)
 	if err != nil {

@@ -106,6 +106,11 @@ GROUP BY tag
 }
 
 func (u User) checkBalanceFor(ctx context.Context, msats int64, purpose string) bool {
+	if _, ok := s.Banned[u.Id]; ok {
+		log.Debug().Stringer("user", &u).Msg("got balance check on banned user")
+		return false
+	}
+
 	if info, err := u.getInfo(); err != nil || info.BalanceMsat < msats {
 		send(ctx, u, t.INSUFFICIENTBALANCE, t.T{
 			"Purpose": purpose,

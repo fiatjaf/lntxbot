@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -23,7 +25,7 @@ func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message str
 }
 
 func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
-	if chat.Type == "supergroup" {
+	if chat.Type == "supergroup" || chat.Type == "group" {
 		chatmember, err := bot.GetChatMember(tgbotapi.ChatConfigWithUser{
 			ChatID:             chat.ID,
 			SuperGroupUsername: chat.ChatConfig().SuperGroupUsername,
@@ -36,9 +38,6 @@ func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
 			return false
 		}
 
-		return true
-	} else if chat.Type == "group" {
-		// ok, everybody can toggle
 		return true
 	} else if chat.Type == "channel" {
 		// if you're posting then you're an admin
@@ -166,4 +165,9 @@ func messageHasCaption(message *tgbotapi.Message) bool {
 		message.Document != nil ||
 		message.Audio != nil ||
 		message.Animation != nil
+}
+
+func telegramMessageLink(message *tgbotapi.Message) string {
+	return fmt.Sprintf("https://t.me/c/%s/%d",
+		strconv.FormatInt(message.Chat.ID, 10)[4:], message.MessageID)
 }

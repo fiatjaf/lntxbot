@@ -65,8 +65,7 @@ lnurl-auth success!
     `,
 	LNURLBALANCECHECKCANCELED: "Automatische Kontostandsprüfungen von {{.Service}} werden storniert.",
 
-	USERALLOWED:       "Rechnung bezahlt. {{.User}} Benutzer erlaubt.",
-	SPAMFILTERMESSAGE: "Hallo, {{.User}}. Du hast 15 Minuten, um die folgende Rechnung zu bezahlen {{.Sats}} Sats, wenn Du in der Gruppe bleiben willst:",
+	TICKETSET: "Neue Gruppenmitglieder müssen einen Betrag/eine Rechnung von X Sats bezahlen {{.Sat}} (Vergewissere dich, dass du dafür @lntxbot als Administrator festgelegt hast).",
 
 	RENAMABLEMSG:      "Jeder kann diese Gruppe umbenennen, wenn er Betrag X an Sats bezahlt {{.Sat}} (Vergewissere dich, dass du @lntxbot als Administrator festgelegt hast).",
 	RENAMEPROMPT:      "Bezahle <b>{{.Sats}} sat</b> um diese Gruppe umzubennenen <i>{{.Name}}</i>?",
@@ -96,7 +95,6 @@ lnurl-auth success!
 	SPAMMYMSG:             "{{if .Spammy}}Diese Gruppe ist jetzt spammy.{{else}}Spamming beendet.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips (Münzwürfe) sind dieser Gruppe aktiviert {{if .Enabled}}aktiviert{{else}}deaktiviert{{end}} .",
 	LANGUAGEMSG:           "Die Chatsprache ist auf folgende Sprache eingestellt <code>{{.Language}}</code>.",
-	TICKETMSG:             "Neue Gruppenmitglieder müssen einen Betrag/eine Rechnung von X Sats bezahlen {{.Sat}} (Vergewissere dich, dass du dafür @lntxbot als Administrator festgelegt hast).",
 	FREEJOIN:              "Dieser Gruppe kann nun beigetreten werden.",
 	EXPENSIVEMSG:          "Jede Nachricht in dieser Gruppe{{with .Pattern}} die dieses Muster/Inhalt enthält <code>{{.}}</code>{{end}} kostet {{.Price}} Sats.",
 	EXPENSIVENOTIFICATION: "Die Nachricht {{.Link}} hat {{if .Sender}} dich gerade {{.Price}} gekostet{{else}} dir {{.Price}} gebracht {{end}}.",
@@ -332,20 +330,20 @@ Gesamtzahl an Teilnehmern: {{.Participants}}
 Preis: {{.Prize}}
 Registrierte Teilnehmer: {{.Registered}}
     `,
-	INVALIDPARTNUMBER:  "Ungültige Anzahl an Teilnehmern: {{.Number}}",
-	USERSENTTOUSER:     "💛 {{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) gesendet an {{.User}}{{if .ReceiverHasNoChat}} ({{.User}} konnte nicht informiert werden, weil dieser keinen Chat mit dem bot gestartet hat){{end}}.",
-	USERSENTYOUSATS:    "💛 {{.User}} Nutzer hat dir gesendet {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "💛 Jemand hat dir  {{menuItem .Sats .RawSats false}} ({{dollar .Sats}} gesendet).",
-	FAILEDSEND:         "Senden fehlgeschlagen: ",
-	QRCODEFAIL:         "QR Code konnte nicht erfolgreich gelesen werden: {{.Err}}",
-	SAVERECEIVERFAIL:   "Speichern des Empfängers gescheitet. Das ist wahrscheinlich ein bug.",
-	CANTSENDNORECEIVER: "Kann Sats nicht senden {{.Sats}}. Fehlender Empfänger!",
-	GIVERCANTJOIN:      "Der Geber kann niemals teilnehmen",
-	CANTJOINTWICE:      "Du kannst nicht zweimal teilnehmen!",
-	CANTREVEALOWN:      "Kann versteckte Nachrichten nicht aufdecken!",
-	CANTCANCEL:         "Du verfügst nicht über die Rechte, das zu stornieren.",
-	FAILEDINVOICE:      "Rechnungserstellung gescheitert: {{.Err}}",
-	STOPNOTIFY:         "Benachrichtigungen gestoppt.",
+	INVALIDPARTNUMBER: "Ungültige Anzahl an Teilnehmern: {{.Number}}",
+	USERSENTTOUSER:    "💛 {{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) gesendet an {{.User}}{{if .ReceiverHasNoChat}} ({{.User}} konnte nicht informiert werden, weil dieser keinen Chat mit dem bot gestartet hat){{end}}.",
+	USERSENTYOUSATS:   "💛 {{.User}} Nutzer hat dir gesendet {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:  "💛 Jemand hat dir  {{menuItem .Sats .RawSats false}} ({{dollar .Sats}} gesendet).",
+	FAILEDSEND:        "Senden fehlgeschlagen: ",
+	QRCODEFAIL:        "QR Code konnte nicht erfolgreich gelesen werden: {{.Err}}",
+	SAVERECEIVERFAIL:  "Speichern des Empfängers gescheitet. Das ist wahrscheinlich ein bug.",
+	MISSINGRECEIVER:   "Fehlender Empfänger!",
+	GIVERCANTJOIN:     "Der Geber kann niemals teilnehmen",
+	CANTJOINTWICE:     "Du kannst nicht zweimal teilnehmen!",
+	CANTREVEALOWN:     "Kann versteckte Nachrichten nicht aufdecken!",
+	CANTCANCEL:        "Du verfügst nicht über die Rechte, das zu stornieren.",
+	FAILEDINVOICE:     "Rechnungserstellung gescheitert: {{.Err}}",
+	STOPNOTIFY:        "Benachrichtigungen gestoppt.",
 	START: `
 ⚡️ @lntxbot, a <b>Bitcoin</b> Lightning Wallet in Deiner Telegram Anwendung.
 

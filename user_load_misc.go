@@ -354,9 +354,13 @@ func (u User) AtName(ctx context.Context) string {
 		(origin.(string) == "discord" && u.DiscordId == "" ||
 			(origin.(string) != "telegram" && origin.(string) != "discord")) {
 		if u.DiscordId != "" {
-			return u.Username + "@discord"
+			return fmt.Sprintf("<!@%s>", u.DiscordId)
 		} else {
-			return "@" + u.Username
+			if u.Username != "" {
+				return "@" + u.Username
+			}
+			return fmt.Sprintf(`<a href="tg://user?id=%d">user %d</a>`,
+				u.TelegramId, u.TelegramId)
 		}
 	} else if origin.(string) == "telegram" {
 		if u.Username != "" {
@@ -365,7 +369,7 @@ func (u User) AtName(ctx context.Context) string {
 		return fmt.Sprintf(`<a href="tg://user?id=%d">user %d</a>`,
 			u.TelegramId, u.TelegramId)
 	} else if origin.(string) == "discord" {
-		return fmt.Sprintf("<@!%s>", u.DiscordId)
+		return fmt.Sprintf("<!@%s>", u.DiscordId)
 	} else {
 		return "unknown_user?err"
 	}

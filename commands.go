@@ -118,6 +118,10 @@ var methods = []def{
 		argstr:  "<name>...",
 	},
 	def{
+		aliases: []string{"fine"},
+		argstr:  "<satoshis> [for <reason>...]",
+	},
+	def{
 		aliases: []string{"toggle"},
 		argstr:  "(ticket [<satoshis>] | renamable [<satoshis>] | spammy | expensive [<satoshis> <pattern>] | language [<lang>] | coinflips)",
 	},

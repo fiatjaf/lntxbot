@@ -63,6 +63,7 @@ type InvoiceExtra struct {
 	// webhook
 	Webhook string
 
+	// telegram message
 	Message *tgbotapi.Message
 }
 

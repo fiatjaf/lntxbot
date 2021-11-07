@@ -781,6 +781,14 @@ WHERE substring(payment_hash from 0 for $2) = $1
 			go confirmAdViewed(u, hashfirst10chars)
 			go u.track("sats4ads viewed", nil)
 		}
+	case strings.HasPrefix(cb.Data, "ticket="):
+		joinKey := strings.Split(cb.Data, "=")[1]
+		handleTicketClickPay(ctx, joinKey)
+		break
+	case strings.HasPrefix(cb.Data, "fine="):
+		fineKey := strings.Split(cb.Data, "=")[1]
+		handleFineClickPay(ctx, fineKey)
+		break
 	}
 
 answerEmpty:

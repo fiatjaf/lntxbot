@@ -1,21 +1,23 @@
 package t
 
 var EN = map[Key]string{
-	NO:         "No",
-	YES:        "Yes",
-	CANCEL:     "Cancel",
-	CANCELED:   "Canceled.",
-	COMPLETED:  "Completed!",
-	CONFIRM:    "Confirm",
-	PAYAMOUNT:  `Pay {{.Sats | printf "%.15g"}}`,
-	FAILURE:    "Failure.",
-	PROCESSING: "Processing...",
-	WITHDRAW:   "Withdraw?",
-	ERROR:      "🔴 {{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
-	CHECKING:   "Checking...",
-	TXPENDING:  "Payment still in flight, please try checking again later.",
-	TXCANCELED: "Transaction canceled.",
-	UNEXPECTED: "Unexpected error: please report.",
+	NO:          "No",
+	YES:         "Yes",
+	CANCEL:      "Cancel",
+	CANCELED:    "Canceled.",
+	COMPLETED:   "Completed!",
+	CONFIRM:     "Confirm",
+	PAYAMOUNT:   `Pay {{.Sats | printf "%.15g"}}`,
+	FAILURE:     "Failure.",
+	PROCESSING:  "Processing...",
+	WITHDRAW:    "Withdraw?",
+	ERROR:       "🔴 {{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	CHECKING:    "Checking...",
+	TXPENDING:   "Payment still in flight, please try checking again later.",
+	TXCANCELED:  "Transaction canceled.",
+	UNEXPECTED:  "Unexpected error: please report.",
+	MUSTBEADMIN: "This command must be called by an admin.",
+	MUSTBEGROUP: "This command must be used in a group.",
 
 	CALLBACKWINNER:  "Winner: {{.Winner}}",
 	CALLBACKERROR:   "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
@@ -65,8 +67,12 @@ lnurl-auth success!
     `,
 	LNURLBALANCECHECKCANCELED: "Automatic balance checks from {{.Service}} are cancelled.",
 
-	USERALLOWED:       "Invoice paid. {{.User}} allowed.",
-	SPAMFILTERMESSAGE: "Hello, {{.User}}. You have 15min to pay the following invoice for {{.Sats}} sat if you want to stay in this group:",
+	TICKETSET:         "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @lntxbot as administrator for this to work).",
+	TICKETUSERALLOWED: "Ticket paid. {{.User}} allowed.",
+	TICKETMESSAGE: `⚠️ {{.User}}, this group requires that you pay {{.Sats}} sat to be able to join.
+
+You have 15 minutes to do it or you'll be kicked and banned for one day.
+`,
 
 	RENAMABLEMSG:      "Anyone can rename this group as long as they pay {{.Sat}} sat (make sure you've set @lntxbot as administrator for this to work).",
 	RENAMEPROMPT:      "Pay <b>{{.Sats}} sat</b> to rename this group to <i>{{.Name}}</i>?",
@@ -96,7 +102,6 @@ lnurl-auth success!
 	SPAMMYMSG:             "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
 	LANGUAGEMSG:           "This chat language is set to <code>{{.Language}}</code>.",
-	TICKETMSG:             "New entrants will have to pay an invoice of {{.Sat}} sat (make sure you've set @lntxbot as administrator for this to work).",
 	FREEJOIN:              "This group is now free to join.",
 	EXPENSIVEMSG:          "Every message in this group{{with .Pattern}} containing the pattern <code>{{.}}</code>{{end}} will cost {{.Price}} sat.",
 	EXPENSIVENOTIFICATION: "The message {{.Link}} just {{if .Sender}}cost{{else}}earned{{end}} you {{.Price}} sat.",
@@ -151,6 +156,14 @@ Lists all your transactions with pagination controls. Each transaction has a lin
     `,
 
 	BALANCEHELP: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
+
+	FINEHELP: "Prompts a user in a group to pay a fee. If they don't pay within 15 minutes they are kicked from the group and banned for a day.",
+	FINEMESSAGE: `⚠️ {{.FinedUser}}, you were <b>fined</b> for <i>{{.Sats}} sat</i>{{if .Reason}} for <i>{{ .Reason }}</i>{{end}}.
+
+You have 15 minutes to pay or you will be kicked.
+    `,
+	FINEFAILURE: "{{.User}} failed to pay the fine and was kicked and banned for one day.",
+	FINESUCCESS: "{{.User}} has paid the fine.",
 
 	GIVEAWAYHELP: `Creates a button in a group chat. The first person to click the button gets the satoshis.
 
@@ -332,20 +345,20 @@ Total participants: {{.Participants}}
 Prize: {{.Prize}}
 Registered: {{.Registered}}
     `,
-	INVALIDPARTNUMBER:  "Invalid number of participants: {{.Number}}",
-	USERSENTTOUSER:     "💛 {{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
-	USERSENTYOUSATS:    "💛 {{.User}} has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
-	RECEIVEDSATSANON:   "💛 Someone has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
-	FAILEDSEND:         "Failed to send: ",
-	QRCODEFAIL:         "QR code reading unsuccessful: {{.Err}}",
-	SAVERECEIVERFAIL:   "Failed to save receiver. This is probably a bug.",
-	CANTSENDNORECEIVER: "Can't send {{.Sats}}. Missing receiver!",
-	GIVERCANTJOIN:      "Giver can't join!",
-	CANTJOINTWICE:      "Can't join twice!",
-	CANTREVEALOWN:      "Can't reveal your own hidden message!",
-	CANTCANCEL:         "You don't have the powers to cancel this.",
-	FAILEDINVOICE:      "Failed to generate invoice: {{.Err}}",
-	STOPNOTIFY:         "Notifications stopped.",
+	INVALIDPARTNUMBER: "Invalid number of participants: {{.Number}}",
+	USERSENTTOUSER:    "💛 {{menuItem .Sats .RawSats true }} ({{dollar .Sats}}) sent to {{.User}}{{if .ReceiverHasNoChat}} (couldn't notify {{.User}} as they haven't started a conversation with the bot){{end}}.",
+	USERSENTYOUSATS:   "💛 {{.User}} has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}){{if .BotOp}} on a {{.BotOp}}{{end}}.",
+	RECEIVEDSATSANON:  "💛 Someone has sent you {{menuItem .Sats .RawSats false}} ({{dollar .Sats}}).",
+	FAILEDSEND:        "Failed to send: ",
+	QRCODEFAIL:        "QR code reading unsuccessful: {{.Err}}",
+	SAVERECEIVERFAIL:  "Failed to save receiver. This is probably a bug.",
+	MISSINGRECEIVER:   "Missing receiver!",
+	GIVERCANTJOIN:     "Giver can't join!",
+	CANTJOINTWICE:     "Can't join twice!",
+	CANTREVEALOWN:     "Can't reveal your own hidden message!",
+	CANTCANCEL:        "You don't have the powers to cancel this.",
+	FAILEDINVOICE:     "Failed to generate invoice: {{.Err}}",
+	STOPNOTIFY:        "Notifications stopped.",
 	START: `
 ⚡️ @lntxbot, a <b>Bitcoin</b> Lightning wallet on your Telegram.
 
@@ -384,6 +397,7 @@ Registered: {{.Registered}}
 <b>/toggle ticket &lt;amount&gt;</b> - Put a price in satoshis for joining your group. Great antispam! Money goes to group owner.
 <b>/toggle renamable &lt;amount&gt;</b> - Allows people to use /rename to rename your group and you get paid.
 <b>/toggle expensive &lt;amount&gt; &lt;regex pattern&gt;</b> - Charge people for saying the wrong words in your group (or left blank to charge for all messages).
+<b>/fine &lt;amount&gt;</b> - Make people pay you or be kicked from the group.
 
 ---
 

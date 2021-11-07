@@ -34,13 +34,6 @@ func handle(upd tgbotapi.Update) {
 	case upd.ChannelPost != nil:
 		handleTelegramMessage(ctx, upd.ChannelPost)
 	case upd.CallbackQuery != nil:
-		// is temporarily s.Banned?
-		if _, ok := s.Banned[upd.CallbackQuery.From.ID]; ok {
-			log.Debug().Int("tgid", upd.CallbackQuery.From.ID).
-				Msg("got request from banned user")
-			return
-		}
-
 		handleTelegramCallback(ctx, upd.CallbackQuery)
 	case upd.InlineQuery != nil:
 		go handleInlineQuery(ctx, upd.InlineQuery)

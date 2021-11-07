@@ -32,7 +32,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 
 	// stop if temporarily banned
 	if _, ok := s.Banned[u.Id]; ok {
-		log.Debug().Int("id", u.Id).Msg("got request from banned user")
+		log.Debug().Stringer("id", &u).Msg("got request from banned user")
 		return
 	}
 
@@ -487,6 +487,7 @@ parsed:
 			ctx = context.WithValue(ctx, "spammy", true)
 
 			if message.Chat.Type == "private" {
+				send(ctx, u, t.MUSTBEGROUP)
 				return
 			}
 
@@ -512,6 +513,8 @@ parsed:
 				"sats":  price,
 			})
 		}()
+	case opts["fine"].(bool):
+		go handleFine(ctx, opts)
 	case opts["help"].(bool):
 		command, _ := opts.String("<command>")
 		go u.track("help", map[string]interface{}{"command": command})
@@ -540,11 +543,15 @@ parsed:
 					} else {
 						send(ctx, u, t.LANGUAGEMSG, t.T{"Language": u.Locale})
 					}
+				default:
+					send(ctx, u, t.MUSTBEGROUP)
+					return
 				}
 
 				return
 			}
 			if !isAdmin(message.Chat, message.From) {
+				send(ctx, u, t.MUSTBEADMIN)
 				return
 			}
 
@@ -573,7 +580,7 @@ parsed:
 
 				g.setTicketPrice(sats)
 				if sats > 0 {
-					send(ctx, g, t.TICKETMSG, t.T{"Sat": sats})
+					send(ctx, g, t.TICKETSET, t.T{"Sat": sats})
 				}
 			case opts["expensive"].(bool):
 				log.Info().Stringer("group", &g).Msg("toggling expensive")
