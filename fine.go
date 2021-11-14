@@ -193,16 +193,13 @@ func handleFineClickPay(ctx context.Context, fineKey string) {
 		return
 	}
 
+	dispatchGeneric(fineKey, nil)
 	finePaid(ctx, fineKey, kickdata)
 }
 
 func fineNotPaid(ctx context.Context, fineKey string, kickdata KickData) {
-	log.Info().Str("fine-key", fineKey).Msg("fine expired, kicking user")
-
-	bot.KickChatMember(tgbotapi.KickChatMemberConfig{
-		ChatMemberConfig: kickdata.ChatMemberConfig,
-		UntilDate:        time.Now().AddDate(0, 0, 1).Unix(),
-	})
+	log.Info().Str("fine-key", fineKey).Interface("chat-member", kickdata.ChatMemberConfig).
+		Msg("fine expired, kicking user")
 
 	rds.HDel("ticket-pending", fineKey)
 

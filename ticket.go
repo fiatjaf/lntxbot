@@ -165,12 +165,12 @@ func handleTelegramNewMember(
 	go waitToKick(ctx, joinKey, kickdata)
 }
 
-func handleTicketClickPay(ctx context.Context, ticketKey string) {
+func handleTicketClickPay(ctx context.Context, joinKey string) {
 	payer := ctx.Value("initiator").(User)
 
-	log := log.With().Str("ticket-key", ticketKey).Logger()
+	log := log.With().Str("ticket-key", joinKey).Logger()
 
-	kickdatastr, err := rds.HGet("ticket-pending", ticketKey).Result()
+	kickdatastr, err := rds.HGet("ticket-pending", joinKey).Result()
 	if err != nil {
 		log.Warn().Err(err).Msg("error getting ticket pending on callback")
 		return
@@ -184,7 +184,8 @@ func handleTicketClickPay(ctx context.Context, ticketKey string) {
 
 	// anyone can pay, but if the payer is the group owner we don't do a transaction
 	if payer.Id == kickdata.ChatOwner.Id {
-		ticketPaid(ctx, ticketKey, kickdata)
+		dispatchGeneric(joinKey, nil)
+		ticketPaid(ctx, joinKey, kickdata)
 		return
 	}
 
@@ -204,7 +205,8 @@ func handleTicketClickPay(ctx context.Context, ticketKey string) {
 		return
 	}
 
-	ticketPaid(ctx, ticketKey, kickdata)
+	dispatchGeneric(joinKey, nil)
+	ticketPaid(ctx, joinKey, kickdata)
 }
 
 func ticketPaid(ctx context.Context, joinKey string, kickdata KickData) {

@@ -315,22 +315,24 @@ func startKicking() {
 	}
 }
 
-func waitToKick(ctx context.Context, joinKey string, kickdata KickData) {
-	log.Debug().Str("join-key", joinKey).Msg("waiting to kick")
+func waitToKick(ctx context.Context, key string, kickdata KickData) {
+	log.Debug().Str("key", key).Msg("waiting to kick")
 	select {
 	case <-waitInvoice(kickdata.Hash):
 		switch kickdata.Kind {
 		case "ticket":
-			ticketPaid(ctx, joinKey, kickdata)
+			ticketPaid(ctx, key, kickdata)
 		case "fine":
-			finePaid(ctx, joinKey, kickdata)
+			finePaid(ctx, key, kickdata)
 		}
 	case <-time.After(15 * time.Minute):
 		switch kickdata.Kind {
 		case "ticket":
-			ticketNotPaid(ctx, joinKey, kickdata)
+			ticketNotPaid(ctx, key, kickdata)
 		case "fine":
-			fineNotPaid(ctx, joinKey, kickdata)
+			fineNotPaid(ctx, key, kickdata)
 		}
+	case <-waitGeneric(key):
+		// just to stop this waiter
 	}
 }

@@ -528,3 +528,31 @@ func senderNameFromPayerData(payer lnurl.PayerDataValues) string {
 	}
 	return ""
 }
+
+var waitingGeneric = cmap.New() // make(map[string][]chan interface{})
+
+func waitGeneric(key string) (inv <-chan interface{}) {
+	wait := make(chan interface{})
+	waitingGeneric.Upsert(key, wait,
+		func(exists bool, arr interface{}, v interface{}) interface{} {
+			if exists {
+				return append(arr.([]interface{}), v)
+			} else {
+				return []interface{}{v}
+			}
+		},
+	)
+	return wait
+}
+
+func dispatchGeneric(key string, val interface{}) {
+	if chans, ok := waitingGeneric.Get(key); ok {
+		for _, ch := range chans.([]interface{}) {
+			select {
+			case ch.(chan interface{}) <- val:
+			default:
+			}
+		}
+		waitingGeneric.Remove(key)
+	}
+}
