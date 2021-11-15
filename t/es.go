@@ -7,7 +7,7 @@ var ES = map[Key]string{
 	CANCELED:    "Cancelado.",
 	COMPLETED:   "¡Completado!",
 	CONFIRM:     "Confirmar",
-	PAYAMOUNT:   "Pagar {{.Sats | printf '%.15g'}}",
+	PAYAMOUNT:   `Pagar {{.Sats | printf "%.15g"}}`,
 	FAILURE:     "Fallo.",
 	PROCESSING:  "Procesando...",
 	WITHDRAW:    "¿Retirar?",

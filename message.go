@@ -197,10 +197,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 
 	// build text with params
 	if text == "" && template != "" {
-		// fallback locale to user or group
-		if locale == "" && group != nil {
-			locale = group.Locale
-		}
+		// fallback locale to user
 		if locale == "" && target != nil {
 			locale = target.Locale
 		}
@@ -224,6 +221,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	var useGroup = (spammy && !hasExplicitTarget && groupId != 0) ||
 		(forceSpammy && groupId != 0) ||
 		(groupId != 0 && target == nil)
+
+		// use group locale then
+	if useGroup && locale == "" && group != nil {
+		locale = group.Locale
+	}
 
 	// origin can be "api", "background", "external"
 	if origin != "telegram" && origin != "discord" {
