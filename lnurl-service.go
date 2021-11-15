@@ -269,7 +269,7 @@ func lnurlPayUserParams(
 		receiver, err = loadUser(id)
 	} else {
 		// case in which username is a real username
-		receiver, err = ensureTelegramUsername(username)
+		receiver, err = loadTelegramUsername(username)
 		isTelegramUsername = true
 	}
 	if err != nil {
