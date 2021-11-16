@@ -324,7 +324,22 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 	}
 
 	if info.Get("#").Int() == 0 {
-		log.Warn().Str("hash", hash).Msg("getsentinfo returned [], indeterminate")
+		// check if this transaction is too old
+		var t time.Time
+		err := pg.Get(&t,
+			"SELECT time FROM lightning.transaction WHERE payment_hash = $1", hash)
+		if err == nil &&
+			t.Before(time.Now().Add(-time.Hour)) &&
+			t.After(time.Now().AddDate(0, -3, 0)) {
+			log.Warn().Str("hash", hash).Time("time", t).
+				Msg("tx in the range of acceptable cancellation on getsentinfo []")
+
+			go paymentHasFailed(ctx, hash)
+		} else {
+			log.Warn().Str("hash", hash).Err(err).Time("time", t).
+				Msg("getsentinfo returned []")
+		}
+
 		return
 	}
 
