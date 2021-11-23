@@ -86,10 +86,12 @@ func (u User) makeInvoice(
 	binary.BigEndian.PutUint32(preimage, uint32(u.Id))
 
 	params := eclair.Params{
-		"amountMsat":      msatoshi,
 		"expireIn":        int((*args.Expiry).Seconds()),
 		"paymentPreimage": hex.EncodeToString(preimage),
 	}
+
+	// only have the amountMsat parameter if given (i.e., not "any")
+	params["amountMsat"] = msatoshi
 
 	if args.DescriptionHash == "" {
 		params["description"] = args.Description
