@@ -265,11 +265,10 @@ VALUES ($1, $2, $3, $4, $5, true, $6, $7)
 
 	// set common params
 	params := eclair.Params{
-		"invoice":         bolt11,
-		"maxAttempts":     20,
-		"feeThresholdSat": 5,
-		"maxFeePct":       0.05,
-		"externalId":      fmt.Sprintf("lntxbot:user=%d", u.Id),
+		"invoice":     bolt11,
+		"maxAttempts": 20,
+		"maxFeePct":   0.5,
+		"externalId":  fmt.Sprintf("lntxbot:user=%d", u.Id),
 	}
 
 	if inv.MSatoshi == 0 {
