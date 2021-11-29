@@ -91,7 +91,9 @@ func (u User) makeInvoice(
 	}
 
 	// only have the amountMsat parameter if given (i.e., not "any")
-	params["amountMsat"] = msatoshi
+	if msatoshi > 0 {
+		params["amountMsat"] = msatoshi
+	}
 
 	if args.DescriptionHash == "" {
 		params["description"] = args.Description
