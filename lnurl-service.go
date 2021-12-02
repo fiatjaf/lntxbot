@@ -302,7 +302,7 @@ func lnurlPayUserParams(
 		MinSendable:    100000,
 		Metadata:       metadata,
 		CommentAllowed: 422,
-		PayerData: lnurl.PayerDataSpec{
+		PayerData: &lnurl.PayerDataSpec{
 			FreeName:         &lnurl.PayerDataItemSpec{},
 			LightningAddress: &lnurl.PayerDataItemSpec{},
 			Email:            &lnurl.PayerDataItemSpec{},

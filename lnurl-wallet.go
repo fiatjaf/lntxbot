@@ -304,9 +304,7 @@ func handleLNURLPay(
 		"Text":        params.Metadata.Description,
 		"Long":        params.Metadata.LongDescription,
 		"WillSendPayerData": !opts.anonymous &&
-			(params.PayerData.FreeName != nil ||
-				params.PayerData.LightningAddress != nil ||
-				params.PayerData.KeyAuth != nil),
+			params.PayerData != nil && params.PayerData.Exists(),
 	}, ctx.Value("message"), actionPrompt, imageURL)
 	if sent == nil {
 		return
@@ -387,7 +385,7 @@ func lnurlpayFinish(
 	var payerdata *lnurl.PayerDataValues
 	var proofOfPayerKey *btcec.PrivateKey
 
-	if params.PayerData.Exists() {
+	if params.PayerData != nil && params.PayerData.Exists() {
 		payerdata = &lnurl.PayerDataValues{}
 
 		// always include pubkey if possible, as it's still anonymous
