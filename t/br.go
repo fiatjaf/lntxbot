@@ -101,13 +101,13 @@ Você tem 15 minutos para pagar ou será retirado do grupo e permanecerá banido
 
 	SPAMMYMSG:             "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
-	LANGUAGEMSG:           "This chat language is set to <code>{{.Language}}</code>.",
-	FREEJOIN:              "This group is now free to join.",
+	LANGUAGEMSG:           "O idioma dessa conversa está configurada para <code>{{.Language}}</code>.",
+	FREEJOIN:              "Esse grupo está aberto para livre entrada.",
 	EXPENSIVEMSG:          "Every message in this group{{with .Pattern}} containing the pattern <code>{{.}}</code>{{end}} will cost {{.Price}} sat.",
 	EXPENSIVENOTIFICATION: "The message {{.Link}} just {{if .Sender}}cost{{else}}earned{{end}} you {{.Price}} sat.",
-	FREETALK:              "Messages are free again",
+	FREETALK:              "Mensagens estão liberadas novamente",
 
-	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
+	APPBALANCE: `#{{.App | lower}} Saldo: <i>{{printf "%.15g" .Balance}} sat</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
