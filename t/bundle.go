@@ -37,6 +37,7 @@ func (bundle *Bundle) AddLanguage(lang string, translations map[Key]string) erro
 		if err != nil {
 			return err
 		}
+		tmpl = tmpl.Option("missingkey=zero")
 
 		bundle.Translations[lang][key] = tmpl
 	}

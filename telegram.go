@@ -2,160 +2,30 @@ package main
 
 import (
 	"errors"
-	"os"
+	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	lru "github.com/hashicorp/golang-lru"
 )
 
-func tgsend(chattable tgbotapi.Chattable) (sent tgbotapi.Message, err error) {
-	sent, err = bot.Send(chattable)
-	if err != nil && strings.Index(err.Error(), "reply message not found") != -1 {
-		switch c := chattable.(type) {
-		case tgbotapi.MessageConfig:
-			c.BaseChat.ReplyToMessageID = 0
-			return tgsend(c)
-		}
-	} else if err != nil {
-		return
-	}
-	return sent, nil
-}
-
-func sendMessage(chatId int64, msg string) tgbotapi.Message {
-	return sendMessageAsReply(chatId, msg, 0)
-}
-
-func sendMessageAsReply(chatId int64, msg string, replyToId int) tgbotapi.Message {
-	return sendMessageWithKeyboard(chatId, msg, nil, replyToId)
-}
-
-func sendMessageWithKeyboard(chatId int64, msg string, keyboard *tgbotapi.InlineKeyboardMarkup, replyToId int) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.BaseChat.ReplyToMessageID = replyToId
-	chattable.ParseMode = "HTML"
-	chattable.DisableWebPagePreview = true
-	if keyboard != nil {
-		chattable.BaseChat.ReplyMarkup = *keyboard
-	}
-	message, err := bot.Send(chattable)
-	if err != nil {
-		if strings.Index(err.Error(), "reply message not found") != -1 {
-			chattable.BaseChat.ReplyToMessageID = 0
-			message, err = bot.Send(chattable)
-		} else {
-			log.Warn().Err(err).Int64("chat", chatId).Str("msg", msg).Msg("error sending message")
-		}
-	}
-	return message
-}
-
-func sendMessageAsText(chatId int64, msg string) tgbotapi.Message {
-	chattable := tgbotapi.NewMessage(chatId, msg)
-	chattable.DisableWebPagePreview = true
-	c, err := bot.Send(chattable)
-	if err != nil {
-		log.Warn().Str("message", msg).Err(err).Msg("error sending text message")
-	}
-	return c
-}
-
-func sendMessageWithPicture(chatId int64, picturepath string, message string) tgbotapi.Message {
-	if picturepath == "" {
-		return sendMessage(chatId, message)
-	} else {
-		defer os.Remove(picturepath)
-		photo := tgbotapi.NewPhotoUpload(chatId, picturepath)
-		photo.Caption = message
-		photo.ParseMode = "HTML"
-		c, err := bot.Send(photo)
-		if err != nil {
-			log.Warn().Str("path", picturepath).Str("message", message).Err(err).
-				Msg("error sending photo")
-			return sendMessage(chatId, message)
-		} else {
-			return c
-		}
-	}
-}
-
-func sendMessageWithAnimationId(chatId int64, fileId string, message string) tgbotapi.Message {
+func sendTelegramMessageWithAnimationId(chatId int64, fileId string, message string) (id interface{}) {
 	video := tgbotapi.NewAnimationShare(chatId, fileId)
 	video.Caption = message
 	video.ParseMode = "HTML"
 	c, err := bot.Send(video)
 	if err != nil {
-		log.Warn().Str("id", fileId).Str("message", message).Err(err).Msg("error sending video")
+		log.Warn().Str("id", fileId).Str("message", message).Err(err).
+			Msg("sending telegram video")
 	}
-	return c
-}
-
-func getBaseEdit(cb *tgbotapi.CallbackQuery) tgbotapi.BaseEdit {
-	baseedit := tgbotapi.BaseEdit{
-		InlineMessageID: cb.InlineMessageID,
-	}
-
-	if cb.Message != nil {
-		baseedit.MessageID = cb.Message.MessageID
-		baseedit.ChatID = cb.Message.Chat.ID
-	}
-
-	return baseedit
-}
-
-func removeKeyboardButtons(cb *tgbotapi.CallbackQuery) {
-	baseEdit := getBaseEdit(cb)
-
-	baseEdit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
-		},
-	}
-
-	bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
-		BaseEdit: baseEdit,
-	})
-}
-
-func appendTextToMessage(cb *tgbotapi.CallbackQuery, text string) {
-	if cb.Message != nil {
-		text = cb.Message.Text + " " + text
-	}
-
-	baseEdit := getBaseEdit(cb)
-	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit:              baseEdit,
-		Text:                  text,
-		DisableWebPagePreview: true,
-	})
-}
-
-func edit(message *tgbotapi.Message, newText string) {
-	bot.Send(tgbotapi.EditMessageTextConfig{
-		BaseEdit: tgbotapi.BaseEdit{
-			ChatID:    message.Chat.ID,
-			MessageID: message.MessageID,
-		},
-		Text:                  newText,
-		DisableWebPagePreview: true,
-	})
-}
-
-func editAppend(message *tgbotapi.Message, textToAppend string) {
-	edit(message, message.Text+textToAppend)
-}
-
-func editWithKeyboard(chat int64, msg int, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
-	edit := tgbotapi.NewEditMessageText(chat, msg, text)
-	edit.ParseMode = "HTML"
-	edit.DisableWebPagePreview = true
-	edit.BaseEdit.ReplyMarkup = &keyboard
-	bot.Send(edit)
+	return c.MessageID
 }
 
 func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
-	if chat.Type == "supergroup" {
+	if chat.Type == "supergroup" || chat.Type == "group" {
 		chatmember, err := bot.GetChatMember(tgbotapi.ChatConfigWithUser{
 			ChatID:             chat.ID,
 			SuperGroupUsername: chat.ChatConfig().SuperGroupUsername,
@@ -163,16 +33,14 @@ func isAdmin(chat *tgbotapi.Chat, user *tgbotapi.User) bool {
 		})
 		if err != nil ||
 			(chatmember.Status != "administrator" && chatmember.Status != "creator") {
-			log.Warn().Err(err).
-				Int64("group", chat.ID).
-				Int("user", user.ID).
-				Msg("can't get user or not an admin.")
+			log.Warn().Err(err).Int64("group", chat.ID).
+				Int("user-tg", user.ID).Msg("can't get user or not an admin.")
 			return false
 		}
 
 		return true
-	} else if chat.Type == "group" {
-		// ok, everybody can toggle
+	} else if chat.Type == "channel" {
+		// if you're posting then you're an admin
 		return true
 	} else {
 		return false
@@ -200,7 +68,7 @@ func getChatOwner(chatId int64) (User, error) {
 
 	for _, admin := range admins {
 		if admin.Status == "creator" {
-			user, tcase, err := ensureUser(admin.User.ID, admin.User.UserName, admin.User.LanguageCode)
+			user, tcase, err := ensureTelegramUser(&tgbotapi.Message{From: admin.User})
 			if err != nil {
 				log.Warn().Err(err).Int("case", tcase).
 					Str("username", admin.User.UserName).
@@ -216,16 +84,90 @@ func getChatOwner(chatId int64) (User, error) {
 	return User{}, errors.New("chat has no owner")
 }
 
-func getUserPictureURL(username string) (string, error) {
-	doc, err := goquery.NewDocument("https://t.me/" + username)
+var pictureCache, _ = lru.NewARC(25)
+
+func getTelegramUserPicture(username string) ([]byte, error) {
+	if i, ok := pictureCache.Get(username); ok {
+		return i.([]byte), nil
+	}
+
+	url, err := getTelegramUserPictureURL(http.DefaultClient, username)
+	if err != nil {
+		return nil, err
+	}
+
+	if url == "https://telegram.org/img/t_logo.png" {
+		// got the default telegram logo, try using tor instead
+		if s.TorProxyURL != nil && s.TorProxyURL.Host != "" {
+			client := &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyURL(s.TorProxyURL),
+				},
+			}
+			url, err = getTelegramUserPictureURL(client, username)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	b, err := imageBytesFromURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	pictureCache.Add(username, b)
+	return b, nil
+}
+
+func getTelegramUserPictureURL(client *http.Client, username string) (string, error) {
+	resp, err := client.Get("https://t.me/" + username)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
-	image, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
+	url, ok := doc.Find(`meta[property="og:image"]`).First().Attr("content")
 	if !ok {
 		return "", errors.New("no image available for this user")
 	}
 
-	return image, nil
+	return url, nil
+}
+
+func examineTelegramUsername(username string) (*User, error) {
+	if username == "" {
+		return nil, errors.New("username is blank")
+	}
+	if !strings.HasPrefix(username, "@") {
+		return nil, errors.New("username doesn't start with @")
+	}
+
+	username = strings.ToLower(username)
+	username = username[1:] // exclude initial @
+
+	user, err := ensureTelegramUsername(username)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func messageHasCaption(message *tgbotapi.Message) bool {
+	return message.Caption != "" ||
+		message.Photo != nil ||
+		message.Document != nil ||
+		message.Audio != nil ||
+		message.Animation != nil
+}
+
+func telegramMessageLink(message *tgbotapi.Message) string {
+	return fmt.Sprintf("https://t.me/c/%s/%d",
+		strconv.FormatInt(message.Chat.ID, 10)[4:], message.MessageID)
 }

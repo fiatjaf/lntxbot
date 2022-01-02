@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +13,7 @@ import (
 	"github.com/lucsky/cuid"
 )
 
-func handleInlineQuery(q *tgbotapi.InlineQuery) {
+func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 	var (
 		u       User
 		err     error
@@ -23,7 +23,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		command string
 	)
 
-	u, err = loadUser(0, int(q.From.ID))
+	u, err = loadTelegramUser(int(q.From.ID))
 	if err != nil {
 		log.Debug().Err(err).
 			Str("username", q.From.UserName).
@@ -50,74 +50,83 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 	switch command {
 	case "invoice", "receive", "fund":
-		sats, err := strconv.Atoi(argv[1])
+		msats, err := parseAmountString(argv[1])
 		if err != nil {
 			goto answerEmpty
 		}
 
-		bolt11, _, qrpath, err := u.makeInvoice(makeInvoiceArgs{
-			Msatoshi:  int64(sats) * 1000,
-			MessageId: q.ID,
+		bolt11, _, err := u.makeInvoice(ctx, &MakeInvoiceArgs{
+			Msatoshi: msats,
+			Description: fmt.Sprintf("%s:  inline invoice for %d satoshis",
+				u.Username, msats/1000),
 		})
 		if err != nil {
 			log.Warn().Err(err).Msg("error making invoice on inline query.")
 			goto answerEmpty
 		}
 
-		qrurl := s.ServiceURL + "/qr/" + qrpath
-
-		resultphoto := tgbotapi.NewInlineQueryResultPhoto("inv-"+argv[1]+"-photo", qrurl)
-		resultphoto.Title = argv[1] + " sat"
-		resultphoto.Description = translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]})
-		resultphoto.ThumbURL = qrurl
-		resultphoto.Caption = bolt11
-
-		resultnophoto := tgbotapi.NewInlineQueryResultArticleHTML(
-			"inv-"+argv[1]+"-nophoto",
-			translateTemplate(t.INLINEINVOICERESULT, u.Locale, t.T{"Sats": argv[1]}),
+		result := tgbotapi.NewInlineQueryResultArticleHTML(
+			"inv-"+argv[1],
+			translateTemplate(ctx, t.INLINEINVOICERESULT, t.T{"Sats": argv[1]}),
 			bolt11,
 		)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
-			Results:       []interface{}{resultnophoto, resultphoto},
+			Results:       []interface{}{result},
 			IsPersonal:    true,
 		})
 
 		go u.track("make invoice", map[string]interface{}{
-			"sats":   sats,
+			"sats":   msats / 1000,
 			"inline": true,
 		})
-
-		go func(qrpath string) {
-			time.Sleep(30 * time.Second)
-			os.Remove(qrpath)
-		}(qrpath)
 		goto responded
-	case "giveaway":
-		if len(argv) != 2 {
+	case "give", "giveaway":
+		if len(argv) != 2 && len(argv) != 3 {
+			goto answerEmpty
+		}
+		if len(argv) == 3 && command == "giveaway" {
 			goto answerEmpty
 		}
 
-		var sats int
-		if sats, err = strconv.Atoi(argv[1]); err != nil {
+		msats, err := parseAmountString(argv[1])
+		if err != nil {
 			break
 		}
-		if !u.checkBalanceFor(sats, "giveaway", nil) {
+		if !u.checkBalanceFor(ctx, msats, command) {
 			break
+		}
+		sats := int(msats / 1000)
+
+		var recv string
+		if len(argv) == 3 {
+			recv = argv[2]
+			recv = strings.TrimSpace(recv)
+			recv = strings.ToLower(recv)
+			recv = strings.TrimPrefix(recv, "@")
 		}
 
-		go u.track("giveaway created", map[string]interface{}{
-			"sats":   sats,
-			"inline": true,
+		go u.track(command+" created", map[string]interface{}{
+			"sats":     sats,
+			"inline":   true,
+			"receiver": recv,
 		})
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
-			fmt.Sprintf("give-%d-%d", u.Id, sats),
-			translateTemplate(t.INLINEGIVEAWAYRESULT, u.Locale, t.T{"Sats": sats}),
-			translateTemplate(t.GIVEAWAYMSG, u.Locale, t.T{"User": u.AtName(), "Sats": sats}),
+			fmt.Sprintf("gv-%d-%d-%s", u.Id, sats, recv),
+			translateTemplate(ctx, t.INLINEGIVEAWAYRESULT, t.T{
+				"Sats":     sats,
+				"Receiver": recv,
+			}),
+			translateTemplate(ctx, t.GIVEAWAYMSG, t.T{
+				"User":     u.AtName(ctx),
+				"Sats":     sats,
+				"Receiver": recv,
+				"Away":     command == "giveaway",
+			}),
 		)
-		result.ReplyMarkup = giveawayKeyboard(u.Id, sats, u.Locale)
+		result.ReplyMarkup = giveawayKeyboard(ctx, u.Id, sats, recv)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -134,15 +143,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			break
 		}
 
-		if !canCreateCoinflip(u.Id) {
-			u.notify(t.RATELIMIT, nil)
-			return
-		}
-		if !canJoinCoinflip(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "coinflip"})
-			return
-		}
-		if !u.checkBalanceFor(sats, "coinflip", nil) {
+		if !u.checkBalanceFor(ctx, int64(sats*1000)+COINFLIP_TAX, "coinflip") {
 			break
 		}
 
@@ -161,11 +162,11 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("flip-%d-%d-%d", u.Id, sats, nparticipants),
-			translateTemplate(t.INLINECOINFLIPRESULT, u.Locale, t.T{
+			translateTemplate(ctx, t.INLINECOINFLIPRESULT, t.T{
 				"Sats":       sats,
 				"MaxPlayers": nparticipants,
 			}),
-			translateTemplate(t.COINFLIPAD, u.Locale, t.T{
+			translateTemplate(ctx, t.COINFLIPAD, t.T{
 				"Sats":       sats,
 				"Prize":      sats * nparticipants,
 				"SpotsLeft":  nparticipants - 1,
@@ -173,7 +174,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			}),
 		)
 
-		result.ReplyMarkup = coinflipKeyboard("", u.Id, nparticipants, sats, u.Locale)
+		result.ReplyMarkup = coinflipKeyboard(ctx, "", u.Id, nparticipants, sats)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -191,20 +192,13 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			goto answerEmpty
 		}
 
-		var sats int
-		if sats, err = strconv.Atoi(argv[1]); err != nil {
+		msats, err := parseAmountString(argv[1])
+		if err != nil {
 			break
 		}
+		sats := int(msats / 1000)
 
-		if !canCreateGiveflip(u.Id) {
-			u.notify(t.RATELIMIT, nil)
-			return
-		}
-		if !canJoinGiveflip(u.Id) {
-			u.notify(t.OVERQUOTA, t.T{"App": "giveflip"})
-			return
-		}
-		if !u.checkBalanceFor(sats, "giveflip", nil) {
+		if !u.checkBalanceFor(ctx, msats, "giveflip") {
 			break
 		}
 
@@ -220,11 +214,11 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		result := tgbotapi.NewInlineQueryResultArticleHTML(
 			fmt.Sprintf("gifl-%d-%d-%d", u.Id, sats, nparticipants),
-			translateTemplate(t.INLINEGIVEFLIPRESULT, u.Locale, t.T{
+			translateTemplate(ctx, t.INLINEGIVEFLIPRESULT, t.T{
 				"Sats":       sats,
 				"MaxPlayers": nparticipants,
 			}),
-			translateTemplate(t.GIVEFLIPAD, u.Locale, t.T{
+			translateTemplate(ctx, t.GIVEFLIPAD, t.T{
 				"Sats":       sats,
 				"SpotsLeft":  nparticipants,
 				"MaxPlayers": nparticipants,
@@ -232,8 +226,7 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 		)
 
 		giveflipid := cuid.Slug()
-		result.ReplyMarkup = giveflipKeyboard(giveflipid,
-			u.Id, nparticipants, sats, u.Locale)
+		result.ReplyMarkup = giveflipKeyboard(ctx, giveflipid, u.Id, nparticipants, sats)
 
 		resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
 			InlineQueryID: q.ID,
@@ -250,21 +243,26 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 
 		results := make([]interface{}, len(hiddenkeys))
 		for i, hiddenkey := range hiddenkeys {
-			_, hiddenid, hiddenmessage, err := getHiddenMessage(hiddenkey, u.Locale)
+			_, hiddenid, hiddenmessage, err := getHiddenMessage(ctx, hiddenkey)
 			if err != nil {
+				continue
+			}
+
+			if hiddenmessage.CopyMessage != nil && hiddenmessage.Public {
+				// copyMessages can't be sent in public groups through the inline thing
 				continue
 			}
 
 			result := tgbotapi.NewInlineQueryResultArticleHTML(
 				fmt.Sprintf("reveal-%s", hiddenkey),
-				translateTemplate(t.INLINEHIDDENRESULT, u.Locale, t.T{
+				translateTemplate(ctx, t.INLINEHIDDENRESULT, t.T{
 					"HiddenId": hiddenid,
 					"Message":  hiddenmessage,
 				}),
 				hiddenmessage.Preview,
 			)
 
-			result.ReplyMarkup = revealKeyboard(hiddenkey, hiddenmessage, 0, u.Locale)
+			result.ReplyMarkup = revealKeyboard(ctx, hiddenkey, hiddenmessage, 0)
 			results[i] = result
 		}
 
@@ -279,6 +277,23 @@ func handleInlineQuery(q *tgbotapi.InlineQuery) {
 			Results:       results,
 			IsPersonal:    true,
 		})
+	case "show":
+		if argv[1] == "id" {
+			resp, err = bot.AnswerInlineQuery(tgbotapi.InlineConfig{
+				InlineQueryID: q.ID,
+				Results: []interface{}{
+					tgbotapi.NewInlineQueryResultArticle("tgid",
+						fmt.Sprintf("Telegram ID: %d", u.TelegramId),
+						fmt.Sprintf("Your Telegram ID: %d", u.TelegramId),
+					),
+					tgbotapi.NewInlineQueryResultArticle("lntxbotid",
+						fmt.Sprintf("@%s ID: %d", s.ServiceId, u.Id),
+						fmt.Sprintf("Your @%s ID: %d", s.ServiceId, u.Id),
+					),
+				},
+				IsPersonal: true,
+			})
+		}
 	default:
 		goto answerEmpty
 	}

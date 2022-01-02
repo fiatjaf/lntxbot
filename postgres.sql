@@ -1,33 +1,46 @@
-CREATE SCHEMA telegram;
 CREATE SCHEMA lightning;
 
-CREATE TABLE telegram.account (
+CREATE TABLE account (
   id serial PRIMARY KEY,
-  telegram_id int UNIQUE, -- telegram id
-  username text UNIQUE, -- telegram name
-  chat_id int, -- telegram private chat id
+
+  telegram_id bigint UNIQUE,
+  telegram_username text UNIQUE,
+  telegram_chat_id bigint, -- telegram private chat id
+
+  discord_id text UNIQUE,
+  discord_username text UNIQUE,
+  discord_channel_id text, -- telegram private chat id
+
   password text NOT NULL DEFAULT md5(random()::text) || md5(random()::text), -- used in lndhub interface
   locale text NOT NULL DEFAULT 'en', -- default language for messages
   manual_locale boolean NOT NULL DEFAULT false,
   appdata jsonb NOT NULL DEFAULT '{}' -- data for all apps this user have, as a map of {"appname": {anything}}
 );
 
-CREATE INDEX ON telegram.account (username);
-CREATE INDEX ON telegram.account (telegram_id);
+CREATE TABLE balance_check (
+  service text NOT NULL, -- a domain name
+  account int REFERENCES account (id),
+  url text NOT NULL,
 
-CREATE TABLE telegram.chat (
-  telegram_id bigint PRIMARY KEY,
+  PRIMARY KEY(service, account)
+);
+
+CREATE TABLE groupchat (
+  telegram_id bigint UNIQUE,
+  discord_guild_id TEXT UNIQUE,
   locale text NOT NULL DEFAULT 'en',
   spammy boolean NOT NULL DEFAULT false,
   ticket int NOT NULL DEFAULT 0,
   renamable int NOT NULL DEFAULT 0,
-  coinflips bool NOT NULL DEFAULT true
+  coinflips bool NOT NULL DEFAULT true,
+  expensive_price int NOT NULL DEFAULT 0,
+  expensive_pattern text NOT NULL DEFAULT '',
 );
 
 CREATE TABLE lightning.transaction (
-  time timestamp NOT NULL DEFAULT now(),
-  from_id int REFERENCES telegram.account (id),
-  to_id int REFERENCES telegram.account (id),
+  time timestamptz NOT NULL DEFAULT now(),
+  from_id int REFERENCES account (id),
+  to_id int REFERENCES account (id),
   amount numeric(13) NOT NULL, -- in msatoshis
   fees int NOT NULL DEFAULT 0, -- in msatoshis
   description text,
@@ -52,11 +65,11 @@ CREATE INDEX ON lightning.transaction (proxied_with);
 CREATE VIEW lightning.account_txn AS
   SELECT
     time, account_id, anonymous, trigger_message, amount, pending,
-    CASE WHEN label IS NULL AND t.username != '@'
-      THEN coalesce(t.username, t.telegram_id::text)
+    CASE WHEN t.telegram_username != '@'
+      THEN coalesce(t.telegram_username, t.telegram_id::text)
       ELSE NULL
     END AS telegram_peer,
-    status, fees, payment_hash, label, description, tag, preimage, payee_node
+    status, fees, payment_hash, description, tag, preimage, payee_node
   FROM (
       SELECT time,
         from_id AS account_id,
@@ -65,7 +78,7 @@ CREATE VIEW lightning.account_txn AS
         CASE WHEN pending THEN 'PENDING' ELSE 'SENT' END AS status,
         to_id AS peer,
         -amount AS amount, fees,
-        payment_hash, label, description, tag, preimage,
+        payment_hash, description, tag, preimage,
         remote_node AS payee_node,
         pending
       FROM lightning.transaction
@@ -78,13 +91,13 @@ CREATE VIEW lightning.account_txn AS
         'RECEIVED' AS status,
         from_id AS peer,
         amount, 0 AS fees,
-        payment_hash, label, description, tag, preimage,
+        payment_hash, description, tag, preimage,
         NULL as payee_node,
         pending
       FROM lightning.transaction
       WHERE to_id IS NOT NULL
   ) AS x
-  LEFT OUTER JOIN telegram.account AS t ON x.peer = t.id;
+  LEFT OUTER JOIN account AS t ON x.peer = t.id;
 
 CREATE VIEW lightning.balance AS
     SELECT
@@ -94,20 +107,20 @@ CREATE VIEW lightning.balance AS
         coalesce(sum(fees), 0)
       )::numeric(13) AS balance
     FROM lightning.account_txn
-    RIGHT OUTER JOIN telegram.account AS account ON account_id = account.id
+    RIGHT OUTER JOIN account AS account ON account_id = account.id
     WHERE amount <= 0 OR (amount > 0 AND pending = false)
     GROUP BY account.id;
 
-CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
+CREATE OR REPLACE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
   -- a user is potentially inactive if it doesn't have an active chat or has called /stop
   -- a user is only _truly_ inactive if it haven't made any outgoing transactions.
   WITH potentially_inactive_user AS (
     SELECT *
-    FROM telegram.account AS acct
+    FROM account AS acct
     WHERE acct.id = tx.to_id
   )
   SELECT CASE
-    WHEN id IS NOT NULL AND chat_id IS NULL THEN CASE
+    WHEN id IS NOT NULL AND telegram_chat_id IS NULL AND discord_channel_id IS NULL THEN CASE
       WHEN (
         SELECT count(*) AS total FROM lightning.transaction
         WHERE from_id = (SELECT id FROM potentially_inactive_user)
@@ -117,13 +130,3 @@ CREATE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolean AS $$
     ELSE false
   END FROM potentially_inactive_user
 $$ LANGUAGE SQL;
-
-table telegram.account;
-table telegram.chat;
-table lightning.transaction;
-table lightning.account_txn;
-table lightning.balance;
-select * from lightning.transaction where pending;
-select * from telegram.account inner join lightning.balance on id = account_id where chat_id is not null order by id;
-select count(*) as active_users from telegram.account inner join lightning.balance as b on account_id = id where chat_id is not null and b.balance > 1000000;
-select sum(balance) from lightning.balance;

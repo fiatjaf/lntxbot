@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,26 +17,27 @@ import (
 	"github.com/lucsky/cuid"
 )
 
+const (
+	COINFLIP_TAX = 9999
+)
+
 // hide and reveal
 type HiddenMessage struct {
-	Preview   string `json:"preview"`
-	Content   string `json:"content"`
-	Times     int    `json:"times"`
-	Crowdfund int    `json:"crowdfund"`
-	Public    bool   `json:"public"`
-	Satoshis  int    `json:"satoshis"`
-}
-
-func (h HiddenMessage) revealed() string {
-	return strings.TrimSpace(h.Preview) + "\n~\n" + strings.TrimSpace(h.Content)
+	Preview     string               `json:"preview"`
+	Content     string               `json:"content"`
+	CopyMessage *TelegramCopyMessage `json:"copyMessage"`
+	Times       int                  `json:"times"`
+	Crowdfund   int                  `json:"crowdfund"`
+	Public      bool                 `json:"public"`
+	Satoshis    int                  `json:"satoshis"`
 }
 
 func getHiddenId(message *tgbotapi.Message) string {
-	return calculateHash(fmt.Sprintf("%d%d", message.MessageID, message.Chat.ID))[:7]
+	return hashString("%d%d", message.MessageID, message.Chat.ID)[:7]
 }
 
-func findHiddenKey(hiddenid string) (key string, ok bool) {
-	found := rds.Keys("hidden:*:" + hiddenid).Val()
+func findHiddenKey(hiddenId string) (key string, ok bool) {
+	found := rds.Keys("hidden:*:" + hiddenId).Val()
 	if len(found) == 0 {
 		return "", false
 	}
@@ -42,7 +45,10 @@ func findHiddenKey(hiddenid string) (key string, ok bool) {
 	return found[0], true
 }
 
-func getHiddenMessage(redisKey, locale string) (sourceuser int, id string, hiddenmessage HiddenMessage, err error) {
+func getHiddenMessage(
+	ctx context.Context,
+	redisKey string,
+) (sourceuser int, id string, hiddenmessage HiddenMessage, err error) {
 	data, err := rds.Get(redisKey).Bytes()
 	if err != nil {
 		return
@@ -61,18 +67,24 @@ func getHiddenMessage(redisKey, locale string) (sourceuser int, id string, hidde
 	}
 
 	if hiddenmessage.Preview == "" {
-		hiddenmessage.Preview = translateTemplate(t.HIDDENDEFAULTPREVIEW, locale, t.T{"Sats": hiddenmessage.Satoshis})
+		hiddenmessage.Preview = translateTemplate(ctx, t.HIDDENDEFAULTPREVIEW,
+			t.T{"Sats": hiddenmessage.Satoshis})
 	}
 
 	return
 }
 
-func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid int, locale string) *tgbotapi.InlineKeyboardMarkup {
+func revealKeyboard(
+	ctx context.Context,
+	fullRedisKey string,
+	hiddenmessage HiddenMessage,
+	havepaid int,
+) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					fmt.Sprintf(translateTemplate(t.HIDDENREVEALBUTTON, locale, t.T{
+					fmt.Sprintf(translateTemplate(ctx, t.HIDDENREVEALBUTTON, t.T{
 						"Sats":      hiddenmessage.Satoshis,
 						"Public":    hiddenmessage.Public,
 						"Crowdfund": hiddenmessage.Crowdfund,
@@ -86,23 +98,32 @@ func revealKeyboard(fullRedisKey string, hiddenmessage HiddenMessage, havepaid i
 	}
 }
 
-func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver User, err error) {
-	txn, err := pg.Beginx()
+func settleReveal(
+	ctx context.Context,
+	sats int,
+	hiddenId string,
+	toId int,
+	fromIds []int,
+) (receiver User, err error) {
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
 	}
 	defer txn.Rollback()
 
-	receiver, _ = loadUser(toId, 0)
+	receiver, _ = loadUser(toId)
 	giverNames := make([]string, 0, len(fromIds))
 
 	msats := sats * 1000
 
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}
-	receiverHash := calculateHash(random) // for the proxied transaction
+	receiverHash := hashString(random) // for the proxied transaction
+
+	desc := fmt.Sprintf("reveal of %s", hiddenId)
+
 	for _, fromId := range fromIds {
 		if fromId == toId {
 			continue
@@ -110,43 +131,41 @@ func settleReveal(sats int, hiddenid string, toId int, fromIds []int) (receiver 
 
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
-VALUES ($1, $2, $3, 'reveal')
-    `, fromId, s.ProxyAccount, msats)
+INSERT INTO lightning.transaction (from_id, to_id, amount, tag, description)
+VALUES ($1, $2, $3, 'reveal', $4)
+    `, fromId, s.ProxyAccount, msats, desc)
 		if err != nil {
 			return
 		}
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction AS t (payment_hash, from_id, to_id, amount, tag)
-VALUES ($1, $2, $3, $4, 'reveal')
+INSERT INTO lightning.transaction AS t
+    (payment_hash, from_id, to_id, amount, tag, description)
+VALUES ($1, $2, $3, $4, 'reveal', $5)
 ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
-    `, receiverHash, s.ProxyAccount, toId, msats)
+    `, receiverHash, s.ProxyAccount, toId, msats, desc)
 		if err != nil {
 			return
 		}
 
 		// check sender balance
-		balance := getBalance(txn, fromId)
-		if balance < 0 {
+		if balance := getBalance(txn, fromId); balance < 0 {
 			err = errors.New("insufficient balance")
 			return
 		}
 
 		// check proxy balance (should be always zero)
-		proxybalance := getBalance(txn, s.ProxyAccount)
-		if proxybalance != 0 {
-			log.Error().Err(err).Int64("balance", proxybalance).
-				Msg("proxy balance isn't 0")
-			err = errors.New("proxy balance isn't 0")
+		if errW := checkProxyBalance(txn); err != nil {
+			err = errW
+			log.Error().Err(err).Msg("proxy balance check on reveal")
 			return
 		}
 
-		giver, _ := loadUser(fromId, 0)
-		giverNames = append(giverNames, giver.AtName())
+		giver, _ := loadUser(fromId)
+		giverNames = append(giverNames, giver.AtName(ctx))
 
-		giver.notify(t.HIDDENREVEALMSG, t.T{
+		send(ctx, giver, t.HIDDENREVEALMSG, t.T{
 			"Sats": sats,
-			"Id":   hiddenid,
+			"Id":   hiddenId,
 		})
 	}
 
@@ -155,30 +174,41 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		return
 	}
 
-	receiver.notify(t.HIDDENSOURCEMSG, t.T{
+	send(ctx, receiver, t.HIDDENSOURCEMSG, t.T{
 		"Sats":      sats * len(fromIds),
 		"Revealers": strings.Join(giverNames, " "),
-		"Id":        hiddenid,
+		"Id":        hiddenId,
 	})
 	return
 }
 
 // giveaway
-func giveawayKeyboard(giverId, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
-	giveawayid := cuid.Slug()
-	buttonData := fmt.Sprintf("give=%d-%d-%s", giverId, sats, giveawayid)
+type GiveAwayData struct {
+	FromId     int
+	Sats       int
+	ToSpecific string
+}
 
-	rds.Set("giveaway:"+giveawayid, buttonData, s.GiveAwayTimeout)
+func giveawayKeyboard(
+	ctx context.Context,
+	giverId int,
+	sats int,
+	receiverName string,
+) *tgbotapi.InlineKeyboardMarkup {
+	giveawayid := cuid.Slug()
+
+	buttonData := fmt.Sprintf("give=%s", giveawayid)
+	saveGiveawayData(giveawayid, giverId, sats, receiverName)
 
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", giverId),
 				),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.GIVEAWAYCLAIM, locale),
+					translate(ctx, t.GIVEAWAYCLAIM),
 					buttonData,
 				),
 			},
@@ -186,41 +216,65 @@ func giveawayKeyboard(giverId, sats int, locale string) *tgbotapi.InlineKeyboard
 	}
 }
 
-func canJoinGiveaway(joinerId int) bool {
-	var ngiveawaysjoined int
-	err := pg.Get(&ngiveawaysjoined, `
-SELECT count(*)
-FROM lightning.account_txn
-WHERE account_id = $1
-  AND tag = 'giveaway'
-  AND time > 'now'::timestamp - make_interval(days := $2)
-    `, joinerId, s.GiveawayAvgDays)
+func saveGiveawayData(giveId string, from int, sats int, to string) {
+	jdata, _ := json.Marshal(GiveAwayData{
+		FromId:     from,
+		Sats:       sats,
+		ToSpecific: to,
+	})
+	rds.Set("giveaway:"+giveId, string(jdata), s.GiveAwayTimeout)
+}
 
+func getGiveawayData(giveId string) (from User, to User, sats int, err error) {
+	jdata, _ := rds.Eval(`
+local giveid = KEYS[1]
+local result = redis.call("get", giveid)
+redis.call("del", giveid)
+return result
+    `, []string{"giveaway:" + giveId}).Val().(string)
+
+	var data GiveAwayData
+	err = json.Unmarshal([]byte(jdata), &data)
 	if err != nil {
-		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ngiveaways in last 24h")
-		return false
+		return
 	}
 
-	// since we are not taking into account all giveaways that may be opened right now
-	// we'll consider a big time period so the user participation is averaged over time
-	// for example, if he joins 15 giveaways today but the quota is 5 it will be ok
-	// but then he will be unable to join any for the next 3 day.
-	periodQuota := s.GiveawayDailyQuota * s.GiveawayAvgDays
+	from, err = loadUser(data.FromId)
+	if err != nil {
+		log.Warn().Err(err).Int("id", data.FromId).Msg("failed to load user on giveaway")
+		return
+	}
 
-	return ngiveawaysjoined < periodQuota
+	if data.ToSpecific != "" {
+		to, err = loadTelegramUsername(data.ToSpecific)
+		if err != nil {
+			log.Warn().Err(err).Str("username", data.ToSpecific).
+				Msg("failed to load giveaway specific receiver")
+			return
+		}
+	}
+
+	sats = data.Sats
+	return
 }
 
 // giveflip
-func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, locale string) *tgbotapi.InlineKeyboardMarkup {
+func giveflipKeyboard(
+	ctx context.Context,
+	giveflipid string,
+	giverId int,
+	nparticipants int,
+	sats int,
+) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", giverId),
 				),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.GIVEFLIPJOIN, locale),
+					translate(ctx, t.GIVEFLIPJOIN),
 					fmt.Sprintf("gifl=%d-%d-%d-%s", giverId, nparticipants, sats, giveflipid),
 				),
 			},
@@ -228,50 +282,13 @@ func giveflipKeyboard(giveflipid string, giverId, nparticipants, sats int, local
 	}
 }
 
-func canCreateGiveflip(initiatorId int) bool {
-	didagivefliprecently, err := rds.Exists(fmt.Sprintf("recentgiveflip:%d", initiatorId)).Result()
-	if err != nil {
-		log.Warn().Err(err).Int("initiator", initiatorId).Msg("failed to check recentgiveflip:")
-		return false
-	}
-	if didagivefliprecently {
-		return false
-	}
-
-	return true
-}
-
-func canJoinGiveflip(joinerId int) bool {
-	var ngiveflipsjoined int
-	err := pg.Get(&ngiveflipsjoined, `
-SELECT count(*)
-FROM lightning.account_txn
-WHERE account_id = $1
-  AND tag = 'giveflip'
-  AND time > 'now'::timestamp - make_interval(days := $2)
-    `, joinerId, s.GiveflipAvgDays)
-
-	if err != nil {
-		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ngiveflips in last 24h")
-		return false
-	}
-
-	// since we are not taking into account all giveflips that may be opened right now
-	// we'll consider a big time period so the user participation is averaged over time
-	// for example, if he joins 15 giveflips today but the quota is 5 it will be ok
-	// but then he will be unable to join any for the next 3 day.
-	periodQuota := s.GiveflipDailyQuota * s.GiveflipAvgDays
-
-	return ngiveflipsjoined < periodQuota
-}
-
 // coinflip
 func coinflipKeyboard(
+	ctx context.Context,
 	coinflipid string,
 	initiatorId int,
 	nparticipants,
 	sats int,
-	locale string,
 ) *tgbotapi.InlineKeyboardMarkup {
 	if coinflipid == "" {
 		coinflipid = cuid.Slug()
@@ -287,7 +304,7 @@ func coinflipKeyboard(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.COINFLIPJOIN, locale),
+					translate(ctx, t.COINFLIPJOIN),
 					fmt.Sprintf("flip=%d-%d-%s", nparticipants, sats, coinflipid),
 				),
 			},
@@ -295,67 +312,35 @@ func coinflipKeyboard(
 	}
 }
 
-func canCreateCoinflip(initiatorId int) bool {
-	didacoinfliprecently, err := rds.Exists(fmt.Sprintf("recentcoinflip:%d", initiatorId)).Result()
-	if err != nil {
-		log.Warn().Err(err).Int("initiator", initiatorId).Msg("failed to check recentcoinflip:")
-		return false
-	}
-	if didacoinfliprecently {
-		return false
-	}
-
-	return true
-}
-
-func canJoinCoinflip(joinerId int) bool {
-	var ncoinflipsjoined int
-	err := pg.Get(&ncoinflipsjoined, `
-SELECT count(*)
-FROM lightning.account_txn
-WHERE account_id = $1
-  AND tag = 'coinflip'
-  AND time > 'now'::timestamp - make_interval(days := $2)
-    `, joinerId, s.CoinflipAvgDays)
-
-	if err != nil {
-		log.Warn().Err(err).Int("joiner", joinerId).Msg("failed to check ncoinflips in last 24h")
-		return false
-	}
-
-	// since we are not taking into account all coinflips that may be opened right now
-	// we'll consider a big time period so the user participation is averaged over time
-	// for example, if he joins 15 coinflips today but the quota is 5 it will be ok
-	// but then he will be unable to join any for the next 3 day.
-	periodQuota := s.CoinflipDailyQuota * s.CoinflipAvgDays
-
-	return ncoinflipsjoined < periodQuota
-}
-
-func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error) {
-	txn, err := pg.Beginx()
+func settleCoinflip(
+	ctx context.Context,
+	sats int,
+	toId int,
+	fromIds []int,
+) (receiver User, err error) {
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return
 	}
 	defer txn.Rollback()
 
-	receiver, _ = loadUser(toId, 0)
+	receiver, _ = loadUser(toId)
 	giverNames := make([]string, 0, len(fromIds))
 
 	msats := int64(sats) * 1000
 
 	// receiver must also have the necessary sats in his balance at the time
 	receiverBalance := getBalance(txn, toId)
-	if receiverBalance < msats {
+	if receiverBalance < msats+COINFLIP_TAX {
 		err = errors.New("Receiver has insufficient balance.")
 		return
 	}
 
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}
-	receiverHash := calculateHash(random) // for the proxied transaction
+	receiverHash := hashString(random) // for the proxied transaction
 
 	// then we create a transfer from each of the other participants
 	for _, fromId := range fromIds {
@@ -365,10 +350,16 @@ func settleCoinflip(sats int, toId int, fromIds []int) (receiver User, err error
 
 		// A->proxy->B (for many A, one B)
 		_, err = txn.Exec(`
-INSERT INTO lightning.transaction (from_id, to_id, amount, tag)
-VALUES ($1, $2, $3, 'coinflip')
-    `, fromId, s.ProxyAccount, msats)
+INSERT INTO lightning.transaction (from_id, to_id, amount, fees, tag)
+VALUES ($1, $2, $3, $4, 'coinflip')
+    `, fromId, s.ProxyAccount, msats, COINFLIP_TAX)
 		if err != nil {
+			return
+		}
+
+		// check sender balance
+		if balance := getBalance(txn, fromId); balance < 0 {
+			err = errors.New("insufficient balance")
 			return
 		}
 
@@ -381,28 +372,19 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 			return
 		}
 
-		// check sender balance
-		balance := getBalance(txn, fromId)
-		if balance < 0 {
-			err = errors.New("insufficient balance")
-			return
-		}
-
 		// check proxy balance (should be always zero)
-		proxybalance := getBalance(txn, s.ProxyAccount)
-		if proxybalance != 0 {
-			log.Error().Err(err).Int64("balance", proxybalance).
-				Msg("proxy balance isn't 0")
-			err = errors.New("proxy balance isn't 0")
+		if errW := checkProxyBalance(txn); err != nil {
+			err = errW
+			log.Error().Err(err).Msg("proxy balance check on coinflip")
 			return
 		}
 
-		giver, _ := loadUser(fromId, 0)
-		giverNames = append(giverNames, giver.AtName())
+		giver, _ := loadUser(fromId)
+		giverNames = append(giverNames, giver.AtName(ctx))
 
-		giver.notify(t.COINFLIPGIVERMSG, t.T{
+		send(ctx, giver, t.COINFLIPGIVERMSG, t.T{
 			"IndividualSats": sats,
-			"Receiver":       receiver.AtName(),
+			"Receiver":       receiver.AtName(ctx),
 		})
 	}
 
@@ -411,7 +393,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		return
 	}
 
-	receiver.notify(t.COINFLIPWINNERMSG, t.T{
+	send(ctx, receiver, t.COINFLIPWINNERMSG, t.T{
 		"TotalSats": sats * len(fromIds),
 		"Senders":   strings.Join(giverNames, " "),
 	})
@@ -421,12 +403,12 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 
 // fundraise
 func fundraiseKeyboard(
+	ctx context.Context,
 	fundraiseid string,
 	initiatorId int,
 	receiverId int,
 	nparticipants int,
 	sats int,
-	locale string,
 ) *tgbotapi.InlineKeyboardMarkup {
 	if fundraiseid == "" {
 		fundraiseid = cuid.Slug()
@@ -442,7 +424,7 @@ func fundraiseKeyboard(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.FUNDRAISEJOIN, locale),
+					translate(ctx, t.FUNDRAISEJOIN),
 					fmt.Sprintf("raise=%d-%d-%d-%s", receiverId, nparticipants, sats, fundraiseid),
 				),
 			},
@@ -450,23 +432,28 @@ func fundraiseKeyboard(
 	}
 }
 
-func settleFundraise(sats int, toId int, fromIds []int) (receiver User, err error) {
-	txn, err := pg.Beginx()
+func settleFundraise(
+	ctx context.Context,
+	sats int,
+	toId int,
+	fromIds []int,
+) (receiver User, err error) {
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
 	}
 	defer txn.Rollback()
 
-	receiver, _ = loadUser(toId, 0)
+	receiver, _ = loadUser(toId)
 	giverNames := make([]string, 0, len(fromIds))
 
 	msats := sats * 1000
 
-	random, err := randomPreimage()
+	random, err := randomHex()
 	if err != nil {
 		return
 	}
-	receiverHash := calculateHash(random) // for the proxied transaction
+	receiverHash := hashString(random) // for the proxied transaction
 
 	for _, fromId := range fromIds {
 		if fromId == toId {
@@ -498,20 +485,18 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		}
 
 		// check proxy balance (should be always zero)
-		proxybalance := getBalance(txn, s.ProxyAccount)
-		if proxybalance != 0 {
-			log.Error().Err(err).Int64("balance", proxybalance).
-				Msg("proxy balance isn't 0")
-			err = errors.New("proxy balance isn't 0")
+		if errW := checkProxyBalance(txn); err != nil {
+			err = errW
+			log.Error().Err(err).Msg("proxy balance check on fundraise")
 			return
 		}
 
-		giver, _ := loadUser(fromId, 0)
-		giverNames = append(giverNames, giver.AtName())
+		giver, _ := loadUser(fromId)
+		giverNames = append(giverNames, giver.AtName(ctx))
 
-		giver.notify(t.FUNDRAISEGIVERMSG, t.T{
+		send(ctx, giver, t.FUNDRAISEGIVERMSG, t.T{
 			"IndividualSats": sats,
-			"Receiver":       receiver.AtName(),
+			"Receiver":       receiver.AtName(ctx),
 		})
 	}
 
@@ -520,7 +505,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 		return
 	}
 
-	receiver.notify(t.FUNDRAISERECEIVERMSG, t.T{
+	send(ctx, receiver, t.FUNDRAISERECEIVERMSG, t.T{
 		"TotalSats": sats * len(fromIds),
 		"Senders":   strings.Join(giverNames, " "),
 	})
@@ -529,11 +514,11 @@ ON CONFLICT (payment_hash) DO UPDATE SET amount = t.amount + $4
 
 // rename groups
 func renameKeyboard(
+	ctx context.Context,
 	renamerId int,
 	chatId int64,
 	sats int,
 	name string,
-	locale string,
 ) *tgbotapi.InlineKeyboardMarkup {
 	hash := sha256.Sum256([]byte(name))
 	renameId := hex.EncodeToString(hash[:])[:12]
@@ -548,11 +533,11 @@ func renameKeyboard(
 		[][]tgbotapi.InlineKeyboardButton{
 			{
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.CANCEL, locale),
+					translate(ctx, t.CANCEL),
 					fmt.Sprintf("cancel=%d", renamerId),
 				),
 				tgbotapi.NewInlineKeyboardButtonData(
-					translate(t.YES, locale),
+					translate(ctx, t.YES),
 					fmt.Sprintf("rnm=%s", renameId),
 				),
 			},

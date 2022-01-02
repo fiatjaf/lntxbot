@@ -11,7 +11,7 @@ func servePages() {
 	// lnurl-pay powered donation page
 	router.PathPrefix("/@").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username := r.URL.Path[2:]
-		image, err := getUserPictureURL(username)
+		image, err := getTelegramUserPictureURL(http.DefaultClient, username)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return

@@ -1,10 +1,8 @@
-lntxbot: $(shell find . -name "*.go") bindata.go
+lntxbot: $(shell find . -name "*.go")
 	go build -ldflags="-s -w" -o ./lntxbot
 
-bindata.go: $(shell find templates)
-	go-bindata -ignore=node_modules static/... templates/...
-
 deploy: lntxbot
-	ssh root@taniaaustralis-403 'systemctl stop lightningd'
-	scp lntxbot taniaaustralis-403:lightning/plugins/lntxbot
-	ssh root@taniaaustralis-403 'systemctl start lightningd'
+	rsync lntxbot turgot:lntxbot/lntxbot-new
+	ssh root@turgot 'systemctl stop lntxbot'
+	ssh turgot 'mv lntxbot/lntxbot-new lntxbot/lntxbot'
+	ssh root@turgot 'systemctl start lntxbot'

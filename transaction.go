@@ -1,15 +1,24 @@
 package main
 
 import (
+	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/eclair-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+)
+
+type InOut string
+
+const (
+	In   InOut = "i"
+	Out  InOut = "o"
+	Both InOut = ""
 )
 
 type Transaction struct {
@@ -22,7 +31,6 @@ type Transaction struct {
 	Fees           float64        `db:"fees"`
 	Hash           string         `db:"payment_hash"`
 	Preimage       sql.NullString `db:"preimage"`
-	Label          sql.NullString `db:"label"`
 	Description    string         `db:"description"`
 	Tag            sql.NullString `db:"tag"`
 	Payee          sql.NullString `db:"payee_node"`
@@ -93,22 +101,14 @@ WHERE tx.payment_hash = $1
 	return unclaimed
 }
 
-func (t Transaction) PaddedSatoshis() string {
-	if t.Amount > 99999 {
-		return fmt.Sprintf("%7.15g", t.Amount)
-	}
-	if t.Amount < -9999 {
-		return fmt.Sprintf("%7.15g", t.Amount)
-	}
-	return fmt.Sprintf("%7.15g", t.Amount)
-}
-
 func (t Transaction) HashReduced() string {
 	return t.Hash[:5]
 }
 
 func (t Transaction) Icon() string {
 	switch t.Tag.String {
+	case "ticket":
+		return "🎟️"
 	case "giveaway", "gifts", "giveflip":
 		return "🎁"
 	case "coinflip":
@@ -119,20 +119,10 @@ func (t Transaction) Icon() string {
 		return "🔎"
 	case "sats4ads":
 		return "📢"
-	case "satellite":
-		return "📡"
-	case "microbet":
-		return "⚽"
-	case "golightning":
-		return "⛓️"
-	case "bitclouds":
-		return "☁️"
-	case "lntorub":
+	case "expensive":
 		return "💸"
 	default:
 		switch {
-		case strings.HasPrefix(t.Label.String, "newmember:"):
-			return "🎟️"
 		case t.TelegramPeer.Valid:
 			return ""
 		case t.IsPending():
@@ -147,14 +137,6 @@ func (t Transaction) Icon() string {
 	}
 }
 
-func (t Transaction) PayeeAlias() string {
-	return getNodeAlias(t.Payee.String)
-}
-
-func (t Transaction) PayeeLink() string {
-	return nodeLink(t.Payee.String)
-}
-
 type Try struct {
 	Route   []Hop
 	Error   string
@@ -162,141 +144,198 @@ type Try struct {
 }
 
 type Hop struct {
-	Peer      string
-	Channel   string
-	Direction int64
-	Msatoshi  int64
-	Delay     int64
+	Peer    string
+	Channel string
 }
 
-func renderLogInfo(u User, hash string) (logInfo string) {
-	if len(hash) < 5 {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
-	}
-
-	lastCall, err := rds.Get("tries:" + hash[:5]).Result()
+func renderLogInfo(ctx context.Context, hash string, showHash bool) (logInfo string) {
+	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
 	if err != nil {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no logs"})
+		return translateTemplate(ctx, t.ERROR, t.T{"Err": err})
 	}
 
-	var tries []Try
-	err = json.Unmarshal([]byte(lastCall), &tries)
-	if err != nil {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "failed to parse log"})
+	if info.Get("#").Int() == 0 {
+		return translateTemplate(ctx, t.ERROR, t.T{"Err": "payment not attempted"})
 	}
 
-	if len(tries) == 0 {
-		return translateTemplate(t.ERROR, u.Locale, t.T{"Err": "no routes attempted"})
+	tries := make([]Try, info.Get("#").Int())
+	for i, attempt := range info.Array() {
+		route := make([]Hop, attempt.Get("route.#").Int())
+
+		for r, hop := range attempt.Get("route").Array() {
+			route[r] = Hop{
+				Peer:    hop.Get("nextNodeId").String(),
+				Channel: hop.Get("shortChannelId").String(),
+			}
+		}
+
+		tries[i] = Try{
+			Success: attempt.Get("status.type").String() == "sent",
+			Error:   attempt.Get("status.failures.0.failureMessage").String(),
+			Route:   route,
+		}
 	}
 
-	return translateTemplate(t.TXLOG, u.Locale, t.T{
-		"Tries": tries,
-	})
+	params := t.T{"Tries": tries}
+	if showHash {
+		params["PaymentHash"] = hash
+	}
+
+	return translateTemplate(ctx, t.TXLOG, params)
 }
 
-func handleSingleTransaction(u User, hashfirstchars string, messageId int) {
+func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
+
+	// individual transaction query
+	hashfirstchars := opts["<hash>"].(string)
+	if len(hashfirstchars) < 5 {
+		send(ctx, t.ERROR, t.T{"Err": "hash too small."})
+		return
+	}
+	go u.track("view tx", nil)
+
 	txn, err := u.getTransaction(hashfirstchars)
 	if err != nil {
 		log.Warn().Err(err).Str("user", u.Username).Str("hash", hashfirstchars).
 			Msg("failed to get transaction")
-		u.notifyAsReply(t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars}, messageId)
+		send(ctx, u, t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars},
+			ctx.Value("message"))
 		return
 	}
 
-	txstatus := translateTemplate(t.TXINFO, u.Locale, t.T{
+	logInfo := ""
+	if txn.Payee.Valid {
+		logInfo = renderLogInfo(ctx, txn.Hash, false)
+	}
+
+	text := translateTemplate(ctx, t.TXINFO, t.T{
 		"Txn":     txn,
-		"LogInfo": renderLogInfo(u, txn.Hash),
+		"LogInfo": logInfo,
 	})
-	msgId := sendMessageAsReply(u.ChatId, txstatus, txn.TriggerMessage).MessageID
 
-	if txn.Status == "PENDING" && txn.Time.Before(time.Now().AddDate(0, 0, -14)) {
-		// allow people to cancel pending if they're old enough
-		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RECHECKPENDING, u.Locale),
-			tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "check="+hashfirstchars),
-				),
-			),
-		)
-	}
-
+	var actionPrompt interface{}
 	if txn.IsUnclaimed() {
-		editWithKeyboard(u.ChatId, msgId, txstatus+"\n\n"+translate(t.RETRACTQUESTION, u.Locale),
-			tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(translate(t.YES, u.Locale), "remunc="+hashfirstchars),
-				),
+		text = text + "\n\n" + translate(ctx, t.RETRACTQUESTION)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(translate(ctx, t.YES),
+					"remunc="+hashfirstchars),
 			),
 		)
+		actionPrompt = &keyboard
 	}
+	send(ctx, text, txn.TriggerMessage, actionPrompt)
 }
 
-func handleTransactionList(u User, page int, filter InOut, cb *tgbotapi.CallbackQuery) {
+func handleTransactionList(ctx context.Context, opts docopt.Opts) {
+	page, _ := opts.Int("--page")
+	filter := Both
+	if opts["--in"].(bool) {
+		filter = In
+	} else if opts["--out"].(bool) {
+		filter = Out
+	}
+	tag, _ := opts.String("<tag>")
+
+	displayTransactionList(ctx, page, tag, filter)
+}
+
+func displayTransactionList(ctx context.Context, page int, tag string, filter InOut) {
+	u := ctx.Value("initiator").(User)
+
 	// show list of transactions
 	if page == 0 {
 		page = 1
 	}
+
+	go u.track("txlist", map[string]interface{}{
+		"filter": filter,
+		"tag":    tag,
+		"page":   page,
+	})
+
 	limit := 25
 	offset := limit * (page - 1)
 
-	txns, err := u.listTransactions(limit, offset, 16, filter)
+	txns, err := u.listTransactions(limit, offset, 16, tag, filter)
 	if err != nil {
 		log.Warn().Err(err).Str("user", u.Username).Int("page", page).
 			Msg("failed to list transactions")
 		return
 	}
 
-	text := translateTemplate(t.TXLIST, u.Locale, t.T{
+	keyboard := tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			[]tgbotapi.InlineKeyboardButton{},
+		},
+	}
+	if page > 1 {
+		keyboard.InlineKeyboard[0] = append(
+			keyboard.InlineKeyboard[0],
+			tgbotapi.NewInlineKeyboardButtonData(
+				"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
+		)
+	}
+	if len(txns) > 0 {
+		keyboard.InlineKeyboard[0] = append(
+			keyboard.InlineKeyboard[0],
+			tgbotapi.NewInlineKeyboardButtonData(
+				"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
+		)
+	}
+
+	send(ctx, EDIT, &keyboard, t.TXLIST, t.T{
 		"Offset":       offset,
 		"Limit":        limit,
 		"From":         offset + 1,
 		"To":           offset + limit,
 		"Transactions": txns,
 	})
+}
 
-	keyboard := tgbotapi.InlineKeyboardMarkup{
-		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
-		},
+func handleLogView(ctx context.Context, opts docopt.Opts) {
+	// query failed transactions (only available in the first 24h after the failure)
+	u := ctx.Value("initiator").(User)
+	hashfirstchars := opts["<hash>"].(string)
+	if len(hashfirstchars) < 5 {
+		send(ctx, u, t.ERROR, t.T{"Err": "hash too small."})
+		return
 	}
+	go u.track("view log", nil)
 
-	if page > 1 {
-		keyboard.InlineKeyboard[0] = append(
-			keyboard.InlineKeyboard[0],
-			tgbotapi.NewInlineKeyboardButtonData(
-				"newer", fmt.Sprintf("txlist=%d-%s", page-1, filter)),
-		)
-	}
-
-	if len(txns) > 0 {
-		keyboard.InlineKeyboard[0] = append(
-			keyboard.InlineKeyboard[0],
-			tgbotapi.NewInlineKeyboardButtonData(
-				"older", fmt.Sprintf("txlist=%d-%s", page+1, filter)),
-		)
-	}
-
-	var chattable tgbotapi.Chattable
-	if cb == nil {
-		chattable = tgbotapi.MessageConfig{
-			BaseChat: tgbotapi.BaseChat{
-				ChatID:      u.ChatId,
-				ReplyMarkup: &keyboard,
-			},
-			Text:                  text,
-			DisableWebPagePreview: true,
-			ParseMode:             "HTML",
-		}
+	hash := hashfirstchars
+	if len(hash) == 64 {
+		// continue
+	} else if txn, err := u.getTransaction(hashfirstchars); err == nil {
+		hash = txn.Hash
 	} else {
-		baseEdit := getBaseEdit(cb)
-		baseEdit.ReplyMarkup = &keyboard
-		chattable = tgbotapi.EditMessageTextConfig{
-			BaseEdit:              baseEdit,
-			Text:                  text,
-			DisableWebPagePreview: true,
-			ParseMode:             "HTML",
+		hash, err = rds.Get("hash:" + strconv.Itoa(u.Id) + ":" + hashfirstchars).Result()
+		if err != nil {
+			send(ctx, u, t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars},
+				ctx.Value("message"))
+			return
 		}
 	}
 
-	bot.Send(chattable)
+	send(ctx, u, renderLogInfo(ctx, hash, true))
+}
+
+func checkAllOutgoingPayments(ctx context.Context) {
+	var hashes []string
+	err := pg.Select(&hashes,
+		"SELECT payment_hash FROM lightning.transaction WHERE pending AND to_id IS NULL")
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get all pending outgoing payment hashes")
+		return
+	}
+
+	log.Debug().Int("n", len(hashes)).Msg("checking pending outgoing payments")
+	for _, hash := range hashes {
+		log.Debug().Str("hash", hash).Msg("checking outgoing")
+		checkOutgoingPayment(ctx, hash)
+	}
 }

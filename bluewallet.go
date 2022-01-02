@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/docopt/docopt-go"
+	decodepay "github.com/fiatjaf/ln-decodepay"
+	"github.com/fiatjaf/lntxbot/t"
 )
 
 func registerBluewalletMethods() {
@@ -45,7 +51,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/addinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		ctx, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -59,7 +65,6 @@ func registerBluewalletMethods() {
 			Amount          string `json:"amt"`
 			Memo            string `json:"memo"`
 			DescriptionHash string `json:"description_hash"`
-			Preimage        string `json:"preimage"`
 		}
 		err = json.NewDecoder(r.Body).Decode(&params)
 		if err != nil {
@@ -72,16 +77,16 @@ func registerBluewalletMethods() {
 			return
 		}
 
-		log.Debug().Str("amount", params.Amount).Str("memo", params.Memo).
-			Msg("bluewallet /addinvoice")
+		log.Debug().Str("amount", params.Amount).
+			Str("memo", params.Memo).Stringer("user", &user).
+			Msg("bluewallet addinvoice")
 
-		bolt11, hash, _, err := user.makeInvoice(makeInvoiceArgs{
-			Msatoshi:   1000 * satoshi,
-			Desc:       params.Memo,
-			DescHash:   params.DescriptionHash,
-			Preimage:   params.Preimage,
-			SkipQR:     true,
-			BlueWallet: true,
+		bolt11, hash, err := user.makeInvoice(ctx, &MakeInvoiceArgs{
+			IgnoreInvoiceSizeLimit: true,
+			Msatoshi:               1000 * satoshi,
+			Description:            params.Memo,
+			DescriptionHash:        params.DescriptionHash,
+			BlueWallet:             true,
 		})
 		if err != nil {
 			errorInternal(w)
@@ -99,7 +104,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/payinvoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		ctx, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -131,7 +136,8 @@ func registerBluewalletMethods() {
 			amount = int64(val)
 		}
 
-		log.Debug().Str("bolt11", params.Invoice).Msg("bluewallet /payinvoice")
+		log.Debug().Str("bolt11", params.Invoice).Stringer("user", &user).
+			Msg("bluewallet /payinvoice")
 
 		decoded, _ := decodeInvoiceAsLndHub(params.Invoice)
 		var preimage string
@@ -143,10 +149,15 @@ func registerBluewalletMethods() {
 			}
 		}()
 
-		_, err = user.payInvoice(0, params.Invoice, 1000*amount)
+		_, err = user.payInvoice(ctx, params.Invoice, 1000*amount)
 		if err != nil {
 			errorPaymentFailed(w, err)
 			return
+		}
+
+		select {
+		case preimage = <-waitPaymentSuccess(decoded.PaymentHash):
+		case <-time.After(5 * time.Second):
 		}
 
 		tx, _ := user.getTransaction(decoded.PaymentHash)
@@ -156,19 +167,19 @@ func registerBluewalletMethods() {
 			PaymentError:    "",
 			PaymentPreimage: preimage,
 			PaymentRoute:    make(map[string]interface{}),
-			PaymentHash:     Buffer(decoded.PaymentHash),
+			PaymentHash:     tx.Hash,
 			Decoded:         decoded,
 			FeeMsat:         int64(tx.Fees * 1000),
 			Type:            "paid_invoice",
 			Fee:             tx.Fees,
 			Value:           tx.Amount,
-			Timestamp:       tx.Time.Unix(),
+			Timestamp:       tx.Time.UTC().Unix(),
 			Memo:            tx.Description + " " + tx.PeerActionDescription(),
 		})
 	})
 
 	router.Path("/balance").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -193,7 +204,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/gettxs").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -204,7 +215,7 @@ func registerBluewalletMethods() {
 		}
 
 		limit, offset := getLimitAndOffset(r)
-		txs, err := user.listTransactions(limit, offset, 120, Out)
+		txs, err := user.listTransactions(limit, offset, 120, "", Out)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -221,13 +232,13 @@ func registerBluewalletMethods() {
 				PaymentError:    "",
 				PaymentPreimage: preimage,
 				PaymentRoute:    make(map[string]interface{}),
-				PaymentHash:     Buffer(tx.Hash),
+				PaymentHash:     tx.Hash,
 				Decoded:         LndHubDecoded{},
 				FeeMsat:         int64(tx.Fees * 1000),
 				Type:            "paid_invoice",
 				Fee:             tx.Fees,
 				Value:           tx.Amount,
-				Timestamp:       tx.Time.Unix(),
+				Timestamp:       tx.Time.UTC().Unix(),
 				Memo:            tx.Description + " " + tx.PeerActionDescription(),
 			}
 		}
@@ -242,7 +253,7 @@ func registerBluewalletMethods() {
 	})
 
 	router.Path("/getuserinvoices").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, permission, err := loadUserFromAPICall(r)
+		_, user, permission, err := loadUserFromAPICall(r)
 		if err != nil {
 			errorBadAuth(w)
 			return
@@ -253,7 +264,7 @@ func registerBluewalletMethods() {
 		}
 
 		limit, offset := getLimitAndOffset(r)
-		txns, err := user.listTransactions(limit, offset, 120, In)
+		txns, err := user.listTransactions(limit, offset, 120, "", In)
 		if err != nil {
 			errorInternal(w)
 			return
@@ -285,7 +296,7 @@ func registerBluewalletMethods() {
 				true,
 				tx.Amount,
 				float64(s.InvoiceTimeout.Seconds()),
-				tx.Time.Unix(),
+				tx.Time.UTC().Unix(),
 				"user_invoice",
 			}
 		}
@@ -304,7 +315,7 @@ func registerBluewalletMethods() {
 				false,
 				inv["amount"].(float64),
 				inv["expiry"].(float64),
-				time.Now().Unix(),
+				time.Now().UTC().Unix(),
 				"user_invoice",
 			})
 		}
@@ -348,7 +359,7 @@ type LndHubPaymentResult struct {
 	PaymentError    string                 `json:"payment_error"`
 	PaymentPreimage string                 `json:"payment_preimage"`
 	PaymentRoute    map[string]interface{} `json:"route"`
-	PaymentHash     Buffer                 `json:"payment_hash"`
+	PaymentHash     string                 `json:"payment_hash"`
 	Decoded         LndHubDecoded          `json:"decoded"`
 	FeeMsat         int64                  `json:"fee_msat"`
 	Type            string                 `json:"type"`
@@ -372,22 +383,22 @@ type LndHubDecoded struct {
 }
 
 func decodeInvoiceAsLndHub(bolt11 string) (LndHubDecoded, error) {
-	inv, err := ln.Call("decodepay", bolt11)
+	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
 		return LndHubDecoded{}, err
 	}
 
 	return LndHubDecoded{
-		Destination:     inv.Get("payee").String(),
-		PaymentHash:     inv.Get("payment_hash").String(),
-		NumSatoshis:     strconv.Itoa(int(inv.Get("msatoshi").Float() / 1000.0)),
-		Timestamp:       inv.Get("created_at").String(),
-		Expiry:          inv.Get("expiry").String(),
-		Description:     inv.Get("description").String(),
-		DescriptionHash: inv.Get("description_hash").String(),
-		FallbackAddr:    inv.Get("fallbacks.0.addr").String(),
-		CLTVExpiry:      inv.Get("min_final_cltv_expiry").String(),
-		RouteHints:      inv.Get("routes").Value(),
+		Destination:     inv.Payee,
+		PaymentHash:     inv.PaymentHash,
+		NumSatoshis:     strconv.Itoa(int(float64(inv.MSatoshi) / 1000.0)),
+		Timestamp:       strconv.Itoa(inv.CreatedAt),
+		Expiry:          strconv.Itoa(inv.Expiry),
+		Description:     inv.Description,
+		DescriptionHash: inv.DescriptionHash,
+		FallbackAddr:    "",
+		CLTVExpiry:      strconv.Itoa(inv.MinFinalCLTVExpiry),
+		RouteHints:      inv.Route,
 	}, nil
 }
 
@@ -400,4 +411,26 @@ func getLimitAndOffset(r *http.Request) (limit int, offset int) {
 	offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
 
 	return
+}
+
+func handleBlueWallet(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(User)
+
+	go u.track("bluewallet", map[string]interface{}{
+		"refresh": opts["refresh"].(bool),
+	})
+
+	var err error
+	password := u.Password
+	if opts["refresh"].(bool) {
+		password, err = u.updatePassword()
+		if err != nil {
+			log.Warn().Err(err).Stringer("user", &u).Msg("error updating password")
+			send(ctx, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
+			return
+		}
+		send(ctx, t.COMPLETED)
+	}
+	blueURL := fmt.Sprintf("lndhub://%d:%s@%s", u.Id, password, s.ServiceURL)
+	send(ctx, qrURL(blueURL), "<code>"+blueURL+"</code>")
 }
