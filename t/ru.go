@@ -92,7 +92,7 @@ lnurl-auth успех!
 	INSUFFICIENTBALANCE: `Недостаточный баланс для {{.Purpose}}. Необходимо на {{.Sats | printf "%.15g"}} сат больше.`,
 
 	PAYMENTRECEIVED: `
-      ⚡️ PПлатёж получен{{if .SenderName}} от <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} сат ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
+      ⚡️ Платёж получен{{if .SenderName}} от <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} сат ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
       {{if .Comment}}
 📨 <i>{{.Comment}}</i>
       {{end}}
