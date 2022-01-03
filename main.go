@@ -98,6 +98,12 @@ func main() {
 
 	// increase default lnurl client timeout because people are using tor unfortunately
 	lnurl.Client = &http.Client{Timeout: 25 * time.Second}
+	lnurl.TorClient = &http.Client{
+		Timeout: 50 * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(s.TorProxyURL),
+		},
+	}
 
 	// setup logger
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
