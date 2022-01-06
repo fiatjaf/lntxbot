@@ -323,13 +323,47 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 		return
 	}
 
+	failed := false
 	if info.Get("#").Int() == 0 {
+		failed = true
+	} else {
+		failed = true
+		for _, attempt := range info.Array() {
+			log.Print(hash, " ", attempt.Get("status.type").String())
+
+			switch attempt.Get("status.type").String() {
+			case "sent":
+				go paymentHasSucceeded(
+					ctx,
+					info.Get("recipientAmount").Int(),
+					info.Get("status.feesPaid").Int(),
+					info.Get("status.paymentPreimage").String(),
+					"",
+					hash,
+				)
+
+				// end it here
+				return
+			case "failed":
+				// this one failed, but what about the others?
+			case "pending":
+				failed = false
+				break
+			default:
+				// what is this?
+				failed = false
+				break
+			}
+		}
+	}
+
+	if failed {
 		// check if this transaction is too old
 		var t time.Time
 		err := pg.Get(&t,
 			"SELECT time FROM lightning.transaction WHERE payment_hash = $1", hash)
 		if err == nil &&
-			t.Before(time.Now().Add(-time.Hour)) &&
+			t.Before(time.Now().Add(-2*time.Hour)) &&
 			t.After(time.Now().AddDate(0, -3, 0)) {
 			log.Warn().Str("hash", hash).Time("time", t).
 				Msg("tx in the range of acceptable cancellation on getsentinfo []")
@@ -337,41 +371,9 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 			go paymentHasFailed(ctx, hash)
 		} else {
 			log.Warn().Str("hash", hash).Err(err).Time("time", t).
-				Msg("getsentinfo returned []")
+				Msg("getsentinfo says it's failed, but we can't cancel this transaction because it's too new")
 		}
 
-		return
-	}
-
-	failed := true
-	for _, attempt := range info.Array() {
-		log.Print(hash, " ", attempt.Get("status.type").String())
-
-		switch attempt.Get("status.type").String() {
-		case "sent":
-			go paymentHasSucceeded(
-				ctx,
-				info.Get("recipientAmount").Int(),
-				info.Get("status.feesPaid").Int(),
-				info.Get("status.paymentPreimage").String(),
-				"",
-				hash,
-			)
-
-			// end it here
-			return
-		case "failed":
-			// this one failed, but what about the others?
-		case "pending":
-			failed = false
-		default:
-			// what is this?
-			failed = false
-		}
-	}
-
-	if failed {
-		go paymentHasFailed(ctx, hash)
 		return
 	}
 }
