@@ -147,8 +147,23 @@ func handleLNURLWithdraw(
 	opts handleLNURLOpts,
 	params lnurl.LNURLWithdrawResponse,
 ) {
-	// if possible, save this
-	u.saveBalanceCheckURL(params.CallbackURL.Hostname(), params.BalanceCheck)
+	var shouldCancelBalanceCheck = false
+	defer func() {
+		if shouldCancelBalanceCheck {
+			// cancel automatic balance checks
+			if opts.balanceCheckService != nil {
+				err := u.saveBalanceCheckURL(*opts.balanceCheckService, "")
+				if err == nil {
+					send(ctx, u, t.LNURLBALANCECHECKCANCELED, t.T{
+						"Service": *opts.balanceCheckService,
+					})
+				}
+			}
+		} else {
+			// save this balance check
+			u.saveBalanceCheckURL(params.CallbackURL.Hostname(), params.BalanceCheck)
+		}
+	}()
 
 	// stop here if zero
 	if params.MaxWithdrawable == 0 {
@@ -171,6 +186,7 @@ func handleLNURLWithdraw(
 	})
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+		err = err
 		return
 	}
 	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).
@@ -184,6 +200,7 @@ func handleLNURLWithdraw(
 	}, &sentinvres, &sentinvres)
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+		shouldCancelBalanceCheck = true
 		return
 	}
 	if sentinvres.Status == "ERROR" {
