@@ -318,7 +318,7 @@ func settleCoinflip(
 	toId int,
 	fromIds []int,
 ) (receiver User, err error) {
-	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
 	}
