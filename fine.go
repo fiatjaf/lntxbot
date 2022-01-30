@@ -118,7 +118,7 @@ func handleFine(ctx context.Context, opts docopt.Opts) {
 				log.Error().Int64("group", message.Chat.ID).
 					Msg("failed to send invoice message on fine")
 				send(ctx, message.Chat.ID,
-					t.ERROR, t.T{"Err": "Error sending Telegram message, please report."}, FORCESPAMMY)
+					t.ERROR, t.T{"Err": "Telegram has refused a message from us."}, FORCESPAMMY)
 				return
 			}
 

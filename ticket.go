@@ -126,7 +126,7 @@ func handleTelegramNewMember(
 		if invoiceMessageId == nil {
 			log.Error().Stringer("group", &g).
 				Msg("failed to send invoice message on new member")
-			send(ctx, g, t.ERROR, t.T{"Err": "Error sending Telegram message, please report."})
+			send(ctx, g, t.ERROR, t.T{"Err": "Telegram has refused a message from us."})
 			return
 		}
 
