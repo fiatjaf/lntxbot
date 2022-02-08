@@ -183,7 +183,7 @@ parsed:
 		go handleSingleTransaction(ctx, opts)
 	case opts["log"].(bool):
 		go handleLogView(ctx, opts)
-	case opts["send"].(bool), opts["tip"].(bool):
+	case opts["send"].(bool), opts["tip"].(bool), opts["honk"].(bool):
 		go u.track("send", map[string]interface{}{
 			"group":     groupId,
 			"reply-tip": message.ReplyToMessage != nil,
