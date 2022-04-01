@@ -8,8 +8,8 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
 	github.com/bwmarrin/discordgo v0.22.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/fiatjaf/eclair-go v0.2.3
-	github.com/fiatjaf/go-lnurl v1.10.1
+	github.com/fiatjaf/go-cliche v0.1.0
+	github.com/fiatjaf/go-lnurl v1.10.2
 	github.com/fiatjaf/ln-decodepay v1.1.0
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/gorilla/mux v1.7.4
@@ -37,7 +37,3 @@ require (
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
 	gopkg.in/redis.v5 v5.2.9
 )
-
-replace github.com/fiatjaf/eclair-go => /home/fiatjaf/comp/eclair-go
-
-replace github.com/fiatjaf/go-lnurl => /home/fiatjaf/comp/go-lnurl

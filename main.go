@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/fiatjaf/eclair-go"
+	"github.com/fiatjaf/go-cliche"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -28,7 +28,6 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
-	"github.com/tidwall/gjson"
 	"gopkg.in/redis.v5"
 )
 
@@ -42,9 +41,8 @@ type Settings struct {
 	PostgresURL      string   `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL         string   `envconfig:"REDIS_URL" required:"true"`
 	DiscordBotToken  string   `envconfig:"DISCORD_BOT_TOKEN" required:"false"`
-
-	EclairHost     string `envconfig:"ECLAIR_HOST" required:"true"`
-	EclairPassword string `envconfig:"ECLAIR_PASSWORD" required:"true"`
+	ClicheJARPath    string   `envconfig:"CLICHE_JAR_PATH" required:"true"`
+	ClicheDataDir    string   `envconfig:"CLICHE_DATADIR" required:"true"`
 
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
@@ -73,7 +71,7 @@ type Settings struct {
 
 var s Settings
 var pg *sqlx.DB
-var ln *eclair.Client
+var ln *cliche.Control
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
 var discord *discordgo.Session
@@ -123,19 +121,13 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	// setup eclair
-	ln = &eclair.Client{
-		Host:     s.EclairHost,
-		Password: s.EclairPassword,
+	// setup cliche
+	ln = &cliche.Control{
+		JARPath: s.ClicheJARPath,
+		DataDir: s.ClicheDataDir,
 	}
-	s.NodeId = probeEclair()
-
-	// eclair websocket
-	ws, err := ln.Websocket()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to open eclair websocket")
-	}
-	go handleEclairWebsocket(ws)
+	s.NodeId = startCliche()
+	go handleClicheEvents()
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
@@ -247,69 +239,56 @@ func main() {
 	}
 }
 
-func probeEclair() string {
-	var err error
+func startCliche() string {
+	log.Info().Msg("starting cliche")
 
-	for i := 0; i < 30; i++ {
-		nodeinfo, err := ln.Call("getinfo", nil)
-		if err != nil {
-			log.Warn().Err(err).Msg("can't talk to eclair. retrying.")
-			time.Sleep(time.Second * 5)
-			continue
-		}
-
-		log.Info().
-			Str("nodeId", nodeinfo.Get("nodeId").String()).
-			Str("alias", nodeinfo.Get("alias").String()).
-			Int64("blockHeight", nodeinfo.Get("blockHeight").Int()).
-			Str("version", nodeinfo.Get("version").String()).
-			Msg("lightning node connected")
-
-		return nodeinfo.Get("nodeId").String()
+	err := ln.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to start cliche")
 	}
 
-	log.Fatal().Err(err).Msg("failed to connect to eclair after 30 attempts")
-	return ""
+	nodeinfo, err := ln.GetInfo()
+	if err != nil {
+		log.Fatal().Err(err).Msg("can't talk to cliche")
+		return ""
+	}
+
+	log.Info().
+		Str("nodeId", nodeinfo.Keys.Pub).
+		Int("blockHeight", nodeinfo.BlockHeight).
+		Int("channels", len(nodeinfo.Channels)).
+		Msg("cliche connected")
+
+	return nodeinfo.Keys.Pub
 }
 
-func handleEclairWebsocket(ws <-chan gjson.Result) {
-	ctx := context.WithValue(context.Background(), "origin", "eclair")
+func handleClicheEvents() {
+	ctx := context.WithValue(context.Background(), "origin", "cliche")
 
-	for event := range ws {
-		switch event.Get("type").String() {
-		case "payment-received":
-			hash := event.Get("paymentHash").String()
-			var msatoshi int64 = 0
-			for _, part := range event.Get("parts").Array() {
-				msatoshi += part.Get("amount").Int()
-			}
-			go paymentReceived(ctx, hash, msatoshi)
-		case "payment-sent":
-			hash := event.Get("paymentHash").String()
-			preimage := event.Get("paymentPreimage").String()
-			msatoshi := event.Get("recipientAmount").Int()
+	go func() {
+		for event := range ln.IncomingPayments {
+			go paymentReceived(ctx, event.PaymentHash, event.Msatoshi)
+		}
+	}()
 
-			var feesPaid int64 = 0
-			for _, part := range event.Get("parts").Array() {
-				feesPaid += part.Get("feesPaid").Int()
-			}
-
+	go func() {
+		for event := range ln.PaymentSuccesses {
 			go paymentHasSucceeded(
 				ctx,
-				msatoshi,
-				feesPaid,
-				preimage,
+				event.Msatoshi,
+				event.FeeMsatoshi,
+				event.Preimage,
 				"",
-				hash,
-			)
-		case "payment-failed":
-			hash := event.Get("paymentHash").String()
-			go paymentHasFailed(
-				ctx,
-				hash,
+				event.PaymentHash,
 			)
 		}
-	}
+	}()
+
+	go func() {
+		for event := range ln.PaymentFailures {
+			go paymentHasFailed(ctx, event.PaymentHash)
+		}
+	}()
 }
 
 func createLocalizerBundle() (t.Bundle, error) {

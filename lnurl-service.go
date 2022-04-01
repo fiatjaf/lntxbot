@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -221,9 +222,9 @@ func serveLNURL() {
 			var hhash [32]byte
 			payerdata := qs.Get("payerdata")
 			if payerdata == "" {
-				hhash = params.HashMetadata()
+				hhash = sha256.Sum256([]byte(params.EncodedMetadata))
 			} else {
-				hhash = params.HashWithPayerData(payerdata)
+				hhash = sha256.Sum256([]byte(params.EncodedMetadata + payerdata))
 			}
 			var payerData lnurl.PayerDataValues
 			json.Unmarshal([]byte(payerdata), &payerData)

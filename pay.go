@@ -11,7 +11,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
-	"github.com/fiatjaf/eclair-go"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -317,48 +316,29 @@ RETURNING from_id, trigger_message
 }
 
 func checkOutgoingPayment(ctx context.Context, hash string) {
-	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
+	info, err := ln.CheckPayment(hash)
 	if err != nil {
-		log.Error().Err(err).Str("hash", hash).Msg("failed to getsentinfo")
+		log.Error().Err(err).Str("hash", hash).Msg("failed to check-payment")
+		return
+	}
+	if info.IsIncoming {
+		log.Error().Err(err).Str("hash", hash).
+			Msg("tried to check outgoing with an incoming invoice")
 		return
 	}
 
-	failed := false
-	if info.Get("#").Int() == 0 {
-		failed = true
-	} else {
-		failed = true
-		for _, attempt := range info.Array() {
-			log.Print(hash, " ", attempt.Get("status.type").String())
-
-			switch attempt.Get("status.type").String() {
-			case "sent":
-				go paymentHasSucceeded(
-					ctx,
-					info.Get("recipientAmount").Int(),
-					info.Get("status.feesPaid").Int(),
-					info.Get("status.paymentPreimage").String(),
-					"",
-					hash,
-				)
-
-				// end it here
-				return
-			case "failed":
-				// this one failed, but what about the others?
-			case "pending":
-				failed = false
-				break
-			default:
-				// what is this?
-				failed = false
-				break
-			}
-		}
-	}
-
-	if failed {
-		// check if this transaction is too old
+	switch info.Status {
+	case "complete":
+		go paymentHasSucceeded(
+			ctx,
+			info.Msatoshi,
+			info.FeeMsatoshi,
+			info.Preimage,
+			"",
+			hash,
+		)
+	case "failed":
+		// check if this transaction is old enough first
 		var t time.Time
 		err := pg.Get(&t,
 			"SELECT time FROM lightning.transaction WHERE payment_hash = $1", hash)
@@ -371,9 +351,7 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 			go paymentHasFailed(ctx, hash)
 		} else {
 			log.Warn().Str("hash", hash).Err(err).Time("time", t).
-				Msg("getsentinfo says it's failed, but we can't cancel this transaction because it's too new")
+				Msg("check-invoice says it's failed, but we can't cancel this transaction because it's too new")
 		}
-
-		return
 	}
 }

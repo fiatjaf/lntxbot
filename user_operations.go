@@ -15,7 +15,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/bwmarrin/discordgo"
-	"github.com/fiatjaf/eclair-go"
+	"github.com/fiatjaf/go-cliche"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -70,7 +70,8 @@ func (u User) makeInvoice(
 	args *MakeInvoiceArgs,
 ) (bolt11 string, hash string, err error) {
 	msatoshi := args.Msatoshi
-	log.Debug().Stringer("user", &u).Str("desc", args.Description).Int64("msats", msatoshi).
+	log.Debug().Stringer("user", &u).
+		Str("desc", args.Description).Int64("msats", msatoshi).
 		Msg("generating invoice")
 
 	if args.Expiry == nil {
@@ -85,23 +86,14 @@ func (u User) makeInvoice(
 	// hide the user id inside the preimage (first 4 bytes)
 	binary.BigEndian.PutUint32(preimage, uint32(u.Id))
 
-	params := eclair.Params{
-		"expireIn":        int((*args.Expiry).Seconds()),
-		"paymentPreimage": hex.EncodeToString(preimage),
-	}
+	// TODO: "expireIn":        int((*args.Expiry).Seconds()),
 
-	// only have the amountMsat parameter if given (i.e., not "any")
-	if msatoshi > 0 {
-		params["amountMsat"] = msatoshi
-	}
-
-	if args.DescriptionHash == "" {
-		params["description"] = args.Description
-	} else {
-		params["descriptionHash"] = args.DescriptionHash
-	}
-
-	inv, err := ln.Call("createinvoice", params)
+	inv, err := ln.CreateInvoice(cliche.CreateInvoiceParams{
+		Msatoshi:        msatoshi,
+		Preimage:        hex.EncodeToString(preimage),
+		Description:     args.Description,
+		DescriptionHash: args.DescriptionHash,
+	})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create invoice: %w", err)
 	}
@@ -115,10 +107,8 @@ func (u User) makeInvoice(
 			messageId = m.ID
 		}
 	}
-	hash = inv.Get("paymentHash").String()
-	bolt11 = inv.Get("serialized").String()
 
-	saveInvoiceData(hash, InvoiceData{
+	saveInvoiceData(inv.PaymentHash, InvoiceData{
 		UserId:    u.Id,
 		Origin:    ctx.Value("origin").(string),
 		MessageId: messageId,
@@ -129,8 +119,8 @@ func (u User) makeInvoice(
 
 	if args.BlueWallet {
 		encodedinv, _ := json.Marshal(map[string]interface{}{
-			"hash":   hash,
-			"bolt11": bolt11,
+			"hash":   inv.PaymentHash,
+			"bolt11": inv.Invoice,
 			"desc":   args.Description,
 			"amount": msatoshi / 1000,
 			"expiry": int((*args.Expiry)),
@@ -138,7 +128,7 @@ func (u User) makeInvoice(
 		rds.Set("justcreatedbluewalletinvoice:"+strconv.Itoa(u.Id), string(encodedinv), time.Minute*10)
 	}
 
-	return bolt11, hash, nil
+	return inv.Invoice, inv.PaymentHash, nil
 }
 
 func (u User) payInvoice(
@@ -263,22 +253,12 @@ VALUES ($1, $2, $3, $4, $5, true, $6, $7)
 		return ErrDatabase
 	}
 
-	// set common params
-	params := eclair.Params{
-		"invoice":     bolt11,
-		"maxAttempts": 20,
-		"maxFeePct":   0.5,
-		"externalId":  fmt.Sprintf("lntxbot:user=%d", u.Id),
-	}
-
-	if inv.MSatoshi == 0 {
-		// amountless invoice, so send the number of satoshis previously specified
-		params["amountMsat"] = msatoshi
-	}
-
 	// perform payment
 	go func() {
-		_, err := ln.Call("payinvoice", params)
+		_, err := ln.PayInvoice(cliche.PayInvoiceParams{
+			Invoice:  bolt11,
+			Msatoshi: msatoshi,
+		})
 		if err != nil {
 			send(ctx, t.ERROR, t.T{"Err": err.Error()})
 		}

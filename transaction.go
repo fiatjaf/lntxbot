@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
-	"github.com/fiatjaf/eclair-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -149,39 +148,42 @@ type Hop struct {
 }
 
 func renderLogInfo(ctx context.Context, hash string, showHash bool) (logInfo string) {
-	info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
-	if err != nil {
-		return translateTemplate(ctx, t.ERROR, t.T{"Err": err})
-	}
+	// TODO
+	// info, err := ln.Call("getsentinfo", eclair.Params{"paymentHash": hash})
+	// if err != nil {
+	// 	return translateTemplate(ctx, t.ERROR, t.T{"Err": err})
+	// }
 
-	if info.Get("#").Int() == 0 {
-		return translateTemplate(ctx, t.ERROR, t.T{"Err": "payment not attempted"})
-	}
+	// if info.Get("#").Int() == 0 {
+	// 	return translateTemplate(ctx, t.ERROR, t.T{"Err": "payment not attempted"})
+	// }
 
-	tries := make([]Try, info.Get("#").Int())
-	for i, attempt := range info.Array() {
-		route := make([]Hop, attempt.Get("route.#").Int())
+	// tries := make([]Try, info.Get("#").Int())
+	// for i, attempt := range info.Array() {
+	// 	route := make([]Hop, attempt.Get("route.#").Int())
 
-		for r, hop := range attempt.Get("route").Array() {
-			route[r] = Hop{
-				Peer:    hop.Get("nextNodeId").String(),
-				Channel: hop.Get("shortChannelId").String(),
-			}
-		}
+	// 	for r, hop := range attempt.Get("route").Array() {
+	// 		route[r] = Hop{
+	// 			Peer:    hop.Get("nextNodeId").String(),
+	// 			Channel: hop.Get("shortChannelId").String(),
+	// 		}
+	// 	}
 
-		tries[i] = Try{
-			Success: attempt.Get("status.type").String() == "sent",
-			Error:   attempt.Get("status.failures.0.failureMessage").String(),
-			Route:   route,
-		}
-	}
+	// 	tries[i] = Try{
+	// 		Success: attempt.Get("status.type").String() == "sent",
+	// 		Error:   attempt.Get("status.failures.0.failureMessage").String(),
+	// 		Route:   route,
+	// 	}
+	// }
 
-	params := t.T{"Tries": tries}
-	if showHash {
-		params["PaymentHash"] = hash
-	}
+	// params := t.T{"Tries": tries}
+	// if showHash {
+	// 	params["PaymentHash"] = hash
+	// }
 
-	return translateTemplate(ctx, t.TXLOG, params)
+	// return translateTemplate(ctx, t.TXLOG, params)
+
+	return ""
 }
 
 func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
