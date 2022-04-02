@@ -73,8 +73,8 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815 h1:bWDMxwH3px2JBh6AyO7hdCn/PkvCZXii8TGj7sbtEbQ=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
-github.com/fiatjaf/go-cliche v0.1.0 h1:TizN38ScwF8Q5r5pBAVlNz8qMpWS07SmR/bqN2QNQZ4=
-github.com/fiatjaf/go-cliche v0.1.0/go.mod h1:egCdh5lxCWTzRkNFTnhgjuTGqQ90mPXi9j8X5FtkjkE=
+github.com/fiatjaf/go-cliche v0.1.2 h1:7l5FDaXcDGJcsYM4P6BTJs2GHH2sIU0YNf6sk/mB6ps=
+github.com/fiatjaf/go-cliche v0.1.2/go.mod h1:egCdh5lxCWTzRkNFTnhgjuTGqQ90mPXi9j8X5FtkjkE=
 github.com/fiatjaf/go-lnurl v1.10.2 h1:+VVuVS8Dwyo/JsAi0pXSClbdml2asV+RzaKcVmKnKNA=
 github.com/fiatjaf/go-lnurl v1.10.2/go.mod h1:0PPdV2GFnJK97ztksEIwrcEUVTothAKJsmzqPphAQhs=
 github.com/fiatjaf/ln-decodepay v1.1.0 h1:HigjqNH+ApiO6gm7RV23jXNFuvwq+zgsWl4BJAfPWwE=
