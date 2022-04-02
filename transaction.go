@@ -296,33 +296,6 @@ func displayTransactionList(ctx context.Context, page int, tag string, filter In
 	})
 }
 
-func handleLogView(ctx context.Context, opts docopt.Opts) {
-	// query failed transactions (only available in the first 24h after the failure)
-	u := ctx.Value("initiator").(User)
-	hashfirstchars := opts["<hash>"].(string)
-	if len(hashfirstchars) < 5 {
-		send(ctx, u, t.ERROR, t.T{"Err": "hash too small."})
-		return
-	}
-	go u.track("view log", nil)
-
-	hash := hashfirstchars
-	if len(hash) == 64 {
-		// continue
-	} else if txn, err := u.getTransaction(hashfirstchars); err == nil {
-		hash = txn.Hash
-	} else {
-		hash, err = rds.Get("hash:" + strconv.Itoa(u.Id) + ":" + hashfirstchars).Result()
-		if err != nil {
-			send(ctx, u, t.TXNOTFOUND, t.T{"HashFirstChars": hashfirstchars},
-				ctx.Value("message"))
-			return
-		}
-	}
-
-	send(ctx, u, renderLogInfo(ctx, hash, true))
-}
-
 func checkAllOutgoingPayments(ctx context.Context) {
 	var hashes []string
 	err := pg.Select(&hashes,

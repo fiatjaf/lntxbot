@@ -286,7 +286,7 @@ func handleClicheEvents() {
 
 	go func() {
 		for event := range ln.PaymentFailures {
-			go paymentHasFailed(ctx, event.PaymentHash)
+			go paymentHasFailed(ctx, event.PaymentHash, event.Failure)
 		}
 	}()
 }

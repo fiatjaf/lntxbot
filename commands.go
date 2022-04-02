@@ -59,10 +59,6 @@ var methods = []def{
 		argstr:  "<hash>",
 	},
 	def{
-		aliases: []string{"log"},
-		argstr:  "<hash>",
-	},
-	def{
 		aliases: []string{"transactions"},
 		argstr:  "[<tag>] [--in] [--out]",
 	},

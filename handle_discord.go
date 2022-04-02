@@ -161,8 +161,6 @@ parsed:
 		go handleLightningATM(ctx)
 	case opts["tx"].(bool):
 		go handleSingleTransaction(ctx, opts)
-	case opts["log"].(bool):
-		go handleLogView(ctx, opts)
 	case opts["transactions"].(bool):
 		go handleTransactionList(ctx, opts)
 	case opts["balance"].(bool):

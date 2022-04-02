@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -286,7 +287,7 @@ RETURNING from_id, trigger_message
 	}, ctx.Value("message"))
 }
 
-func paymentHasFailed(ctx context.Context, hash string) {
+func paymentHasFailed(ctx context.Context, hash string, failures []string) {
 	var res struct {
 		UserId         int `db:"from_id"`
 		TriggerMessage int `db:"trigger_message"`
@@ -312,7 +313,8 @@ RETURNING from_id, trigger_message
 	}
 
 	send(ctx, user, res.TriggerMessage,
-		t.PAYMENTFAILED, t.T{"ShortHash": hash[:5]}, ctx.Value("message"))
+		t.PAYMENTFAILED, t.T{"FailureString": strings.Join(failures, "\n")},
+		ctx.Value("message"))
 }
 
 func checkOutgoingPayment(ctx context.Context, hash string) {
@@ -348,7 +350,7 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 			log.Warn().Str("hash", hash).Time("time", t).
 				Msg("tx in the range of acceptable cancellation on getsentinfo []")
 
-			go paymentHasFailed(ctx, hash)
+			go paymentHasFailed(ctx, hash, []string{})
 		} else {
 			log.Warn().Str("hash", hash).Err(err).Time("time", t).
 				Msg("check-invoice says it's failed, but we can't cancel this transaction because it's too new")
