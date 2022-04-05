@@ -15,6 +15,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/kballard/go-shellquote"
 	"github.com/lucsky/cuid"
 )
 
@@ -121,6 +122,46 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 				goto parsed
 			}
 		}
+	}
+
+	// manage the underlying node
+	if message.Chat.Type == "private" &&
+		s.AdminAccount > 0 &&
+		u.Id == s.AdminAccount &&
+		strings.HasPrefix(messageText, "/cliche ") {
+
+		spl := strings.SplitN(messageText[8:], " ", 2)
+		method := spl[0]
+		params := make(map[string]interface{})
+
+		if len(spl) == 2 {
+			argv, err := shellquote.Split(spl[1])
+			if err != nil {
+				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+				return
+			}
+
+			if len(argv)%2 != 0 {
+				send(ctx, u, t.ERROR, t.T{"Err": "invalid number of args"})
+				return
+			}
+
+			for i := range argv {
+				if i%2 != 0 || !strings.HasPrefix(argv[i], "--") {
+					continue
+				}
+				params[argv[i][2:]] = argv[i+1]
+			}
+		}
+
+		resp, err := ln.Call(method, params)
+		if err != nil {
+			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
+			return
+		}
+
+		send(ctx, u, string(resp))
+		return
 	}
 
 	// otherwise parse the slash command

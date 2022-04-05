@@ -46,6 +46,7 @@ type Settings struct {
 
 	// account in the database named '@'
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
+	AdminAccount int `envconfig:"ADMIN_ACCOUNT"`
 
 	LNPayKey           string `envconfig:"LNPAY_KEY"`
 	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
