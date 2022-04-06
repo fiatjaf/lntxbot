@@ -96,7 +96,6 @@ func serveLNURL() {
 
 	router.Path("/lnurl/withdraw/invoice").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(context.Background(), "origin", "external")
-		log.Debug().Str("url", r.URL.String()).Msg("lnurl second request")
 
 		qs := r.URL.Query()
 		challenge := qs.Get("k1")
@@ -126,6 +125,11 @@ func serveLNURL() {
 				lnurl.ErrorResponse("Couldn't load withdrawee user."))
 			return
 		}
+
+		log.Debug().
+			Str("url", r.URL.String()).
+			Stringer("user", &payer).
+			Msg("lnurl second request")
 
 		// double-check the challenge (it's a hash of the parameters + our secret)
 		if challenge != hashString("%s:%d:%d", s.TelegramBotToken, payer.Id, chMax) {
