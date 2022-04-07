@@ -156,15 +156,8 @@ func (u User) payInvoice(
 		}
 	}
 
-	// if is internal
-	if isInternal(inv.Payee) {
-		data, err := loadInvoiceData(inv.PaymentHash)
-		if err != nil {
-			log.Debug().Err(err).Interface("invoice", inv).
-				Msg("no invoice stored for this hash, not a bot invoice?")
-			return hash, errors.New("Can't pay internal invoice that isn't from the bot.")
-		}
-
+	// check first if it is internal
+	if data, err := loadInvoiceData(inv.PaymentHash); err == nil {
 		// it's an internal invoice. mark as paid internally.
 		err = u.addInternalPendingInvoice(
 			ctx,

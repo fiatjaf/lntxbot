@@ -80,7 +80,6 @@ var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{
 var router = mux.NewRouter()
 var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
 var bundle t.Bundle
-var isInternal func(payee string) bool = func(payee string) bool { return false }
 
 //go:embed templates
 var templates embed.FS
@@ -138,14 +137,6 @@ func main() {
 			Int("blockHeight", nodeinfo.BlockHeight).
 			Int("channels", len(nodeinfo.Channels)).
 			Msg("cliche connected")
-		isInternal = func(payee string) bool {
-			for _, channel := range nodeinfo.Channels {
-				if channel.Peer.OurPubkey == payee {
-					return true
-				}
-			}
-			return false
-		}
 	}
 	go handleClicheEvents()
 
