@@ -66,8 +66,7 @@ type Settings struct {
 
 	Banned map[int]bool `envconfig:"BANNED"`
 
-	NodeId string
-	Usage  string
+	Usage string
 }
 
 var s Settings
@@ -81,6 +80,7 @@ var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{
 var router = mux.NewRouter()
 var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
 var bundle t.Bundle
+var isInternal func(payee string) bool = func(payee string) bool { return false }
 
 //go:embed templates
 var templates embed.FS
@@ -127,7 +127,26 @@ func main() {
 		JARPath: s.ClicheJARPath,
 		DataDir: s.ClicheDataDir,
 	}
-	s.NodeId = startCliche()
+	log.Info().Msg("starting cliche")
+	if err := ln.Start(); err != nil {
+		log.Fatal().Err(err).Msg("failed to start cliche")
+	}
+	if nodeinfo, err := ln.GetInfo(); err != nil {
+		log.Fatal().Err(err).Msg("can't talk to cliche")
+	} else {
+		log.Info().
+			Int("blockHeight", nodeinfo.BlockHeight).
+			Int("channels", len(nodeinfo.Channels)).
+			Msg("cliche connected")
+		isInternal = func(payee string) bool {
+			for _, channel := range nodeinfo.Channels {
+				if channel.Peer.OurPubkey == payee {
+					return true
+				}
+			}
+			return false
+		}
+	}
 	go handleClicheEvents()
 
 	// postgres connection
@@ -238,29 +257,6 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Error().Err(err).Msg("error serving http")
 	}
-}
-
-func startCliche() string {
-	log.Info().Msg("starting cliche")
-
-	err := ln.Start()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to start cliche")
-	}
-
-	nodeinfo, err := ln.GetInfo()
-	if err != nil {
-		log.Fatal().Err(err).Msg("can't talk to cliche")
-		return ""
-	}
-
-	log.Info().
-		Str("nodeId", nodeinfo.MainPubkey).
-		Int("blockHeight", nodeinfo.BlockHeight).
-		Int("channels", len(nodeinfo.Channels)).
-		Msg("cliche connected")
-
-	return nodeinfo.MainPubkey
 }
 
 func handleClicheEvents() {

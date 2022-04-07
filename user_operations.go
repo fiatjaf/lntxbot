@@ -156,7 +156,8 @@ func (u User) payInvoice(
 		}
 	}
 
-	if inv.Payee == s.NodeId {
+	// if is internal
+	if isInternal(inv.Payee) {
 		data, err := loadInvoiceData(inv.PaymentHash)
 		if err != nil {
 			log.Debug().Err(err).Interface("invoice", inv).
