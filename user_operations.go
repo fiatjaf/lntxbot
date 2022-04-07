@@ -93,6 +93,7 @@ func (u User) makeInvoice(
 		Preimage:        hex.EncodeToString(preimage),
 		Description:     args.Description,
 		DescriptionHash: args.DescriptionHash,
+		Label:           fmt.Sprintf("lntxbotuser=%d", u.Id),
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create invoice: %w", err)

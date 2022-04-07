@@ -255,12 +255,12 @@ func startCliche() string {
 	}
 
 	log.Info().
-		Str("nodeId", nodeinfo.Keys.Pub).
+		Str("nodeId", nodeinfo.MainPubkey).
 		Int("blockHeight", nodeinfo.BlockHeight).
 		Int("channels", len(nodeinfo.Channels)).
 		Msg("cliche connected")
 
-	return nodeinfo.Keys.Pub
+	return nodeinfo.MainPubkey
 }
 
 func handleClicheEvents() {
