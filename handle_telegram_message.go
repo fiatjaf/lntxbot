@@ -150,7 +150,16 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 				if i%2 != 0 || !strings.HasPrefix(argv[i], "--") {
 					continue
 				}
-				params[argv[i][2:]] = argv[i+1]
+
+				key := argv[i][2:]
+				val := argv[i+1]
+
+				var value interface{}
+				if err := json.Unmarshal([]byte(val), &value); err != nil {
+					value = val
+				}
+
+				params[key] = value
 			}
 		}
 
@@ -160,7 +169,13 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 			return
 		}
 
-		send(ctx, u, string(resp))
+		var jresp interface{}
+		pretty := resp
+		if err := json.Unmarshal(resp, &jresp); err == nil {
+			pretty, _ = json.MarshalIndent(jresp, "", "  ")
+		}
+
+		send(ctx, u, "<pre><code class=\"language-json\">\n"+string(pretty)+"\n</code></pre>")
 		return
 	}
 
