@@ -12,6 +12,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/go-cliche"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -320,8 +321,18 @@ RETURNING from_id, trigger_message
 func checkOutgoingPayment(ctx context.Context, hash string) {
 	info, err := ln.CheckPayment(hash)
 	if err != nil {
-		log.Error().Err(err).Str("hash", hash).Msg("failed to check-payment")
-		return
+		if strings.Contains(err.Error(),
+			fmt.Sprintf("couldn't get payment '%s' from database", hash),
+		) {
+			// if it's not on cliche's database means it has failed, right?
+			// make sure we only do this check for recent payments otherwise we could be
+			//   checking for stuff from other node backends
+			info = cliche.CheckPaymentResult{
+				PaymentInfo: cliche.PaymentInfo{Status: "failed"}}
+		} else {
+			log.Error().Err(err).Str("hash", hash).Msg("failed to check-payment")
+			return
+		}
 	}
 	if info.IsIncoming {
 		log.Error().Err(err).Str("hash", hash).

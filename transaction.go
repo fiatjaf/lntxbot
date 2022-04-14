@@ -298,8 +298,11 @@ func displayTransactionList(ctx context.Context, page int, tag string, filter In
 
 func checkAllOutgoingPayments(ctx context.Context) {
 	var hashes []string
-	err := pg.Select(&hashes,
-		"SELECT payment_hash FROM lightning.transaction WHERE pending AND to_id IS NULL")
+	err := pg.Select(&hashes, `
+      SELECT payment_hash
+        FROM lightning.transaction
+        WHERE pending AND to_id IS NULL AND time > (now() - interval '3 weeks')
+    `)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
