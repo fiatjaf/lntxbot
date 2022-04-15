@@ -79,7 +79,7 @@ lnurl-auth успех!
 	GROUPNOTRENAMABLE: "Эту группу невозможно переименовать!",
 
 	INTERNALPAYMENTUNEXPECTED: "Произошло что-то странное. Если это был внутренний запрос платежа, то платёж не состоится. Вероятно, запрос устарел или произошло что-то ещё. Если это внешний запрос, игнорируйте это предупреждение.",
-	PAYMENTFAILED:             "❌ Платёж не состоялся.\n\n<i>{{.FailureString}}</i>",
+	PAYMENTFAILED:             "❌ Платёж {{.Hash}} не состоялся.\n\n<i>{{.FailureString}}</i>",
 	PAIDMESSAGE: `✅ Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> комиссия). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}

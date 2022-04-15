@@ -314,7 +314,7 @@ RETURNING from_id, trigger_message
 	}
 
 	send(ctx, user, res.TriggerMessage,
-		t.PAYMENTFAILED, t.T{"FailureString": strings.Join(failures, "\n")},
+		t.PAYMENTFAILED, t.T{"Hash": hash, "FailureString": strings.Join(failures, "\n")},
 		ctx.Value("message"))
 }
 

@@ -72,7 +72,7 @@ lnurl-auth success!
 	GROUPNOTRENAMABLE: "Diese Gruppe kann nicht umbenannt werden!",
 
 	INTERNALPAYMENTUNEXPECTED: "Etwas Unerwartetes ist passiert. Wenn das eine interne Rechnung ist, wird sie fehlschlagen. Vielleicht ist die Rechnung abgelaufen oder etwas anderes ist passiert, wir wissen es nicht. Wenn das eine externe Rechnung ist, ignoriere die Warnung.",
-	PAYMENTFAILED:             "❌ Bezahlung fehlgeschlagen.\n\n<i>{{.FailureString}}</i>",
+	PAYMENTFAILED:             "❌ Bezahlung <code>{{.Hash}}</code> fehlgeschlagen.\n\n<i>{{.FailureString}}</i>",
 	PAIDMESSAGE: `✅ Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}

@@ -79,7 +79,7 @@ You have 15 minutes to do it or you'll be kicked and banned for one day.
 	GROUPNOTRENAMABLE: "This group is not renamable!",
 
 	INTERNALPAYMENTUNEXPECTED: "Something odd has happened. If this is an internal invoice it will fail. Maybe the invoice has expired or something else we don't know. If it is an external invoice ignore this warning.",
-	PAYMENTFAILED:             "❌ Payment failed.\n\n<i>{{.FailureString}}</i>",
+	PAYMENTFAILED:             "❌ Payment <code>{{.Hash}}</code> failed.\n\n<i>{{.FailureString}}</i>",
 	PAIDMESSAGE: `✅ Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}

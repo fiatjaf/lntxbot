@@ -79,7 +79,7 @@ Tienes 15 minutos para hacerlo o serás expulsado y baneado por un día.
 	GROUPNOTRENAMABLE: "¡Este grupo no se puede renombrar!",
 
 	INTERNALPAYMENTUNEXPECTED: "Ha ocurrido algo extraño. Si se trata de una factura interna, fallará. Puede que la factura haya caducado o algo más que desconocemos. Si se trata de una factura externa, ignora esta advertencia.",
-	PAYMENTFAILED:             "❌ Pago fallido.\n\n<i>{{.FailureString}}</i>",
+	PAYMENTFAILED:             "❌ Pago <code>{{.Hash}}</code> fallido.\n\n<i>{{.FailureString}}</i>",
 	PAIDMESSAGE: `✅ Pagado con <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee).
         
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
