@@ -15,7 +15,6 @@ import (
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/kballard/go-shellquote"
 	"github.com/lucsky/cuid"
 )
 
@@ -130,52 +129,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		u.Id == s.AdminAccount &&
 		strings.HasPrefix(messageText, "/cliche ") {
 
-		spl := strings.SplitN(messageText[8:], " ", 2)
-		method := spl[0]
-		params := make(map[string]interface{})
-
-		if len(spl) == 2 {
-			argv, err := shellquote.Split(spl[1])
-			if err != nil {
-				send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-				return
-			}
-
-			if len(argv)%2 != 0 {
-				send(ctx, u, t.ERROR, t.T{"Err": "invalid number of args"})
-				return
-			}
-
-			for i := range argv {
-				if i%2 != 0 || !strings.HasPrefix(argv[i], "--") {
-					continue
-				}
-
-				key := argv[i][2:]
-				val := argv[i+1]
-
-				var value interface{}
-				if err := json.Unmarshal([]byte(val), &value); err != nil {
-					value = val
-				}
-
-				params[key] = value
-			}
-		}
-
-		resp, err := ln.Call(method, params)
-		if err != nil {
-			send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-			return
-		}
-
-		var jresp interface{}
-		pretty := resp
-		if err := json.Unmarshal(resp, &jresp); err == nil {
-			pretty, _ = json.MarshalIndent(jresp, "", "  ")
-		}
-
-		send(ctx, u, "<pre><code class=\"language-json\">\n"+string(pretty)+"\n</code></pre>")
+		handleClicheCommand(ctx, message, messageText)
 		return
 	}
 

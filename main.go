@@ -122,23 +122,9 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// setup cliche
-	ln = &cliche.Control{
-		JARPath: s.ClicheJARPath,
-		DataDir: s.ClicheDataDir,
-	}
-	log.Info().Msg("starting cliche")
-	if err := ln.Start(); err != nil {
-		log.Fatal().Err(err).Msg("failed to start cliche")
-	}
-	if nodeinfo, err := ln.GetInfo(); err != nil {
-		log.Fatal().Err(err).Msg("can't talk to cliche")
-	} else {
-		log.Info().
-			Int("blockHeight", nodeinfo.BlockHeight).
-			Int("channels", len(nodeinfo.Channels)).
-			Msg("cliche connected")
-	}
+	setupCliche()
 	go handleClicheEvents()
+	go clicheCheckingRoutine()
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
@@ -248,35 +234,6 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Error().Err(err).Msg("error serving http")
 	}
-}
-
-func handleClicheEvents() {
-	ctx := context.WithValue(context.Background(), "origin", "cliche")
-
-	go func() {
-		for event := range ln.IncomingPayments {
-			go paymentReceived(ctx, event.PaymentHash, event.Msatoshi)
-		}
-	}()
-
-	go func() {
-		for event := range ln.PaymentSuccesses {
-			go paymentHasSucceeded(
-				ctx,
-				event.Msatoshi,
-				event.FeeMsatoshi,
-				event.Preimage,
-				"",
-				event.PaymentHash,
-			)
-		}
-	}()
-
-	go func() {
-		for event := range ln.PaymentFailures {
-			go paymentHasFailed(ctx, event.PaymentHash, event.Failure)
-		}
-	}()
 }
 
 func createLocalizerBundle() (t.Bundle, error) {
