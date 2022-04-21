@@ -124,11 +124,13 @@ func handlePayCallback(ctx context.Context) {
 	}
 
 	send(ctx, t.CALLBACKSENDING)
+
 	_, err = u.payInvoice(ctx, bolt11, 0)
+	cb := ctx.Value("callbackQuery").(*tgbotapi.CallbackQuery)
 	if err == nil {
-		send(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars}, APPEND)
+		send(ctx, u, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars}, cb.Message.MessageID)
 	} else {
-		send(ctx, err.Error(), APPEND)
+		send(ctx, u, err.Error(), cb.Message.MessageID)
 	}
 }
 
