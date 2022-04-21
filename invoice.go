@@ -23,7 +23,6 @@ import (
 
 type InvoiceData struct {
 	UserId    int
-	Origin    string // "telegram" or "discord"
 	MessageId interface{}
 	Preimage  string
 
@@ -205,9 +204,6 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 			Stringer("user", &user).Str("hash", hash).
 			Msg("failed to save payment received.")
 		send(ctx, user, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
-		if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-			discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "✅")
-		}
 		return
 	}
 
@@ -239,10 +235,6 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 	}
 
 	send(ctx, user, t.PAYMENTRECEIVED, tmplParams)
-	if dmi, ok := data.MessageId.(DiscordMessageID); ok {
-		discord.MessageReactionAdd(dmi.Channel(), dmi.Message(), "⚠️")
-	}
-
 	return
 }
 

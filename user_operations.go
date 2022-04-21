@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/bwmarrin/discordgo"
 	"github.com/fiatjaf/go-cliche"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
@@ -104,14 +103,11 @@ func (u User) makeInvoice(
 		switch m := message.(type) {
 		case *tgbotapi.Message:
 			messageId = m.MessageID
-		case *discordgo.Message:
-			messageId = m.ID
 		}
 	}
 
 	saveInvoiceData(inv.PaymentHash, InvoiceData{
 		UserId:    u.Id,
-		Origin:    ctx.Value("origin").(string),
 		MessageId: messageId,
 		Preimage:  hex.EncodeToString(preimage),
 

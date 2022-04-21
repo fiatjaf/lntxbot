@@ -7,10 +7,6 @@ CREATE TABLE account (
   telegram_username text UNIQUE,
   telegram_chat_id bigint, -- telegram private chat id
 
-  discord_id text UNIQUE,
-  discord_username text UNIQUE,
-  discord_channel_id text, -- telegram private chat id
-
   password text NOT NULL DEFAULT md5(random()::text) || md5(random()::text), -- used in lndhub interface
   locale text NOT NULL DEFAULT 'en', -- default language for messages
   manual_locale boolean NOT NULL DEFAULT false,
@@ -27,7 +23,6 @@ CREATE TABLE balance_check (
 
 CREATE TABLE groupchat (
   telegram_id bigint UNIQUE,
-  discord_guild_id TEXT UNIQUE,
   locale text NOT NULL DEFAULT 'en',
   spammy boolean NOT NULL DEFAULT false,
   ticket int NOT NULL DEFAULT 0,
@@ -120,7 +115,7 @@ CREATE OR REPLACE FUNCTION is_unclaimed(tx lightning.transaction) RETURNS boolea
     WHERE acct.id = tx.to_id
   )
   SELECT CASE
-    WHEN id IS NOT NULL AND telegram_chat_id IS NULL AND discord_channel_id IS NULL THEN CASE
+    WHEN id IS NOT NULL AND telegram_chat_id IS NULL THEN CASE
       WHEN (
         SELECT count(*) AS total FROM lightning.transaction
         WHERE from_id = (SELECT id FROM potentially_inactive_user)

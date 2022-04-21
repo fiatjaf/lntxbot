@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
@@ -150,8 +149,6 @@ func searchForInvoice(ctx context.Context) (bolt11, lnurltext, address string, o
 		if text == "" {
 			text = m.Caption
 		}
-	case *discordgo.Message:
-		text = m.Content
 	}
 
 	if bolt11, ok = getBolt11(text); ok {

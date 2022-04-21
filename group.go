@@ -110,14 +110,13 @@ func interceptMessage(message *tgbotapi.Message) (proceed bool) {
 */
 
 type GroupChat struct {
-	DiscordGuildId string `db:"discord_guild_id"`
-	TelegramId     int64  `db:"telegram_id"`
-	Locale         string `db:"locale"`
-	Spammy         bool   `db:"spammy"`
-	Ticket         int    `db:"ticket"`
+	TelegramId int64  `db:"telegram_id"`
+	Locale     string `db:"locale"`
+	Spammy     bool   `db:"spammy"`
+	Ticket     int    `db:"ticket"`
 }
 
-const GROUPCHATFIELDS = "coalesce(discord_guild_id, '') AS discord_guild_id, coalesce(telegram_id, 0) AS telegram_id, locale, spammy, ticket"
+const GROUPCHATFIELDS = "coalesce(telegram_id, 0) AS telegram_id, locale, spammy, ticket"
 
 func (g *GroupChat) String() string {
 	if g == nil {
@@ -125,9 +124,6 @@ func (g *GroupChat) String() string {
 	}
 	if g.TelegramId != 0 {
 		return fmt.Sprintf("tg:%d", g.TelegramId)
-	}
-	if g.DiscordGuildId != "" {
-		return fmt.Sprintf("dgg:%s", g.DiscordGuildId)
 	}
 	return "unknown"
 }

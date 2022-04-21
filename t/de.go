@@ -297,8 +297,7 @@ Jede Anzeige kostet den oben stehenden Preis <i>per character</i> + <code>1 sat<
 - {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}{{end}}
 <b>Payee</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>)
 
-{{if .Sats}}Bezahle die oben beschriebene Rechnung?{{if .IsDiscord}}
-Reagier mit einem :zap: um das zu bestätigen.{{end}}
+{{if .Sats}}Bezahle die oben beschriebene Rechnung?
 {{else}}<b>Reply with the desired amount to confirm.</b>  Um zu bestätigen, antworte mit dem gewünschten Betrag.
 {{end}}
     `,

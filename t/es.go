@@ -312,8 +312,7 @@ Cada anuncio cuesta los precios anteriores <i>per character</i> + <code>1 sat</c
 - {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}{{end}}
 <b>Beneficiario</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>)
 
-{{if .Sats}}¿Pagar la factura descrita arriba?{{if .IsDiscord}}
-Reacciona con un :zap: para confirmar.{{end}}
+{{if .Sats}}¿Pagar la factura descrita arriba?
 {{else}}<b>Responda con la cantidad deseada para confirmar.</b>
 {{end}}
     `,

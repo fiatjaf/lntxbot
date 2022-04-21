@@ -3,10 +3,8 @@ module github.com/fiatjaf/lntxbot
 go 1.16
 
 require (
-	github.com/JohannesKaufmann/html-to-markdown v1.2.0
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
-	github.com/bwmarrin/discordgo v0.22.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/fiatjaf/go-cliche v0.2.1
 	github.com/fiatjaf/go-lnurl v1.10.2
@@ -29,11 +27,14 @@ require (
 	github.com/rs/zerolog v1.20.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/soudy/mathcat v0.0.0-20201027222343-588f3d377cb9
+	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	github.com/tidwall/gjson v1.8.1
 	github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2
 	github.com/willf/bitset v1.1.10 // indirect
+	golang.org/x/net v0.0.0-20200320220750-118fecf932d8 // indirect
 	gopkg.in/antage/eventsource.v1 v1.0.0-20150318155416-803f4c5af225
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
 	gopkg.in/redis.v5 v5.2.9
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 )

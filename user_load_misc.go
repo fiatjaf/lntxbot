@@ -15,14 +15,12 @@ import (
 )
 
 type User struct {
-	Id               int    `db:"id"`
-	Username         string `db:"username"`
-	TelegramId       int64  `db:"telegram_id"`
-	DiscordId        string `db:"discord_id"`
-	TelegramChatId   int64  `db:"telegram_chat_id"`
-	DiscordChannelId string `db:"discord_channel_id"`
-	Password         string `db:"password"`
-	Locale           string `db:"locale"`
+	Id             int    `db:"id"`
+	Username       string `db:"username"`
+	TelegramId     int64  `db:"telegram_id"`
+	TelegramChatId int64  `db:"telegram_chat_id"`
+	Password       string `db:"password"`
+	Locale         string `db:"locale"`
 
 	// this is here just to accomodate a special query made on bitclouds.go routine
 	// it can be used to other similar things in the future
@@ -32,13 +30,11 @@ type User struct {
 
 const USERFIELDS = `
   id,
-  coalesce(telegram_username, discord_username, '') AS username,
+  coalesce(telegram_username, '') AS username,
   locale,
   password,
   coalesce(telegram_id, 0) AS telegram_id,
-  coalesce(telegram_chat_id, 0) AS telegram_chat_id,
-  coalesce(discord_id, '') AS discord_id,
-  coalesce(discord_channel_id, '') AS discord_channel_id
+  coalesce(telegram_chat_id, 0) AS telegram_chat_id
 `
 
 func (u *User) String() string {
@@ -54,7 +50,7 @@ func (u *User) String() string {
 }
 
 func (u User) hasPrivateChat() bool {
-	return u.TelegramChatId != 0 || u.DiscordChannelId != ""
+	return u.TelegramChatId != 0
 }
 
 func loadUser(id int) (u User, err error) {
@@ -81,15 +77,6 @@ SELECT `+USERFIELDS+`
 FROM account
 WHERE telegram_id = $1
     `, telegramId)
-	return
-}
-
-func loadDiscordUser(discordId string) (u User, err error) {
-	err = pg.Get(&u, `
-SELECT `+USERFIELDS+`
-FROM account
-WHERE discord_id = $1
-    `, discordId)
 	return
 }
 
@@ -242,51 +229,6 @@ func (u *User) unsetChat() {
 	pg.Exec(`UPDATE account SET telegram_chat_id = NULL WHERE id = $1`, u.Id)
 }
 
-func ensureDiscordUser(discordId, username, locale string) (u User, err error) {
-	username = strings.ToLower(username)
-
-	// always update locale while selecting user
-	// unless it was set manually or isn't available
-	// also update the username
-	err = pg.Get(&u, `
-UPDATE account AS u
-SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
-  , discord_username = $2
-WHERE u.discord_id = $1
-RETURNING `+USERFIELDS,
-		discordId, username, locale)
-	if err != nil && err != sql.ErrNoRows {
-		return
-	}
-
-	if err == sql.ErrNoRows {
-		// user not registered
-		err = pg.Get(&u, `
-INSERT INTO account (discord_id, discord_username)
-VALUES ($1, $2)
-RETURNING `+USERFIELDS,
-			discordId, username)
-	}
-
-	// corner cases won't happen because on discord we always deal with ids,
-	// never usernames. even when people send tips like "$tip @someone" we
-	// will have access to the id of that person directly.
-
-	return u, nil
-}
-
-func (u *User) setChannel(id string) error {
-	u.DiscordChannelId = id
-	_, err := pg.Exec(
-		`UPDATE account SET discord_channel_id = $1 WHERE id = $2`,
-		id, u.Id)
-	return err
-}
-
-func (u *User) unsetChannel() {
-	pg.Exec(`UPDATE account SET discord_channel_id = NULL WHERE id = $1`, u.Id)
-}
-
 func (u User) updatePassword() (newpassword string, err error) {
 	err = pg.Get(&newpassword, `
 UPDATE account
@@ -348,29 +290,9 @@ func (u User) track(event string, eventProperties map[string]interface{}) {
 }
 
 func (u User) AtName(ctx context.Context) string {
-	origin := ctx.Value("origin")
-	if origin == nil ||
-		(origin.(string) == "telegram" && u.TelegramId == 0) ||
-		(origin.(string) == "discord" && u.DiscordId == "" ||
-			(origin.(string) != "telegram" && origin.(string) != "discord")) {
-		if u.DiscordId != "" {
-			return fmt.Sprintf("<!@%s>", u.DiscordId)
-		} else {
-			if u.Username != "" {
-				return "@" + u.Username
-			}
-			return fmt.Sprintf(`<a href="tg://user?id=%d">user %d</a>`,
-				u.TelegramId, u.TelegramId)
-		}
-	} else if origin.(string) == "telegram" {
-		if u.Username != "" {
-			return "@" + u.Username
-		}
-		return fmt.Sprintf(`<a href="tg://user?id=%d">user %d</a>`,
-			u.TelegramId, u.TelegramId)
-	} else if origin.(string) == "discord" {
-		return fmt.Sprintf("<!@%s>", u.DiscordId)
-	} else {
-		return "unknown_user?err"
+	if u.Username != "" {
+		return "@" + u.Username
 	}
+	return fmt.Sprintf(`<a href="tg://user?id=%d">user %d</a>`,
+		u.TelegramId, u.TelegramId)
 }

@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/fiatjaf/go-cliche"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
@@ -40,7 +39,6 @@ type Settings struct {
 	TelegramBotToken string   `envconfig:"TELEGRAM_BOT_TOKEN" required:"true"`
 	PostgresURL      string   `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL         string   `envconfig:"REDIS_URL" required:"true"`
-	DiscordBotToken  string   `envconfig:"DISCORD_BOT_TOKEN" required:"false"`
 	ClicheJARPath    string   `envconfig:"CLICHE_JAR_PATH" required:"true"`
 	ClicheDataDir    string   `envconfig:"CLICHE_DATADIR" required:"true"`
 
@@ -74,7 +72,6 @@ var pg *sqlx.DB
 var ln *cliche.Control
 var rds *redis.Client
 var bot *tgbotapi.BotAPI
-var discord *discordgo.Session
 var amp *amplitude.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
 var router = mux.NewRouter()
@@ -172,23 +169,6 @@ func main() {
 			log.Fatal().Err(err).Msg("failed to get webhook info")
 		}
 	}()
-
-	// discord bot session
-	if s.DiscordBotToken != "" {
-		discord, err = discordgo.New("Bot " + s.DiscordBotToken)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to create discord session")
-		}
-
-		addDiscordHandlers()
-
-		err = discord.Open()
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to establish discord connection")
-		}
-		log.Info().Msg("discord connection initialized")
-		defer discord.Close()
-	}
 
 	// routines
 	routineCtx := context.WithValue(context.Background(), "origin", "routine")

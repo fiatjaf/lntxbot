@@ -4,13 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-cliche"
 	decodepay "github.com/fiatjaf/ln-decodepay"
@@ -58,28 +56,8 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 				Format("Mon Jan 2 15:04"),
 			"Expired": time.Unix(int64(inv.CreatedAt+inv.Expiry), 0).
 				Before(time.Now()),
-			"Currency":  inv.Currency,
-			"Hints":     inv.Route,
-			"IsDiscord": ctx.Value("origin").(string) == "discord",
-		}
-
-		if ctx.Value("origin").(string) == "discord" {
-			if amount == 0 {
-				send(ctx, t.ERROR, t.T{"Err": "Amountless invoice. Use `/paynow &lt;invoice&gt; &lt;amount&gt;`"})
-				return errors.New("paying amountless on discord")
-			}
-
-			sentId := send(ctx, t.PAYPROMPT, payTmplParams)
-			if sentId == nil {
-				return errors.New("error sending prompt to discord")
-			}
-
-			mid := sentId.(DiscordMessageID).Message()
-			err = rds.Set(
-				fmt.Sprintf("reaction-confirm:%s:%s", payer.DiscordId, mid),
-				bolt11, time.Minute*15).Err()
-
-			return err
+			"Currency": inv.Currency,
+			"Hints":    inv.Route,
 		}
 
 		if amount == 0 {
@@ -133,40 +111,9 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 	return nil
 }
 
-func handlePayReactionConfirm(ctx context.Context, reaction *discordgo.MessageReaction) {
-	key := fmt.Sprintf("reaction-confirm:%s:%s", reaction.UserID, reaction.MessageID)
-	bolt11, err := rds.Get(key).Result()
-	if err != nil {
-		log.Warn().Err(err).Str("key", key).Msg("couldn't load payment details")
-		return
-	}
-
-	// there is a bolt11 invoice, therefore this is actually a confirmation
-	// and it comes from the correct user
-	u, err := loadDiscordUser(reaction.UserID)
-	if err != nil {
-		log.Warn().Err(err).Str("id", reaction.UserID).
-			Msg("failed to load discord user")
-		return
-	}
-
-	messageRef := discordIDFromReaction(reaction)
-
-	_, err = u.payInvoice(ctx, bolt11, 0)
-	if err == nil {
-		inv, _ := decodepay.Decodepay(bolt11)
-		hashfirstchars := inv.PaymentHash[0:5]
-
-		send(ctx, messageRef, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars})
-		send(ctx, messageRef, "✅")
-	} else {
-		send(ctx, messageRef, t.ERROR, t.T{"Err": err.Error()})
-		send(ctx, messageRef, "❌")
-	}
-}
-
 func handlePayCallback(ctx context.Context) {
 	u := ctx.Value("initiator").(User)
+	go u.track("pay confirm", map[string]interface{}{"amountless": false})
 
 	defer removeKeyboardButtons(ctx)
 	hashfirstchars := ctx.Value("callbackQuery").(*tgbotapi.CallbackQuery).Data[4:]
@@ -177,15 +124,12 @@ func handlePayCallback(ctx context.Context) {
 	}
 
 	send(ctx, t.CALLBACKSENDING)
-
 	_, err = u.payInvoice(ctx, bolt11, 0)
 	if err == nil {
 		send(ctx, t.CALLBACKATTEMPT, t.T{"Hash": hashfirstchars}, APPEND)
 	} else {
 		send(ctx, err.Error(), APPEND)
 	}
-
-	go u.track("pay confirm", map[string]interface{}{"amountless": false})
 }
 
 func handlePayVariableAmount(ctx context.Context, msatoshi int64, raw string) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/docopt/docopt-go"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
@@ -60,42 +59,30 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 
-	switch message := ctx.Value("message").(type) {
-	case *discordgo.Message: // discord
-		receiver, err = examineDiscordUsername(username)
+	message := ctx.Value("message").(*tgbotapi.Message)
+	receiver, err = examineTelegramUsername(username)
+	if receiver != nil {
+		goto ensured
+	}
+
+	// no username, this may be a reply-tip
+	if message.ReplyToMessage != nil {
+		// the <receiver> part is useless as a username,
+		// but it can part of the tip description
+		description = username + " " + description
+
+		var cas int
+		rec, cas, err := ensureTelegramUser(message.ReplyToMessage)
+		receiver = &rec
 		if err != nil {
-			log.Warn().Err(err).Str("username", username).
-				Msg("failed to examine discord username")
 			send(ctx, g, u, t.SAVERECEIVERFAIL)
+			log.Warn().Err(err).Int("case", cas).
+				Str("username", message.ReplyToMessage.From.UserName).
+				Int("id", message.ReplyToMessage.From.ID).
+				Msg("failed to ensure user on reply-tip")
 			return
 		}
-
 		goto ensured
-	case *tgbotapi.Message: // telegram
-		receiver, err = examineTelegramUsername(username)
-		if receiver != nil {
-			goto ensured
-		}
-
-		// no username, this may be a reply-tip
-		if message.ReplyToMessage != nil {
-			// the <receiver> part is useless as a username,
-			// but it can part of the tip description
-			description = username + " " + description
-
-			var cas int
-			rec, cas, err := ensureTelegramUser(message.ReplyToMessage)
-			receiver = &rec
-			if err != nil {
-				send(ctx, g, u, t.SAVERECEIVERFAIL)
-				log.Warn().Err(err).Int("case", cas).
-					Str("username", message.ReplyToMessage.From.UserName).
-					Int("id", message.ReplyToMessage.From.ID).
-					Msg("failed to ensure user on reply-tip")
-				return
-			}
-			goto ensured
-		}
 	}
 
 	// if we ever reach this point then it's because the receiver is missing.
@@ -138,11 +125,10 @@ ensured:
 
 	// notify sender
 	send(ctx, u, t.USERSENTTOUSER, t.T{
-		"User":    receiver.AtName(ctx),
-		"Sats":    msats / 1000,
-		"RawSats": amtraw,
-		"ReceiverHasNoChat": receiver.TelegramChatId == 0 &&
-			receiver.DiscordChannelId == "",
+		"User":              receiver.AtName(ctx),
+		"Sats":              msats / 1000,
+		"RawSats":           amtraw,
+		"ReceiverHasNoChat": receiver.TelegramChatId == 0,
 	})
 
 	// notify receiver
@@ -162,11 +148,10 @@ ensured:
 	if !receiver.hasPrivateChat() || ctx.Value("spammy").(bool) {
 		// publicly if the receiver doesn't have a chat or if the group is spammy
 		send(ctx, g, u, t.SATSGIVENPUBLIC, t.T{
-			"From": u.AtName(ctx),
-			"To":   receiver.AtName(ctx),
-			"Sats": msats / 1000,
-			"ClaimerHasNoChat": receiver.TelegramChatId == 0 &&
-				receiver.DiscordChannelId == "",
+			"From":             u.AtName(ctx),
+			"To":               receiver.AtName(ctx),
+			"Sats":             msats / 1000,
+			"ClaimerHasNoChat": receiver.TelegramChatId == 0,
 		}, ctx.Value("message"), FORCESPAMMY)
 	}
 }

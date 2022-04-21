@@ -263,10 +263,6 @@ func handleHelp(ctx context.Context, method string) (handled bool) {
 		"ServiceId":     s.ServiceId,
 	}
 
-	if ctx.Value("origin").(string) == "discord" {
-		params["HasInline"] = false
-	}
-
 	send(ctx, t.HELPMETHOD, params)
 	return true
 }
