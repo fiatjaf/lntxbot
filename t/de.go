@@ -176,7 +176,7 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 	GIVEFLIPMSG:       "{{.User}} Nutzer verschenkt {{.Sats}} Sats an eine glückliche Person aus X Teilnehmern {{.Participants}}!",
 	GIVEFLIPAD:        "{{.Sats}} werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! Noch {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen verfügbar!",
 	GIVEFLIPJOIN:      "Versuche zu gewinnen!",
-	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}} Sats gesendet. Diese Personen haben nicht bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation with @lntxbot.{{end}}",
+	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}} Sats gesendet. Diese Personen haben nichts bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation mit @lntxbot.{{end}}",
 
 	FUNDRAISEHELP: `Starte ein Crowdfunding mit festgelegter Zahl an Teilnehmern und Spendensumme. Wenn die vorgegebene Zahl an Teilnehmern erreicht ist, wird es angewendet. Ansonsten wird es nach einigen Stunden storniert.
 
