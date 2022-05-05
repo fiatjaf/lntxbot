@@ -269,7 +269,7 @@ func displayTransactionList(ctx context.Context, page int, tag string, filter In
 
 	keyboard := tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-			[]tgbotapi.InlineKeyboardButton{},
+			{},
 		},
 	}
 	if page > 1 {

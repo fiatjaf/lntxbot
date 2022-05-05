@@ -274,7 +274,8 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 			// make sure we only do this check for recent payments otherwise we could be
 			//   checking for stuff from other node backends
 			info = cliche.CheckPaymentResult{
-				PaymentInfo: cliche.PaymentInfo{Status: "failed"}}
+				PaymentInfo: cliche.PaymentInfo{Status: "failed"},
+			}
 		} else {
 			log.Error().Err(err).Str("hash", hash).Msg("failed to check-payment")
 			return

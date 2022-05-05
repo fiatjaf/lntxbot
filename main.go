@@ -67,16 +67,18 @@ type Settings struct {
 	Usage string
 }
 
-var s Settings
-var pg *sqlx.DB
-var ln *cliche.Control
-var rds *redis.Client
-var bot *tgbotapi.BotAPI
-var amp *amplitude.Client
-var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
-var router = mux.NewRouter()
-var waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
-var bundle t.Bundle
+var (
+	s                       Settings
+	pg                      *sqlx.DB
+	ln                      *cliche.Control
+	rds                     *redis.Client
+	bot                     *tgbotapi.BotAPI
+	amp                     *amplitude.Client
+	log                     = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
+	router                  = mux.NewRouter()
+	waitingPaymentSuccesses = cmap.New() //  make(map[string][]chan string)
+	bundle                  t.Bundle
+)
 
 //go:embed templates
 var templates embed.FS

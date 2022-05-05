@@ -251,8 +251,10 @@ func channelLink(scid string) string {
 	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s</a>`, scid, scid)
 }
 
-var scidRe = regexp.MustCompile(`\d+x\d+x\d+`)
-var nodeRe = regexp.MustCompile(`[0-9a-f]{66}`)
+var (
+	scidRe = regexp.MustCompile(`\d+x\d+x\d+`)
+	nodeRe = regexp.MustCompile(`[0-9a-f]{66}`)
+)
 
 func makeLinks(e string) string {
 	for _, match := range scidRe.FindAllString(e, -1) {
@@ -364,7 +366,6 @@ func translateTemplate(ctx context.Context, key t.Key, data t.T) string {
 	}
 
 	msg, err := bundle.Render(locale, key, data)
-
 	if err != nil {
 		log.Error().Err(err).Str("locale", locale).Str("key", string(key)).
 			Msg("translation failed")
