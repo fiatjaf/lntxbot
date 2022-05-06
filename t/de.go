@@ -23,9 +23,9 @@ var DE = map[Key]string{
 	CALLBACKATTEMPT: "Zahlungsversuch. /tx_{{.Hash}}",
 	CALLBACKSENDING: "Zahlungssendung.",
 
-	INLINEINVOICERESULT:  "Zahlungsanfrage für {{.Sats}} X Sats.",
-	INLINEGIVEAWAYRESULT: "Verschenke {{.Sats}} Sats {{if .Receiver}}an @{{.Receiver}}{{else}}her{{end}}",
-	INLINEGIVEFLIPRESULT: "Verschenke {{.Sats}} Sats an einen von {{.MaxPlayers}} X Teilnehmern",
+	INLINEINVOICERESULT:  "Zahlungsanfrage für {{.Sats}} Sats.",
+	INLINEGIVEAWAYRESULT: "Verschenke {{.Sats}} Sats {{if .Receiver}} an @{{.Receiver}}{{else}}her{{end}}",
+	INLINEGIVEFLIPRESULT: "Verschenke {{.Sats}} Sats an 1 von {{.MaxPlayers}} Teilnehmer",
 	INLINECOINFLIPRESULT: "Lotterie mit einem Eintrittspreis von {{.Sats}} Sats für maximal {{.MaxPlayers}} Teilnehmer",
 	INLINEHIDDENRESULT:   "{{.HiddenId}} ({{if gt .Message.Crowdfund 1}}crowd:{{.Message.Crowdfund}}{{else if gt .Message.Times 0}}priv:{{.Message.Times}}{{else if .Message.Public}}pub{{else}}priv{{end}}): {{.Message.Content}}",
 
@@ -155,17 +155,17 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 /giveaway_1000: wenn jemand den "Beanspruchen-Button" anklickt, werden 1000 Satoshis von dir zu dieser Person transferiert. 
     `,
 	SATSGIVENPUBLIC: "{{.Sats}} sats gegeben von {{.From}} an {{.To}}.{{if .ClaimerHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation mit @lntxbot.{{end}}",
-	CLAIMFAILED:     "Beanspruchen (Claim) fehlgeschlagen {{.BotOp}}: {{.Err}}",
+	CLAIMFAILED:     "Beanspruchen fehlgeschlagen {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:   "Beanspruchen",
-	GIVEAWAYMSG:     "{{.User}} Nutzer {{if .Away}}verschenkt{{else if .Receiver}}@{{.Receiver}}{{else}}gibt dir{{end}} {{.Sats}} sats!",
+	GIVEAWAYMSG:     "{{.User}} {{if .Away}}verschenkt{{else if .Receiver}}@{{.Receiver}}{{else}}gibt dir{{end}} {{.Sats}} Sats!",
 
 	COINFLIPHELP: `Startet eine gerechte/faire Lotterie mit einer anzugebenen Zahl an Teilnehmern. Jeder zahlt das gleiche Eintrittsgeld. Der Gewinner erhält alle Einsätze. Die Geldmittel werden erst von den Teilnehmerkonten bewegt, wenn die Lotterie verwirklicht/erfüllt wird.
 
 /coinflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis (inklusive seiner eingesetzten 100, also Netto 400 Satoshis).
     `,
-	COINFLIPWINNERMSG:      "Du bist der Gewinner diess Münzwurfes mit einem Preisgeld von {{.TotalSats}} Sat. Verloren haben: {{.Senders}}.",
+	COINFLIPWINNERMSG:      "Du bist der Gewinner diess Münzwurfes mit einem Preisgeld von {{.TotalSats}}Sats. Verloren haben: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "Du hast {{.IndividualSats}} bei einem Münzwurf verloren. Der Gewinner ist {{.Receiver}}.",
-	COINFLIPAD:             "Zahle {{.Sats}} Satoshis Eintrittsgeld und versuche {{.Prize}} Satoshi zu gewinnen! {{.SpotsLeft}} von {{.MaxPlayers}} Plätzen {{s .SpotsLeft}} übrig!",
+	COINFLIPAD:             "Zahle {{.Sats}}Sats Eintrittsgeld und versuche {{.Prize}}Sats zu gewinnen! {{.SpotsLeft}} von {{.MaxPlayers}} Plätzen {{s .SpotsLeft}} übrig!",
 	COINFLIPJOIN:           "Nehme an der Lotterie teil!",
 	CALLBACKCOINFLIPWINNER: "Münzwurf Gewinner: {{.Winner}}",
 
@@ -173,14 +173,14 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 
 /giveflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis vom Initiator/Befehlsgeber.
     `,
-	GIVEFLIPMSG:       "{{.User}} Nutzer verschenkt {{.Sats}} Sats an eine glückliche Person aus X Teilnehmern {{.Participants}}!",
-	GIVEFLIPAD:        "{{.Sats}} werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! Noch {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen verfügbar!",
+	GIVEFLIPMSG:       "{{.User}} Nutzer verschenkt {{.Sats}}Sats an eine glückliche Person aus X Teilnehmern {{.Participants}}!",
+	GIVEFLIPAD:        "{{.Sats}}Sats werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! Noch {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen verfügbar!",
 	GIVEFLIPJOIN:      "Versuche zu gewinnen!",
-	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}} Sats gesendet. Diese Personen haben nichts bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation mit @lntxbot.{{end}}",
+	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}}Sats gesendet. Diese Personen haben diesmal leider nichts bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}}. Starte eine DM mit @lntxbot, um dein Guthaben zu managen.{{end}}",
 
-	FUNDRAISEHELP: `Starte ein Crowdfunding mit festgelegter Zahl an Teilnehmern und Spendensumme. Wenn die vorgegebene Zahl an Teilnehmern erreicht ist, wird es angewendet. Ansonsten wird es nach einigen Stunden storniert.
+	FUNDRAISEHELP: `Starte ein Crowdfunding mit festgelegter Zahl an Teilnehmern und einer Spendensumme. Wenn die vorgegebene Zahl an Teilnehmern erreicht ist, wird es durchgeführt. Ansonsten wird es nach einigen Stunden storniert.
 
-<code>/fundraise 10000 8 @user</code>: Telegram Nutzer @user wird 8000 Satoshis erhalten, nachdem 8 Personen teilgenommen/beigtragen haben. 
+<code>/fundraise 10000 8 @user</code>: Telegram Nutzer @user wird 8000 Satoshis erhalten, nachdem 8 Personen teilgenommen haben. 
     `,
 	FUNDRAISEAD: `
 Spendenaktion {{.Fund}} für {{.ToUser}}!
@@ -190,10 +190,10 @@ Folgende Personen haben beigesteuert: {{.Registered}}
     `,
 	FUNDRAISEJOIN:        "Spende!",
 	FUNDRAISECOMPLETE:    "Spendenaktion für {{.Receiver}} abgeschlossen!",
-	FUNDRAISERECEIVERMSG: "Du hast in einer Spendenaktion folgenden Betrag {{.TotalSats}} Sats von dem Sender XY erhalten {{.Senders}}s",
-	FUNDRAISEGIVERMSG:    "Du hast in einer Spendenaktion folgenden Betrag {{.IndividualSats}} Sats an Person XY gegeben {{.Receiver}}.",
+	FUNDRAISERECEIVERMSG: "Du hast in einer Spendenaktion folgenden Betrag {{.TotalSats}} Sats von {{.Senders}} erhalten.",
+	FUNDRAISEGIVERMSG:    "Du hast in einer Spendenaktion {{.IndividualSats}} Sats an {{.Receiver}} gegeben.",
 
-	LIGHTNINGATMHELP: `Gibt die Zugangsdaten/Credentials im Format zurück wie von @Z1isenough's erwartet <a href="https://docs.lightningatm.me">LightningATM</a>.
+	LIGHTNINGATMHELP: `Gibt die Zugangsdaten in einem von @Z1isenough's erwarteten Format zurück <a href="https://docs.lightningatm.me">LightningATM</a>.
 
 Für eine spezifische Dokumention zum Aufsetzen mit dem @lntxbot klicke <a href="https://docs.lightningatm.me/lightningatm-setup/wallet-setup/lntxbot">the lntxbot setup tutorial</a> (there's also <a href="https://docs.lightningatm.me/faq-and-common-problems/wallet-communication#talking-to-an-api-in-practice">a more detailed and technical background</a>).
   `,
@@ -204,7 +204,7 @@ Für eine spezifische Dokumention zum Aufsetzen mit dem @lntxbot klicke <a href=
     `,
 	APIPASSWORDUPDATEERROR: "Fehler beim Update des Passworts. Problem bitte melden: {{.Err}}",
 	APICREDENTIALS: `
-Dies sind tokens für <i>Basic Auth</i>. Die API ist über einige Umwege mit lndhub.io kompatibel.
+Dies sind Token für <i>Basic Auth</i>. Die API ist über einige Umwege mit lndhub.io kompatibel.
 
 Voller Zugang: <code>{{.Full}}</code>
 Zugang zu Rechnungen: <code>{{.Invoice}}</code>
@@ -237,8 +237,8 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 
 {{if .WithInstructions}}Verwende /reveal_{{.HiddenId}} in einer Gruppe um dort zu teilen.{{end}}
     `,
-	HIDDENSOURCEMSG:   "Versteckte Nachricht <code>{{.Id}}</code> von XY enthüllt {{.Revealers}}. Du bekommst {{.Sats}} Sats.",
-	HIDDENREVEALMSG:   "{{.Sats}} Sats wurden bezahlt, um die Nachricht aufzudecken <code>{{.Id}}</code>.",
+	HIDDENSOURCEMSG:   "Die versteckte Nachricht <code>{{.Id}}</code> wurde von {{.Revealers}} enthüllt. Du bekommst {{.Sats}} Sats.",
+	HIDDENREVEALMSG:   "{{.Sats}} Sats wurden bezahlt, um die Nachricht <code>{{.Id}}</code> aufzudecken.",
 	HIDDENMSGNOTFOUND: "Versteckte Nachricht konnte nicht gefunden werden.",
 	HIDDENSHAREBTN:    "Teile dies in einem anderen Chat",
 
@@ -267,20 +267,20 @@ Um eine Anzeige zu übertragen, musst du an den Bot eine Nachricht mit dem Anzei
 /sats4ads_preview Antworte hiermit auf eine Nachricht um zu sehen, wie viele andere Nutzer sie sehen werden. Der in der Voransicht angezeigte Satoshi Betrag hat keinerlei Bedeutung.
 /sats4ads_broadcast_1000 veröffentlicht eine Anzeige. Die letzte Zahl ist die maximale Zahl an verwendeten Satoshis. Günstigere Anzeigenlsitings werden gegenüber teureren Listings bevorzugt. Muss als Antwort auf eine andere Nachricht aufgrufen werden, deren Inhalt als Anzeigentext verwendet werden soll.
     `,
-	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Sehe Anzeigen/Werbung und erhalte {{printf "%.15g" .Sats}} X Sats pro Zeichen.{{else}}Du wirst keine weiteren Anzeigen mehr angezeigt bekommen.{{end}}`,
+	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Siehe dir Werbeanzeigen an und erhalte {{printf "%.15g" .Sats}} Sats pro Zeichen.{{else}}Du wirst keine weiteren Anzeigen mehr angezeigt bekommen.{{end}}`,
 	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Nachricht veröffentlicht {{.NSent}} Zeit{{s .NSent}} für Gesamtkosten in Höhe von {{.Sats}} Sats ({{dollar .Sats}}).{{else}}. Konnte keinen zu benachrichtigenden Endpunkt im Netzwerk finden, um ihn über die festgelegten Parameter zu informieren. /sats4ads_rates{{end}}`,
 	SATS4ADSSTART:     `Nachricht wird veröffentlicht.`,
-	SATS4ADSPRICETABLE: `#sats4ads Anzahl der User <b>up to</b> jedes Preislevels.
+	SATS4ADSPRICETABLE: `#sats4ads Anzahl <b>User pro Preislevel</b>.
 {{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
-<i>Keine Nutzer registriert, die die Anzeige erhalten.</i>
+<i>Keine Nutzer registriert, die die Anzeige erhalten würden.</i>
 {{end}}
 Jede Anzeige kostet den o.a. Preis <i>per character</i> + <code>1 sat</code> pro Nutzer.
     `,
 	SATS4ADSADFOOTER: `[#sats4ads: {{printf "%.15g" .Sats}} sat]`,
 	SATS4ADSVIEWED:   `Claim`,
 
-	HELPHELP: "Zeigt die komplette Hilfe oder Hilfe zu einem spezifischen Befehl.",
+	HELPHELP: "Zeigt die komplette Hilfe sowie Hilfe zu einem spezifischen Befehl.",
 
 	STOPHELP: "Der Bot stoppt das Anzeigen von Informationen.",
 
@@ -303,11 +303,11 @@ Jede Anzeige kostet den o.a. Preis <i>per character</i> + <code>1 sat</code> pro
     `,
 	FAILEDDECODE: "Dekodieren der Rechnung gescheitert: {{.Err}}",
 	BALANCEMSG: `🏛
-<b>Gesamt</b>: {{printf "%.15g" .Sats}} sat ({{dollar .Sats}})
-<b>Verwendbares Guthaben</b>: {{printf "%.15g" .Usable}} sat ({{dollar .Usable}})
-<b>Gesamt erhalten</b>: {{printf "%.15g" .Received}} sat
-<b>Gesamt gesendet</b>: {{printf "%.15g" .Sent}} sat
-<b>Gebühren gesamt</b>: {{printf "%.15g" .Fees}} sat
+<b>Gesamt</b>: {{printf "%.15g" .Sats}} Sats ({{dollar .Sats}})
+<b>Verwendbares Guthaben</b>: {{printf "%.15g" .Usable}} Sats ({{dollar .Usable}})
+<b>Gesamt erhalten</b>: {{printf "%.15g" .Received}} Sats
+<b>Gesamt gesendet</b>: {{printf "%.15g" .Sent}} Sats
+<b>Gebühren gesamt</b>: {{printf "%.15g" .Fees}} Sats
 
 #balance
 /transactions
@@ -324,7 +324,7 @@ Jede Anzeige kostet den o.a. Preis <i>per character</i> + <code>1 sat</code> pro
 	FAILEDUSER: "Analyse des Empfängernamens gescheitert.",
 	LOTTERYMSG: `
 Eine neue Lotterierunde wurde gestartet!
-Eintrittsgeld/Teilnahmegebühr: {{.EntrySats}} Sat
+Eintrittsgeld/Teilnahmegebühr: {{.EntrySats}} Sats
 Anzahl Teilnehmer: {{.Participants}}
 Preis: {{.Prize}}
 Registrierte Teilnehmer: {{.Registered}}
@@ -392,14 +392,14 @@ Viel Erfolg! 🍽️
 	RETRACTQUESTION: "Nicht ausgezahltes Trinkgeld zurück ziehen?",
 	RECHECKPENDING:  "Offene Zahlung erneut prüfen?",
 
-	TXNOTFOUND: "Konnte Transaktion nicht finden {{.HashFirstChars}}.",
+	TXNOTFOUND: "Konnte Transaktion {{.HashFirstChars}} nicht finden.",
 	TXINFO: `{{.Txn.Icon}} <code>{{.Txn.Status}}</code> {{.Txn.PeerActionDescription}} on {{.Txn.Time | time}} {{if .Txn.IsUnclaimed}}[💤 UNCLAIMED]{{end}}
 <i>{{.Txn.Description}}</i>{{if .Txn.Tag.Valid}} #{{.Txn.Tag.String}}{{end}}{{if not .Txn.TelegramPeer.Valid}}
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
 <b>Hash</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}
 <b>Amount</b>: <i>{{.Txn.Amount | printf "%.15g"}} sat</i> ({{dollar .Txn.Amount}})
-{{if not (eq .Txn.Status "RECEIVED")}}<b>Fee paid</b>: <i>{{printf "%.15g" .Txn.Fees}} sat</i>{{end}}
+{{if not (eq .Txn.Status "RECEIVED")}}<b>Gebühr bezahlt</b>: <i>{{printf "%.15g" .Txn.Fees}} Sats</i>{{end}}
 {{.LogInfo}}
     `,
 	TXLIST: `<b>{{if .Offset}}Transaktion von {{.From}} an {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
