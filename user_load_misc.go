@@ -83,7 +83,7 @@ WHERE telegram_id = $1
 func ensureTelegramUser(message *tgbotapi.Message) (u User, tcase int, err error) {
 	var username string
 	var telegramId int64
-	var locale = "en"
+	locale := "en"
 
 	switch isChannelOrGroupUser(message.From) {
 	case true:
@@ -216,7 +216,6 @@ func (u *User) setChat(id int64) error {
 	_, err := pg.Exec(
 		`UPDATE account SET telegram_chat_id = $1 WHERE id = $2`,
 		id, u.Id)
-
 	if err != nil {
 		log.Warn().Err(err).Stringer("user", u).Int64("chat", id).
 			Msg("failed to set chat id")

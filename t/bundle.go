@@ -47,7 +47,7 @@ func (bundle *Bundle) AddLanguage(lang string, translations map[Key]string) erro
 
 func (bundle *Bundle) Check() (missing map[string][]Key) {
 	missing = make(map[string][]Key)
-	for requiredKey, _ := range bundle.Translations[bundle.DefaultLanguage] {
+	for requiredKey := range bundle.Translations[bundle.DefaultLanguage] {
 		for lang, translations := range bundle.Translations {
 			_, exists := translations[requiredKey]
 			if !exists {

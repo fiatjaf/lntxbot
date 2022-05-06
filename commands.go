@@ -25,120 +25,122 @@ func (d def) help(ctx context.Context) string {
 }
 
 var methods = []def{
-	def{
+	{
 		aliases: []string{"start"},
 	},
-	def{
+	{
 		aliases: []string{"lnurl"},
 		argstr:  "[--anonymous] <lnurl>",
 	},
-	def{
+	{
 		aliases:        []string{"receive", "invoice", "fund"},
 		argstr:         "(lnurl | (any | <satoshis>) [<description>...])",
 		inline:         true,
 		inline_example: "invoice <satoshis>",
 	},
-	def{
+	{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
 		argstr:  "(lnurl <satoshis> | [now] [<invoice>] [<satoshis>])",
 	},
-	def{
+	{
 		aliases:        []string{"send", "tip", "sendanonymously", "honk"},
 		argstr:         "[anonymously] <satoshis> [<receiver>] [<description>...] [--anonymous]",
 		inline_example: "give <satoshis> <username>",
 	},
-	def{
+	{
 		aliases: []string{"balance"},
 		argstr:  "[apps]",
 	},
-	def{
+	{
 		aliases: []string{"apps"},
 	},
-	def{
+	{
 		aliases: []string{"tx"},
 		argstr:  "<hash>",
 	},
-	def{
+	{
 		aliases: []string{"transactions"},
 		argstr:  "[<tag>] [--in] [--out]",
 	},
-	def{
+	{
 		aliases:        []string{"giveaway"},
 		argstr:         "<satoshis>",
 		inline:         true,
 		inline_example: "giveaway <satoshis>",
 	},
-	def{
+	{
 		aliases:        []string{"coinflip", "lottery"},
 		argstr:         "<satoshis> [<num_participants>]",
 		inline:         true,
 		inline_example: "coinflip <satoshis> <num_participants>",
 	},
-	def{
+	{
 		aliases:        []string{"giveflip"},
 		argstr:         "<satoshis> [<num_participants>]",
 		inline:         true,
 		inline_example: "giveflip <satoshis> <num_participants>",
 	},
-	def{
+	{
 		aliases: []string{"fundraise", "crowdfund"},
 		argstr:  "<satoshis> <num_participants> <receiver>",
 	},
-	def{
+	{
 		aliases: []string{"hide"},
 		argstr:  "<satoshis> [<message>...] [--revealers=<num_revealers>] [--crowdfund=<num_participants>] [--private]",
 	},
-	def{
+	{
 		aliases:        []string{"reveal"},
 		argstr:         "<hidden_message_id>",
 		inline:         true,
 		inline_example: "reveal [hidden_message_id]",
 	},
-	def{
+	{
 		aliases: []string{"sats4ads"},
 		argstr:  "(on [<msat_per_character>] | off | rate | rates | broadcast <satoshis> [<text>...] [--max-rate=<maxrate>] [--skip=<offset>] | preview)",
 	},
-	def{
+	{
 		aliases: []string{"api"},
 		argstr:  "[full | invoice | readonly | url | refresh]",
 	},
-	def{
+	{
 		aliases: []string{"lightningatm"},
 	},
-	def{
+	{
 		aliases: []string{"bluewallet", "zeus", "lndhub"},
 		argstr:  "[refresh]",
 	},
-	def{
+	{
 		aliases: []string{"rename"},
 		argstr:  "<name>...",
 	},
-	def{
+	{
 		aliases: []string{"fine"},
 		argstr:  "<satoshis> [for <reason>...]",
 	},
-	def{
+	{
 		aliases: []string{"toggle"},
 		argstr:  "(ticket [<satoshis>] | renamable [<satoshis>] | spammy | expensive [<satoshis> <pattern>] | language [<lang>] | coinflips)",
 	},
-	def{
+	{
 		aliases: []string{"satoshis", "calc"},
 		argstr:  "<expression>",
 	},
-	def{
+	{
 		aliases: []string{"moon"},
 	},
-	def{
+	{
 		aliases: []string{"help"},
 		argstr:  "[<command>]",
 	},
-	def{
+	{
 		aliases: []string{"stop"},
 	},
 }
 
-var commandList []string
-var commandIndex = make(map[string]def)
+var (
+	commandList  []string
+	commandIndex = make(map[string]def)
+)
 
 func setupCommands() {
 	s.Usage = docoptFromMethodDefinitions()

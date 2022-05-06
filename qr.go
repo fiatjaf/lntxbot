@@ -145,7 +145,6 @@ func decodeQR(fileurl string) (data string, err error) {
 			Header: &http.Header{"X-Requested-With": {"XMLHttpRequest"}},
 			Result: &r,
 		})
-
 		if err != nil {
 			log.Warn().Err(err).Str("method", "qrcode.online").Str("url", fileurl).Msg("failed to call")
 			return

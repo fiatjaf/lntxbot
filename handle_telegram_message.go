@@ -417,7 +417,7 @@ parsed:
 			return
 		}
 
-		var templateParams = t.T{
+		templateParams := t.T{
 			"HiddenId": hiddenid,
 			"Message":  hiddenmessage,
 		}
@@ -599,7 +599,8 @@ parsed:
 
 				if sats != 0 && (sats > 50 || sats < 5) {
 					send(ctx, g, t.ERROR, t.T{
-						"Err": "price per message must be between 5 and 50 sat."})
+						"Err": "price per message must be between 5 and 50 sat.",
+					})
 					return
 				}
 

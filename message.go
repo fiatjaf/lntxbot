@@ -174,11 +174,11 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 
 	// determine if we're going to send to the group or in private
-	var groupId = chatId // may be zero if not given
+	groupId := chatId // may be zero if not given
 	if group != nil {
 		groupId = group.TelegramId
 	}
-	var useGroup = (spammy && !hasExplicitTarget && groupId != 0) ||
+	useGroup := (spammy && !hasExplicitTarget && groupId != 0) ||
 		(forceSpammy && groupId != 0) ||
 		(groupId != 0 && target == nil)
 

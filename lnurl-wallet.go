@@ -147,7 +147,7 @@ func handleLNURLWithdraw(
 	opts handleLNURLOpts,
 	params lnurl.LNURLWithdrawResponse,
 ) {
-	var shouldCancelBalanceCheck = false
+	shouldCancelBalanceCheck := false
 	defer func() {
 		if shouldCancelBalanceCheck {
 			// cancel automatic balance checks
@@ -508,7 +508,8 @@ func lnurlpayFinish(
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to zip metadata")
 				send(ctx, u, t.ERROR, t.T{
-					"Err": "Failed to send lnurl-pay metadata. Please report."})
+					"Err": "Failed to send lnurl-pay metadata. Please report.",
+				})
 				return
 			}
 
