@@ -189,7 +189,7 @@ func handleLNURLWithdraw(
 		err = err
 		return
 	}
-	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).
+	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Str("callback", params.Callback).
 		Msg("sending invoice to lnurl callback")
 	var sentinvres lnurl.LNURLResponse
 	_, err = napping.Get(params.Callback, &url.Values{

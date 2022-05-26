@@ -17,7 +17,10 @@ import (
 
 func registerBluewalletMethods() {
 	router.Path("/getinfo").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		errorBadAuth(w)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(struct {
+			Alias string `json:"alias"`
+		}{"lntxbot-lndhub"})
 	})
 
 	router.Path("/auth").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
