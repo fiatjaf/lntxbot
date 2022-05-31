@@ -149,7 +149,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 		}
 	}
 
-	log = log.With().Str("key", string(template)).Stringer("user", target).
+	log := log.With().Str("key", string(template)).Stringer("user", target).
 		Bool("alert", alert).Bool("spammy", spammy).Bool("edit", edit).
 		Bool("append", justAppend).Bool("keyboard", keyboard != nil).
 		Bool("cb", callbackQuery != nil).Stringer("group", group).
