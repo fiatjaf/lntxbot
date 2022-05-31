@@ -1,5 +1,5 @@
 lntxbot: $(shell find . -name "*.go")
-	go build -ldflags="-s -w" -o ./lntxbot
+	CC=$$(which musl-gcc) go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./lntxbot
 
 deploy: lntxbot
 	rsync lntxbot turgot:lntxbot/lntxbot-new
