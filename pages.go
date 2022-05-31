@@ -17,8 +17,7 @@ func servePages() {
 			return
 		}
 
-		lnurl, err := lnurl.LNURLEncode(fmt.Sprintf(
-			"%s/lnurl/pay?username=%s", s.ServiceURL, username))
+		lnurl, err := lnurl.LNURLEncode(fmt.Sprintf("%s/.well-known/lnurlp/%s", s.ServiceURL, username))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
