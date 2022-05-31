@@ -237,9 +237,8 @@ func serveLNURL() {
 			webhook := qs.Get("webhook")
 
 			bolt11, _, err := receiver.makeInvoice(ctx, &MakeInvoiceArgs{
-				IgnoreInvoiceSizeLimit: true,
-				Msatoshi:               msatoshi,
-				DescriptionHash:        hex.EncodeToString(hhash[:]),
+				Msatoshi:        msatoshi,
+				DescriptionHash: hex.EncodeToString(hhash[:]),
 				Extra: InvoiceExtra{
 					Comment:   qs.Get("comment"),
 					PayerData: &payerData,

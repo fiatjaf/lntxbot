@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -19,7 +20,25 @@ import (
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx/types"
+	"github.com/juju/ratelimit"
 )
+
+// creating too many invoices is forbidden
+// because we're not a faucet milking machine
+// also making too many payments is wrong
+var rateLimitBuckets = &sync.Map{}
+
+func getRateLimitBucket(userId int) *ratelimit.Bucket {
+	bucket, ok := rateLimitBuckets.Load(userId)
+	if ok {
+		return bucket.(*ratelimit.Bucket)
+	} else {
+		// one can do a burst of 20 invoices/payments and after that only 1 every 5 minutes
+		bucket := ratelimit.NewBucket(time.Minute*5, 20)
+		rateLimitBuckets.Store(userId, bucket)
+		return bucket
+	}
+}
 
 func (u User) getTransaction(hash string) (txn Transaction, err error) {
 	err = pg.Get(&txn, `
@@ -68,6 +87,12 @@ func (u User) makeInvoice(
 	ctx context.Context,
 	args *MakeInvoiceArgs,
 ) (bolt11 string, hash string, err error) {
+	if !args.IgnoreRateLimit {
+		if ok := getRateLimitBucket(u.Id).WaitMaxDuration(1, time.Second*5); !ok {
+			return "", "", errors.New("Creating too many invoices, please wait about 5 minutes.")
+		}
+	}
+
 	msatoshi := args.Msatoshi
 	log.Debug().Stringer("user", &u).
 		Str("desc", args.Description).Int64("msats", msatoshi).
@@ -133,6 +158,10 @@ func (u User) payInvoice(
 	bolt11 string,
 	manuallySpecifiedMsatoshi int64,
 ) (hash string, err error) {
+	if ok := getRateLimitBucket(u.Id).WaitMaxDuration(1, time.Second*5); !ok {
+		return "", errors.New("Making too many payments, please wait about 5 minutes.")
+	}
+
 	inv, err := decodepay.Decodepay(bolt11)
 	if err != nil {
 		return "", errors.New("Failed to decode invoice: " + err.Error())

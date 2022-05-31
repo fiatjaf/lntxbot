@@ -62,8 +62,8 @@ func handleFine(ctx context.Context, opts docopt.Opts) {
 		if info, err := target.getInfo(); err == nil && info.BalanceMsat < msats {
 			expiry := 15 * time.Minute
 			bolt11, hash, err = chatOwner.makeInvoice(ctx, &MakeInvoiceArgs{
-				IgnoreInvoiceSizeLimit: true,
-				Msatoshi:               msats,
+				IgnoreRateLimit: true,
+				Msatoshi:        msats,
 				Description: fmt.Sprintf(
 					"fine for %s (%s).",
 					target.AtName(ctx), reason,

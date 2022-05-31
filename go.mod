@@ -15,6 +15,7 @@ require (
 	github.com/imroc/req v0.3.0
 	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff // indirect
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/juju/ratelimit v1.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.7.0

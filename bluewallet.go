@@ -85,11 +85,10 @@ func registerBluewalletMethods() {
 			Msg("bluewallet addinvoice")
 
 		bolt11, hash, err := user.makeInvoice(ctx, &MakeInvoiceArgs{
-			IgnoreInvoiceSizeLimit: true,
-			Msatoshi:               1000 * satoshi,
-			Description:            params.Memo,
-			DescriptionHash:        params.DescriptionHash,
-			BlueWallet:             true,
+			Msatoshi:        1000 * satoshi,
+			Description:     params.Memo,
+			DescriptionHash: params.DescriptionHash,
+			BlueWallet:      true,
 		})
 		if err != nil {
 			errorInternal(w)

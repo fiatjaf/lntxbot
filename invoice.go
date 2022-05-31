@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -15,9 +14,7 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/imroc/req"
 	cmap "github.com/orcaman/concurrent-map"
-	"github.com/tidwall/gjson"
 	"gopkg.in/antage/eventsource.v1"
 )
 
@@ -41,14 +38,14 @@ func (inv InvoiceData) Hash() string {
 }
 
 type MakeInvoiceArgs struct {
-	Description            string
-	DescriptionHash        string
-	Msatoshi               int64
-	Expiry                 *time.Duration
-	Tag                    string
-	Extra                  InvoiceExtra
-	BlueWallet             bool
-	IgnoreInvoiceSizeLimit bool
+	IgnoreRateLimit bool
+	Description     string
+	DescriptionHash string
+	Msatoshi        int64
+	Expiry          *time.Duration
+	Tag             string
+	Extra           InvoiceExtra
+	BlueWallet      bool
 }
 
 type InvoiceExtra struct {
@@ -91,41 +88,6 @@ func resolveWaitingInvoice(hash string, inv InvoiceData) {
 		}
 		waitingInvoices.Remove(hash)
 	}
-}
-
-// creating too many small invoices is forbidden
-// because we're not a faucet milking machine
-
-var INVOICESPAMLIMITS = map[string]int64{
-	"ridiculously_small_invoices": 1000,
-	"very_small_invoices":         5000,
-	"small_invoices":              23000,
-	"still_small_invoices":        100000,
-}
-
-type RateLimiterPolicy struct {
-	Key             string `json:"key"`
-	TimeUnit        string `json:"time_unit"`
-	RequestsPerUnit int    `json:"requests_per_unit"`
-}
-
-func checkInvoiceRateLimit(key string, userId int) bool {
-	resp, err := req.Get(
-		fmt.Sprintf("https://api.ratebucket.io/v1/increment/%s/%d", key, userId))
-	if err == nil && resp.Response().StatusCode >= 300 {
-		err = errors.New(resp.String())
-	}
-	if err != nil {
-		log.Error().Err(err).Str("key", key).Int("user-id", userId).
-			Msg("failed to check/increment rate limit")
-		return true
-	}
-
-	if gjson.Parse(resp.String()).Get("requests_remaining").Int() < 0 {
-		return false
-	}
-
-	return true
 }
 
 func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
