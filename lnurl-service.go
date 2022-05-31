@@ -269,7 +269,15 @@ func lnurlPayUserParams(
 	isTelegramUsername := false
 
 	if id, errx := strconv.Atoi(username); errx == nil {
-		// case in which username is a number
+		// case in which `username` is actually a number
+
+		// check for user banned beforehand, we save one database call
+		if _, ok := s.Banned[id]; ok {
+			// banned, stop here
+			err = fmt.Errorf("%d is banned, cannot fetch lnurl-pay params", id)
+			return
+		}
+
 		receiver, err = loadUser(id)
 	} else {
 		// case in which username is a real username
@@ -277,6 +285,12 @@ func lnurlPayUserParams(
 		isTelegramUsername = true
 	}
 	if err != nil {
+		return
+	}
+
+	if _, ok := s.Banned[receiver.Id]; ok {
+		// banned, stop here
+		err = fmt.Errorf("%d is banned, cannot fetch lnurl-pay params", receiver.Id)
 		return
 	}
 
