@@ -298,20 +298,6 @@ func checkOutgoingPayment(ctx context.Context, hash string) {
 			hash,
 		)
 	case "failed":
-		// check if this transaction is old enough first
-		var t time.Time
-		err := pg.Get(&t,
-			"SELECT time FROM lightning.transaction WHERE payment_hash = $1", hash)
-		if err == nil &&
-			t.Before(time.Now().Add(-2*time.Hour)) &&
-			t.After(time.Now().AddDate(0, -3, 0)) {
-			log.Warn().Str("hash", hash).Time("time", t).
-				Msg("tx in the range of acceptable cancellation on getsentinfo []")
-
-			go paymentHasFailed(ctx, hash, []string{})
-		} else {
-			log.Warn().Str("hash", hash).Err(err).Time("time", t).
-				Msg("check-invoice says it's failed, but we can't cancel this transaction because it's too new")
-		}
+		go paymentHasFailed(ctx, hash, []string{})
 	}
 }
