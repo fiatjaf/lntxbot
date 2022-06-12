@@ -166,7 +166,7 @@ func handleTelegramNewMember(
 }
 
 func handleTicketClickPay(ctx context.Context, joinKey string) {
-	payer := ctx.Value("initiator").(User)
+	payer := ctx.Value("initiator").(*User)
 
 	log := log.With().Str("ticket-key", joinKey).Logger()
 

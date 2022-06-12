@@ -207,7 +207,7 @@ func registerAPIMethods() {
 
 func loadUserFromAPICall(
 	r *http.Request,
-) (ctx context.Context, user User, permission Permission, err error) {
+) (ctx context.Context, user *User, permission Permission, err error) {
 	ctx = context.WithValue(context.Background(), "origin", "api")
 
 	// decode user id and password from auth token
@@ -314,7 +314,7 @@ func errorInternal(w http.ResponseWriter) {
 }
 
 func handleAPI(ctx context.Context, opts docopt.Opts) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 	go u.track("api", nil)
 
 	passwordFull := u.Password
@@ -336,7 +336,7 @@ func handleAPI(ctx context.Context, opts docopt.Opts) {
 		send(ctx, qrURL(s.ServiceURL+"/"), s.ServiceURL+"/")
 	case opts["refresh"].(bool):
 		if _, err := u.updatePassword(); err != nil {
-			log.Warn().Err(err).Stringer("user", &u).Msg("error updating password")
+			log.Warn().Err(err).Stringer("user", u).Msg("error updating password")
 			send(ctx, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
 			return
 		}
@@ -352,7 +352,7 @@ func handleAPI(ctx context.Context, opts docopt.Opts) {
 }
 
 func handleLightningATM(ctx context.Context) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 	token := base64.StdEncoding.EncodeToString(
 		[]byte(fmt.Sprintf("%d:%s", u.Id, u.Password)))
 	text := fmt.Sprintf("%s@%s", token, s.ServiceURL)

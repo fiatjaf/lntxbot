@@ -10,7 +10,7 @@ import (
 )
 
 func handleReply(ctx context.Context) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 	message := ctx.Value("message").(*tgbotapi.Message)
 	inreplyto := message.ReplyToMessage.MessageID
 

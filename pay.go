@@ -16,7 +16,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
+func handlePay(ctx context.Context, payer *User, opts docopt.Opts) error {
 	// pay invoice flow
 	askConfirmation := true
 	if opts["now"].(bool) {
@@ -112,7 +112,7 @@ func handlePay(ctx context.Context, payer User, opts docopt.Opts) error {
 }
 
 func handlePayCallback(ctx context.Context) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 	go u.track("pay confirm", map[string]interface{}{"amountless": false})
 
 	defer removeKeyboardButtons(ctx)
@@ -135,7 +135,7 @@ func handlePayCallback(ctx context.Context) {
 }
 
 func handlePayVariableAmount(ctx context.Context, msatoshi int64, raw string) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	var data struct {
 		Invoice string `json:"bolt11"`

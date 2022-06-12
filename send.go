@@ -11,7 +11,7 @@ import (
 )
 
 func handleSend(ctx context.Context, opts docopt.Opts) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	var g GroupChat
 	if ig := ctx.Value("group"); ig != nil {
@@ -73,7 +73,7 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 
 		var cas int
 		rec, cas, err := ensureTelegramUser(message.ReplyToMessage)
-		receiver = &rec
+		receiver = rec
 		if err != nil {
 			send(ctx, g, u, t.SAVERECEIVERFAIL)
 			log.Warn().Err(err).Int("case", cas).
@@ -106,7 +106,7 @@ ensured:
 
 	err = u.sendInternally(
 		ctx,
-		*receiver,
+		receiver,
 		anonymous,
 		msats,
 		int64(float64(msats)*0.003),

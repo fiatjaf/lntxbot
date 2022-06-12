@@ -15,7 +15,7 @@ import (
 
 func handleInlineQuery(ctx context.Context, q *tgbotapi.InlineQuery) {
 	var (
-		u       User
+		u       *User
 		err     error
 		resp    tgbotapi.APIResponse
 		argv    []string

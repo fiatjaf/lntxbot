@@ -40,8 +40,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// defaults from ctx
 	var target *User
 	if itarget := ctx.Value("initiator"); itarget != nil {
-		if ftarget, ok := itarget.(User); ok {
-			target = &ftarget
+		if ftarget, ok := itarget.(*User); ok {
+			target = ftarget
 		}
 	}
 	var group *GroupChat

@@ -13,7 +13,7 @@ import (
 )
 
 func handleFine(ctx context.Context, opts docopt.Opts) {
-	chatOwner := ctx.Value("initiator").(User)
+	chatOwner := ctx.Value("initiator").(*User)
 
 	switch message := ctx.Value("message").(type) {
 	case *tgbotapi.Message:
@@ -74,7 +74,7 @@ func handleFine(ctx context.Context, opts docopt.Opts) {
 			})
 			if err != nil {
 				log.Warn().Err(err).
-					Stringer("chat-owner", &chatOwner).Stringer("target", &target).
+					Stringer("chat-owner", chatOwner).Stringer("target", target).
 					Msg("failed to create a fine invoice.")
 				return
 			}
@@ -158,7 +158,7 @@ func handleFine(ctx context.Context, opts docopt.Opts) {
 }
 
 func handleFineClickPay(ctx context.Context, fineKey string) {
-	payer := ctx.Value("initiator").(User)
+	payer := ctx.Value("initiator").(*User)
 
 	log := log.With().Str("fine-key", fineKey).Logger()
 

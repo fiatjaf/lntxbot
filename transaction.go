@@ -187,7 +187,7 @@ func renderLogInfo(ctx context.Context, hash string, showHash bool) (logInfo str
 }
 
 func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	// individual transaction query
 	hashfirstchars := opts["<hash>"].(string)
@@ -244,7 +244,7 @@ func handleTransactionList(ctx context.Context, opts docopt.Opts) {
 }
 
 func displayTransactionList(ctx context.Context, page int, tag string, filter InOut) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	// show list of transactions
 	if page == 0 {

@@ -104,7 +104,7 @@ func settleReveal(
 	hiddenId string,
 	toId int,
 	fromIds []int,
-) (receiver User, err error) {
+) (receiver *User, err error) {
 	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
@@ -225,7 +225,7 @@ func saveGiveawayData(giveId string, from int, sats int, to string) {
 	rds.Set("giveaway:"+giveId, string(jdata), s.GiveAwayTimeout)
 }
 
-func getGiveawayData(giveId string) (from User, to User, sats int, err error) {
+func getGiveawayData(giveId string) (from *User, to *User, sats int, err error) {
 	jdata, _ := rds.Eval(`
 local giveid = KEYS[1]
 local result = redis.call("get", giveid)
@@ -317,7 +317,7 @@ func settleCoinflip(
 	sats int,
 	toId int,
 	fromIds []int,
-) (receiver User, err error) {
+) (receiver *User, err error) {
 	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
@@ -437,7 +437,7 @@ func settleFundraise(
 	sats int,
 	toId int,
 	fromIds []int,
-) (receiver User, err error) {
+) (receiver *User, err error) {
 	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return

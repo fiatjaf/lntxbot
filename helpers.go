@@ -186,8 +186,8 @@ func searchForInvoice(ctx context.Context) (bolt11, lnurltext, address string, o
 			return
 		}
 
-		user := ctx.Value("initiator").(User)
-		log.Debug().Str("data", text).Stringer("user", &user).
+		user := ctx.Value("initiator").(*User)
+		log.Debug().Str("data", text).Stringer("user", user).
 			Msg("got qr code data")
 		send(ctx, text)
 
@@ -359,7 +359,7 @@ func translateTemplate(ctx context.Context, key t.Key, data t.T) string {
 		locale, _ = iloc.(string)
 	} else {
 		if itarget := ctx.Value("initiator"); itarget != nil {
-			if target, ok := itarget.(User); ok {
+			if target, ok := itarget.(*User); ok {
 				locale = target.Locale
 			}
 		}

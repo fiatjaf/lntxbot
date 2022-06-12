@@ -32,7 +32,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 
 	// stop if temporarily banned
 	if _, ok := s.Banned[u.Id]; ok {
-		log.Debug().Stringer("id", &u).Msg("got request from banned user")
+		log.Debug().Stringer("id", u).Msg("got request from banned user")
 		return
 	}
 
@@ -135,7 +135,7 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 
 	// otherwise parse the slash command
 	opts, isCommand, err = parse(messageText)
-	log.Debug().Str("t", messageText).Stringer("user", &u).Err(err).
+	log.Debug().Str("t", messageText).Stringer("user", u).Err(err).
 		Msg("telegram message")
 	if !isCommand {
 		if message.ReplyToMessage != nil &&
@@ -539,7 +539,7 @@ parsed:
 							"lang":     lang,
 							"personal": true,
 						})
-						log.Info().Stringer("user", &u).Str("language", lang).
+						log.Info().Stringer("user", u).Str("language", lang).
 							Msg("toggling language")
 						err := setLanguage(u.TelegramChatId, lang)
 						if err != nil {
@@ -565,7 +565,7 @@ parsed:
 
 			g, err := ensureTelegramGroup(message.Chat.ID, u.Locale)
 			if err != nil {
-				log.Warn().Err(err).Stringer("user", &u).Int64("group", message.Chat.ID).
+				log.Warn().Err(err).Stringer("user", u).Int64("group", message.Chat.ID).
 					Msg("failed to ensure group")
 				return
 			}

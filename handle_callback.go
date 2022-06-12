@@ -24,7 +24,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	log.Debug().Str("d", cb.Data).Stringer("user", &u).Msg("got callback")
+	log.Debug().Str("d", cb.Data).Stringer("user", u).Msg("got callback")
 	ctx = context.WithValue(ctx, "initiator", u)
 
 	if cb.Message != nil {
@@ -732,7 +732,7 @@ WHERE substring(payment_hash from 0 for $2) = $1
 		if err != nil {
 			log.Warn().Err(err).Str("id", hiddenId).
 				Int("satoshis", hiddenMessage.Satoshis).
-				Stringer("revealer", &revealer).Msg("failed to pay to reveal")
+				Stringer("revealer", revealer).Msg("failed to pay to reveal")
 			send(ctx, WITHALERT, t.ERROR, t.T{"Err": err.Error()})
 			return
 		}

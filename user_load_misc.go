@@ -53,34 +53,37 @@ func (u User) hasPrivateChat() bool {
 	return u.TelegramChatId != 0
 }
 
-func loadUser(id int) (u User, err error) {
-	err = pg.Get(&u, `
+func loadUser(id int) (*User, error) {
+	var u User
+	err := pg.Get(&u, `
 SELECT `+USERFIELDS+`
 FROM account
 WHERE id = $1
     `, id)
-	return
+	return &u, err
 }
 
-func loadTelegramUsername(username string) (u User, err error) {
-	err = pg.Get(&u, `
+func loadTelegramUsername(username string) (*User, error) {
+	var u User
+	err := pg.Get(&u, `
 SELECT `+USERFIELDS+`
 FROM account
 WHERE telegram_username = $1
     `, username)
-	return
+	return &u, err
 }
 
-func loadTelegramUser(telegramId int) (u User, err error) {
-	err = pg.Get(&u, `
+func loadTelegramUser(telegramId int) (*User, error) {
+	var u User
+	err := pg.Get(&u, `
 SELECT `+USERFIELDS+`
 FROM account
 WHERE telegram_id = $1
     `, telegramId)
-	return
+	return &u, err
 }
 
-func ensureTelegramUser(message *tgbotapi.Message) (u User, tcase int, err error) {
+func ensureTelegramUser(message *tgbotapi.Message) (*User, int, error) {
 	var username string
 	var telegramId int64
 	locale := "en"
@@ -100,17 +103,18 @@ func ensureTelegramUser(message *tgbotapi.Message) (u User, tcase int, err error
 
 	// always update locale while selecting user
 	// unless it was set manually or isn't available
-	err = pg.Select(&userRows, `
+	err := pg.Select(&userRows, `
 UPDATE account AS u
 SET locale = CASE WHEN u.manual_locale OR $3 = '' THEN u.locale ELSE $3 END
 WHERE u.telegram_id = $1 OR u.telegram_username = $2
 RETURNING `+USERFIELDS,
 		telegramId, username, locale)
 	if err != nil && err != sql.ErrNoRows {
-		return
+		return nil, 0, err
 	}
 
-	tcase = len(userRows)
+	tcase := len(userRows)
+	var u User
 	switch tcase {
 	case 0:
 		// user not registered
@@ -142,7 +146,7 @@ RETURNING `+USERFIELDS,
 		var txn *sqlx.Tx
 		txn, err = pg.BeginTxx(context.Background(), &sql.TxOptions{})
 		if err != nil {
-			return
+			return &u, tcase, err
 		}
 		defer txn.Rollback()
 
@@ -153,21 +157,21 @@ RETURNING `+USERFIELDS,
 			"UPDATE lightning.transaction SET to_id = $1 WHERE to_id = $2",
 			idToRemain, idToDelete)
 		if err != nil {
-			return
+			return &u, tcase, err
 		}
 
 		_, err = txn.Exec(
 			"UPDATE lightning.transaction SET from_id = $1 WHERE from_id = $2",
 			idToRemain, idToDelete)
 		if err != nil {
-			return
+			return &u, tcase, err
 		}
 
 		_, err = txn.Exec(
 			"DELETE FROM account WHERE id = $1",
 			idToDelete)
 		if err != nil {
-			return
+			return &u, tcase, err
 		}
 
 		err = txn.Get(&u, `
@@ -177,18 +181,18 @@ WHERE id = $1
 RETURNING `+USERFIELDS,
 			idToRemain, telegramId, vusername)
 		if err != nil {
-			return
+			return &u, tcase, err
 		}
 
 		err = txn.Commit()
 		if err != nil {
-			return
+			return &u, tcase, err
 		}
 	default:
 		err = errors.New("odd error with more than 2 rows for the same user.")
 	}
 
-	return
+	return &u, tcase, err
 }
 
 func ensureTelegramId(telegram_id int) (u User, err error) {

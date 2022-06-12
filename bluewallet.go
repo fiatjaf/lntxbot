@@ -81,7 +81,7 @@ func registerBluewalletMethods() {
 		}
 
 		log.Debug().Str("amount", params.Amount).
-			Str("memo", params.Memo).Stringer("user", &user).
+			Str("memo", params.Memo).Stringer("user", user).
 			Msg("bluewallet addinvoice")
 
 		bolt11, hash, err := user.makeInvoice(ctx, &MakeInvoiceArgs{
@@ -138,7 +138,7 @@ func registerBluewalletMethods() {
 			amount = int64(val)
 		}
 
-		log.Debug().Str("bolt11", params.Invoice).Stringer("user", &user).
+		log.Debug().Str("bolt11", params.Invoice).Stringer("user", user).
 			Msg("bluewallet /payinvoice")
 
 		decoded, _ := decodeInvoiceAsLndHub(params.Invoice)
@@ -416,7 +416,7 @@ func getLimitAndOffset(r *http.Request) (limit int, offset int) {
 }
 
 func handleBlueWallet(ctx context.Context, opts docopt.Opts) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	go u.track("bluewallet", map[string]interface{}{
 		"refresh": opts["refresh"].(bool),
@@ -427,7 +427,7 @@ func handleBlueWallet(ctx context.Context, opts docopt.Opts) {
 	if opts["refresh"].(bool) {
 		password, err = u.updatePassword()
 		if err != nil {
-			log.Warn().Err(err).Stringer("user", &u).Msg("error updating password")
+			log.Warn().Err(err).Stringer("user", u).Msg("error updating password")
 			send(ctx, t.APIPASSWORDUPDATEERROR, t.T{"Err": err.Error()})
 			return
 		}

@@ -66,7 +66,7 @@ func handleClicheCommand(
 	message *tgbotapi.Message,
 	messageText string,
 ) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	spl := strings.SplitN(messageText[8:], " ", 2)
 	method := spl[0]

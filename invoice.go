@@ -91,7 +91,7 @@ func resolveWaitingInvoice(hash string, inv InvoiceData) {
 }
 
 func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	if opts["lnurl"].(bool) {
 		// print static lnurl-pay for this user
@@ -139,7 +139,7 @@ func paymentReceived(
 	ctx context.Context,
 	hash string,
 	amount int64,
-) (user User, err error) {
+) (user *User, err error) {
 	data, err := loadInvoiceData(hash)
 	if err != nil {
 		log.Debug().Err(err).Interface("hash", hash).
@@ -163,7 +163,7 @@ ON CONFLICT (payment_hash) DO UPDATE SET to_id = $1
 		data.Preimage, sql.NullString{String: data.Tag, Valid: data.Tag != ""})
 	if err != nil {
 		log.Error().Err(err).
-			Stringer("user", &user).Str("hash", hash).
+			Stringer("user", user).Str("hash", hash).
 			Msg("failed to save payment received.")
 		send(ctx, user, t.FAILEDTOSAVERECEIVED, t.T{"Hash": hash}, data.MessageId)
 		return

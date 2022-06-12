@@ -337,7 +337,7 @@ VALUES ($1, $2, $3, $4, $5, true, $6)
 
 func (u User) sendInternally(
 	ctx context.Context,
-	target User,
+	target *User,
 	anonymous bool,
 	msats int64,
 	fees int64,
@@ -427,7 +427,7 @@ func (u User) sendThroughProxy(
 	// ~ this is very important
 	sourceMessageId int,
 	targetMessageId int,
-	target User,
+	target *User,
 	msats int,
 	sourcedesc string,
 	targetdesc string,

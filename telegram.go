@@ -58,12 +58,12 @@ func forwardMessage(message *tgbotapi.Message, targetChat int64) {
 	bot.Send(tgbotapi.NewForward(targetChat, message.Chat.ID, message.MessageID))
 }
 
-func getChatOwner(chatId int64) (User, error) {
+func getChatOwner(chatId int64) (*User, error) {
 	admins, err := bot.GetChatAdministrators(tgbotapi.ChatConfig{
 		ChatID: chatId,
 	})
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
 	for _, admin := range admins {
@@ -81,7 +81,7 @@ func getChatOwner(chatId int64) (User, error) {
 		}
 	}
 
-	return User{}, errors.New("chat has no owner")
+	return nil, errors.New("chat has no owner")
 }
 
 var pictureCache, _ = lru.NewARC(25)

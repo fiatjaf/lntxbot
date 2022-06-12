@@ -28,7 +28,7 @@ type Sats4AdsRateGroup struct {
 	UpToRate int `db:"uptorate"` // in msatoshi per character
 }
 
-func handleSats4Ads(ctx context.Context, u User, opts docopt.Opts) {
+func handleSats4Ads(ctx context.Context, u *User, opts docopt.Opts) {
 	switch {
 	case opts["rate"].(bool):
 		rate, _ := getSats4AdsRate(u)
@@ -110,7 +110,7 @@ func handleSats4Ads(ctx context.Context, u User, opts docopt.Opts) {
 			nmessagesSent, totalCost, errMsg, err := broadcastSats4Ads(ctx,
 				satoshis, contentMessage, maxrate, offset)
 			if err != nil {
-				log.Warn().Err(err).Stringer("user", &u).
+				log.Warn().Err(err).Stringer("user", u).
 					Msg("sats4ads broadcast fail")
 				send(ctx, u, t.ERROR, t.T{"App": "sats4ads", "Err": errMsg})
 				return
@@ -137,7 +137,7 @@ func handleSats4Ads(ctx context.Context, u User, opts docopt.Opts) {
 	}
 }
 
-func turnSats4AdsOn(user User, rate int) error {
+func turnSats4AdsOn(user *User, rate int) error {
 	var data Sats4AdsData
 	err := user.getAppData("sats4ads", &data)
 	if err != nil {
@@ -153,7 +153,7 @@ func turnSats4AdsOn(user User, rate int) error {
 	return user.setAppData("sats4ads", data)
 }
 
-func turnSats4AdsOff(user User) error {
+func turnSats4AdsOff(user *User) error {
 	var data Sats4AdsData
 	err := user.getAppData("sats4ads", &data)
 	if err != nil {
@@ -164,7 +164,7 @@ func turnSats4AdsOff(user User) error {
 	return user.setAppData("sats4ads", data)
 }
 
-func getSats4AdsRate(user User) (rate int, err error) {
+func getSats4AdsRate(user *User) (rate int, err error) {
 	err = pg.Get(&rate, `
 SELECT (appdata->'sats4ads'->>'rate')::integer
 FROM account
@@ -196,7 +196,7 @@ func broadcastSats4Ads(
 	maxrate int,
 	offset int,
 ) (messagesSent int, roundedCostSatoshis int, errMsg string, err error) {
-	user := ctx.Value("initiator").(User)
+	user := ctx.Value("initiator").(*User)
 
 	costSatoshis := 0.0
 	if maxrate == 0 {
@@ -239,7 +239,7 @@ OFFSET $3
 		}
 
 		// fetch the target user
-		var target User
+		var target *User
 		target, err = loadUser(row.Id)
 		if err != nil || target.TelegramChatId == 0 {
 			continue
@@ -326,7 +326,7 @@ OFFSET $3
 func buildSats4AdsMessage(
 	logger zerolog.Logger,
 	contentMessage *tgbotapi.Message,
-	target User,
+	target *User,
 	rate int,
 	keyboard interface{},
 ) (ad tgbotapi.Chattable, nchars int, thisCostMsat int, thisCostSatoshis float64) {
@@ -444,14 +444,14 @@ func buildSats4AdsMessage(
 	return
 }
 
-func confirmAdViewed(user User, hashfirst10chars string) {
+func confirmAdViewed(user *User, hashfirst10chars string) {
 	_, err := pg.Exec(`
 UPDATE lightning.transaction
 SET pending = false
 WHERE to_id = $1 AND payment_hash LIKE $2 || '%'
     `, user.Id, hashfirst10chars)
 	if err != nil {
-		log.Warn().Err(err).Str("hash", hashfirst10chars).Stringer("user", &user).
+		log.Warn().Err(err).Str("hash", hashfirst10chars).Stringer("user", user).
 			Msg("failed to mark sats4ads tx as not pending")
 	}
 
@@ -516,7 +516,7 @@ SELECT DISTINCT to_id FROM adsreceivedtxs
 					if receiver, err := loadUser(receiverId); err == nil {
 						err = turnSats4AdsOff(receiver)
 						if err != nil {
-							log.Warn().Stringer("user", &receiver).
+							log.Warn().Stringer("user", receiver).
 								Msg("failed to turn off sats4ads for inactive user")
 							continue
 						}

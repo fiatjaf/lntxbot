@@ -19,7 +19,7 @@ import (
 )
 
 func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	maxMSats, err := parseSatoshis(opts)
 	if err != nil {
@@ -128,7 +128,7 @@ func serveLNURL() {
 
 		log.Debug().
 			Str("url", r.URL.String()).
-			Stringer("user", &payer).
+			Stringer("user", payer).
 			Msg("lnurl second request")
 
 		// double-check the challenge (it's a hash of the parameters + our secret)
@@ -265,7 +265,7 @@ func serveLNURL() {
 func lnurlPayUserParams(
 	ctx context.Context,
 	username string,
-) (receiver User, params lnurl.LNURLPayParams, err error) {
+) (receiver *User, params lnurl.LNURLPayParams, err error) {
 	isTelegramUsername := false
 
 	if id, errx := strconv.Atoi(username); errx == nil {

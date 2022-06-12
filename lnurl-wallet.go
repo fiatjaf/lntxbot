@@ -61,7 +61,7 @@ type handleLNURLOpts struct {
 }
 
 func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	_, iparams, err := lnurl.HandleLNURL(lnurltext)
 	if err != nil {
@@ -104,7 +104,7 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 
 func handleLNURLAuth(
 	ctx context.Context,
-	u User,
+	u *User,
 	opts handleLNURLOpts,
 	params lnurl.LNURLAuthParams,
 ) {
@@ -143,7 +143,7 @@ func handleLNURLAuth(
 
 func handleLNURLWithdraw(
 	ctx context.Context,
-	u User,
+	u *User,
 	opts handleLNURLOpts,
 	params lnurl.LNURLWithdrawResponse,
 ) {
@@ -174,7 +174,7 @@ func handleLNURLWithdraw(
 	desc := params.DefaultDescription
 	if opts.balanceCheckService != nil {
 		desc += " (automatic)"
-		log.Info().Stringer("user", &u).Str("service", params.CallbackURL.Hostname()).
+		log.Info().Stringer("user", u).Str("service", params.CallbackURL.Hostname()).
 			Msg("performing automatic balanceCheck")
 	}
 
@@ -221,7 +221,7 @@ type RedisPayParams struct {
 
 func handleLNURLPay(
 	ctx context.Context,
-	u User,
+	u *User,
 	opts handleLNURLOpts,
 	params lnurl.LNURLPayParams,
 ) {
@@ -341,7 +341,7 @@ func handleLNURLPay(
 }
 
 func handleLNURLPayAmount(ctx context.Context, msats int64, raw string) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	// get data from redis object
 	var data RedisPayParams
@@ -357,7 +357,7 @@ func handleLNURLPayAmount(ctx context.Context, msats int64, raw string) {
 }
 
 func handleLNURLPayComment(ctx context.Context, comment string, raw string) {
-	u := ctx.Value("initiator").(User)
+	u := ctx.Value("initiator").(*User)
 
 	// get data from redis object
 	var data RedisPayParams
@@ -369,7 +369,7 @@ func handleLNURLPayComment(ctx context.Context, comment string, raw string) {
 
 func lnurlpayAskForComment(
 	ctx context.Context,
-	u User,
+	u *User,
 	params lnurl.LNURLPayParams,
 	msats int64,
 	anonymous bool,
@@ -392,7 +392,7 @@ func lnurlpayAskForComment(
 
 func lnurlpayFinish(
 	ctx context.Context,
-	u User,
+	u *User,
 	params lnurl.LNURLPayParams,
 	msats int64,
 	comment string,
@@ -578,7 +578,7 @@ func lnurlBalanceCheckRoutine() {
 				continue
 			}
 
-			log.Debug().Str("service", check.Service).Stringer("user", &u).
+			log.Debug().Str("service", check.Service).Stringer("user", u).
 				Msg("")
 			handleLNURL(context.WithValue(ctx, "initiator", u),
 				check.URL, handleLNURLOpts{balanceCheckService: &check.Service})
