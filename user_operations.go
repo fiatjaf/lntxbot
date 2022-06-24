@@ -33,8 +33,8 @@ func getRateLimitBucket(userId int) *ratelimit.Bucket {
 	if ok {
 		return bucket.(*ratelimit.Bucket)
 	} else {
-		// one can do a burst of 20 invoices/payments and after that only 1 every 5 minutes
-		bucket := ratelimit.NewBucket(time.Minute*5, 20)
+		// one can do a burst of 20 invoices/payments and after that only 1 every 10 minutes
+		bucket := ratelimit.NewBucket(time.Minute*10, 20)
 		rateLimitBuckets.Store(userId, bucket)
 		return bucket
 	}
@@ -89,7 +89,7 @@ func (u User) makeInvoice(
 ) (bolt11 string, hash string, err error) {
 	if !args.IgnoreRateLimit {
 		if ok := getRateLimitBucket(u.Id).WaitMaxDuration(1, time.Second*5); !ok {
-			return "", "", errors.New("Creating too many invoices, please wait about 5 minutes.")
+			return "", "", errors.New("Creating too many invoices, please wait about 10 minutes.")
 		}
 	}
 
