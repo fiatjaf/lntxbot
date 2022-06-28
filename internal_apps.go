@@ -236,13 +236,13 @@ return result
 	var data GiveAwayData
 	err = json.Unmarshal([]byte(jdata), &data)
 	if err != nil {
-		return
+		return nil, nil, 0, err
 	}
 
 	from, err = loadUser(data.FromId)
 	if err != nil {
 		log.Warn().Err(err).Int("id", data.FromId).Msg("failed to load user on giveaway")
-		return
+		return nil, nil, 0, err
 	}
 
 	if data.ToSpecific != "" {
@@ -250,12 +250,12 @@ return result
 		if err != nil {
 			log.Warn().Err(err).Str("username", data.ToSpecific).
 				Msg("failed to load giveaway specific receiver")
-			return
+			return nil, nil, 0, err
 		}
 	}
 
 	sats = data.Sats
-	return
+	return from, to, sats, nil
 }
 
 // giveflip

@@ -86,7 +86,7 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		}
 
 		claimer := u
-		if to.Username != "" && claimer.Username != to.Username {
+		if to != nil && claimer.Username != to.Username {
 			send(ctx, t.CALLBACKERROR, WITHALERT,
 				t.T{"BotOp": "Giveaway", "Err": "You're not " + to.AtName(ctx)})
 			saveGiveawayData(giveId, from.Id, sats, to.Username)
