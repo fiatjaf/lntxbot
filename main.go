@@ -39,7 +39,8 @@ type Settings struct {
 	TelegramBotToken string   `envconfig:"TELEGRAM_BOT_TOKEN" required:"true"`
 	PostgresURL      string   `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL         string   `envconfig:"REDIS_URL" required:"true"`
-	ClicheJARPath    string   `envconfig:"CLICHE_JAR_PATH" required:"true"`
+	ClicheJARPath    string   `envconfig:"CLICHE_JAR_PATH"`
+	ClicheBinaryPath string   `envconfig:"CLICHE_BINARY_PATH"`
 	ClicheDataDir    string   `envconfig:"CLICHE_DATADIR" required:"true"`
 
 	// account in the database named '@'

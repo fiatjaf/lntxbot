@@ -15,13 +15,16 @@ import (
 
 func setupCliche() {
 	ln = &cliche.Control{
-		JARPath: s.ClicheJARPath,
-		DataDir: s.ClicheDataDir,
+		BinaryPath: s.ClicheBinaryPath,
+		JARPath:    s.ClicheJARPath,
+		DataDir:    s.ClicheDataDir,
 	}
-	log.Info().Msg("starting cliche")
+	log.Info().Msg("starting cliche and waiting for a 'ready' event")
 	if err := ln.Start(); err != nil {
 		log.Fatal().Err(err).Msg("failed to start cliche")
 	}
+	log.Info().Msg("cliche is ready")
+
 	if nodeinfo, err := ln.GetInfo(); err != nil {
 		log.Fatal().Err(err).Msg("can't talk to cliche")
 	} else {

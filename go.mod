@@ -6,13 +6,12 @@ require (
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/fiatjaf/go-cliche v0.2.1
+	github.com/fiatjaf/go-cliche v0.3.0
 	github.com/fiatjaf/go-lnurl v1.10.2
 	github.com/fiatjaf/ln-decodepay v1.1.0
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/imroc/req v0.3.0
 	github.com/jmcvetta/randutil v0.0.0-20150817122601-2bb1b664bcff // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/juju/ratelimit v1.0.1
