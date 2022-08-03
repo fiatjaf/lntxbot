@@ -141,11 +141,11 @@ func clicheCheckingRoutine() {
 
 		// message admin
 		if admin, err := loadUser(s.AdminAccount); err == nil {
-			send(ctx, admin, "cliche has failed, bot turning off")
+			send(ctx, admin, "cliche has failed, bot restarting")
 		}
 
-		// exit cleanly here so systemd won't restart the service
-		os.Exit(0)
+		// exit with a failure so systemd can restart us
+		os.Exit(7)
 	}
 }
 
