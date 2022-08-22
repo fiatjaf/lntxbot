@@ -59,6 +59,13 @@ func handleSend(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 
+	// maybe this is an onchain address like bc1...?
+	if strings.HasPrefix(username, "bc1") {
+		handleSendToAddress(ctx, username, msats)
+		// end here since the flow will proceed on handleSendToAddress
+		return
+	}
+
 	message := ctx.Value("message").(*tgbotapi.Message)
 	receiver, err = examineTelegramUsername(username)
 	if receiver != nil {
