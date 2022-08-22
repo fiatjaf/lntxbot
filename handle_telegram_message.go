@@ -191,7 +191,7 @@ parsed:
 		go handleLightningATM(ctx)
 	case opts["tx"].(bool):
 		go handleSingleTransaction(ctx, opts)
-	case opts["send"].(bool), opts["tip"].(bool), opts["honk"].(bool):
+	case opts["send"].(bool), opts["tip"].(bool):
 		go u.track("send", map[string]interface{}{
 			"group":     groupId,
 			"reply-tip": message.ReplyToMessage != nil,

@@ -43,7 +43,7 @@ var methods = []def{
 		argstr:  "(lnurl <satoshis> | [now] [<invoice>] [<satoshis>])",
 	},
 	{
-		aliases:        []string{"send", "tip", "sendanonymously", "honk"},
+		aliases:        []string{"send", "tip", "sendanonymously"},
 		argstr:         "[anonymously] <satoshis> [<receiver>] [<description>...] [--anonymous]",
 		inline_example: "give <satoshis> <username>",
 	},
