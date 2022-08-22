@@ -99,6 +99,9 @@ You have 15 minutes to do it or you'll be kicked and banned for one day.
     `,
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Hash}}</code>",
 
+	ONCHAINSTATUS: `<b>txid: </b><code>{{.Txid}}</code>
+<b>hex: </b><pre>{{.Hex}}</pre>`,
+
 	SPAMMYMSG:             "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
 	LANGUAGEMSG:           "This chat language is set to <code>{{.Language}}</code>.",

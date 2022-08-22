@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // powered by deezy.io
@@ -57,19 +57,34 @@ func handleSendToAddress(ctx context.Context, address string, msats int64) {
 			t.T{"Err": fmt.Errorf("error parsing invoice: %w", err)},
 			processingMessageId)
 		return
-	} else if inv.MSatoshi > (msats + 800) {
+	} else if inv.MSatoshi > (msats + 1000000) {
 		send(ctx, u, t.ERROR,
-			t.T{"Err": "invoice is too expensive, so we're stopping here just in case, let us know if this is wrong"},
+			t.T{"Err": "The invoice we got from deezy.io is too expensive, so we're stopping here just in case, let us know if this is wrong. You can also pay the invoice manually."},
 			processingMessageId)
 		return
 	}
 
-	if _, err := u.payInvoice(ctx, val.Bolt11Invoice, 0); err != nil {
+	if hash, err := u.payInvoice(ctx, val.Bolt11Invoice, 0); err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId)
 	} else {
-		deleteMessage(&tgbotapi.Message{
-			Chat:      &tgbotapi.Chat{ID: u.TelegramChatId},
-			MessageID: processingMessageId.(int),
-		})
+		// wait until invoice is paid
+		go func() {
+			<-waitPaymentSuccess(hash)
+			time.Sleep(5 * time.Second)
+			if resp, err := http.Get("https://api.deezy.io/v1/swap/lookup?bolt11_invoice=" + val.Bolt11Invoice); err == nil {
+				var val struct {
+					Txid string `json:"on_chain_txid"`
+					Hex  string `json:"tx_hex"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&val); err != nil {
+					send(ctx, u, t.ERROR, t.T{
+						"Err": fmt.Sprintf("deezy.io API returned a broken response from status check"),
+					})
+					return
+				}
+
+				send(ctx, u, processingMessageId, t.ONCHAINSTATUS, t.T{"Txid": val.Txid, "Hex": val.Hex})
+			}
+		}()
 	}
 }
