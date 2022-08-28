@@ -65,7 +65,8 @@ const (
 	PAYMENTRECEIVED      Key = "PaymentReceived"
 	FAILEDTOSAVERECEIVED Key = "FailedToSaveReceived"
 
-	ONCHAINSTATUS Key = "OnchainStatus"
+	ONCHAINSTATUS  Key = "OnchainStatus"
+	ONCHAINDEPOSIT Key = "OnchainDeposit"
 
 	SPAMMYMSG             Key = "SpammyMsg"
 	COINFLIPSENABLEDMSG   Key = "CoinflipsEnabledMsg"

@@ -39,6 +39,10 @@ var methods = []def{
 		inline_example: "invoice <satoshis>",
 	},
 	{
+		aliases: []string{"deposit", "depositbtc", "fundbtc"},
+		argstr:  "",
+	},
+	{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
 		argstr:  "(lnurl <satoshis> | [now] [<invoice>] [<satoshis>])",
 	},

@@ -18,6 +18,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func createLNURLPayCode(u *User, kind string) string {
+	endpoint := fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id)
+	if kind != "" {
+		endpoint += "&kind=" + kind
+	}
+	code, _ := lnurl.LNURLEncode(endpoint)
+	return code
+}
+
 func handleCreateLNURLWithdraw(ctx context.Context, opts docopt.Opts) (enc string) {
 	u := ctx.Value("initiator").(*User)
 
@@ -183,7 +192,7 @@ func serveLNURL() {
 			username = qs.Get("userid")
 		}
 
-		u, params, err := lnurlPayUserParams(ctx, username)
+		u, params, err := lnurlPayUserParams(ctx, username, r.URL.Query().Get("kind"))
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -199,7 +208,7 @@ func serveLNURL() {
 		username := mux.Vars(r)["username"]
 		qs := r.URL.Query()
 
-		receiver, params, err := lnurlPayUserParams(ctx, username)
+		receiver, params, err := lnurlPayUserParams(ctx, username, "")
 		if err != nil {
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid username or id."))
 			return
@@ -265,6 +274,7 @@ func serveLNURL() {
 func lnurlPayUserParams(
 	ctx context.Context,
 	username string,
+	kind string,
 ) (receiver *User, params lnurl.LNURLPayParams, err error) {
 	isTelegramUsername := false
 
@@ -296,26 +306,34 @@ func lnurlPayUserParams(
 
 	var metadata lnurl.Metadata
 
-	metadata.Description = fmt.Sprintf("Fund %s account on t.me/%s.",
-		receiver.AtName(ctx), s.ServiceId)
+	if kind == "" {
+		metadata.Description = fmt.Sprintf("Fund %s account on t.me/%s.",
+			receiver.AtName(ctx), s.ServiceId)
 
-	if isTelegramUsername {
-		// get user avatar from public t.me/ page
-		if b, err := getTelegramUserPicture(username); err == nil {
-			metadata.Image.Bytes = b
-			metadata.Image.Ext = "jpeg"
+		if isTelegramUsername {
+			// get user avatar from public t.me/ page
+			if b, err := getTelegramUserPicture(username); err == nil {
+				metadata.Image.Bytes = b
+				metadata.Image.Ext = "jpeg"
+			}
+
+			// add internet identifier
+			metadata.LightningAddress = fmt.Sprintf("%s@%s",
+				username, getHost())
 		}
-
-		// add internet identifier
-		metadata.LightningAddress = fmt.Sprintf("%s@%s",
-			username, getHost())
+	} else {
+		// context-dependent lnurlpay endpoints
+		switch kind {
+		case "deezy":
+			metadata.Description = fmt.Sprintf("deezy.io funding from onchain transaction.")
+		}
 	}
 
 	params = lnurl.LNURLPayParams{
 		LNURLResponse: lnurl.OkResponse(),
 		Tag:           "payRequest",
-		Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s",
-			s.ServiceURL, username),
+		Callback: fmt.Sprintf("%s/.well-known/lnurlp/%s?kind=%s",
+			s.ServiceURL, username, kind),
 		MaxSendable:    1000000000,
 		MinSendable:    100000,
 		Metadata:       metadata,

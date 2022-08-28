@@ -9,11 +9,63 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/die-net/lrucache"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
+	"github.com/gregjones/httpcache"
 )
 
 // powered by deezy.io
+
+var depositDeezyHttpClient = &http.Client{
+	Transport: httpcache.NewTransport(
+		lrucache.New(5, 60*5),
+	),
+}
+
+func handleDepositOnchain(ctx context.Context) {
+	u := ctx.Value("initiator").(*User)
+	code := createLNURLPayCode(u, "deezy")
+
+	params, _ := json.Marshal(struct {
+		Code string `json:"lnurl_or_lnaddress"`
+	}{code})
+
+	resp, err := depositDeezyHttpClient.Post("https://api.deezy.io/v1/source", "application/json", bytes.NewBuffer(params))
+	if err != nil {
+		send(ctx, u, t.ERROR, t.T{
+			"Err": fmt.Sprintf("failed to call deezy.io API: %s", err.Error()),
+		})
+		return
+	}
+	if resp.StatusCode != 200 {
+		b, _ := ioutil.ReadAll(resp.Body)
+		text := string(b)
+		send(ctx, u, t.ERROR, t.T{
+			"Err": fmt.Sprintf("deezy.io API returned an error (%d): %s", resp.StatusCode, text),
+		})
+		return
+	}
+
+	var val struct {
+		Address    string `json:"address"`
+		Commitment string `json:"commitment"`
+		Signature  string `json:"signature"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&val); err != nil {
+		send(ctx, u, t.ERROR, t.T{
+			"Err": fmt.Sprintf("deezy.io API returned a broken response"),
+		})
+		return
+	}
+
+	send(ctx, u, t.ONCHAINDEPOSIT, t.T{
+		"ServiceId":  s.ServiceId,
+		"Address":    val.Address,
+		"Commitment": escapeHTML(val.Commitment),
+		"Signature":  val.Signature,
+	})
+}
 
 func handleSendToAddress(ctx context.Context, address string, msats int64) {
 	u := ctx.Value("initiator").(*User)

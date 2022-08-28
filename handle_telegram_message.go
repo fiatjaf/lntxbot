@@ -486,6 +486,8 @@ parsed:
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
 		desc := getVariadicFieldOrReplyToContent(ctx, opts, "<description>")
 		go handleInvoice(ctx, opts, desc)
+	case opts["deposit"].(bool), opts["depositbtc"].(bool), opts["fundbtc"].(bool):
+		go handleDepositOnchain(ctx)
 	case opts["lnurl"].(bool):
 		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{
 			anonymous: opts["--anonymous"].(bool),

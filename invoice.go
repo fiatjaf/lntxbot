@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -95,9 +94,8 @@ func handleInvoice(ctx context.Context, opts docopt.Opts, desc string) {
 
 	if opts["lnurl"].(bool) {
 		// print static lnurl-pay for this user
-		lnurl, _ := lnurl.LNURLEncode(
-			fmt.Sprintf("%s/lnurl/pay?userid=%d", s.ServiceURL, u.Id))
-		send(ctx, qrURL(lnurl), lnurl)
+		code := createLNURLPayCode(u, "")
+		send(ctx, qrURL(code), code)
 		go u.track("print lnurl", nil)
 	} else {
 		msats, err := parseSatoshis(opts)

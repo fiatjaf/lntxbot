@@ -99,8 +99,20 @@ You have 15 minutes to do it or you'll be kicked and banned for one day.
     `,
 	FAILEDTOSAVERECEIVED: "Payment received, but failed to save on database. Please report this issue: <code>{{.Hash}}</code>",
 
-	ONCHAINSTATUS: `<b>txid: </b><code>{{.Txid}}</code>
-<b>hex: </b><pre>{{.Hex}}</pre>`,
+	ONCHAINSTATUS: `Your transaction was sent.
+
+<b>Txid: </b> <code>{{.Txid}}</code> <a href="https://blockstream.info/tx/{{.Txid}}">(view)</a>
+<b>Hex: </b><pre>{{.Hex}}</pre>
+
+Service powered by https://deezy.io/.`,
+	ONCHAINDEPOSIT: `Your deposit address: <code>{{.Address}}</code>
+
+Any funds sent to this address (minus some fees) will be deposited to your @{{.ServiceId}} balance.
+
+<b>Commitment: </b><code>{{.Commitment}}</code>
+<b>Signature: </b><code>{{.Signature}}</code>
+
+Service powered by https://deezy.io/.`,
 
 	SPAMMYMSG:             "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
