@@ -225,7 +225,7 @@ func nodeLink(nodeId string) string {
 		return `<code>` + nodeId + `</code>`
 	}
 
-	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s…%s</a>`,
+	return fmt.Sprintf(`<a href="https://amboss.space/node/%s">%s…%s</a>`,
 		nodeId, nodeId[:4], nodeId[len(nodeId)-4:])
 }
 
@@ -234,21 +234,30 @@ func nodeAliasLink(nodeId string) string {
 		return "{}"
 	}
 
-	nodeIdShortened := nodeId[:10]
 	alias := getNodeAlias(nodeId)
 	if alias == "" {
 		alias = fmt.Sprintf("%s…%s", nodeId[:4], nodeId[len(nodeId)-4:])
-		nodeIdShortened = nodeId
 	} else if len(alias) > 16 {
 		alias = alias[:15] + "…"
 	}
 
-	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s</a>`,
-		nodeIdShortened, alias)
+	return fmt.Sprintf(`<a href="https://amboss.space/%s">%s</a>`, nodeId, alias)
 }
 
 func channelLink(scid string) string {
-	return fmt.Sprintf(`<a href="http://ln.fiatjaf.com/%s">%s</a>`, scid, scid)
+	spl := strings.Split(scid, "x")
+	if len(spl) != 3 {
+		return scid
+	}
+	block, err1 := strconv.ParseInt(spl[0], 10, 64)
+	tx, err2 := strconv.ParseInt(spl[1], 10, 64)
+	out, err3 := strconv.ParseInt(spl[2], 10, 64)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return scid
+	}
+
+	scidDecimal := ((block & 0xffffff) << 40) | ((tx & 0xffffff) << 16) | (out & 0xffff)
+	return fmt.Sprintf(`<a href="https://1ml.com/channel/%d">%s</a>`, scidDecimal, scid)
 }
 
 var (
@@ -478,7 +487,7 @@ begin:
 		return "~"
 	}
 
-	resp, err := http.Get("https://ln.fiatjaf.com/nodes?select=alias&pubkey=eq." + id)
+	resp, err := http.Get("https://mempool.space/api/v1/lightning/search?searchText=" + id)
 	if err != nil {
 		return "~"
 	}
@@ -489,7 +498,7 @@ begin:
 		return "~"
 	}
 
-	alias := gjson.ParseBytes(b).Get("0.alias").String()
+	alias := gjson.ParseBytes(b).Get("nodes.0.alias").String()
 	if alias == "" {
 		alias = "~"
 	}
