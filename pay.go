@@ -259,8 +259,22 @@ RETURNING from_id, trigger_message
 		return
 	}
 
+	finalFailures := make([]string, 0, len(failures))
+	for _, f := range failures {
+		finalFailures = append(finalFailures, strings.Split(f, ".")[0])
+	}
+	if len(finalFailures) > 1 && finalFailures[0] == "- Local failure: no-routes-found" {
+		finalFailures = finalFailures[1:]
+	}
+	if len(finalFailures) > 7 {
+		finalFailures = finalFailures[:7]
+	}
+
 	send(ctx, user, res.TriggerMessage,
-		t.PAYMENTFAILED, t.T{"Hash": hash, "FailureString": strings.Join(failures, "\n")},
+		t.PAYMENTFAILED, t.T{
+			"Hash":          hash,
+			"FailureString": strings.Join(finalFailures, "\n"),
+		},
 		ctx.Value("message"))
 }
 
