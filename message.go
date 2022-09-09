@@ -52,7 +52,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	}
 	var forceSpammy bool
 	var hasExplicitTarget bool
-	var spammy bool
+	var spammy bool = true
 	if ispammy := ctx.Value("spammy"); ispammy != nil {
 		spammy = ispammy.(bool)
 	}
