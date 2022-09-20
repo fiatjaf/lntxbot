@@ -64,6 +64,10 @@ func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
 
 func parseAmountString(amt string) (msats int64, err error) {
 	defer func() {
+		if r := recover(); r != nil {
+			msats = 0
+		}
+
 		if err == nil && msats < 1000 {
 			err = fmt.Errorf("amount too small: %dmsat", msats)
 		}
