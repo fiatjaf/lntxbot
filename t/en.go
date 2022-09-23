@@ -109,6 +109,8 @@ Service powered by https://deezy.io/.`,
 
 Any funds sent to this address (minus some fees) will be deposited to your @{{.ServiceId}} balance.
 
+<i>Do not send too much.</i>
+
 <b>Commitment: </b><code>{{.Commitment}}</code>
 <b>Signature: </b><code>{{.Signature}}</code>
 
