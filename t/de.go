@@ -98,7 +98,7 @@ lnurl-auth success!
 	FREEJOIN:              "Dieser Gruppe kann nun beigetreten werden.",
 	EXPENSIVEMSG:          "Jede Nachricht in dieser Gruppe{{with .Pattern}}, die dieses Muster/Inhalt enthält <code>{{.}}</code>{{end}}, kostet {{.Price}} Sats.",
 	EXPENSIVENOTIFICATION: "Die Nachricht {{.Link}} hat {{if .Sender}} gerade {{.Price}} gekostet{{else}} dir {{.Price}} eingebracht {{end}}.",
-	FREETALK:              "Nachrichten sind wieder kostenlos",
+	FREETALK:              "Nachrichten sind wieder kostenlos.",
 
 	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
 
@@ -152,9 +152,9 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 
 	GIVEAWAYHELP: `Erstellt einen Button in einem Gruppenchat. Der erste Nutzer, der darauf klickt, erhält die Satoshis.
 
-/giveaway_1000: wenn jemand den "Beanspruchen-Button" anklickt, werden 1000 Satoshis von dir zu dieser Person transferiert. 
+/giveaway_1000: wenn jemand den "Beanspruchen"-Button anklickt, werden 1000 Satoshis von dir zu dieser Person transferiert. 
     `,
-	SATSGIVENPUBLIC: "{{.Sats}} sats gegeben von {{.From}} an {{.To}}.{{if .ClaimerHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation mit @lntxbot.{{end}}",
+	SATSGIVENPUBLIC: "{{.Sats}} sats von {{.From}} an {{.To}} gesendet.{{if .ClaimerHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation mit @lntxbot.{{end}}",
 	CLAIMFAILED:     "Beanspruchen fehlgeschlagen {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:   "Beanspruchen",
 	GIVEAWAYMSG:     "{{.User}} {{if .Away}}verschenkt{{else if .Receiver}}@{{.Receiver}}{{else}}gibt dir{{end}} {{.Sats}} Sats!",
@@ -165,7 +165,7 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
     `,
 	COINFLIPWINNERMSG:      "Du bist der Gewinner diess Münzwurfes mit einem Preisgeld von {{.TotalSats}}Sats. Verloren haben: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "Du hast {{.IndividualSats}} bei einem Münzwurf verloren. Der Gewinner ist {{.Receiver}}.",
-	COINFLIPAD:             "Zahle {{.Sats}}Sats Eintrittsgeld und versuche {{.Prize}}Sats zu gewinnen! {{.SpotsLeft}} von {{.MaxPlayers}} Plätzen {{s .SpotsLeft}} übrig!",
+	COINFLIPAD:             "Zahle {{.Sats}} Sats Eintrittsgeld und versuche {{.Prize}} Sats zu gewinnen! Noch {{.SpotsLeft}} von {{.MaxPlayers}} Plätzen {{s .SpotsLeft}} frei!",
 	COINFLIPJOIN:           "Nehme an der Lotterie teil!",
 	CALLBACKCOINFLIPWINNER: "Münzwurf Gewinner: {{.Winner}}",
 
@@ -173,10 +173,10 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 
 /giveflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis vom Initiator/Befehlsgeber.
     `,
-	GIVEFLIPMSG:       "{{.User}} Nutzer verschenkt {{.Sats}}Sats an eine glückliche Person aus X Teilnehmern {{.Participants}}!",
-	GIVEFLIPAD:        "{{.Sats}}Sats werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! Noch {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen verfügbar!",
+	GIVEFLIPMSG:       "{{.User}} Nutzer verschenkt {{.Sats}} Sats an eine glückliche Person aus {{.Participants}} Teilnehmern!",
+	GIVEFLIPAD:        "{{.Sats}} Sats werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! Noch {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen frei!",
 	GIVEFLIPJOIN:      "Versuche zu gewinnen!",
-	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}}Sats gesendet. Diese Personen haben diesmal leider nichts bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}}. Starte eine DM mit @lntxbot, um dein Guthaben zu managen.{{end}}",
+	GIVEFLIPWINNERMSG: "{{.Sender}} hat an {{.Receiver}} {{.Sats}} Sats gesendet. Diese Personen haben diesmal leider nichts bekommen: {{.Losers}}.{{if .ReceiverHasNoChat}}. Starte eine DM mit @lntxbot, um dein Guthaben zu managen.{{end}}",
 
 	FUNDRAISEHELP: `Starte ein Crowdfunding mit festgelegter Zahl an Teilnehmern und einer Spendensumme. Wenn die vorgegebene Zahl an Teilnehmern erreicht ist, wird es durchgeführt. Ansonsten wird es nach einigen Stunden storniert.
 
