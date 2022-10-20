@@ -16,12 +16,14 @@ var DE = map[Key]string{
 	TXPENDING:  "Zahlung noch unterwegs, bitte später erneut prüfen.",
 	TXCANCELED: "Transaktion storniert.",
 	UNEXPECTED: "Unerwarteter Fehler: bitte melden.",
+	MUSTBEADMIN: "Dieser Befehl muss von einem Admin gesendet werden.",
+	MUSTBEGROUP: "Dieser Befehl muss in einer Gruppe verwendet werden.",
 
 	CALLBACKWINNER:  "Gewinner: {{.Winner}}",
 	CALLBACKERROR:   "{{.BotOp}} error{{if .Err}}: {{.Err}}{{else}}.{{end}}",
 	CALLBACKEXPIRED: "{{.BotOp}} abgelaufen.",
 	CALLBACKATTEMPT: "Zahlungsversuch. /tx_{{.Hash}}",
-	CALLBACKSENDING: "Zahlungssendung.",
+	CALLBACKSENDING: "Sende Zahlung.",
 
 	INLINEINVOICERESULT:  "Zahlungsanfrage für {{.Sats}} Sats.",
 	INLINEGIVEAWAYRESULT: "Verschenke {{.Sats}} Sats {{if .Receiver}} an @{{.Receiver}}{{else}}her{{end}}",
@@ -97,6 +99,23 @@ Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und f�
     `,
 	FAILEDTOSAVERECEIVED: "Bezahlung erhalten, aber die Speicherung in der Datenbank ist gescheitert. Bitte melde das Problem: <code>{{.Hash}}</code>",
 
+	ONCHAINSTATUS: `Deine Transaktion wurde gesendet.
+
+<b>Txid: </b> <code>{{.Txid}}</code> <a href="https://blockstream.info/tx/{{.Txid}}">(view)</a>
+<b>Hex: </b><pre>{{.Hex}}</pre>
+
+Service powered by https://deezy.io/.`,
+	ONCHAINDEPOSIT: `Deine Empfangsadresse: <code>{{.Address}}</code>
+
+Beträge welche zu dieser Adresse gesendet wurden (abzüglich der Gebühren) werden deiner @{{.ServiceId}} gutgeschrieben.
+
+<i>Sende nicht zu viel.</i>
+
+<b>Commitment: </b><code>{{.Commitment}}</code>
+<b>Signature: </b><code>{{.Signature}}</code>
+
+Service powered by https://deezy.io/.`,	
+	
 	SPAMMYMSG:             "{{if .Spammy}}Diese Gruppe ist jetzt spammy.{{else}}Spamming beendet.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips (Münzwürfe) sind in dieser Gruppe aktiviert {{if .Enabled}}aktiviert{{else}}deaktiviert{{end}} .",
 	LANGUAGEMSG:           "Die Chatsprache ist auf folgende Sprache eingestellt <code>{{.Language}}</code>.",
@@ -154,7 +173,14 @@ Listet alle Transaktionen mit Seitennummerierung (pagination controls). Jede Tra
     `,
 
 	BALANCEHELP: "zeigt das Guthaben in Satoshis und zusätzlich die Summe von allem, was du empfangen und mit dem Bot gesendet hast sowie den Gesamtbetrag an Gebühren.",
-
+	
+	FINEHELP: "Fordert einen Nutzer auf eine Strafe zu zahlen. Wenn dieser nicht innerhalb von 15 Minuten reagiert, wird er aus der Gruppe entfernt und für einen Tag ausgesperrt.",
+	FINEMESSAGE: `⚠️ {{.FinedUser}}, du wurdest zur Zahlung einer Strafe von <i>{{.Sats}} Satoshis</i> <b>aufgefordert</b>{{if .Reason}}, weil <i>{{ .Reason }}</i>{{end}}.
+Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe entfernt.
+    `,
+	FINEFAILURE: "{{.User}} ist der Aufforderung nicht nachgekommen und wird aus der Gruppe entfernt und für einen Tag gesperrt.",
+	FINESUCCESS: "{{.User}} hat die Strafzahlung beglichen.",
+	
 	GIVEAWAYHELP: `Erstellt einen Button in einem Gruppenchat. Der erste Nutzer, der darauf klickt, erhält die Satoshis.
 
 /giveaway_1000: wenn jemand den "Beanspruchen"-Button anklickt, werden 1000 Satoshis von dir zu dieser Person transferiert. 
@@ -287,7 +313,7 @@ Jede Anzeige kostet den oben angegebenen Preis <i>je Zeichen</i> + <code>1 Satos
 
 	HELPHELP: "Zeigt die komplette Hilfe, sowie Hilfe zu einem spezifischen Befehl.",
 
-	STOPHELP: "Der Bot stoppt das Anzeigen von Informationen.",
+	STOPHELP: "Der Bot wird dir keine Benachrichtigungen mehr zeigen.",
 
 	PAYPROMPT: `
 {{if .Sats}}<i>{{.Sats}} Sat</i> ({{dollar .Sats}})
