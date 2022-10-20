@@ -66,7 +66,12 @@ lnurl-auth success!
 	LNURLBALANCECHECKCANCELED: "Automatische Kontostandsprüfungen von {{.Service}} werden storniert.",
 
 	TICKETSET: "Neue Gruppenmitglieder müssen einen Betrag/eine Rechnung von X Sats bezahlen {{.Sat}} (Vergewissere dich, dass du dafür @lntxbot als Administrator festgelegt hast).",
+	TICKETUSERALLOWED: "Ticket bezahlt. {{.User}} wurde erlaubt.",
+	TICKETMESSAGE: `⚠️ {{.User}}, um dieser Gruppe beitreten zu können, musst du {{.Sats}} Sat zahlen.
 
+Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und für einen Tag gesperrt.
+`,
+	
 	RENAMABLEMSG:      "Jeder kann diese Gruppe umbenennen, wenn er Betrag X an Sats bezahlt {{.Sat}} (Vergewissere dich, dass du @lntxbot als Administrator festgelegt hast).",
 	RENAMEPROMPT:      "Bezahle <b>{{.Sats}} sat</b> um diese Gruppe umzubennenen <i>{{.Name}}</i>?",
 	GROUPNOTRENAMABLE: "Diese Gruppe kann nicht umbenannt werden!",
