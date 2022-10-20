@@ -78,7 +78,7 @@ Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und f�
 
 	INTERNALPAYMENTUNEXPECTED: "Etwas Unerwartetes ist passiert. Wenn das eine interne Rechnung ist, wird sie fehlschlagen. Vielleicht ist die Rechnung abgelaufen oder etwas anderes ist passiert, wir wissen es nicht. Wenn das eine externe Rechnung ist, ignoriere die Warnung.",
 	PAYMENTFAILED:             "❌ Bezahlung <code>{{.Hash}}</code> fehlgeschlagen.\n\n<i>{{.FailureString}}</i>",
-	PAIDMESSAGE: `✅ Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
+	PAIDMESSAGE: `✅ Bezahlt mit <i>{{printf "%.15g" .Sats}} Sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> Gebühren). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
@@ -90,7 +90,7 @@ Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und f�
 	INSUFFICIENTBALANCE: `Unzureichendes Guthaben für {{.Purpose}}. Benötigt {{.Sats | printf "%.15g"}} Sats mehr.`,
 
 	PAYMENTRECEIVED: `
-      ⚡️ Zahlung erhalten{{if .SenderName}} von <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
+      ⚡️ Zahlung erhalten{{if .SenderName}} von <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} Sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
       {{if .Comment}}
 📨 <i>{{.Comment}}</i>
       {{end}}
@@ -105,7 +105,7 @@ Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und f�
 	EXPENSIVENOTIFICATION: "Die Nachricht {{.Link}} hat {{if .Sender}} gerade {{.Price}} gekostet{{else}} dir {{.Price}} eingebracht {{end}}.",
 	FREETALK:              "Nachrichten sind wieder kostenlos.",
 
-	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} sat</i>`,
+	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} Sat</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -124,7 +124,7 @@ Kann auch als <a href="https://core.telegram.org/bots/inline">inline query</a> v
 
 	// das "any" (irgendwas) wird hier nur zu Demonstrationszwecken verwendet. Wenn du das 'any' verwendest, wird es
 	// tatsächlich mit <satoshis> Variablen verknüpft, denn so löst das der Code.
-	RECEIVEHELP: `Generiert eine BOLT11 Rechnung mit einem vorgegebenen Satoshi Wert. Der Betrag wird @lntxbot Guthaben gut geschrieben. Wenn Du keinen Betrag einträgst, wird eine open-ended Rechnung generiert, die mit jedem Betrag beglichen werden kann.",
+	RECEIVEHELP: `Generiert eine BOLT11 Rechnung mit einem vorgegebenem Satoshi Wert. Der Betrag wird @lntxbot Guthaben gut geschrieben. Wenn Du keinen Betrag einträgst, wird eine open-ended Rechnung generiert, die mit jedem Betrag beglichen werden kann.",
 
 <code>/receive_320_for_something</code> generiert eine Rechnung in Höhe von 320 Sats mit der Beschreibung "für etwas"
     `,
@@ -135,7 +135,7 @@ Einfach <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3
 
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> zahlt den Betrag ohne um Bestätigung zu fragen.
 
-/withdraw_lnurl_3000 generiert eine <b>lnurl und einen QR code um 3000</b> satoshis von einer <a href="https://lightning-wallet.com">kompatiblen Wallet</a> abzuheben, ohne auf Betätigung zu warten.
+/withdraw_lnurl_3000 generiert eine <b>lnurl und einen QR code um 3000</b> Satoshis von einer <a href="https://lightning-wallet.com">kompatiblen Wallet</a> abzuheben, ohne auf Betätigung zu warten.
     `,
 
 	SENDHELP: `Sende anderen Telegram Nutzern Satoshis. Der Empfänger erhält in seinem Chat eine Benachrichtigung von @lntxbot. Wenn der Empfänger niemals mit dem Bot kommuniziert hat oder diesen geblockt hat, kann er nicht benachrichtigt werden. In diesem Fall kannst du die Transaktion nachträglich in der Transaktionsansicht stornieren.
@@ -146,7 +146,7 @@ Einfach <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3
     `,
 
 	TRANSACTIONSHELP: `
-Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Transaktion ´verfügt über einen Link, der für mehr Informationen angeklickt werden kann. 
+Listet alle Transaktionen mit Seitennummerierung (pagination controls). Jede Transaktion ´verfügt über einen Link, der für mehr Informationen angeklickt werden kann. 
 
 /transactions listet alle Transaktionen auf - angefangen mit den Neuesten.
 <code>/transactions --in</code> listet nur eingehende Transaktionen auf.
@@ -159,17 +159,17 @@ Listet alle Transaktionen mit Seitennmmerierung (pagination controls). Jede Tran
 
 /giveaway_1000: wenn jemand den "Beanspruchen"-Button anklickt, werden 1000 Satoshis von dir zu dieser Person transferiert. 
     `,
-	SATSGIVENPUBLIC: "{{.Sats}} sats von {{.From}} an {{.To}} gesendet.{{if .ClaimerHasNoChat}} Um dein Guthaben zu managen/bearbeiten, starte eine Konversation mit @lntxbot.{{end}}",
+	SATSGIVENPUBLIC: "{{.Sats}} Sats von {{.From}} an {{.To}} gesendet.{{if .ClaimerHasNoChat}} Um dein Guthaben zu verwalten, starte eine Konversation mit @lntxbot.{{end}}",
 	CLAIMFAILED:     "Beanspruchen fehlgeschlagen {{.BotOp}}: {{.Err}}",
 	GIVEAWAYCLAIM:   "Beanspruchen",
 	GIVEAWAYMSG:     "{{.User}} {{if .Away}}verschenkt{{else if .Receiver}}@{{.Receiver}}{{else}}gibt dir{{end}} {{.Sats}} Sats!",
 
-	COINFLIPHELP: `Startet eine gerechte/faire Lotterie mit einer anzugebenen Zahl an Teilnehmern. Jeder zahlt das gleiche Eintrittsgeld. Der Gewinner erhält alle Einsätze. Die Geldmittel werden erst von den Teilnehmerkonten bewegt, wenn die Lotterie verwirklicht/erfüllt wird.
+	COINFLIPHELP: `Startet eine Lotterie mit einer anzugebenen Anzahl an Teilnehmern. Jeder zahlt die gleiche Menge Satoshis. Der Gewinner erhält alle Einsätze. Die Satoshi werden erst von den Teilnehmerkonten bewegt, wenn die Lotterie abgeschlossen wurde.
 
 /coinflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis (inklusive seiner eingesetzten 100, also Netto 400 Satoshis).
     `,
-	COINFLIPWINNERMSG:      "Du bist der Gewinner diess Münzwurfes mit einem Preisgeld von {{.TotalSats}}Sats. Verloren haben: {{.Senders}}.",
-	COINFLIPGIVERMSG:       "Du hast {{.IndividualSats}} bei einem Münzwurf verloren. Der Gewinner ist {{.Receiver}}.",
+	COINFLIPWINNERMSG:      "Du bist der Gewinner des Münzwurfes mit einem Preisgeld von {{.TotalSats}} Sats. Verloren haben: {{.Senders}}.",
+	COINFLIPGIVERMSG:       "Du hast {{.IndividualSats}} Sats bei einem Münzwurf verloren. Der Gewinner ist {{.Receiver}}.",
 	COINFLIPAD:             "Zahle {{.Sats}} Sats Eintrittsgeld und versuche {{.Prize}} Sats zu gewinnen! Noch {{.SpotsLeft}} von {{.MaxPlayers}} Plätzen {{s .SpotsLeft}} frei!",
 	COINFLIPJOIN:           "Nehme an der Lotterie teil!",
 	CALLBACKCOINFLIPWINNER: "Münzwurf Gewinner: {{.Winner}}",
@@ -228,7 +228,7 @@ Halte diese Token geheim. Wenn sie aus irgendwelchen Gründen geleakt werden ver
 Modifiers:
   <code>--crowdfund &lt;number&gt;</code> ermöglicht öffentliches Crowdfunding von/über versteckte(n) Botschaften.
   <code>--private</code> deckt die versteckte Nachricht privat und nur gegenüber dem Zahlenden statt der kompletten Gruppe auf.
-  <code>--revealers &lt;number&gt;</code> erlaubt lediglich eine bestimmten Anzahl an <code>&lt;number&gt;</code> Teilnehmern die versteckte Nachricht zu sehen, dann läuft die Anforderung ab.
+  <code>--revealers &lt;number&gt;</code> erlaubt lediglich einer bestimmten Anzahl an <code>&lt;number&gt;</code> Teilnehmern die versteckte Nachricht zu sehen, dann läuft die Anforderung ab.
     `,
 	REVEALHELP: `Macht eine Nachricht sichtbar, die vorher versteckt war. Der Autor der versteckten Nachricht wird niemals bekanntgemacht. Wenn eine Nachricht versteckt ist, kann diese global/von allen aufgedeckt werden, die die versteckte ID kennen.
 
@@ -236,7 +236,7 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 
 <code>/reveal 5c0b2rh4x</code> erstellt eine Aufforderung, die folgende Nachricht zu enthüllen 5c0b2rh4x, wenn sie existiert.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} sat to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}{{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Left: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENREVEALBUTTON:   `{{.Sats}} Sat to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}{{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Left: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "Hier ist eine Nachricht versteckt. {{.Sats}} X Sats benötigt, um diese aufzudecken.",
 	HIDDENWITHID: `Versteckte Nachricht mit einer ID <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Wird öffentlicht sichtbar sobald {{.Message.Crowdfund}} Personen bezahlt haben {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Wird nur privat sichtbar gemacht {{.Message.Times}} gegenüber ersten Zahlenden{{else if .Message.Public}}Wird öffentlich sichtbar, sobald eine Person zahlt {{.Message.Satoshis}}{{else}}Wird gegenüber irgendeinem Zahlenden privat sichtbar gemacht{{end}}.
 
@@ -249,19 +249,19 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 
 	TOGGLEHELP: `Schaltet Bot Funktionen in der Gruppe ein/aus. In Supergruppen kann es nur von Admins bedient werden.
 
-/toggle_ticket_10 Erstellt kostenpflichte Tickets für die Gruppe. Als Anti-Spamfunktion nützlich. Das Geld geht an den Gruppenbesitzer.
+/toggle_ticket_10 Erstellt kostenpflichtige Tickets für die Gruppe. Als Anti-Spamfunktion nützlich. Das Geld geht an den Gruppenbesitzer.
 /toggle_ticket stoppt die Gebühr für kostenpflichtige Gruppentickets. 
-/toggle_language_ru ändert die Chatsprache in Russisch, /toggle_language zeigt die Chatsprache an, das funktioniert auch in privaten Chat.
+/toggle_language_ru ändert die Chatsprache in Russisch, /toggle_language zeigt die Chatsprache an, das funktioniert auch im privaten Chat.
 /toggle_spammy schaltet 'spammy' Modus ein. 'Spammy' Modus ist standardmäßig deaktiviert. Wenn dies eingeschaltet wird, werden Benachrichtigungen zu Trinkgeldern in der Gruppe öffentlich angezeigt und nur mehr nur privat übermittelt.
     `,
 
 	SATS4ADSHELP: `
-Sats4ads ist ein Anzeigen Marketplace auf Telegram. Zahle Geld, um anderen Personen Anzeigen zu zeigen und erhalte Geld für jede Anzeige, die du siehst.
+Sats4ads ist ein Anzeigen-Marktplatz auf Telegram. Zahle Geld, um anderen Personen Anzeigen zu zeigen und erhalte Geld für jede Anzeige, die du siehst.
 
 Die Preise für jeden Nutzer sind in mSatoshi-pro Zeichen. Der maximale Preis ist 1000 msat.
-Jede Anzeige beinhaltet eine festgelegte Gebühr von 1 Sat.
-Bilder und Videos werden pauschal bepreist analog 100 Zeichen.
-Bei hinterlegten Links werden zusätzlich pauschal 300 Zeichen berechnet, weil sie über eine ärgerliche Voransicht verfügen.
+Jede Anzeige beinhaltet eine festgelegte Gebühr von 1 Satoshi.
+Bilder und Videos werden pauschal bepreist, analog 100 Zeichen.
+Bei hinterlegten Links werden zusätzlich pauschal 300 Zeichen berechnet, weil sie über eine zusätzliche Voransicht verfügen.
 
 Um eine Anzeige zu übertragen, musst du an den Bot eine Nachricht mit dem Anzeigeninhalt senden und dann antworten mit <code>/sats4ads broadcast ...</code> . Du kannst den Code <code>--max-rate=500</code> und den Code <code>--skip=0</code> benutzen, um eine bessere Kontrolle darüber zu haben, wie die Anzeige veröffentlich wird. Dies ist standardmässig bereits so eingestellt.
 
@@ -273,37 +273,37 @@ Um eine Anzeige zu übertragen, musst du an den Bot eine Nachricht mit dem Anzei
 /sats4ads_broadcast_1000 veröffentlicht eine Anzeige. Die letzte Zahl ist die maximale Zahl an verwendeten Satoshis. Günstigere Anzeigenlsitings werden gegenüber teureren Listings bevorzugt. Muss als Antwort auf eine andere Nachricht aufgrufen werden, deren Inhalt als Anzeigentext verwendet werden soll.
     `,
 	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Siehe dir Werbeanzeigen an und erhalte {{printf "%.15g" .Sats}} Sats pro Zeichen.{{else}}Du wirst keine weiteren Anzeigen mehr angezeigt bekommen.{{end}}`,
-	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Nachricht veröffentlicht {{.NSent}} Zeit{{s .NSent}} für Gesamtkosten in Höhe von {{.Sats}} Sats ({{dollar .Sats}}).{{else}}. Konnte keinen zu benachrichtigenden Endpunkt im Netzwerk finden, um ihn über die festgelegten Parameter zu informieren. /sats4ads_rates{{end}}`,
+	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Nachricht veröffentlicht {{.NSent}} Zeit{{s .NSent}} für Gesamtkosten in Höhe von {{.Sats}} Sats ({{dollar .Sats}}).{{else}}. Konnte keinen Endpunkt im Netzwerk finden, um ihn über die festgelegten Parameter zu benachrichtigen. /sats4ads_rates{{end}}`,
 	SATS4ADSSTART:     `Nachricht wird veröffentlicht.`,
 	SATS4ADSPRICETABLE: `#sats4ads Anzahl <b>User pro Preislevel</b>.
 {{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
-<i>Keine Nutzer registriert, die die Anzeige erhalten würden.</i>
+<i>Keine Nutzer registriert, welche die Anzeige erhalten würden.</i>
 {{end}}
-Jede Anzeige kostet den o.a. Preis <i>per character</i> + <code>1 sat</code> pro Nutzer.
+Jede Anzeige kostet den oben angegebenen Preis <i>je Zeichen</i> + <code>1 Satoshi</code> je Nutzer.
     `,
-	SATS4ADSADFOOTER: `[#sats4ads: {{printf "%.15g" .Sats}} sat]`,
-	SATS4ADSVIEWED:   `Claim`,
+	SATS4ADSADFOOTER: `[#sats4ads: {{printf "%.15g" .Sats}} Sat]`,
+	SATS4ADSVIEWED:   `Beanspruchen`,
 
-	HELPHELP: "Zeigt die komplette Hilfe sowie Hilfe zu einem spezifischen Befehl.",
+	HELPHELP: "Zeigt die komplette Hilfe, sowie Hilfe zu einem spezifischen Befehl.",
 
 	STOPHELP: "Der Bot stoppt das Anzeigen von Informationen.",
 
 	PAYPROMPT: `
-{{if .Sats}}<i>{{.Sats}} sat</i> ({{dollar .Sats}})
+{{if .Sats}}<i>{{.Sats}} Sat</i> ({{dollar .Sats}})
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
 {{if .ReceiverName}}
-<b>Receiver</b>: {{.ReceiverName}}{{end}}
+<b>Empfänger</b>: {{.ReceiverName}}{{end}}
 <b>Hash</b>: <code>{{.Hash}}</code>{{if ne .Currency "bc"}}
 <b>Chain</b>: {{.Currency}}{{end}}
-<b>Created at</b>: {{.Created}}
-<b>Expires at</b>: {{.Expiry}}{{if .Expired}} <b>[EXPIRED]</b>{{end}}{{if .Hints}}
+<b>Erstellt am</b>: {{.Created}}
+<b>Abgelaufen am</b>: {{.Expiry}}{{if .Expired}} <b>[ABGELAUFEN]</b>{{end}}{{if .Hints}}
 <b>Hints</b>: {{range .Hints}}
 - {{range .}}{{.ShortChannelId | channelLink}}: {{.PubKey | nodeAliasLink}}{{end}}{{end}}{{end}}
-<b>Payee</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>)
+<b>Empfänger</b>: {{.Payee | nodeLink}} (<u>{{.Payee | nodeAlias}}</u>)
 
 {{if .Sats}}Bitte zahle die oben beschriebene Rechnung
-{{else}}<b>Betrag bestätigen</b>  Bitte antworte mit dem gewünschten Betrag
+{{else}}<b>Betrag bestätigen</b> Bitte antworte mit dem gewünschten Betrag
 {{end}}
     `,
 	FAILEDDECODE: "Dekodieren der Rechnung gescheitert: {{.Err}}",
@@ -320,16 +320,16 @@ Jede Anzeige kostet den o.a. Preis <i>per character</i> + <code>1 sat</code> pro
 	TAGGEDBALANCEMSG: `
 <b>Insgesamt</b> <code>erhalten - ausgegeben</code> <b>intern sowie bei dritten Parteien</b> /apps<b>:</b>
 
-{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.15g" .Balance}} sat</i>  ({{dollar .Balance}})
+{{range .Balances}}<code>{{.Tag}}</code>: <i>{{printf "%.15g" .Balance}} Sats</i>  ({{dollar .Balance}})
 {{else}}
-<i>Keine Transaktionen bisher</i>
+<i>Bisher keine Transaktionen</i>
 {{end}}
 #balance
     `,
 	FAILEDUSER: "Analyse des Empfängernamens gescheitert.",
 	LOTTERYMSG: `
 Eine neue Lotterierunde wurde gestartet!
-Eintrittsgeld/Teilnahmegebühr: {{.EntrySats}} Sats
+Teilnahmegebühr: {{.EntrySats}} Sats
 Anzahl Teilnehmer: {{.Participants}}
 Preis: {{.Prize}}
 Registrierte Teilnehmer: {{.Registered}}
@@ -345,7 +345,7 @@ Registrierte Teilnehmer: {{.Registered}}
 	GIVERCANTJOIN:     "Der Initiator kann nicht selbst teilnehmen",
 	CANTJOINTWICE:     "Du kannst nicht zweimal teilnehmen!",
 	CANTREVEALOWN:     "Konnte versteckte Nachricht nicht aufdecken!",
-	CANTCANCEL:        "Du hast nötigen Rechte, um dies zu stornieren.",
+	CANTCANCEL:        "Du hast nicht die nötigen Rechte, um dies zu stornieren.",
 	FAILEDINVOICE:     "Rechnungserstellung gescheitert {{.Err}}",
 	STOPNOTIFY:        "Benachrichtigungen gestoppt.",
 	START: `
@@ -354,19 +354,19 @@ Registrierte Teilnehmer: {{.Registered}}
 🕹️  <b>Grundbefehle</b>
 <b>&lt;invoice&gt;</b> - Füge einfach eine Rechnung oder eine LNURL ein, um sie zu bezahlen.
 <b>/balance</b> - Zeigt dein Guthaben.
-<b>/tip &lt;amount;&gt;</b> - Sende dies als Antwort auf eine andere Nachricht, um ein Trinkgeld zu geben.
+<b>/tip &lt;amount&gt;</b> - Sende dies als Antwort auf eine andere Nachricht, um ein Trinkgeld zu geben.
 <b>/invoice &lt;amount&gt; &lt;description&gt;</b> - Generiert eine Lightning Rechnung <code>/invoice 400 'Kaffeekasse'</code>.
-<b>/send &lt;amount;&gt; &lt;user&gt;</b> - Sende einem anderen Nutzer einige Satoshis <code>/send 100 @fiatjaf</code>
+<b>/send &lt;amount&gt; &lt;user&gt;</b> - Sende einem anderen Nutzer einige Satoshis <code>/send 100 @fiatjaf</code>
 
 🍎 <b>Andere Dinge, die Du tun kannst</b>
-- Verwende <b>/send</b> , um Geld an eine Adresse zu senden <a href="https://lightningaddress.com">Lightning Address</a>.
+- Verwende <b>/send</b> , um Geld an eine <a href="https://lightningaddress.com">Lightning Adresse</a> zu senden.
 - Erhalte Geld auf {{ .YourName }}@lntxbot.com oder auf https://lntxbot.com/@{{ .YourName }}.
 - Erstelle Berechnungen wie bspw. <code>4*usd</code> oder <code>eur*rand()</code> , wann immer du einen Betrag in Satoshi angeben möchtest.
 - Benutze <b>/withdraw lnurl &lt;amount&gt;</b> um einen LNURL-Gutschein zu generieren.
 
 🎮 <b>Lustige oder nützliche Befehle</b>
-<b>/sats4ads</b> Werde bezahlt um Spam Nachrichten zu erhalten. Du kannst angeben wie viele -- oder schicke selbst Anzeigen. Hohe Teilnehmerrate! 
-<b>/giveaway</b> und <b>/giveflip</b> - Verschenke Geld in Gruppen!
+<b>/sats4ads</b> Werde bezahlt um Werbung zu erhalten. Du kannst angeben wie viele -- oder schicke selbst Werbe-Anzeigen. Hohe Teilnehmerrate! 
+<b>/giveaway</b> und <b>/giveflip</b> - Verschenke Satoshis in Gruppen!
 <b>/hide</b> - Verstecke eine Nachricht. Personen müssen bezahlen, um sie lesen zu können. Möglichkeiten zum Aufdecken der Nachricht: öffentlich, privat, crowdfunded. Zahlreiche Medien werden unterstützt.
 <b>/coinflip &lt;amount&gt; &lt;number_of_participants&gt;</b> - Erstellt einen Münzwurf, bei dem jeder mit dem nötigen Guthaben zur Teilnahme mitmachen kann <i>(costs 10sat fee)</i>.
 
@@ -378,18 +378,18 @@ Registrierte Teilnehmer: {{.Registered}}
 🏖  <b>Fortgeschrittene Befehle</b>
 <b>/bluewallet</b> - Verbindet BlueWallet oder Zeus mit deinem @lntxbot Account.
 <b>/transactions</b> - Listet alle deine Transaktionen mit Seitennummerierung auf.
-<b>/help &lt;command;&gt;</b> - Zeigt detaillierte Information für einen spezifischen Befehl an.
+<b>/help &lt;command&gt;</b> - Zeigt detaillierte Information für einen spezifischen Befehl an.
 <b>/paynow &lt;invoice&gt;</b> -  Bezahlt eine Rechnung unmittelbar - ohne Rückfragen an den Absender.
-<b>/send --anonymous &lt;amount&gt; &lt;user&gt;</b> - Der Empfänger weiß auf diese Art nicht, wer ihm/ihr diese Sats gesendet hat.
+<b>/send --anonymous &lt;amount&gt; &lt;user&gt;</b> - Die Zahlung bleibt für den Empfänger anonym. Der Absender ist nicht ersichtlich.
 
 🏛  <b>Gruppenverwaltung</b>
 <b>/toggle ticket &lt;amount&gt;</b> - Lege einen Eintrittspreis in Satoshis zum Betreten der Gruppe fest. Gut gegen Spammer! Das Geld geht an den Gruppeninhaber.
-<b>/toggle renamable &lt;amount&gt;</b> - Erlaubt Personen deine Gruppe umzubennen - und Du wirst dafür bezahlt. 
-<b>/toggle expensive &lt;amount&gt; &lt;regex pattern&gt;</b> - Berechne Personen etwas, wenn sie die falschen Wörter in deiner Gruppe verwenden (oder lasse es frei, damit ab sofort jede Nachricht kostenpflichtig ist).
+<b>/toggle renamable &lt;amount&gt;</b> - Erlaubt Nutzer deine Gruppe umzubennen - und Du wirst dafür bezahlt. 
+<b>/toggle expensive &lt;amount&gt; &lt;regex pattern&gt;</b> - Berechne Mitgliedern etwas, wenn sie festgelegte Wörter in deiner Gruppe verwenden (oder lasse es frei, damit ab sofort jede Nachricht kostenpflichtig ist).
 
 ---
 
-Es gibt noch einige weitere Befehle, Verwenden zu Übungszwecken auf eigenes Risiko.
+Es gibt noch einige weitere Befehle, die Verwendung zu Übungszwecken ist auf eigenes Risiko.
 
 Viel Erfolg! 🍽️
     `,
@@ -403,7 +403,7 @@ Viel Erfolg! 🍽️
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
 <b>Hash</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}
-<b>Amount</b>: <i>{{.Txn.Amount | printf "%.15g"}} sat</i> ({{dollar .Txn.Amount}})
+<b>Betrag</b>: <i>{{.Txn.Amount | printf "%.15g"}} Sat</i> ({{dollar .Txn.Amount}})
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Gebühr bezahlt</b>: <i>{{printf "%.15g" .Txn.Fees}} Sats</i>{{end}}
 {{.LogInfo}}
     `,
