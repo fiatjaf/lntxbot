@@ -433,7 +433,7 @@ Viel Erfolg! 🍽️
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Gebühr bezahlt</b>: <i>{{printf "%.15g" .Txn.Fees}} Sat</i>{{end}}
 {{.LogInfo}}
 	`,
-	TXLIST: `<b>{{if .Offset}}Transaktion von {{.From}} an {{.To}}{{else}}Letzte {{.Limit}} Transaktionen{{end}}</b>
+	TXLIST: `<b>{{if .Offset}}Transaktion {{.From}} bis {{.To}}{{else}}Letzte {{.Limit}} Transaktionen{{end}}</b>
 {{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.Amount | paddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>Bisher wurde keine Transaktion vorgenommen.</i>
