@@ -39,7 +39,7 @@ lnurl-auth success!
 <b>Domain</b>: <i>{{.Host}}</i>
 <b>Public Key</b>: <i>{{.PublicKey}}</i>
 `,
-	LNURLPAYPROMPT: `🟢 <code>{{.Domain}}</code> erwartet {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} sat</i>{{else}} einen Wert zwischen <i>{{.Min | printf "%.15g"}}</i> und <i>{{.Max | printf "%.15g"}} sat</i>{{end}} for:
+	LNURLPAYPROMPT: `🟢 <code>{{.Domain}}</code> erwartet {{if .FixedAmount}}<i>{{.FixedAmount | printf "%.15g"}} Sats</i>{{else}} einen Wert zwischen <i>{{.Min | printf "%.15g"}}</i> und <i>{{.Max | printf "%.15g"}} Sats</i>{{end}} for:
 
 <code>{{if .Long}}{{.Long | html}}{{else}}{{.Text | html}}{{end}}</code>{{if .WillSendPayerData}}
 
@@ -49,12 +49,12 @@ lnurl-auth success!
 - Um das zu verhindern, benutze <code>/lnurl --anonymous &lt;lnurl&gt;</code>.
 {{end}}
 
-{{if not .FixedAmount}}<b>Antworte mit der Anzahl (in satoshis, zwischen <i>{{.Min | printf "%.15g"}}</i> und <i>{{.Max | printf "%.15g"}}</i>) um zu bestätigen.</b>{{end}}
+{{if not .FixedAmount}}<b>Antworte mit der Anzahl (in Satoshi, zwischen <i>{{.Min | printf "%.15g"}}</i> und <i>{{.Max | printf "%.15g"}}</i>) um zu bestätigen.</b>{{end}}
     `,
 	LNURLPAYPROMPTCOMMENT: `📨 <code>{{.Domain}}</code> erwartet einen Kommentar.
 
 <b>Um die Zahlung zu bestätigen, bitte mit einem Text antworten</b>`,
-	LNURLPAYAMOUNTSNOTICE: `<code>{{.Domain}}</code> erwartet {{if .Exact}}{{.Min | printf "%.3f"}}{{else if .NoMax}}mindestens {{.Min | printf "%.0f"}}{{else}}zwischen {{.Min | printf "%.0f"}} und {{.Max | printf "%.0f"}}{{end}} sat.`,
+	LNURLPAYAMOUNTSNOTICE: `<code>{{.Domain}}</code> erwartet {{if .Exact}}{{.Min | printf "%.3f"}}{{else if .NoMax}}mindestens {{.Min | printf "%.0f"}}{{else}}zwischen {{.Min | printf "%.0f"}} und {{.Max | printf "%.0f"}}{{end}} Sats.`,
 	LNURLPAYSUCCESS: `<code>{{.Domain}}</code> sagt:
 {{.Text}}
 {{if .DecipherError}}Fehler beim Entziffern ({{.DecipherError}}):
@@ -69,18 +69,18 @@ lnurl-auth success!
 
 	TICKETSET: "Neue Gruppenmitglieder müssen einen Betrag/eine Rechnung von X Sats bezahlen {{.Sat}} (Vergewissere dich, dass du dafür @lntxbot als Administrator festgelegt hast).",
 	TICKETUSERALLOWED: "Ticket bezahlt. {{.User}} wurde erlaubt.",
-	TICKETMESSAGE: `⚠️ {{.User}}, um dieser Gruppe beitreten zu können, musst du {{.Sats}} Sat zahlen.
+	TICKETMESSAGE: `⚠️ {{.User}}, um dieser Gruppe beitreten zu können, musst du {{.Sats}} Sats zahlen.
 
 Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und für einen Tag gesperrt.
 `,
 	
 	RENAMABLEMSG:      "Jeder kann diese Gruppe umbenennen, wenn er Betrag X an Sats bezahlt {{.Sat}} (Vergewissere dich, dass du @lntxbot als Administrator festgelegt hast).",
-	RENAMEPROMPT:      "Bezahle <b>{{.Sats}} sat</b> um diese Gruppe umzubennenen <i>{{.Name}}</i>?",
+	RENAMEPROMPT:      "Bezahle <b>{{.Sats}} Sats</b> um diese Gruppe umzubennenen <i>{{.Name}}</i>?",
 	GROUPNOTRENAMABLE: "Diese Gruppe kann nicht umbenannt werden!",
 
 	INTERNALPAYMENTUNEXPECTED: "Etwas Unerwartetes ist passiert. Wenn das eine interne Rechnung ist, wird sie fehlschlagen. Vielleicht ist die Rechnung abgelaufen oder etwas anderes ist passiert, wir wissen es nicht. Wenn das eine externe Rechnung ist, ignoriere die Warnung.",
 	PAYMENTFAILED:             "❌ Bezahlung <code>{{.Hash}}</code> fehlgeschlagen.\n\n<i>{{.FailureString}}</i>",
-	PAIDMESSAGE: `✅ Bezahlt mit <i>{{printf "%.15g" .Sats}} Sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> Gebühren). 
+	PAIDMESSAGE: `✅ Bezahlt mit <i>{{printf "%.15g" .Sats}} Sats</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> Gebühren). 
 
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
@@ -92,7 +92,7 @@ Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und f�
 	INSUFFICIENTBALANCE: `Unzureichendes Guthaben für {{.Purpose}}. Benötigt {{.Sats | printf "%.15g"}} Sats mehr.`,
 
 	PAYMENTRECEIVED: `
-      ⚡️ Zahlung erhalten{{if .SenderName}} von <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} Sat ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
+      ⚡️ Zahlung erhalten{{if .SenderName}} von <i>{{ .SenderName }}</i>{{end}}: {{.Sats}} Sats ({{dollar .Sats}}). /tx_{{.Hash}}{{if .Message}} {{.Message | messageLink}}{{end}} #tx
       {{if .Comment}}
 📨 <i>{{.Comment}}</i>
       {{end}}
@@ -124,7 +124,7 @@ Service powered by https://deezy.io/.`,
 	EXPENSIVENOTIFICATION: "Die Nachricht {{.Link}} hat {{if .Sender}} gerade {{.Price}} gekostet{{else}} dir {{.Price}} eingebracht {{end}}.",
 	FREETALK:              "Nachrichten sind wieder kostenlos.",
 
-	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} Sat</i>`,
+	APPBALANCE: `#{{.App | lower}} Balance: <i>{{printf "%.15g" .Balance}} Sats</i>`,
 
 	HELPINTRO: `
 <pre>{{.Help}}</pre>
@@ -175,7 +175,7 @@ Listet alle Transaktionen mit Seitennummerierung (pagination controls). Jede Tra
 	BALANCEHELP: "zeigt das Guthaben in Satoshis und zusätzlich die Summe von allem, was du empfangen und mit dem Bot gesendet hast sowie den Gesamtbetrag an Gebühren.",
 	
 	FINEHELP: "Fordert einen Nutzer auf eine Strafe zu zahlen. Wenn dieser nicht innerhalb von 15 Minuten reagiert, wird er aus der Gruppe entfernt und für einen Tag ausgesperrt.",
-	FINEMESSAGE: `⚠️ {{.FinedUser}}, du wurdest zur Zahlung einer Strafe von <i>{{.Sats}} Satoshis</i> <b>aufgefordert</b>{{if .Reason}}, weil <i>{{ .Reason }}</i>{{end}}.
+	FINEMESSAGE: `⚠️ {{.FinedUser}}, du wurdest zur Zahlung einer Strafe von <i>{{.Sats}} Sats</i> <b>aufgefordert</b>{{if .Reason}}, weil <i>{{ .Reason }}</i>{{end}}.
 Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe entfernt.
     `,
 	FINEFAILURE: "{{.User}} ist der Aufforderung nicht nachgekommen und wird aus der Gruppe entfernt und für einen Tag gesperrt.",
@@ -216,7 +216,7 @@ Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe 
 	FUNDRAISEAD: `
 Spendenaktion {{.Fund}} für {{.ToUser}}!
 Zahl Spender für Vollendung benötigt: {{.Participants}}
-Jeder zahlt Betrag: {{.Sats}} sat
+Jeder zahlt Betrag: {{.Sats}} Sats
 Folgende Personen haben beigesteuert: {{.Registered}}
     `,
 	FUNDRAISEJOIN:        "Spende!",
@@ -262,8 +262,8 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 
 <code>/reveal 5c0b2rh4x</code> erstellt eine Aufforderung, die folgende Nachricht zu enthüllen 5c0b2rh4x, wenn sie existiert.
     `,
-	HIDDENREVEALBUTTON:   `{{.Sats}} Sat to reveal {{if .Public}}in-place{{else}}privately{{end}}. {{if gt .Crowdfund 1}}{{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Left: {{.HavePaid}}/{{.Times}}{{end}}`,
-	HIDDENDEFAULTPREVIEW: "Hier ist eine Nachricht versteckt. {{.Sats}} X Sats benötigt, um diese aufzudecken.",
+	HIDDENREVEALBUTTON:   `{{.Sats}} Sats um {{if .Public}}direkt öffentlich{{else}}privat{{end}} aufzudecken. {{if gt .Crowdfund 1}}{{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Verbleibend: {{.HavePaid}}/{{.Times}}{{end}}`,
+	HIDDENDEFAULTPREVIEW: "Hier ist eine Nachricht versteckt. {{.Sats}} Sats benötigt, um diese aufzudecken.",
 	HIDDENWITHID: `Versteckte Nachricht mit einer ID <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Wird öffentlicht sichtbar sobald {{.Message.Crowdfund}} Personen bezahlt haben {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Wird nur privat sichtbar gemacht {{.Message.Times}} gegenüber ersten Zahlenden{{else if .Message.Public}}Wird öffentlich sichtbar, sobald eine Person zahlt {{.Message.Satoshis}}{{else}}Wird gegenüber irgendeinem Zahlenden privat sichtbar gemacht{{end}}.
 
 {{if .WithInstructions}}Verwende /reveal_{{.HiddenId}} in einer Gruppe um dort zu teilen.{{end}}
@@ -284,7 +284,7 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 	SATS4ADSHELP: `
 Sats4ads ist ein Anzeigen-Marktplatz auf Telegram. Zahle Geld, um anderen Personen Anzeigen zu zeigen und erhalte Geld für jede Anzeige, die du siehst.
 
-Die Preise für jeden Nutzer sind in mSatoshi-pro Zeichen. Der maximale Preis ist 1000 msat.
+Die Preise für jeden Nutzer sind in Millisatoshi (1 Sat = 1000 mSat) pro Zeichen. Der maximale Preis ist 1000 mSat.
 Jede Anzeige beinhaltet eine festgelegte Gebühr von 1 Satoshi.
 Bilder und Videos werden pauschal bepreist, analog 100 Zeichen.
 Bei hinterlegten Links werden zusätzlich pauschal 300 Zeichen berechnet, weil sie über eine zusätzliche Voransicht verfügen.
@@ -302,13 +302,13 @@ Um eine Anzeige zu übertragen, musst du an den Bot eine Nachricht mit dem Anzei
 	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Nachricht veröffentlicht {{.NSent}} Zeit{{s .NSent}} für Gesamtkosten in Höhe von {{.Sats}} Sats ({{dollar .Sats}}).{{else}}. Konnte keinen Endpunkt im Netzwerk finden, um ihn über die festgelegten Parameter zu benachrichtigen. /sats4ads_rates{{end}}`,
 	SATS4ADSSTART:     `Nachricht wird veröffentlicht.`,
 	SATS4ADSPRICETABLE: `#sats4ads Anzahl <b>User pro Preislevel</b>.
-{{range .Rates}}<code>{{.UpToRate}} msat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
+{{range .Rates}}<code>{{.UpToRate}} mSat</code>: <i>{{.NUsers}} user{{s .NUsers}}</i>
 {{else}}
 <i>Keine Nutzer registriert, welche die Anzeige erhalten würden.</i>
 {{end}}
 Jede Anzeige kostet den oben angegebenen Preis <i>je Zeichen</i> + <code>1 Satoshi</code> je Nutzer.
     `,
-	SATS4ADSADFOOTER: `[#sats4ads: {{printf "%.15g" .Sats}} Sat]`,
+	SATS4ADSADFOOTER: `[#sats4ads: {{printf "%.15g" .Sats}} Sats]`,
 	SATS4ADSVIEWED:   `Beanspruchen`,
 
 	HELPHELP: "Zeigt die komplette Hilfe, sowie Hilfe zu einem spezifischen Befehl.",
@@ -316,7 +316,7 @@ Jede Anzeige kostet den oben angegebenen Preis <i>je Zeichen</i> + <code>1 Satos
 	STOPHELP: "Der Bot wird dir keine Benachrichtigungen mehr zeigen.",
 
 	PAYPROMPT: `
-{{if .Sats}}<i>{{.Sats}} Sat</i> ({{dollar .Sats}})
+{{if .Sats}}<i>{{.Sats}} Sats</i> ({{dollar .Sats}})
 {{end}}{{if .Description}}<i>{{.Description}}</i>{{else}}<code>{{.DescriptionHash}}</code>{{end}}
 {{if .ReceiverName}}
 <b>Empfänger</b>: {{.ReceiverName}}{{end}}
@@ -357,7 +357,7 @@ Jede Anzeige kostet den oben angegebenen Preis <i>je Zeichen</i> + <code>1 Satos
 Eine neue Lotterierunde wurde gestartet!
 Teilnahmegebühr: {{.EntrySats}} Sats
 Anzahl Teilnehmer: {{.Participants}}
-Preis: {{.Prize}}
+Preis: {{.Prize}} Sats
 Registrierte Teilnehmer: {{.Registered}}
     `,
 	INVALIDPARTNUMBER: "Ungültige Anzahl an Teilnehmern: {{.Number}}",
@@ -429,11 +429,11 @@ Viel Erfolg! 🍽️
 {{if .Txn.Payee.Valid}}<b>Payee</b>: {{.Txn.Payee.String | nodeLink}} (<u>{{.Txn.Payee.String | nodeAlias}}</u>){{end}}
 <b>Hash</b>: <code>{{.Txn.Hash}}</code>{{end}}{{if .Txn.Preimage.String}}
 <b>Preimage</b>: <code>{{.Txn.Preimage.String}}</code>{{end}}
-<b>Betrag</b>: <i>{{.Txn.Amount | printf "%.15g"}} Sat</i> ({{dollar .Txn.Amount}})
+<b>Betrag</b>: <i>{{.Txn.Amount | printf "%.15g"}} Sats</i> ({{dollar .Txn.Amount}})
 {{if not (eq .Txn.Status "RECEIVED")}}<b>Gebühr bezahlt</b>: <i>{{printf "%.15g" .Txn.Fees}} Sats</i>{{end}}
 {{.LogInfo}}
     `,
-	TXLIST: `<b>{{if .Offset}}Transaktion von {{.From}} an {{.To}}{{else}}Latest {{.Limit}} transactions{{end}}</b>
+	TXLIST: `<b>{{if .Offset}}Transaktion von {{.From}} an {{.To}}{{else}}Letzte {{.Limit}} Transaktionen{{end}}</b>
 {{range .Transactions}}<code>{{.StatusSmall}}</code> <code>{{.Amount | paddedSatoshis}}</code> {{.Icon}} {{.PeerActionDescription}}{{if not .TelegramPeer.Valid}}<i>{{.Description}}</i>{{end}} <i>{{.Time | timeSmall}}</i> /tx_{{.HashReduced}}
 {{else}}
 <i>Bisher wurde keine Transaktion vorgenommen.</i>
