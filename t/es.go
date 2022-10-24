@@ -143,7 +143,7 @@ Solo pega <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869w
 	SENDHELP: `Envía satoshis a otros usuarios de Telegram. El receptor recibe una notificación en su chat con @lntxbot. Sin embargo, si el receptor nunca ha hablado con el bot o lo ha bloqueado, no puede ser notificado. En ese caso puede cancelar la transacción después en la vista de /transactions.
 
 <code>/tip 100</code>, cuando se envía como respuesta a un mensaje en un grupo donde el bot está agregado, envía 100 satoshis al autor del mensaje.
-<code>/send 500 @username</code> envía 500 satoshis al usuario de Telegram @username <nombre_de_usuario>.
+<code>/send 500 @username</code> envía 500 satoshis al usuario de Telegram @username &lt;nombre_de_usuario&gt;.
 <code>/send anonymously 1000 @someone</code> lo mismo que arriba, pero el usuario de Telegram  @someone verá sólo: "Someone has sent you 1000 satoshis" <Alguien te ha enviado 1000 satoshis>.
     `,
 
