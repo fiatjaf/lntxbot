@@ -276,14 +276,14 @@ func displayTransactionList(ctx context.Context, page int, tag string, filter In
 		keyboard.InlineKeyboard[0] = append(
 			keyboard.InlineKeyboard[0],
 			tgbotapi.NewInlineKeyboardButtonData(
-				"newer", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
+				"<<", fmt.Sprintf("txl=%d-%s-%s", page-1, filter, tag)),
 		)
 	}
 	if len(txns) > 0 {
 		keyboard.InlineKeyboard[0] = append(
 			keyboard.InlineKeyboard[0],
 			tgbotapi.NewInlineKeyboardButtonData(
-				"older", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
+				">>", fmt.Sprintf("txl=%d-%s-%s", page+1, filter, tag)),
 		)
 	}
 
