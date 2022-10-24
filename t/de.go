@@ -143,25 +143,25 @@ Kann auch als <a href="https://core.telegram.org/bots/inline">inline query</a> v
 
 	// das "any" (irgendwas) wird hier nur zu Demonstrationszwecken verwendet. Wenn du das 'any' verwendest, wird es
 	// tatsächlich mit <satoshis> Variablen verknüpft, denn so löst das der Code.
-	RECEIVEHELP: `Generiert eine BOLT11 Rechnung mit einem vorgegebenem Satoshi Wert. Der Betrag wird @lntxbot Guthaben gut geschrieben. Wenn Du keinen Betrag einträgst, wird eine open-ended Rechnung generiert, die mit jedem Betrag beglichen werden kann.",
+	RECEIVEHELP: `Generiert eine BOLT11 Rechnung mit einem vorgegebenem Satoshi Wert. Der Betrag wird deinem @lntxbot Kontostand hinzugefügt. Wenn Du keinen Betrag angibst, wird eine offene Rechnung generiert, die mit jedem Betrag beglichen werden kann.",
 
 <code>/receive_320_for_something</code> generiert eine Rechnung in Höhe von 320 Sat mit der Beschreibung "für etwas"
 	`,
 
-	PAYHELP: `Dekodiert eine BOLT11 Rechnung und fragt, ob du sie begleichen willst (wenn nicht /jetzt bezahlen). Das ist der gleiche Vorgang, als ob du eine Rechnung im Chat einfügen oder weiterleiten würdest. Genauso funktioniert die Verwendung eines Bildes mit QR Code, in welchem die Rechnung enthalten ist (wenn das Bild scharf ist).
+	PAYHELP: `Dekodiert eine BOLT11 Rechnung und fragt, ob du sie bezahlen möchtest. Überspringe die Nachfrage durch Verwendung des Befehls /paynow. Das ist der gleiche Vorgang, als ob du eine Rechnung im Chat einfügen oder weiterleiten würdest. Genauso funktioniert die Verwendung eines Bildes mit QR Code, in welchem die Rechnung enthalten ist (wenn das Bild scharf ist).
 
-Einfach <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> einfügen dann wird die Rechnung dekodiert sie und das Programm bittet um Zahlung der Rechnung.  
+Einfach <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> einfügen, dann wird die Rechnung dekodiert und das Programm bittet um Zahlung der Rechnung.  
 
 <code>/paynow lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869we3gfqdq6gpkxuarcvfhhggr90psk6urvv5cqp2rzjqtqkejjy2c44jrwj08y5ygqtmn8af7vscwnflttzpsgw7tuz9r407zyusgqq44sqqqqqqqqqqqqqqqgqpcxuncdelh5mtthgwmkrum2u5m6n3fcjkw6vdnffzh85hpr4tem3k3u0mq3k5l3hpy32ls2pkqakpkuv5z7yms2jhdestzn8k3hlr437cpajsnqm</code> zahlt den Betrag ohne um Bestätigung zu fragen.
 
-/withdraw_lnurl_3000 generiert eine <b>lnurl und einen QR code um 3000</b> Satoshis von einer <a href="https://lightning-wallet.com">kompatiblen Wallet</a> abzuheben, ohne auf Betätigung zu warten.
+/withdraw_lnurl_3000 generiert eine <b>lnurl und einen QR code um 3000</b> Satoshi von einer <a href="https://lightning-wallet.com">kompatiblen Wallet</a> abzuheben, ohne auf Betätigung zu warten.
 	`,
 
-	SENDHELP: `Sende anderen Telegram Nutzern Satoshis. Der Empfänger erhält in seinem Chat eine Benachrichtigung von @lntxbot. Wenn der Empfänger niemals mit dem Bot kommuniziert hat oder diesen geblockt hat, kann er nicht benachrichtigt werden. In diesem Fall kannst du die Transaktion nachträglich in der Transaktionsansicht stornieren.
+	SENDHELP: `Sende anderen Telegram Nutzern Satoshi. Der Empfänger erhält in seinem Chat eine Benachrichtigung von @lntxbot. Wenn der Empfänger niemals mit dem Bot kommuniziert hat oder diesen geblockt hat, kann er nicht benachrichtigt werden. In diesem Fall kannst du die Transaktion nachträglich in der Transaktionsansicht stornieren.
 
-<code>/tip 100</code>, wenn dies in einer Gruppe, in der der Bot installiert ist, als Antwort auf eine Nachricht gesendet wird, werden 100 Satoshis an den Autor der Nachricht gesendet.
-<code>/send 500 @username</code> sendet 500 Satoshis an den Telegram Nutzer @username.
-<code>/send anonymously 1000 @someone</code> das Gleiche wie oben, aber der Telegram Nutzer @someone wird nur sehen: "Jemand hat dir 1000 Satoshis gesendet".
+<code>/tip 100</code>, wenn dies in einer Gruppe, in der der Bot installiert ist, als Antwort auf eine Nachricht gesendet wird, werden 100 Satoshi an den Autor der Nachricht gesendet.
+<code>/send 500 @username</code> sendet 500 Satoshi an den Telegram Nutzer @username.
+<code>/send anonymously 1000 @someone</code> das Gleiche wie oben, aber der Telegram Nutzer @someone wird nur sehen: "Jemand hat dir 1000 Satoshi gesendet".
 	`,
 
 	TRANSACTIONSHELP: `
@@ -172,7 +172,7 @@ Listet alle Transaktionen mit Seitennummerierung (pagination controls). Jede Tra
 <code>/transactions --out</code> listet nur ausgehende Transactions auf.
 	`,
 
-	BALANCEHELP: "zeigt das Guthaben in Satoshis und zusätzlich die Summe von allem, was du empfangen und mit dem Bot gesendet hast sowie den Gesamtbetrag an Gebühren.",
+	BALANCEHELP: "zeigt das Guthaben in Satoshi und zusätzlich die Summe von allem, was du empfangen und mit dem Bot gesendet hast sowie den Gesamtbetrag an Gebühren.",
 	
 	FINEHELP: "Fordert einen Nutzer auf eine Strafe zu zahlen. Wenn dieser nicht innerhalb von 15 Minuten reagiert, wird er aus der Gruppe entfernt und für einen Tag ausgesperrt.",
 	FINEMESSAGE: `⚠️ {{.FinedUser}}, du wurdest zur Zahlung einer Strafe von <i>{{.Sats}} Sat</i> <b>aufgefordert</b>{{if .Reason}}, weil <i>{{ .Reason }}</i>{{end}}.
@@ -190,9 +190,9 @@ Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe 
 	GIVEAWAYCLAIM:   "Beanspruchen",
 	GIVEAWAYMSG:     "{{.User}} {{if .Away}}verschenkt{{else if .Receiver}}@{{.Receiver}}{{else}}gibt dir{{end}} {{.Sats}} Sat!",
 
-	COINFLIPHELP: `Startet eine Lotterie mit einer anzugebenen Anzahl an Teilnehmern. Jeder zahlt die gleiche Menge Satoshis. Der Gewinner erhält alle Einsätze. Die Satoshi werden erst von den Teilnehmerkonten bewegt, wenn die Lotterie abgeschlossen wurde.
+	COINFLIPHELP: `Startet eine Lotterie mit einer anzugebenen Anzahl an Teilnehmern. Jeder zahlt die gleiche Menge Satoshi. Der Gewinner erhält alle Einsätze. Die Satoshi werden erst von den Teilnehmerkonten bewegt, wenn die Lotterie abgeschlossen wurde.
 
-/coinflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis (inklusive seiner eingesetzten 100, also Netto 400 Satoshis).
+/coinflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshi (inklusive seiner eingesetzten 100, also Netto 400 Satoshi).
 	`,
 	COINFLIPWINNERMSG:      "Du bist der Gewinner des Münzwurfes mit einem Preisgeld von {{.TotalSats}} Sat. Verloren haben: {{.Senders}}.",
 	COINFLIPGIVERMSG:       "Du hast {{.IndividualSats}} Sat bei einem Münzwurf verloren. Der Gewinner ist {{.Receiver}}.",
@@ -202,7 +202,7 @@ Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe 
 
 	GIVEFLIPHELP: `Startet ein Satoshi-Geschenk, aber anstatt es der ersten Person die es anklickt zu geben, wird der Betrag zwischen den ersten x Teilnehmern verlost. 
 
-/giveflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshis vom Initiator/Befehlsgeber.
+/giveflip_100_5: 5 Teilnehmer benötigt, der Gewinner erhält 500 Satoshi vom Initiator.
 	`,
 	GIVEFLIPMSG:       "{{.User}} Nutzer verschenkt {{.Sats}} Sat an eine glückliche Person aus {{.Participants}} Teilnehmern!",
 	GIVEFLIPAD:        "{{.Sats}} Sat werden verschenkt. Nimm teil und nutze die Möglichkeit zu gewinnen! Noch {{.SpotsLeft}} Plätze von {{.MaxPlayers}} Plätzen frei!",
@@ -211,7 +211,7 @@ Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe 
 
 	FUNDRAISEHELP: `Starte ein Crowdfunding mit festgelegter Zahl an Teilnehmern und einer Spendensumme. Wenn die vorgegebene Zahl an Teilnehmern erreicht ist, wird es durchgeführt. Ansonsten wird es nach einigen Stunden storniert.
 
-<code>/fundraise 10000 8 @user</code>: Telegram Nutzer @user wird 8000 Satoshis erhalten, nachdem 8 Personen teilgenommen haben. 
+<code>/fundraise 10000 8 @user</code>: Telegram Nutzer @user wird 8000 Satoshi erhalten, nachdem 8 Personen teilgenommen haben. 
 	`,
 	FUNDRAISEAD: `
 Spendenaktion {{.Fund}} für {{.ToUser}}!
@@ -273,7 +273,7 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 	HIDDENMSGNOTFOUND: "Versteckte Nachricht konnte nicht gefunden werden.",
 	HIDDENSHAREBTN:    "Teile dies in einem anderen Chat",
 
-	TOGGLEHELP: `Schaltet Bot Funktionen in der Gruppe ein/aus. In Supergruppen kann es nur von Admins bedient werden.
+	TOGGLEHELP: `Schaltet Funktionen des Bots in der Gruppe ein/aus. In Supergruppen kann der Befehl nur von Admins verwendet werden.
 
 /toggle_ticket_10 Erstellt kostenpflichtige Tickets für die Gruppe. Als Anti-Spamfunktion nützlich. Das Geld geht an den Gruppenbesitzer.
 /toggle_ticket stoppt die Gebühr für kostenpflichtige Gruppentickets. 
@@ -296,7 +296,7 @@ Um eine Anzeige zu übertragen, musst du an den Bot eine Nachricht mit dem Anzei
 /sats4ads_rates zeigt eine Übersicht wie viele Knotenpunkte auf jedem Preislevel existieren. Nützlich, um sein Budget/Guthaben frühzeitig zu planen.
 /sats4ads_rate zeigt deinen Preis/deine Rate an.
 /sats4ads_preview Antworte hiermit auf eine Nachricht um zu sehen, wie viele andere Nutzer sie sehen werden. Der in der Voransicht angezeigte Satoshi Betrag hat keinerlei Bedeutung.
-/sats4ads_broadcast_1000 veröffentlicht eine Anzeige. Die letzte Zahl ist die maximale Zahl an verwendeten Satoshis. Günstigere Anzeigenlsitings werden gegenüber teureren Listings bevorzugt. Muss als Antwort auf eine andere Nachricht aufgrufen werden, deren Inhalt als Anzeigentext verwendet werden soll.
+/sats4ads_broadcast_1000 veröffentlicht eine Anzeige. Die letzte Zahl ist die maximale Zahl an verwendeten Satoshi. Günstigere Anzeigenlsitings werden gegenüber teureren Listings bevorzugt. Muss als Antwort auf eine andere Nachricht aufgrufen werden, deren Inhalt als Anzeigentext verwendet werden soll.
 	`,
 	SATS4ADSTOGGLE:    `#sats4ads {{if .On}}Siehe dir Werbeanzeigen an und erhalte {{printf "%.15g" .Sats}} Sat pro Zeichen.{{else}}Du wirst keine weiteren Anzeigen mehr angezeigt bekommen.{{end}}`,
 	SATS4ADSBROADCAST: `#sats4ads {{if .NSent}}Nachricht veröffentlicht {{.NSent}} Zeit{{s .NSent}} für Gesamtkosten in Höhe von {{.Sats}} Sat ({{dollar .Sats}}).{{else}}. Konnte keinen Endpunkt im Netzwerk finden, um ihn über die festgelegten Parameter zu benachrichtigen. /sats4ads_rates{{end}}`,
@@ -382,7 +382,7 @@ Registrierte Teilnehmer: {{.Registered}}
 <b>/balance</b> - Zeigt dein Guthaben.
 <b>/tip &lt;amount&gt;</b> - Sende dies als Antwort auf eine andere Nachricht, um ein Trinkgeld zu geben.
 <b>/invoice &lt;amount&gt; &lt;description&gt;</b> - Generiert eine Lightning Rechnung <code>/invoice 400 'Kaffeekasse'</code>.
-<b>/send &lt;amount&gt; &lt;user&gt;</b> - Sende einem anderen Nutzer einige Satoshis <code>/send 100 @fiatjaf</code>
+<b>/send &lt;amount&gt; &lt;user&gt;</b> - Sende einem anderen Nutzer einige Satoshi <code>/send 100 @fiatjaf</code>
 
 🍎 <b>Andere Dinge, die Du tun kannst</b>
 - Verwende <b>/send</b> , um Geld an eine <a href="https://lightningaddress.com">Lightning Adresse</a> zu senden.
@@ -392,7 +392,7 @@ Registrierte Teilnehmer: {{.Registered}}
 
 🎮 <b>Lustige oder nützliche Befehle</b>
 <b>/sats4ads</b> Werde bezahlt um Werbung zu erhalten. Du kannst angeben wie viele -- oder schicke selbst Werbe-Anzeigen. Hohe Teilnehmerrate! 
-<b>/giveaway</b> und <b>/giveflip</b> - Verschenke Satoshis in Gruppen!
+<b>/giveaway</b> und <b>/giveflip</b> - Verschenke Satoshi in Gruppen!
 <b>/hide</b> - Verstecke eine Nachricht. Personen müssen bezahlen, um sie lesen zu können. Möglichkeiten zum Aufdecken der Nachricht: öffentlich, privat, crowdfunded. Zahlreiche Medien werden unterstützt.
 <b>/coinflip &lt;amount&gt; &lt;number_of_participants&gt;</b> - Erstellt einen Münzwurf, bei dem jeder mit dem nötigen Guthaben zur Teilnahme mitmachen kann <i>(costs 10sat fee)</i>.
 
@@ -409,7 +409,7 @@ Registrierte Teilnehmer: {{.Registered}}
 <b>/send --anonymous &lt;amount&gt; &lt;user&gt;</b> - Die Zahlung bleibt für den Empfänger anonym. Der Absender ist nicht ersichtlich.
 
 🏛  <b>Gruppenverwaltung</b>
-<b>/toggle ticket &lt;amount&gt;</b> - Lege einen Eintrittspreis in Satoshis zum Betreten der Gruppe fest. Gut gegen Spammer! Das Geld geht an den Gruppeninhaber.
+<b>/toggle ticket &lt;amount&gt;</b> - Lege einen Eintrittspreis in Satoshi zum Betreten der Gruppe fest. Gut gegen Spammer! Das Geld geht an den Gruppeninhaber.
 <b>/toggle renamable &lt;amount&gt;</b> - Erlaubt Nutzer deine Gruppe umzubennen - und Du wirst dafür bezahlt. 
 <b>/toggle expensive &lt;amount&gt; &lt;regex pattern&gt;</b> - Berechne Mitgliedern etwas, wenn sie festgelegte Wörter in deiner Gruppe verwenden (oder lasse es frei, damit ab sofort jede Nachricht kostenpflichtig ist).
 
