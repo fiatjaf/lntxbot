@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -19,6 +20,7 @@ var CURRENCIES = []string{
 	"ANG",
 	"AOA",
 	"ARS",
+	"ARSBLUE",
 	"AUD",
 	"AWG",
 	"AZN",
@@ -188,6 +190,18 @@ func getMsatsPerFiatUnit(currencyCode string) (int64, error) {
 		cancel()
 	}()
 
+	modifier := 1.0
+	// when fetching the ARSBLUE rate we get the USD rate then multiply it for the Dollar Blue rate
+	if upper == "ARSBLUE" {
+		var err error
+		modifier, err = doGetPrice(ctx, "https://api.bluelytics.com.ar/v2/evolution.json?days=2", "1.value_buy")
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch blue price: %w", err)
+		}
+		upper = "USD"
+		lower = "usd"
+	}
+
 	bitfinex := getPrice(ctx, "https://api.bitfinex.com/v1/pubticker/btc"+lower, "last_price")
 	bitstamp := getPrice(ctx, "https://www.bitstamp.net/api/v2/ticker/btc"+lower, "last")
 	coinbase := getPrice(ctx, "https://api.coinbase.com/v2/exchange-rates?currency=BTC", "data.rates."+upper)
@@ -206,6 +220,9 @@ func getMsatsPerFiatUnit(currencyCode string) (int64, error) {
 		return 0, errors.New("couldn't get BTC price for " + currencyCode)
 	}
 
+	// modify this with anything we had set previously
+	fiatPerBTC = modifier * fiatPerBTC
+
 	msatPerFiat := 100000000000 / fiatPerBTC
 	return int64(msatPerFiat), nil
 }
@@ -213,28 +230,40 @@ func getMsatsPerFiatUnit(currencyCode string) (int64, error) {
 func getPrice(ctx context.Context, url string, pattern string) <-chan float64 {
 	result := make(chan float64)
 	go func() {
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		price, err := doGetPrice(ctx, url, pattern)
 		if err != nil {
 			return
 		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return
-		}
-		if resp.StatusCode >= 300 {
-			return
-		}
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return
-		}
-
-		fiatPerBTC := gjson.GetBytes(data, pattern).Float()
-		if fiatPerBTC <= 0 {
-			return
-		}
-
-		result <- fiatPerBTC
+		result <- price
 	}()
 	return result
+}
+
+func doGetPrice(ctx context.Context, url string, pattern string) (float64, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	if resp.StatusCode >= 300 {
+		return 0, fmt.Errorf("status code %d", resp.StatusCode)
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	fiatPerBTC := gjson.GetBytes(data, pattern).Float()
+	if fiatPerBTC <= 0 {
+		trimmed := data
+		if len(data) > 200 {
+			trimmed = data[:200]
+		}
+		return 0, fmt.Errorf("couldn't find '%s' in '%s'", pattern, trimmed)
+	}
+
+	return fiatPerBTC, nil
 }
