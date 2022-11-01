@@ -158,7 +158,7 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 	// build text with params
 	if text == "" && template != "" {
 		// fallback locale to user
-		if locale == "" && target != nil {
+		if target != nil {
 			locale = target.Locale
 		}
 
