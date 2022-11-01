@@ -59,7 +59,12 @@ func parseSatoshis(opts docopt.Opts) (msats int64, err error) {
 		return 0, errors.New("'satoshis' param missing")
 	}
 
-	return parseAmountString(amt)
+	msats, err = parseAmountString(amt)
+	if err != nil {
+		return 0, err
+	}
+
+	return msats, nil
 }
 
 func parseAmountString(amt string) (msats int64, err error) {
@@ -79,21 +84,26 @@ func parseAmountString(amt string) (msats int64, err error) {
 		return int64(sats * 1000), nil
 	}
 
+	// it's an expression
+	return calculate(amt)
+}
+
+func calculate(expr string) (int64, error) {
 	// replace emojis
-	amt = strings.ReplaceAll(amt, "🍌", "banana")
-	amt = strings.ReplaceAll(amt, "🍉", "watermelon")
-	amt = strings.ReplaceAll(amt, "🍿", "popcorn")
-	amt = strings.ReplaceAll(amt, "🐄", "cow")
-	amt = strings.ReplaceAll(amt, "🐻", "bear")
-	amt = strings.ReplaceAll(amt, "☕", "coffee")
-	amt = strings.ReplaceAll(amt, "🍺", "beer")
-	amt = strings.ReplaceAll(amt, "🍜", "ramen")
-	amt = strings.ReplaceAll(amt, "🐂", "bull")
-	amt = strings.ReplaceAll(amt, "🐹", "hamster")
-	amt = strings.ReplaceAll(amt, "👑", "crown")
+	expr = strings.ReplaceAll(expr, "🍌", "banana")
+	expr = strings.ReplaceAll(expr, "🍉", "watermelon")
+	expr = strings.ReplaceAll(expr, "🍿", "popcorn")
+	expr = strings.ReplaceAll(expr, "🐄", "cow")
+	expr = strings.ReplaceAll(expr, "🐻", "bear")
+	expr = strings.ReplaceAll(expr, "☕", "coffee")
+	expr = strings.ReplaceAll(expr, "🍺", "beer")
+	expr = strings.ReplaceAll(expr, "🍜", "ramen")
+	expr = strings.ReplaceAll(expr, "🐂", "bull")
+	expr = strings.ReplaceAll(expr, "🐹", "hamster")
+	expr = strings.ReplaceAll(expr, "👑", "crown")
 
 	// lowercase
-	amt = strings.ToLower(amt)
+	expr = strings.ToLower(expr)
 
 	// prepare mathcat
 	p := mathcat.New()
@@ -106,7 +116,7 @@ func parseAmountString(amt string) (msats int64, err error) {
 	// add currency values
 	for _, currencyCode := range CURRENCIES {
 		lower := strings.ToLower(currencyCode)
-		if strings.Index(amt, lower) != -1 {
+		if strings.Index(expr, lower) != -1 {
 			fiatMsat, err := getMsatsPerFiatUnit(currencyCode)
 			if err != nil {
 				return 0, err
@@ -115,17 +125,13 @@ func parseAmountString(amt string) (msats int64, err error) {
 			p.Variables[lower] = fiatRat
 		}
 	}
-
 	// run mathcat
-	r, err := p.Run(amt)
+	r, err := p.Run(expr)
 	if err == nil {
 		f, _ := r.Float64()
-		if f < 1000 {
-			return 0, errors.New("'satoshis' param invalid")
-		}
 		return int64(f), nil
 	} else {
-		return 0, fmt.Errorf("invalid math expression '%s': %w", amt, err)
+		return 0, fmt.Errorf("invalid math expression '%s': %w", expr, err)
 	}
 }
 
@@ -442,7 +448,7 @@ func imageBytesFromURL(url string) ([]byte, error) {
 
 	img = resize.Resize(160, 0, img, resize.NearestNeighbor)
 	out := &bytes.Buffer{}
-	err = jpeg.Encode(out, img, &jpeg.Options{50})
+	err = jpeg.Encode(out, img, &jpeg.Options{Quality: 50})
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode image: %w", err)
 	}

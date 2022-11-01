@@ -701,8 +701,10 @@ parsed:
 	case opts["sats4ads"].(bool):
 		handleSats4Ads(ctx, u, opts)
 	case opts["satoshis"].(bool), opts["calc"].(bool):
-		msats, err := parseSatoshis(opts)
-		if err == nil {
+		msats, err := calculate(opts["<expression>"].(string))
+		if err != nil {
+			send(ctx, t.ERROR, t.T{"Err": err.Error()})
+		} else {
 			send(ctx, fmt.Sprintf("%.15g sat", float64(msats)/1000))
 		}
 	case opts["moon"].(bool):
