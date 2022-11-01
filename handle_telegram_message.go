@@ -398,7 +398,7 @@ parsed:
 		}
 
 		hiddenmessage.Times, _ = opts.Int("--revealers")
-		if hiddenmessage.Times > 1 {
+		if hiddenmessage.Times > 0 {
 			hiddenmessage.Public = false
 			hiddenmessage.Crowdfund = 1
 		} else {
