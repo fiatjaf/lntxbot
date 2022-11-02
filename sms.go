@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/docopt/docopt-go"
 	"github.com/die-net/lrucache"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
@@ -24,15 +25,21 @@ var sms4satsHttpClient = &http.Client{
 }
 
 func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
+	u := ctx.Value("initiator").(*User)
 
 	country := "Russia"
 	if opts["country"].(bool) {
-		country = opts["country"]
+		country = opts["country"].(string)
 	}
 
 	service := "other"
 	if opts["service"].(bool) {
-		service = opts["other"]
+		service = opts["other"].(string)
+	}
+
+	var order struct {
+		country    	string `json:"country"`
+		service 	string `json:"service"`
 	}
 
 	params, _ := json.Marshal(struct {
@@ -68,6 +75,8 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 
+	processingMessageId := send(ctx, u, val.payreq+"\n\n"+translate(ctx, t.PROCESSING))
+
 	if hash, err := u.payInvoice(ctx, val.payreq, 0); err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId)
 	} else {
@@ -89,8 +98,8 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 
 				send(ctx, u, t.SMSRECEIVE, t.T{
 					"number":  		val2.number,
-					"country":    	val.country,
-					"service": 		val.service,
+					"country":    	order.country,
+					"service": 		order.service,
 					"orderId":  	val.orderId,
 				})
 				
@@ -101,7 +110,7 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	}
 }
 
-func handleSendToAddress(ctx context.Context, address string, msats int64) {
+func handleSendSMS(ctx context.Context, address string, msats int64) {
 	u := ctx.Value("initiator").(*User)
 
 	params, _ := json.Marshal(struct {
