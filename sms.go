@@ -24,17 +24,26 @@ var sms4satsHttpClient = &http.Client{
 }
 
 func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
-	u := ctx.Value("initiator").(*User)
-	code := createLNURLPayCode(u, "sms4sats")
+
+	country := "Russia"
+	if opts["country"].(bool) {
+		country = opts["country"]
+	}
+
+	service := "other"
+	if opts["service"].(bool) {
+		service = opts["other"]
+	}
 
 	params, _ := json.Marshal(struct {
-		Code string `json:"lnurl_or_lnaddress"`
-	}{code})
+		country         	string `json:"country"`
+		service      		string `json:"service"`
+	}{country, service})
 
 	resp, err := sms4satsHttpClient.Post("https://api2.sms4sats.com/createorder", "application/json", bytes.NewBuffer(params))
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{
-			"Err": fmt.Sprintf("failed to call deezy.io API: %s", err.Error()),
+			"Err": fmt.Sprintf("failed to call sms4sats.com API: %s", err.Error()),
 		})
 		return
 	}
@@ -42,29 +51,54 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		b, _ := ioutil.ReadAll(resp.Body)
 		text := string(b)
 		send(ctx, u, t.ERROR, t.T{
-			"Err": fmt.Sprintf("deezy.io API returned an error (%d): %s", resp.StatusCode, text),
+			"Err": fmt.Sprintf("sms4sats.com API returned an error (%d): %s", resp.StatusCode, text),
 		})
 		return
 	}
 
 	var val struct {
-		Address    string `json:"address"`
-		Commitment string `json:"commitment"`
-		Signature  string `json:"signature"`
+		status    	string `json:"status"`
+		orderId 	string `json:"orderId"`
+		payreq  	string `json:"payreq"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&val); err != nil {
 		send(ctx, u, t.ERROR, t.T{
-			"Err": fmt.Sprintf("deezy.io API returned a broken response"),
+			"Err": fmt.Sprintf("sms4sats.com API returned a broken response"),
 		})
 		return
 	}
 
-	send(ctx, u, t.ONCHAINDEPOSIT, t.T{
-		"ServiceId":  s.ServiceId,
-		"Address":    val.Address,
-		"Commitment": escapeHTML(val.Commitment),
-		"Signature":  val.Signature,
-	})
+	if hash, err := u.payInvoice(ctx, val.payreq, 0); err != nil {
+		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId)
+	} else {
+		// wait until invoice is paid
+		go func() {
+			<-waitPaymentSuccess(hash)
+			time.Sleep(5 * time.Second)
+			if resp, err := http.Get("https://api2.sms4sats.com/orderstatus?orderId=" + val.orderId); err == nil {
+				var val2 struct {
+					number 	int `json:"number"`
+					// Hex  	string `json:"tx_hex"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&val2); err != nil {
+					send(ctx, u, t.ERROR, t.T{
+						"Err": fmt.Sprintf("sms4sats.com API returned a broken response from status check"),
+					})
+					return
+				}
+
+				send(ctx, u, t.SMSRECEIVE, t.T{
+					"number":  		val2.number,
+					"country":    	val.country,
+					"service": 		val.service,
+					"orderId":  	val.orderId,
+				})
+				
+				// TODO: continue checking orderstatus to see if code is received, then send to user
+				// send(ctx, u, processingMessageId, t.SMSSTATUS, t.T{"code": val.code})
+			}
+		}()
+	}
 }
 
 func handleSendToAddress(ctx context.Context, address string, msats int64) {
@@ -76,10 +110,10 @@ func handleSendToAddress(ctx context.Context, address string, msats int64) {
 		OnChainSatsPerVByte int    `json:"on_chain_sats_per_vbyte"`
 	}{msats / 1000, address, 2})
 
-	resp, err := http.Post("https://api.deezy.io/v1/swap", "application/json", bytes.NewBuffer(params))
+	resp, err := http.Post("https://api2.sms4sats.com/v1/swap", "application/json", bytes.NewBuffer(params))
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{
-			"Err": fmt.Sprintf("failed to call deezy.io API: %s", err.Error()),
+			"Err": fmt.Sprintf("failed to call sms4sats.com API: %s", err.Error()),
 		})
 		return
 	}
@@ -87,7 +121,7 @@ func handleSendToAddress(ctx context.Context, address string, msats int64) {
 		b, _ := ioutil.ReadAll(resp.Body)
 		text := string(b)
 		send(ctx, u, t.ERROR, t.T{
-			"Err": fmt.Sprintf("deezy.io API returned an error (%d): %s", resp.StatusCode, text),
+			"Err": fmt.Sprintf("sms4sats.com API returned an error (%d): %s", resp.StatusCode, text),
 		})
 		return
 	}
@@ -97,7 +131,7 @@ func handleSendToAddress(ctx context.Context, address string, msats int64) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&val); err != nil || val.Bolt11Invoice == "" {
 		send(ctx, u, t.ERROR, t.T{
-			"Err": fmt.Sprintf("deezy.io API returned a broken response"),
+			"Err": fmt.Sprintf("sms4sats.com API returned a broken response"),
 		})
 		return
 	}
@@ -111,7 +145,7 @@ func handleSendToAddress(ctx context.Context, address string, msats int64) {
 		return
 	} else if inv.MSatoshi > (msats + 1000000) {
 		send(ctx, u, t.ERROR,
-			t.T{"Err": "The invoice we got from deezy.io is too expensive, so we're stopping here just in case, let us know if this is wrong. You can also pay the invoice manually."},
+			t.T{"Err": "The invoice we got from sms4sats.com is too expensive, so we're stopping here just in case, let us know if this is wrong. You can also pay the invoice manually."},
 			processingMessageId)
 		return
 	}
@@ -123,14 +157,14 @@ func handleSendToAddress(ctx context.Context, address string, msats int64) {
 		go func() {
 			<-waitPaymentSuccess(hash)
 			time.Sleep(5 * time.Second)
-			if resp, err := http.Get("https://api.deezy.io/v1/swap/lookup?bolt11_invoice=" + val.Bolt11Invoice); err == nil {
+			if resp, err := http.Get("https://api.sms4sats.com/v1/swap/lookup?bolt11_invoice=" + val.Bolt11Invoice); err == nil {
 				var val struct {
 					Txid string `json:"on_chain_txid"`
 					Hex  string `json:"tx_hex"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&val); err != nil {
 					send(ctx, u, t.ERROR, t.T{
-						"Err": fmt.Sprintf("deezy.io API returned a broken response from status check"),
+						"Err": fmt.Sprintf("sms4sats.com API returned a broken response from status check"),
 					})
 					return
 				}

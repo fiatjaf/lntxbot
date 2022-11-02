@@ -68,6 +68,8 @@ const (
 	ONCHAINSTATUS  Key = "OnchainStatus"
 	ONCHAINDEPOSIT Key = "OnchainDeposit"
 
+	RECEIVESMS Key = "ReceiveSms"
+
 	SPAMMYMSG             Key = "SpammyMsg"
 	COINFLIPSENABLEDMSG   Key = "CoinflipsEnabledMsg"
 	LANGUAGEMSG           Key = "LanguageMsg"
