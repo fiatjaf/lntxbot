@@ -162,14 +162,37 @@ func main() {
 	// setup telegram webhook
 	go func() {
 		time.Sleep(1 * time.Second)
-		// set webhook
-		_, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to set webhook")
-		}
-		_, err := bot.GetWebhookInfo()
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to get webhook info")
+
+		
+		// // set webhook
+		// _, err = bot.SetWebhook(tgbotapi.NewWebhook(s.ServiceURL + "/" + bot.Token))
+		// if err != nil {
+		// 	log.Fatal().Err(err).Msg("failed to set webhook")
+		// }
+		// _, err := bot.GetWebhookInfo()
+		// if err != nil {
+		// 	log.Fatal().Err(err).Msg("failed to get webhook info")
+
+
+		// remove webhook
+		bot.RemoveWebhook()
+
+		u := tgbotapi.NewUpdate(0)
+		u.Timeout = 60
+
+		updates, err := bot.GetUpdatesChan(u)
+		log.Print(err)
+		for update := range updates {
+			if update.Message != nil { // If we got a message
+					log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
+					msg.ReplyToMessageID = update.Message.MessageID
+
+					bot.Send(msg)
+			}
+
+
 		}
 	}()
 
