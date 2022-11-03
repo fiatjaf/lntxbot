@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
+	// "strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
-	"github.com/msingleton/amplitude-go"
+	// "github.com/msingleton/amplitude-go"
 )
 
 type User struct {
@@ -285,11 +285,11 @@ WHERE account = $1 AND service = $2
 }
 
 func (u User) track(event string, eventProperties map[string]interface{}) {
-	amp.Event(amplitude.Event{
-		UserId:          strconv.Itoa(u.Id),
-		EventType:       event,
-		EventProperties: eventProperties,
-	})
+	// amp.Event(amplitude.Event{
+	// 	UserId:          strconv.Itoa(u.Id),
+	// 	EventType:       event,
+	// 	EventProperties: eventProperties,
+	// })
 }
 
 func (u User) AtName(ctx context.Context) string {
