@@ -165,6 +165,9 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to set webhook")
 		}
+
+		// bot.Debug = true
+
 		_, err := bot.GetWebhookInfo()
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to get webhook info")

@@ -488,6 +488,8 @@ parsed:
 		go handleInvoice(ctx, opts, desc)
 	case opts["deposit"].(bool), opts["depositbtc"].(bool), opts["fundbtc"].(bool):
 		go handleDepositOnchain(ctx)
+	case opts["sms"].(bool), opts["smsreceive"].(bool):
+		go handleReceiveSMS(ctx, opts)
 	case opts["lnurl"].(bool):
 		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{
 			anonymous: opts["--anonymous"].(bool),

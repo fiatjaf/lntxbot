@@ -29,7 +29,7 @@ CREATE TABLE groupchat (
   renamable int NOT NULL DEFAULT 0,
   coinflips bool NOT NULL DEFAULT true,
   expensive_price int NOT NULL DEFAULT 0,
-  expensive_pattern text NOT NULL DEFAULT '',
+  expensive_pattern text NOT NULL DEFAULT ''
 );
 
 CREATE TABLE lightning.transaction (

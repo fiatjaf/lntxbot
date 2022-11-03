@@ -43,6 +43,10 @@ var methods = []def{
 		argstr:  "",
 	},
 	{
+		aliases: []string{"sms", "smsreceive"},
+		argstr:  "[<country>] [<service>]",
+	},
+	{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
 		argstr:  "(lnurl <satoshis> | [now] [<invoice>] [<satoshis>])",
 	},

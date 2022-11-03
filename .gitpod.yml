@@ -1,0 +1,47 @@
+tasks:
+  - init: |
+      go get && go build ./... && go test ./... && make
+      mkdir ~/.cliche
+      wget https://raw.githubusercontent.com/nbd-wtf/cliche/master/src/main/resources/reference.conf -O ~/.cliche/cliche.conf
+      sed -i '8i  seed = "acid lunch arrange dish spin tumble price frequent turtle motion engage flat"' ~/.cliche/cliche.conf
+    command: SERVICE_URL="https://3002-$(echo $GITPOD_WORKSPACE_URL | cut -f3 -d/)" PORT=3002 TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN DATABASE_URL="user=postgres password=Pass2020! sslmode=disable" REDIS_URL="redis://localhost:6379" CLICHE_DATADIR="/home/gitpod/.cliche" CLICHE_JAR_PATH="/workspace/cliche.jar" PROXY_ACCOUNT="123" go run .
+
+  - init: |
+        cd /workspace
+        wget https://github.com/nbd-wtf/cliche/releases/download/v0.4.7/cliche.jar
+    command: |
+        docker run -d --name dev-postgres -e POSTGRES_PASSWORD=Pass2020! -v ${HOME}/postgres-data/:/var/lib/postgresql/data -p 5432:5432 postgres
+        sudo apt install -y postgresql
+        PGPASSWORD='Pass2020!' psql -h localhost -U postgres -f /workspace/lntxbot/postgres.sql
+        docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
+        npm i -g wscat
+        wscat -c ws://localhost:12000
+
+ports:
+  - port: 3002
+    visibility: public
+  - port: 3003
+    visibility: public
+
+# notes
+# replace xxx TELEGRAM_BOT_TOKEN or use gp env TELEGRAM_BOT_TOKEN="xxx"
+# no need to start cliche seperately
+# java -Dcliche.seed="acid lunch arrange dish spin tumble price frequent turtle motion engage flat" -jar cliche.jar
+# docker run -d -p 8080:80 -p 8443:443 --rm -t mendhak/http-https-echo
+
+# use wscat to send commands to cliche
+# get hosted channel from Motherbase HC
+# {"id":"x","method":"request-hc","params":{"pubkey":"021e7ea08e31a576b4fd242761d701452a8ac98113eac3074c153db85d2dcc7d27","host":"5.9.83.143", "port": 9001}}
+# {"jsonrpc":"2.0","id":"x","result":{"channel_id":"3d494b1d110b3b707f61d2d3a95e31f961b46b1fd79cc990d490166e67887434","peer":{"pubkey":"021e7ea08e31a576b4fd242761d701452a8ac98113eac3074c153db85d2dcc7d27","our_pubkey":"02ed4ad83b7b9e9b5d7a6a9802cadd2457a305c4b5e1f5e97131d1eb5b43a3c4af","addr":"5.9.83.143:9001"}}}
+# other hosted nodes
+# jiraiya: {"id":"x","method":"request-hc","params":{"pubkey":"02c16cca44562b590dd279c942200bdccfd4f990c3a69fad620c10ef2f8228eaff","host":"107.189.30.195", "port": 9735}}
+# ergvein.net: {"id":"x","method":"request-hc","params":{"pubkey":"034a7b1ac1239ff2ac8438ce0a7ade1048514b77d4322f514e96918e6c13944861","host":"188.244.4.78", "port": 9735}}
+# remove hc
+# {"id":"x","method":"remove-hc","params":{"channelId":"3d494b1d110b3b707f61d2d3a95e31f961b46b1fd79cc990d490166e67887434"}}
+# check info/balance
+# {"id":"x","method":"get-info","params":{}}
+# create an invoice
+# {"id":"x","method":"create-invoice","params":{"msatoshi":100000}}
+# {"id":"x","method":"pay-invoice","params":{"invoice":"lnbc1u1p3kx6nhpp5hv7avtkujwc9gzfeevjpvu403x089str2l0vfsf6hnhs3w5zu57sdp0wdkhxdrnv968xgrsv9uk6etwwss9yatnwd5kzgr0w35x2uscqzpgxqyz5vqsp587cq46n3rkzyw79r7mm60c6sz0w04vkk6tnnlaefpw9y7w40ajns9qyyssqkm72pyr0hy4tgw0ans3ncw270cduc876ar70auqv5n33x5ejcuqpf2dfj2egw7vyk2dtjejemhugglwrcj092u8x5e2kktvnh3cjlhcpa8fguc"}}
+
+

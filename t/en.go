@@ -116,6 +116,17 @@ Any funds sent to this address (minus some fees) will be deposited to your @{{.S
 
 Service powered by https://deezy.io/.`,
 
+	SMSSTATUS: `Here's your activation code: <code>{{.code}}</code>
+
+Service powered by https://sms4sats.com.`,
+	SMSRECEIVE: `Here's the phone number you requested to receive SMS activation code: <code>{{.number}}</code>
+
+<b>Country: </b><code>{{.country}}</code>
+<b>Service: </b><code>{{.service}}</code>
+<b>Order ID: </b><code>{{.orderId}}</code>
+
+Service powered by https://sms4sats.com.`,
+
 	SPAMMYMSG:             "{{if .Spammy}}This group is now spammy.{{else}}Not spamming anymore.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips are {{if .Enabled}}enabled{{else}}disabled{{end}} in this group.",
 	LANGUAGEMSG:           "This chat language is set to <code>{{.Language}}</code>.",
