@@ -47,9 +47,7 @@ type Settings struct {
 	ProxyAccount int `envconfig:"PROXY_ACCOUNT" required:"true"`
 	AdminAccount int `envconfig:"ADMIN_ACCOUNT"`
 
-	LNPayKey           string `envconfig:"LNPAY_KEY"`
-	AmplitudeKey       string `envconfig:"AMPLITUDE_KEY"`
-	BitrefillBasicAuth string `envconfig:"BITREFILL_BASIC_AUTH"`
+	AmplitudeKey string `envconfig:"AMPLITUDE_KEY"`
 
 	InvoiceTimeout       time.Duration `envconfig:"INVOICE_TIMEOUT" default:"480h"`
 	PayConfirmTimeout    time.Duration `envconfig:"PAY_CONFIRM_TIMEOUT" default:"10m"`

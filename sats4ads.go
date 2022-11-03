@@ -259,7 +259,10 @@ OFFSET $3
 				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 					{
 						tgbotapi.InlineKeyboardButton{
-							Text:         translate(ctx, t.SATS4ADSVIEWED),
+							Text: translate(
+								context.WithValue(ctx, "locale", target.Locale),
+								t.SATS4ADSVIEWED,
+							),
 							CallbackData: &data,
 						},
 					},
