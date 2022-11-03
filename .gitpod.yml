@@ -11,12 +11,21 @@ tasks:
         wget https://github.com/nbd-wtf/cliche/releases/download/v0.4.7/cliche.jar
     command: |
         docker run -d --name dev-postgres -e POSTGRES_PASSWORD=Pass2020! -v ${HOME}/postgres-data/:/var/lib/postgresql/data -p 5432:5432 postgres
-        psql -h localhost -U postgres -f /workspace/lntxbot/postgres.sql
+        sudo apt install -y postgresql
+        export PGPASSWORD='Pass2020!' psql -h localhost -U postgres -f /workspace/lntxbot/postgres.sql
         docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
+        npm i -g wscat
+        wscat -c ws://localhost:12000
     
 # notes
 # replace xxx TELEGRAM_BOT_TOKEN or use gp env TELEGRAM_BOT_TOKEN="xxx"
 # no need to start cliche seperately
 # java -Dcliche.seed="acid lunch arrange dish spin tumble price frequent turtle motion engage flat" -jar cliche.jar
 # docker run -d -p 8080:80 -p 8443:443 --rm -t mendhak/http-https-echo
+
+# use wscat to send commands to cliche
+# get hosted channel from Motherbase HC
+# {"jsonrpc":"2.0","id":"x","result":{"channel_id":"3d494b1d110b3b707f61d2d3a95e31f961b46b1fd79cc990d490166e67887434","peer":{"pubkey":"021e7ea08e31a576b4fd242761d701452a8ac98113eac3074c153db85d2dcc7d27","our_pubkey":"02ed4ad83b7b9e9b5d7a6a9802cadd2457a305c4b5e1f5e97131d1eb5b43a3c4af","addr":"5.9.83.143:9001"}}}
+# create an invoice
+# {"id":"x","method":"create-invoice","params":{"msatoshi":164000}}
 
