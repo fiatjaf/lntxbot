@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/docopt/docopt-go"
 	"github.com/die-net/lrucache"
+	"github.com/docopt/docopt-go"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/fiatjaf/lntxbot/t"
 	"github.com/gregjones/httpcache"
@@ -27,6 +27,26 @@ var sms4satsHttpClient = &http.Client{
 func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	u := ctx.Value("initiator").(*User)
 
+	// for {
+	// 	time.Sleep(5 * time.Second)
+	// 	fmt.Println("orderstatus check loop: ")
+
+	// 	// select {
+	// 	// case err := <-clichePing():
+	// 	// 	if err != nil {
+	// 	// 		log.Error().Err(err).Msg("cliche ping returned error")
+	// 	// 		break
+	// 	// 	} else {
+	// 	// 		log.Debug().Msg("cliche is fine")
+	// 	// 		continue
+	// 	// 	}
+	// 	// case <-time.After(3 * time.Minute):
+	// 	// 	log.Error().Msg("cliche is not responding after 3 minutes")
+	// 	// 	break
+	// 	// }
+	// }
+	// return
+
 	country := "Russia"
 	if opts["country"].(bool) {
 		country = opts["country"].(string)
@@ -37,15 +57,22 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		service = opts["other"].(string)
 	}
 
-	var order struct {
-		country    	string `json:"country"`
-		service 	string `json:"service"`
-	}
+	fmt.Println("1sms params: ", country, service)
+
+	// var order struct {
+	// 	country string `json:"country"`
+	// 	service string `json:"service"`
+	// }
+
+	// map[string]interface{}{"sats": sats}
+	// params, _ := json.Marshal(Order {country, service})
 
 	params, _ := json.Marshal(struct {
-		country         	string `json:"country"`
-		service      		string `json:"service"`
+		Country string `json:"country"`
+		Service string `json:"service"`
 	}{country, service})
+
+	fmt.Println("sms params order, params ", params)
 
 	resp, err := sms4satsHttpClient.Post("https://api2.sms4sats.com/createorder", "application/json", bytes.NewBuffer(params))
 	if err != nil {
@@ -54,6 +81,7 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		})
 		return
 	}
+
 	if resp.StatusCode != 200 {
 		b, _ := ioutil.ReadAll(resp.Body)
 		text := string(b)
@@ -64,9 +92,9 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	}
 
 	var val struct {
-		status    	string `json:"status"`
-		orderId 	string `json:"orderId"`
-		payreq  	string `json:"payreq"`
+		Status  string `json:"status"`
+		OrderId string `json:"orderId"`
+		Payreq  string `json:"payreq"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&val); err != nil {
 		send(ctx, u, t.ERROR, t.T{
@@ -75,18 +103,20 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		return
 	}
 
-	processingMessageId := send(ctx, u, val.payreq+"\n\n"+translate(ctx, t.PROCESSING))
+	fmt.Println("sms resp.Body val: ", val.Status, val.OrderId, val.Payreq)
 
-	if hash, err := u.payInvoice(ctx, val.payreq, 0); err != nil {
+	processingMessageId := send(ctx, u, val.Payreq+"\n\n"+translate(ctx, t.PROCESSING))
+
+	if hash, err := u.payInvoice(ctx, val.Payreq, 0); err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()}, processingMessageId)
 	} else {
 		// wait until invoice is paid
 		go func() {
 			<-waitPaymentSuccess(hash)
 			time.Sleep(5 * time.Second)
-			if resp, err := http.Get("https://api2.sms4sats.com/orderstatus?orderId=" + val.orderId); err == nil {
+			if resp, err := http.Get("https://api2.sms4sats.com/orderstatus?orderId=" + val.OrderId); err == nil {
 				var val2 struct {
-					number 	int `json:"number"`
+					Number int `json:"number"`
 					// Hex  	string `json:"tx_hex"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&val2); err != nil {
@@ -96,15 +126,40 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 					return
 				}
 
+				// numberMessageId :=
 				send(ctx, u, t.SMSRECEIVE, t.T{
-					"number":  		val2.number,
-					"country":    	order.country,
-					"service": 		order.service,
-					"orderId":  	val.orderId,
+					"number":  val2.Number,
+					"country": country,
+					"service": service,
+					"orderId": val.OrderId,
 				})
-				
-				// TODO: continue checking orderstatus to see if code is received, then send to user
-				// send(ctx, u, processingMessageId, t.SMSSTATUS, t.T{"code": val.code})
+
+				// // TODO: continue checking orderstatus to see if code is received, then send to user
+				// // send(ctx, u, processingMessageId, t.SMSSTATUS, t.T{"code": val.code})
+				// // check orderstatus every 5 seconds for 20 minutes and then give up
+				// count := 0
+				// for count < 1200 {
+				// 	fmt.Println("orderstatus check loop: ", count)
+
+				// 	if resp, err := http.Get("https://api2.sms4sats.com/orderstatus?orderId=" + val.OrderId); err == nil {
+				// 		var val2 struct {
+				// 			Code int `json:"code"`
+				// 			// Hex  	string `json:"tx_hex"`
+				// 		}
+				// 		if err := json.NewDecoder(resp.Body).Decode(&val2); err != nil {
+				// 			send(ctx, u, t.ERROR, t.T{
+				// 				"Err": fmt.Sprintf("sms4sats.com API returned a broken response from status check"),
+				// 			})
+				// 			return
+				// 		}
+
+				// 		count = 1200
+				// 		send(ctx, u, numberMessageId, t.SMSSTATUS, t.T{"code": val.Code})
+				// 		break
+
+				// 	time.Sleep(5 * time.Second)
+				// 	count += 5
+				// }
 			}
 		}()
 	}

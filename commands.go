@@ -44,7 +44,7 @@ var methods = []def{
 	},
 	{
 		aliases: []string{"sms", "smsreceive"},
-		argstr:  "",
+		argstr:  "[country <country>] [service <service>]",
 	},
 	{
 		aliases: []string{"pay", "decode", "paynow", "withdraw"},
