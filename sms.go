@@ -78,7 +78,7 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		go func() {
 			// sms4sats uses hold invoices
 			// <-waitPaymentSuccess(hash)
-			time.Sleep(12 * time.Second)
+			time.Sleep(20 * time.Second)
 			if resp, err := http.Get("https://api2.sms4sats.com/orderstatus?orderId=" + val.OrderId); err == nil {
 				var val2 struct {
 					Number int    `json:"number"`
