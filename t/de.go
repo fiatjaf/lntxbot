@@ -173,7 +173,9 @@ Listet alle Transaktionen mit Seitennummerierung (pagination controls). Jede Tra
 	`,
 
 	BALANCEHELP: "zeigt das Guthaben in Satoshi und zusätzlich die Summe von allem, was du empfangen und mit dem Bot gesendet hast sowie den Gesamtbetrag an Gebühren.",
-
+	
+	TRIANGLESHELP: "Ändert ein Bild zu einem Haufen Dreiecke. Kostet 1 Sat je Dreieck. Maximum sind 150 Sat. Sende diesen Befehl als Antwort auf eine Nachricht, um die Dreiecke auf das gewünschte Bild anzuwenden.",
+	
 	FINEHELP: "Fordert einen Nutzer auf eine Strafe zu zahlen. Wenn dieser nicht innerhalb von 15 Minuten reagiert, wird er aus der Gruppe entfernt und für einen Tag ausgesperrt.",
 	FINEMESSAGE: `⚠️ {{.FinedUser}}, du wurdest zur Zahlung einer Strafe von <i>{{.Sats}} Sat</i> <b>aufgefordert</b>{{if .Reason}}, weil <i>{{ .Reason }}</i>{{end}}.
 Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe entfernt.
@@ -264,7 +266,7 @@ Eine Anforderung zur Aufdeckung kann in einer Gruppe oder einem Chat auch erstel
 	`,
 	HIDDENREVEALBUTTON:   `{{.Sats}} Sat um {{if .Public}}direkt öffentlich{{else}}privat{{end}} aufzudecken. {{if gt .Crowdfund 1}}{{.HavePaid}}/{{.Crowdfund}}{{else if gt .Times 0}}Verbleibend: {{.HavePaid}}/{{.Times}}{{end}}`,
 	HIDDENDEFAULTPREVIEW: "Hier ist eine Nachricht versteckt. {{.Sats}} Sat benötigt, um diese aufzudecken.",
-	HIDDENWITHID: `Versteckte Nachricht mit einer ID <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Wird öffentlicht sichtbar sobald {{.Message.Crowdfund}} Personen bezahlt haben {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Wird nur privat sichtbar gemacht {{.Message.Times}} gegenüber ersten Zahlenden{{else if .Message.Public}}Wird öffentlich sichtbar, sobald eine Person zahlt {{.Message.Satoshis}}{{else}}Wird gegenüber irgendeinem Zahlenden privat sichtbar gemacht{{end}}.
+	HIDDENWITHID: `Versteckte Nachricht mit einer ID <code>{{.HiddenId}}</code>. {{if gt .Message.Crowdfund 1}}Wird öffentlicht sichtbar sobald {{.Message.Crowdfund}} Personen bezahlt haben {{.Message.Satoshis}}{{else if gt .Message.Times 0}}Wird nur privat sichtbar gemacht {{.Message.Times}} gegenüber ersten Zahlenden{{else if .Message.Public}}Wird öffentlich sichtbar, sobald jemand {{.Message.Satoshis}} Sat zahlt{{else}}Wird für den Zahlenden privat sichtbar gemacht{{end}}.
 
 {{if .WithInstructions}}Verwende /reveal_{{.HiddenId}} in einer Gruppe um dort zu teilen.{{end}}
 	`,
