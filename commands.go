@@ -118,6 +118,10 @@ var methods = []def{
 		argstr:  "[refresh]",
 	},
 	{
+		aliases: []string{"triangles"},
+		argstr:  "<n>",
+	},
+	{
 		aliases: []string{"rename"},
 		argstr:  "<name>...",
 	},

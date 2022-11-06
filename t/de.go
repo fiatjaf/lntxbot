@@ -1,21 +1,21 @@
 package t
 
 var DE = map[Key]string{
-	NO:         "Nein",
-	YES:        "Ja",
-	CANCEL:     "Storniere(n)",
-	CANCELED:   "Storniert.",
-	COMPLETED:  "Erledigt!",
-	CONFIRM:    "Bestätigen",
-	PAYAMOUNT:  `Zahle Betrag von {{.Sats | printf "%.15g"}} Sat`,
-	FAILURE:    "Fehlschlag.",
-	PROCESSING: "Wird verarbeitet...",
-	WITHDRAW:   "Satoshi auszahlen?",
-	ERROR:      "🔴 {{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
-	CHECKING:   "Prüfend...",
-	TXPENDING:  "Zahlung noch unterwegs, bitte später erneut prüfen.",
-	TXCANCELED: "Transaktion storniert.",
-	UNEXPECTED: "Unerwarteter Fehler: bitte melden.",
+	NO:          "Nein",
+	YES:         "Ja",
+	CANCEL:      "Storniere(n)",
+	CANCELED:    "Storniert.",
+	COMPLETED:   "Erledigt!",
+	CONFIRM:     "Bestätigen",
+	PAYAMOUNT:   `Zahle Betrag von {{.Sats | printf "%.15g"}} Sat`,
+	FAILURE:     "Fehlschlag.",
+	PROCESSING:  "Wird verarbeitet...",
+	WITHDRAW:    "Satoshi auszahlen?",
+	ERROR:       "🔴 {{if .App}}#{{.App | lower}} {{end}}Error{{if .Err}}: {{.Err}}{{else}}!{{end}}",
+	CHECKING:    "Prüfend...",
+	TXPENDING:   "Zahlung noch unterwegs, bitte später erneut prüfen.",
+	TXCANCELED:  "Transaktion storniert.",
+	UNEXPECTED:  "Unerwarteter Fehler: bitte melden.",
 	MUSTBEADMIN: "Dieser Befehl muss von einem Admin gesendet werden.",
 	MUSTBEGROUP: "Dieser Befehl muss in einer Gruppe verwendet werden.",
 
@@ -67,25 +67,25 @@ lnurl-auth success!
 	`,
 	LNURLBALANCECHECKCANCELED: "Automatische Kontostandsprüfungen von {{.Service}} werden storniert.",
 
-	TICKETSET: "Neue Gruppenmitglieder müssen einen Betrag von {{.Sat}} Sat bezahlen (Vergewissere dich, dass du dafür @lntxbot als Administrator festgelegt hast).",
+	TICKETSET:         "Neue Gruppenmitglieder müssen einen Betrag von {{.Sat}} Sat bezahlen (Vergewissere dich, dass du dafür @lntxbot als Administrator festgelegt hast).",
 	TICKETUSERALLOWED: "Ticket bezahlt. {{.User}} wurde erlaubt.",
 	TICKETMESSAGE: `⚠️ {{.User}}, um dieser Gruppe beitreten zu können, musst du {{.Sats}} Sat zahlen.
 
 Du hast 15 Minuten Zeit um dem nachzukommen oder du wirst rausgeschmissen und für einen Tag gesperrt.
 `,
-	
+
 	RENAMABLEMSG:      "Jeder kann diese Gruppe umbenennen, wenn der Betrag {{.Sat}} Sat bezahlt wird (Vergewissere dich, dass du @lntxbot als Administrator festgelegt hast).",
 	RENAMEPROMPT:      "Bezahle <b>{{.Sats}} Sat</b> um diese Gruppe umzubennenen <i>{{.Name}}</i>?",
 	GROUPNOTRENAMABLE: "Diese Gruppe kann nicht umbenannt werden!",
 
 	INTERNALPAYMENTUNEXPECTED: "Etwas Unerwartetes ist passiert. Wenn das eine interne Rechnung ist, wird sie fehlschlagen. Vielleicht ist die Rechnung abgelaufen oder etwas anderes ist passiert, wir wissen es nicht. Wenn das eine externe Rechnung ist, ignoriere die Warnung.",
 	PAYMENTFAILED:             "❌ Bezahlung <code>{{.Hash}}</code> fehlgeschlagen.\n\n<i>{{.FailureString}}</i>",
-	PAIDMESSAGE: `✅ Bezahlt mit <i>{{printf "%.15g" .Sats}} Sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> Gebühren). 
-
+	PAIDMESSAGE: `✅ Bezahlt mit <i>{{printf "%.15g" .Sats}} Sat</i> ({{dollar .Sats}}){{if .Fee}} (+ <i>{{.Fee}}</i> Gebühren){{end}}. 
+{{if .Hash}}
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
-/tx_{{.ShortHash}} ⚡️ #tx`,
+/tx_{{.ShortHash}} ⚡️ #tx{{end}}`,
 	OVERQUOTA:           "Du hast dein {{.App}} Wochenkontingent überschritten/ausgeschöpft.",
 	RATELIMIT:           "Diese Aktion ist geschwindigkeitsbegrenzt. Bitte warte 30 Minuten.",
 	DBERROR:             "Datenbankfehler: konnte die Transaktion nicht als nicht-ausstehend markieren.",
@@ -114,8 +114,8 @@ Beträge welche zu dieser Adresse gesendet wurden (abzüglich der Gebühren) wer
 <b>Commitment: </b><code>{{.Commitment}}</code>
 <b>Signature: </b><code>{{.Signature}}</code>
 
-Service powered by https://deezy.io/.`, 
-	
+Service powered by https://deezy.io/.`,
+
 	SPAMMYMSG:             "{{if .Spammy}}Diese Gruppe ist jetzt spammy.{{else}}Spamming beendet.{{end}}",
 	COINFLIPSENABLEDMSG:   "Coinflips (Münzwürfe) sind in dieser Gruppe aktiviert {{if .Enabled}}aktiviert{{else}}deaktiviert{{end}} .",
 	LANGUAGEMSG:           "Die Chatsprache ist auf folgende Sprache eingestellt <code>{{.Language}}</code>.",
@@ -173,14 +173,14 @@ Listet alle Transaktionen mit Seitennummerierung (pagination controls). Jede Tra
 	`,
 
 	BALANCEHELP: "zeigt das Guthaben in Satoshi und zusätzlich die Summe von allem, was du empfangen und mit dem Bot gesendet hast sowie den Gesamtbetrag an Gebühren.",
-	
+
 	FINEHELP: "Fordert einen Nutzer auf eine Strafe zu zahlen. Wenn dieser nicht innerhalb von 15 Minuten reagiert, wird er aus der Gruppe entfernt und für einen Tag ausgesperrt.",
 	FINEMESSAGE: `⚠️ {{.FinedUser}}, du wurdest zur Zahlung einer Strafe von <i>{{.Sats}} Sat</i> <b>aufgefordert</b>{{if .Reason}}, weil <i>{{ .Reason }}</i>{{end}}.
 Du hast 15 Minuten Zeit die Rechnung zu begleichen oder du wirst aus der Gruppe entfernt.
 	`,
 	FINEFAILURE: "{{.User}} ist der Aufforderung nicht nachgekommen und wird aus der Gruppe entfernt und für einen Tag gesperrt.",
 	FINESUCCESS: "{{.User}} hat die Strafzahlung beglichen.",
-	
+
 	GIVEAWAYHELP: `Erstellt einen Button in einem Gruppenchat. Der erste Nutzer, der darauf klickt, erhält die Satoshis.
 
 /giveaway_1000: wenn jemand den "Beanspruchen"-Button anklickt, werden 1000 Satoshis von dir zu dieser Person transferiert. 

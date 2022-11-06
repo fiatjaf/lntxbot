@@ -80,12 +80,12 @@ lnurl-auth успех!
 
 	INTERNALPAYMENTUNEXPECTED: "Произошло что-то странное. Если это был внутренний запрос платежа, то платёж не состоится. Вероятно, запрос устарел или произошло что-то ещё. Если это внешний запрос, игнорируйте это предупреждение.",
 	PAYMENTFAILED:             "❌ Платёж {{.Hash}} не состоялся.\n\n<i>{{.FailureString}}</i>",
-	PAIDMESSAGE: `✅ Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> комиссия). 
-
+	PAIDMESSAGE: `✅ Оплачено <i>{{printf "%.15g" .Sats}} сат</i> ({{dollar .Sats}}){{if .Fee}} (+ <i>{{.Fee}}</i> комиссия){{end}}. 
+{{if .Hash}}
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
-/tx_{{.ShortHash}} ⚡️ #tx`,
+/tx_{{.ShortHash}} ⚡️ #tx{{end}}`,
 	OVERQUOTA:           "Вы превысили недельную квоту {{.App}}.",
 	RATELIMIT:           "Пожалуйста, подождите 30 минут.",
 	DBERROR:             "Ошибка базы данных: не могу отметить транзакцию как не обрабатывающуюся.",

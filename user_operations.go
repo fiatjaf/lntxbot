@@ -303,7 +303,6 @@ func (u User) addInternalPendingInvoice(
 	defer txn.Rollback()
 
 	// if not tg this will just be ignored
-	// TODO maybe remove trigger_message from the database
 	var tgMessageId int
 	if message := ctx.Value("message"); message != nil {
 		if m, ok := message.(*tgbotapi.Message); ok {
@@ -367,7 +366,6 @@ func (u User) sendInternally(
 	defer txn.Rollback()
 
 	// if not tg this will just be ignored
-	// TODO maybe remove trigger_message from the database
 	var tgMessageId int
 	if message := ctx.Value("message"); message != nil {
 		if m, ok := message.(*tgbotapi.Message); ok {
@@ -494,6 +492,64 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	}
 
 	return "", nil
+}
+
+func (u User) payToInternalService(ctx context.Context, msats int64, desc string, tag string) error {
+	if msats == 0 {
+		// if nothing was provided, end here
+		return ErrInvalidAmount
+	}
+
+	var (
+		descn = sql.NullString{String: desc, Valid: desc != ""}
+		tagn  = sql.NullString{String: tag, Valid: tag != ""}
+	)
+
+	txn, err := pg.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return ErrDatabase
+	}
+	defer txn.Rollback()
+
+	// if not tg this will just be ignored
+	var tgMessageId int
+	if message := ctx.Value("message"); message != nil {
+		if m, ok := message.(*tgbotapi.Message); ok {
+			tgMessageId = m.MessageID
+		}
+	}
+
+	_, err = txn.Exec(`
+INSERT INTO lightning.transaction (
+  from_id,
+  amount,
+  description,
+  tag,
+  trigger_message
+)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5
+)
+    `, u.Id, msats, descn, tagn, tgMessageId)
+	if err != nil {
+		return ErrDatabase
+	}
+
+	balance := getBalance(txn, u.Id)
+	if balance < 0 {
+		return ErrInsufficientBalance
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return ErrDatabase
+	}
+
+	return nil
 }
 
 func (u User) setAppData(appname string, data interface{}) (err error) {

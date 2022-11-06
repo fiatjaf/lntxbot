@@ -123,6 +123,8 @@ func send(ctx context.Context, things ...interface{}) (id interface{}) {
 			// if not telegram, this will be ignored
 		case int:
 			replyToId = thing
+		case tgbotapi.Message:
+			telegramMessage = &thing
 		case *tgbotapi.Message:
 			telegramMessage = thing
 		case *TelegramCopyMessage:

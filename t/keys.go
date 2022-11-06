@@ -68,7 +68,7 @@ const (
 	ONCHAINSTATUS  Key = "OnchainStatus"
 	ONCHAINDEPOSIT Key = "OnchainDeposit"
 
-	SMSSTATUS Key = "SmsStatus"
+	SMSSTATUS  Key = "SmsStatus"
 	SMSRECEIVE Key = "SmsReceive"
 
 	SPAMMYMSG             Key = "SpammyMsg"
@@ -94,6 +94,8 @@ const (
 	TRANSACTIONSHELP Key = "transactionsHelp"
 
 	BALANCEHELP Key = "balanceHelp"
+
+	TRIANGLESHELP Key = "trianglesHelp"
 
 	FINEHELP    Key = "fineHelp"
 	FINEMESSAGE Key = "FineMessage"
