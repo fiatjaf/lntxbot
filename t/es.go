@@ -80,12 +80,12 @@ Tienes 15 minutos para hacerlo o serás expulsado y baneado por un día.
 
 	INTERNALPAYMENTUNEXPECTED: "Ha ocurrido algo extraño. Si se trata de una factura interna, fallará. Puede que la factura haya caducado o algo más que desconocemos. Si se trata de una factura externa, ignora esta advertencia.",
 	PAYMENTFAILED:             "❌ Pago <code>{{.Hash}}</code> fallido.\n\n<i>{{.FailureString}}</i>",
-	PAIDMESSAGE: `✅ Pagado con <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee).
-        
+	PAIDMESSAGE: `✅ Pagado con <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}){{if .Fee}} (+ <i>{{.Fee}}</i> fee){{end}}.
+{{if .Hash}}
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Prueba:</b> <code>{{.Preimage}}</code>{{end}}
 
-/tx_{{.ShortHash}} ⚡️ #tx`,
+/tx_{{.ShortHash}} ⚡️ #tx{{end}}`,
 	OVERQUOTA:           "Has superado tu cuota semanal de {{.App}}.",
 	RATELIMIT:           "Esta acción está limitada por tarifas. Por favor, espere 30 minutos.",
 	DBERROR:             "Error en la base de datos: falló en marcar la transacción como no pendiente.",

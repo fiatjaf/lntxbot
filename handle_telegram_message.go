@@ -189,6 +189,8 @@ parsed:
 		go handleAPI(ctx, opts)
 	case opts["lightningatm"].(bool):
 		go handleLightningATM(ctx)
+	case opts["triangles"].(bool):
+		go handleTriangles(ctx, opts, message)
 	case opts["tx"].(bool):
 		go handleSingleTransaction(ctx, opts)
 	case opts["send"].(bool), opts["tip"].(bool):

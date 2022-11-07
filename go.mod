@@ -10,7 +10,10 @@ require (
 	github.com/fiatjaf/go-cliche v0.3.1
 	github.com/fiatjaf/go-lnurl v1.10.2
 	github.com/fiatjaf/ln-decodepay v1.1.0
+	github.com/fogleman/gg v1.3.0 // indirect
+	github.com/fogleman/primitive v0.0.0-20200504002142-0373c216458b
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v0.5.4
@@ -33,7 +36,7 @@ require (
 	github.com/tidwall/gjson v1.8.1
 	github.com/tuotoo/qrcode v0.0.0-20190222102259-ac9c44189bf2
 	github.com/willf/bitset v1.1.10 // indirect
-	golang.org/x/net v0.0.0-20200320220750-118fecf932d8 // indirect
+	golang.org/x/image v0.1.0 // indirect
 	gopkg.in/antage/eventsource.v1 v1.0.0-20150318155416-803f4c5af225
 	gopkg.in/jmcvetta/napping.v3 v3.2.0
 	gopkg.in/redis.v5 v5.2.9

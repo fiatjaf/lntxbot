@@ -80,12 +80,12 @@ You have 15 minutes to do it or you'll be kicked and banned for one day.
 
 	INTERNALPAYMENTUNEXPECTED: "Something odd has happened. If this is an internal invoice it will fail. Maybe the invoice has expired or something else we don't know. If it is an external invoice ignore this warning.",
 	PAYMENTFAILED:             "❌ Payment <code>{{.Hash}}</code> failed.\n\n<i>{{.FailureString}}</i>",
-	PAIDMESSAGE: `✅ Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}) (+ <i>{{.Fee}}</i> fee). 
-
+	PAIDMESSAGE: `✅ Paid with <i>{{printf "%.15g" .Sats}} sat</i> ({{dollar .Sats}}){{if .Fee}} (+ <i>{{.Fee}}</i> fee){{end}}. 
+{{if .Hash}}
 <b>Hash:</b> <code>{{.Hash}}</code>{{if .Preimage}}
 <b>Proof:</b> <code>{{.Preimage}}</code>{{end}}
 
-/tx_{{.ShortHash}} ⚡️ #tx`,
+/tx_{{.ShortHash}} ⚡️ #tx{{end}}`,
 	OVERQUOTA:           "You're over your {{.App}} weekly quota.",
 	RATELIMIT:           "This action is rate-limited. Please wait 30 minutes.",
 	DBERROR:             "Database error: failed to mark the transaction as not pending.",
@@ -184,6 +184,8 @@ Lists all your transactions with pagination controls. Each transaction has a lin
     `,
 
 	BALANCEHELP: "Shows your current balance in satoshis, plus the sum of everything you've received and sent within the bot and the total amount of fees paid.",
+
+	TRIANGLESHELP: "Turns an image into a bunch of triangles. Costs 1 sat per triangle. Maximum is 150. Send this command as a reply to a message containing the desired image to trianglize.",
 
 	FINEHELP: "Prompts a user in a group to pay a fee. If they don't pay within 15 minutes they are kicked from the group and banned for a day.",
 	FINEMESSAGE: `⚠️ {{.FinedUser}}, you were <b>fined</b> for <i>{{.Sats}} sat</i>{{if .Reason}} for <i>{{ .Reason }}</i>{{end}}.
