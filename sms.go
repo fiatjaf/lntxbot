@@ -39,7 +39,8 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	params, _ := json.Marshal(struct {
 		Country string `json:"country"`
 		Service string `json:"service"`
-	}{country, service})
+		Ref 	string `json:"ref"`
+	}{country, service, "fiatjaf@lntxbot.com"})
 
 	resp, err := sms4satsHttpClient.Post("https://api2.sms4sats.com/createorder", "application/json", bytes.NewBuffer(params))
 	if err != nil {
