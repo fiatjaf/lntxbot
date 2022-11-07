@@ -26,7 +26,7 @@ var sms4satsHttpClient = &http.Client{
 func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	u := ctx.Value("initiator").(*User)
 
-	country := "Russia"
+	country := "usa"
 	if str, ok := opts["<country>"].(string); ok {
 		country = str
 	}
