@@ -26,7 +26,7 @@ var sms4satsHttpClient = &http.Client{
 func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	u := ctx.Value("initiator").(*User)
 
-	country := "Russia"
+	country := "usa"
 	if str, ok := opts["<country>"].(string); ok {
 		country = str
 	}
@@ -39,7 +39,8 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 	params, _ := json.Marshal(struct {
 		Country string `json:"country"`
 		Service string `json:"service"`
-	}{country, service})
+		Ref 	string `json:"ref"`
+	}{country, service, "fiatjaf@lntxbot.com"})
 
 	resp, err := sms4satsHttpClient.Post("https://api2.sms4sats.com/createorder", "application/json", bytes.NewBuffer(params))
 	if err != nil {
@@ -78,7 +79,7 @@ func handleReceiveSMS(ctx context.Context, opts docopt.Opts) {
 		go func() {
 			// sms4sats uses hold invoices
 			// <-waitPaymentSuccess(hash)
-			time.Sleep(12 * time.Second)
+			time.Sleep(20 * time.Second)
 			if resp, err := http.Get("https://api2.sms4sats.com/orderstatus?orderId=" + val.OrderId); err == nil {
 				var val2 struct {
 					Number int    `json:"number"`
