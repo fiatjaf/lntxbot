@@ -45,7 +45,7 @@ func handlePay(ctx context.Context, payer *User, opts docopt.Opts) error {
 		// show a button for confirmation
 		payTmplParams := t.T{
 			"Sats":            amount / 1000,
-			"Description":     escapeHTML(inv.Description),
+			"Description":     escapeHTML(expellNameFromDesc(inv.Description)),
 			"DescriptionHash": escapeHTML(inv.DescriptionHash),
 			"Hash":            hash,
 			"ReceiverName":    extractNameFromDesc(inv.Description),

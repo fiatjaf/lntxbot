@@ -535,6 +535,12 @@ func extractNameFromDesc(invoiceDescription string) string {
 	return ""
 }
 
+func expellNameFromDesc(invoiceDescription string) string {
+	return NameDesc.ReplaceAllStringFunc(invoiceDescription, func(s string) string {
+		return s[len(s)-1:]
+	})
+}
+
 func senderNameFromPayerData(payer lnurl.PayerDataValues) string {
 	if payer.LightningAddress != "" {
 		return payer.LightningAddress
