@@ -128,7 +128,7 @@ También se puede llamar como <a href="https://core.telegram.org/bots/inline"> c
 	// en realidad se asignará a la variable <satoshis>, y así es como lo maneja el código.
 	RECEIVEHELP: `Genera una factura BOLT11 con el valor satoshi dado. El importe se añadirá a tu saldo de @lntxbot. Si no proporcionas la cantidad, será una factura abierta que puede ser pagada con cualquier cantidad.",
 
-<code>/receive_320_for_something</code> genera una factura por 320 sat con la descripción 'for something' <para algo>
+<code>/receive_320_for_something</code> genera una factura por 320 sat con la descripción 'for something' (para algo)
     `,
 
 	PAYHELP: `Decodifica una factura de BOLT11 y pregunta si quieres pagarla (unless /paynow). Esto es lo mismo que pegar o reenviar una factura directamente en el chat. Tomar una foto del código QR que contiene una factura funciona igual de bien (si la foto es clara).
@@ -144,7 +144,7 @@ Solo pega <code>lnbc1u1pwvmypepp5kjydaerr6rawl9zt7t2zzl9q0rf6rkpx7splhjlfnjr869w
 
 <code>/tip 100</code>, cuando se envía como respuesta a un mensaje en un grupo donde el bot está agregado, envía 100 satoshis al autor del mensaje.
 <code>/send 500 @username</code> envía 500 satoshis al usuario de Telegram @username &lt;nombre_de_usuario&gt;.
-<code>/send anonymously 1000 @someone</code> lo mismo que arriba, pero el usuario de Telegram  @someone verá sólo: "Someone has sent you 1000 satoshis" <Alguien te ha enviado 1000 satoshis>.
+<code>/send anonymously 1000 @someone</code> lo mismo que arriba, pero el usuario de Telegram  @someone verá sólo: "Someone has sent you 1000 satoshis" (Alguien te ha enviado 1000 satoshis).
     `,
 
 	TRANSACTIONSHELP: `
@@ -167,7 +167,7 @@ Tienes 15 minutos para pagar o serás expulsado.
 
 	GIVEAWAYHELP: `Crea un botón en un chat de grupo. La primera persona que haga clic en el botón se lleva los satoshis.
       
-/giveaway_1000: una vez que alguien haga clic en el botón "Claim" <reclamar>, se le transferirán 1000 satoshis.
+/giveaway_1000: una vez que alguien haga clic en el botón "Claim" (reclamar), se le transferirán 1000 satoshis.
     `,
 	SATSGIVENPUBLIC: "{{.Sats}} sat dados de {{.From}} para {{.To}}.{{if .ClaimerHasNoChat}} Para gestionar sus fondos, inicie una conversación con @lntxbot.{{end}}",
 	CLAIMFAILED:     "No se ha podido reclamar {{.BotOp}}: {{.Err}}",
