@@ -27,7 +27,7 @@ func handleFine(ctx context.Context, opts docopt.Opts) {
 			return
 		}
 		reason := getVariadicFieldOrReplyToContent(ctx, opts, "<reason>")
-		if message.ReplyToMessage == nil {
+		if message.ReplyToMessage == nil || message.ReplyToMessage.From == nil {
 			send(ctx, chatOwner, t.MISSINGRECEIVER)
 			return
 		}
