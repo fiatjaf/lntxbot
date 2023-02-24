@@ -66,15 +66,15 @@ func handleTelegramCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
 		send(ctx, t.CANCELED, APPEND)
 		goto answerEmpty
 	case strings.HasPrefix(cb.Data, "pay="):
-		handlePayCallback(ctx)
+		// handlePayCallback(ctx)
 		return
 	case strings.HasPrefix(cb.Data, "lnurlpay="):
-		defer removeKeyboardButtons(ctx)
-		msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
-		key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
-		if val, err := rds.Get(key).Result(); err == nil {
-			handleLNURLPayAmount(ctx, msats, val)
-		}
+		// defer removeKeyboardButtons(ctx)
+		// msats, _ := strconv.ParseInt(cb.Data[9:], 10, 64)
+		// key := fmt.Sprintf("reply:%d:%d", u.Id, cb.Message.MessageID)
+		// if val, err := rds.Get(key).Result(); err == nil {
+		// 	handleLNURLPayAmount(ctx, msats, val)
+		// }
 		return
 	case strings.HasPrefix(cb.Data, "give="):
 		giveId := cb.Data[5:]

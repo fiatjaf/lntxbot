@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/fiatjaf/lntxbot/t"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/lucsky/cuid"
@@ -147,16 +148,16 @@ func handleTelegramMessage(ctx context.Context, message *tgbotapi.Message) {
 		return
 	}
 	if err != nil {
-		if message.Chat.Type == "private" {
-			// only tell we don't understand commands when in a private chat
-			// because these commands we're not understanding
-			// may be targeting other bots in a group, so we're spamming people.
-			method := strings.Split(messageText, " ")[0][1:]
-			handled := handleHelp(ctx, method)
-			if !handled {
-				send(ctx, u, t.WRONGCOMMAND)
-			}
-		}
+		// if message.Chat.Type == "private" {
+		// 	// only tell we don't understand commands when in a private chat
+		// 	// because these commands we're not understanding
+		// 	// may be targeting other bots in a group, so we're spamming people.
+		// 	method := strings.Split(messageText, " ")[0][1:]
+		// 	handled := handleHelp(ctx, method)
+		// 	if !handled {
+		// 		send(ctx, u, t.WRONGCOMMAND)
+		// 	}
+		// }
 		return
 	}
 
@@ -184,11 +185,14 @@ parsed:
 		}
 		break
 	case opts["bluewallet"].(bool), opts["zeus"].(bool), opts["lndhub"].(bool):
-		go handleBlueWallet(ctx, opts)
+		send(ctx, u, "This command is not available.")
+		// go handleBlueWallet(ctx, opts)
 	case opts["api"].(bool):
-		go handleAPI(ctx, opts)
+		send(ctx, u, "This command is not available.")
+		// go handleAPI(ctx, opts)
 	case opts["lightningatm"].(bool):
-		go handleLightningATM(ctx)
+		send(ctx, u, "This command is not available.")
+		// go handleLightningATM(ctx)
 	case opts["triangles"].(bool):
 		go handleTriangles(ctx, opts, message)
 	case opts["tx"].(bool):
@@ -477,22 +481,68 @@ parsed:
 		go handleTransactionList(ctx, opts)
 	case opts["balance"].(bool):
 		go handleBalance(ctx, opts)
-	case opts["pay"].(bool), opts["withdraw"].(bool), opts["decode"].(bool):
-		if opts["lnurl"].(bool) {
-			// create an lnurl-withdraw voucher
-			handleCreateLNURLWithdraw(ctx, opts)
-		} else {
-			// normal payment flow
-			handlePay(ctx, u, opts)
+	case opts["withdraw"].(bool):
+		address, _ := opts.String("<address>")
+		if !strings.HasSuffix(address, "@zbd.gg") && !strings.HasSuffix(address, "@walletofsatoshi.com") {
+			send(ctx, u, "For now, only @zbd.gg and @walletofsatoshi.com addresses are working.")
+			return
 		}
+		info, err := u.getInfo()
+		if err != nil {
+			send(ctx, u, "Something went wrong.")
+			return
+		}
+		if info.BalanceMsat < 30000000 {
+			send(ctx, u, "For now, only balances above 30,000 satoshis can withdraw.")
+			return
+		}
+		_, params, err := lnurl.HandleLNURL(address)
+		if err != nil {
+			send(ctx, u, "Something went wrong.")
+			return
+		}
+		p, ok := params.(lnurl.LNURLPayParams)
+		if !ok {
+			send(ctx, u, "Something went wrong.")
+			return
+		}
+		admin, err := loadUser(17)
+		if err != nil {
+			send(ctx, u, "Something went wrong.")
+			return
+		}
+		balance := info.BalanceMsat * 995 / 1000 / 1000 * 1000
+		_, err = pg.Exec(`insert into lightning.transaction (from_id, amount, pending) values ($1, $2, false)`,
+			u.Id, balance)
+		if err != nil {
+			send(ctx, u, "Something went wrong.")
+			return
+		}
+		send(ctx, admin, fmt.Sprintf("@%s (%d): %d -> %s\n\n<code>curl '%s&comment=lntxbot-withdraw&amount=%d' -s | jq -r '.pr'</code>",
+			u.Username, u.Id, info.BalanceMsat, address,
+			p.Callback, balance))
+		send(ctx, u, "Thank you. Your withdraw will be processed manually at some point in the future.")
+	case opts["pay"].(bool), opts["decode"].(bool):
+		send(ctx, u, "This command is not available.")
+		// if opts["lnurl"].(bool) {
+		// 	// create an lnurl-withdraw voucher
+		// 	handleCreateLNURLWithdraw(ctx, opts)
+		// } else {
+		// 	// normal payment flow
+		// 	handlePay(ctx, u, opts)
+		// }
 	case opts["receive"].(bool), opts["invoice"].(bool), opts["fund"].(bool):
-		desc := getVariadicFieldOrReplyToContent(ctx, opts, "<description>")
-		go handleInvoice(ctx, opts, desc)
+		send(ctx, u, "This command is not available.")
+		// desc := getVariadicFieldOrReplyToContent(ctx, opts, "<description>")
+		// go handleInvoice(ctx, opts, desc)
 	case opts["deposit"].(bool), opts["depositbtc"].(bool), opts["fundbtc"].(bool):
-		go handleDepositOnchain(ctx)
+		send(ctx, u, "This command is not available.")
+		// go handleDepositOnchain(ctx)
 	case opts["sms"].(bool), opts["smsreceive"].(bool):
-		go handleReceiveSMS(ctx, opts)
+		send(ctx, u, "This command is not available.")
+		// go handleReceiveSMS(ctx, opts)
 	case opts["lnurl"].(bool):
+		send(ctx, u, "This command is not available.")
 		go handleLNURL(ctx, opts["<lnurl>"].(string), handleLNURLOpts{
 			anonymous: opts["--anonymous"].(bool),
 		})

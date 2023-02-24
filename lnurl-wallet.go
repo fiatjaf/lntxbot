@@ -91,10 +91,10 @@ func handleLNURL(ctx context.Context, lnurltext string, opts handleLNURLOpts) {
 	switch params := iparams.(type) {
 	case lnurl.LNURLAuthParams:
 		handleLNURLAuth(ctx, u, opts, params)
-	case lnurl.LNURLWithdrawResponse:
-		handleLNURLWithdraw(ctx, u, opts, params)
-	case lnurl.LNURLPayParams:
-		handleLNURLPay(ctx, u, opts, params)
+	// case lnurl.LNURLWithdrawResponse:
+	//	handleLNURLWithdraw(ctx, u, opts, params)
+	// case lnurl.LNURLPayParams:
+	//	handleLNURLPay(ctx, u, opts, params)
 	default:
 		send(ctx, u, t.LNURLUNSUPPORTED, ctx.Value("message"))
 	}
@@ -185,7 +185,6 @@ func handleLNURLWithdraw(
 	})
 	if err != nil {
 		send(ctx, u, t.ERROR, t.T{"Err": err.Error()})
-		err = err
 		return
 	}
 	log.Debug().Str("bolt11", bolt11).Str("k1", params.K1).Str("callback", params.Callback).

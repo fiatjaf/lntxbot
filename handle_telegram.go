@@ -11,31 +11,31 @@ func handle(upd tgbotapi.Update) {
 
 	switch {
 	case upd.Message != nil:
-		// people joining
-		if upd.Message.NewChatMembers != nil {
-			for _, newmember := range *upd.Message.NewChatMembers {
-				handleTelegramNewMember(ctx, upd.Message, newmember)
-			}
-			return
-		}
+		//	// people joining
+		//	if upd.Message.NewChatMembers != nil {
+		//		for _, newmember := range *upd.Message.NewChatMembers {
+		//			handleTelegramNewMember(ctx, upd.Message, newmember)
+		//		}
+		//		return
+		//	}
 
-		// people leaving
-		if upd.Message.LeftChatMember != nil {
-			return
-		}
+		//	// people leaving
+		//	if upd.Message.LeftChatMember != nil {
+		//		return
+		//	}
 
-		// normal message
-		proceed := interceptMessage(upd.Message)
-		if proceed {
-			handleTelegramMessage(ctx, upd.Message)
-		} else {
-			go deleteMessage(upd.Message)
-		}
+		//	// normal message
+		//	proceed := interceptMessage(upd.Message)
+		//	if proceed {
+		handleTelegramMessage(ctx, upd.Message)
+	//	} else {
+	//		go deleteMessage(upd.Message)
+	//	}
 	case upd.ChannelPost != nil:
-		handleTelegramMessage(ctx, upd.ChannelPost)
+	//	handleTelegramMessage(ctx, upd.ChannelPost)
 	case upd.CallbackQuery != nil:
 		handleTelegramCallback(ctx, upd.CallbackQuery)
 	case upd.InlineQuery != nil:
-		go handleInlineQuery(ctx, upd.InlineQuery)
+		//	go handleInlineQuery(ctx, upd.InlineQuery)
 	}
 }

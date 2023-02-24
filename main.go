@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -120,9 +119,9 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// setup cliche
-	setupCliche()
-	go handleClicheEvents()
-	go clicheCheckingRoutine()
+	// setupCliche()
+	// go handleClicheEvents()
+	// go clicheCheckingRoutine()
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
@@ -175,12 +174,12 @@ func main() {
 	}()
 
 	// routines
-	routineCtx := context.WithValue(context.Background(), "origin", "routine")
-	go startKicking()
-	go sats4adsCleanupRoutine()
-	go lnurlBalanceCheckRoutine()
-	go checkAllOutgoingPayments(routineCtx)
-	go checkAllIncomingPayments(routineCtx)
+	// routineCtx := context.WithValue(context.Background(), "origin", "routine")
+	// go startKicking()
+	// go sats4adsCleanupRoutine()
+	// go lnurlBalanceCheckRoutine()
+	// go checkAllOutgoingPayments(routineCtx)
+	// go checkAllIncomingPayments(routineCtx)
 
 	// routes
 	//
@@ -193,20 +192,20 @@ func main() {
 	})
 
 	// lndhub-compatible routes
-	registerAPIMethods()
+	// registerAPIMethods()
 
 	// register webserver routes
-	serveQRCodes()
-	serveTempAssets()
-	serveLNURL()
-	serveLNURLBalanceNotify()
-	servePages()
-	router.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://t.me/lntxbot", http.StatusTemporaryRedirect)
-	})
+	// serveQRCodes()
+	// serveTempAssets()
+	// serveLNURL()
+	// serveLNURLBalanceNotify()
+	// servePages()
+	// router.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 	http.Redirect(w, r, "https://t.me/lntxbot", http.StatusTemporaryRedirect)
+	// })
 
 	// random assets
-	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
+	// router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
 
 	// start http server
 	srv := &http.Server{
