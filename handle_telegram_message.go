@@ -483,8 +483,10 @@ parsed:
 		go handleBalance(ctx, opts)
 	case opts["withdraw"].(bool):
 		address, _ := opts.String("<address>")
-		if !strings.HasSuffix(address, "@zbd.gg") && !strings.HasSuffix(address, "@walletofsatoshi.com") {
-			send(ctx, u, "For now, only @zbd.gg and @walletofsatoshi.com addresses are working.")
+		if !strings.HasSuffix(address, "@zbd.gg") &&
+			!strings.HasSuffix(address, "@walletofsatoshi.com") &&
+			!strings.HasSuffix(address, "@ln.tips") {
+			send(ctx, u, "For now, only @zbd.gg, @ln.tips and @walletofsatoshi.com addresses are working.")
 			return
 		}
 		info, err := u.getInfo()
