@@ -482,48 +482,52 @@ parsed:
 	case opts["balance"].(bool):
 		go handleBalance(ctx, opts)
 	case opts["withdraw"].(bool):
-		address, _ := opts.String("<address>")
-		if !strings.HasSuffix(address, "@zbd.gg") &&
-			!strings.HasSuffix(address, "@walletofsatoshi.com") &&
-			!strings.HasSuffix(address, "@ln.tips") {
-			send(ctx, u, "For now, only @zbd.gg, @ln.tips and @walletofsatoshi.com addresses are working.")
+		if address, err := opts.String("<address>"); err != nil {
+			send(ctx, u, "Call it with <code>/withdraw your@lightning.address</code> -- for now only @zbd.gg, @ln.tips and @walletofsatoshi.com addresses are working.")
 			return
+		} else {
+			if !strings.HasSuffix(address, "@zbd.gg") &&
+				!strings.HasSuffix(address, "@walletofsatoshi.com") &&
+				!strings.HasSuffix(address, "@ln.tips") {
+				send(ctx, u, "For now, only @zbd.gg, @ln.tips and @walletofsatoshi.com addresses are working.")
+				return
+			}
+			info, err := u.getInfo()
+			if err != nil {
+				send(ctx, u, "Something went wrong.")
+				return
+			}
+			if info.BalanceMsat < 20000000 {
+				send(ctx, u, "For now, only balances above 20,000 satoshis can withdraw.")
+				return
+			}
+			_, params, err := lnurl.HandleLNURL(address)
+			if err != nil {
+				send(ctx, u, "Something went wrong.")
+				return
+			}
+			p, ok := params.(lnurl.LNURLPayParams)
+			if !ok {
+				send(ctx, u, "Something went wrong.")
+				return
+			}
+			admin, err := loadUser(17)
+			if err != nil {
+				send(ctx, u, "Something went wrong.")
+				return
+			}
+			balance := info.BalanceMsat * 995 / 1000 / 1000 * 1000
+			_, err = pg.Exec(`insert into lightning.transaction (from_id, amount, pending) values ($1, $2, false)`,
+				u.Id, balance)
+			if err != nil {
+				send(ctx, u, "Something went wrong.")
+				return
+			}
+			send(ctx, admin, fmt.Sprintf("@%s (%d): %d -> %s\n\n<code>curl '%s&comment=lntxbot-withdraw&amount=%d' -s | jq -r '.pr'</code>",
+				u.Username, u.Id, info.BalanceMsat, address,
+				p.Callback, balance))
+			send(ctx, u, "Thank you. Your withdraw will be processed manually at some point in the future.")
 		}
-		info, err := u.getInfo()
-		if err != nil {
-			send(ctx, u, "Something went wrong.")
-			return
-		}
-		if info.BalanceMsat < 30000000 {
-			send(ctx, u, "For now, only balances above 30,000 satoshis can withdraw.")
-			return
-		}
-		_, params, err := lnurl.HandleLNURL(address)
-		if err != nil {
-			send(ctx, u, "Something went wrong.")
-			return
-		}
-		p, ok := params.(lnurl.LNURLPayParams)
-		if !ok {
-			send(ctx, u, "Something went wrong.")
-			return
-		}
-		admin, err := loadUser(17)
-		if err != nil {
-			send(ctx, u, "Something went wrong.")
-			return
-		}
-		balance := info.BalanceMsat * 995 / 1000 / 1000 * 1000
-		_, err = pg.Exec(`insert into lightning.transaction (from_id, amount, pending) values ($1, $2, false)`,
-			u.Id, balance)
-		if err != nil {
-			send(ctx, u, "Something went wrong.")
-			return
-		}
-		send(ctx, admin, fmt.Sprintf("@%s (%d): %d -> %s\n\n<code>curl '%s&comment=lntxbot-withdraw&amount=%d' -s | jq -r '.pr'</code>",
-			u.Username, u.Id, info.BalanceMsat, address,
-			p.Callback, balance))
-		send(ctx, u, "Thank you. Your withdraw will be processed manually at some point in the future.")
 	case opts["pay"].(bool), opts["decode"].(bool):
 		send(ctx, u, "This command is not available.")
 		// if opts["lnurl"].(bool) {

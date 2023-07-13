@@ -48,6 +48,10 @@ var methods = []def{
 	},
 	{
 		aliases: []string{"withdraw"},
+		argstr:  "",
+	},
+	{
+		aliases: []string{"withdraw"},
 		argstr:  "<address>",
 	},
 	{
