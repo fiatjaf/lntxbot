@@ -39,6 +39,10 @@ var methods = []def{
 		inline_example: "invoice <satoshis>",
 	},
 	{
+		aliases: []string{"delete", "erase", "clean", "remove"},
+		argstr:  "",
+	},
+	{
 		aliases: []string{"deposit", "depositbtc", "fundbtc"},
 		argstr:  "",
 	},

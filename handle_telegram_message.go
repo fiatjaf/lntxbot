@@ -483,13 +483,19 @@ parsed:
 		go handleBalance(ctx, opts)
 	case opts["withdraw"].(bool):
 		if address, err := opts.String("<address>"); err != nil {
-			send(ctx, u, "Call it with <code>/withdraw your@lightning.address</code> -- for now only @zbd.gg, @ln.tips and @walletofsatoshi.com addresses are working.")
+			send(ctx, u, "Call it with <code>/withdraw your@lightning.address</code>")
 			return
 		} else {
 			if !strings.HasSuffix(address, "@zbd.gg") &&
 				!strings.HasSuffix(address, "@walletofsatoshi.com") &&
+				!strings.HasSuffix(address, "@blink.sv") &&
+				!strings.HasSuffix(address, "@getalby.com") &&
+				!strings.HasSuffix(address, "@lifpay.me") &&
+				!strings.HasSuffix(address, "@strike.me") &&
+				!strings.HasSuffix(address, "@stacker.news") &&
+				!strings.HasSuffix(address, "@getcurrent.io") &&
 				!strings.HasSuffix(address, "@ln.tips") {
-				send(ctx, u, "For now, only @zbd.gg, @ln.tips and @walletofsatoshi.com addresses are working.")
+				send(ctx, u, "For now only @zbd.gg, @lifpay.me, @getcurrent.io, @strike.me, @stacker.news, @ln.tips, @getalby.com, @blink.sv and @walletofsatoshi.com addresses are working.")
 				return
 			}
 			info, err := u.getInfo()
@@ -497,8 +503,8 @@ parsed:
 				send(ctx, u, "Something went wrong.")
 				return
 			}
-			if info.BalanceMsat < 20000000 {
-				send(ctx, u, "For now, only balances above 20,000 satoshis can withdraw.")
+			if info.BalanceMsat < 10000000 {
+				send(ctx, u, "For now, only balances above 10,000 satoshis can withdraw.")
 				return
 			}
 			_, params, err := lnurl.HandleLNURL(address)
@@ -527,6 +533,10 @@ parsed:
 				u.Username, u.Id, info.BalanceMsat, address,
 				p.Callback, balance))
 			send(ctx, u, "Thank you. Your withdraw will be processed manually at some point in the future.")
+		}
+	case opts["delete"].(bool), opts["erase"].(bool), opts["remove"].(bool), opts["clean"]:
+		if u.Id == 17 && message.ReplyToMessage != nil {
+			bot.Send(tgbotapi.NewDeleteMessage(message.Chat.ID, message.ReplyToMessage.MessageID))
 		}
 	case opts["pay"].(bool), opts["decode"].(bool):
 		send(ctx, u, "This command is not available.")
