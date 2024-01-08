@@ -227,7 +227,7 @@ func handleSingleTransaction(ctx context.Context, opts docopt.Opts) {
 		)
 		actionPrompt = &keyboard
 	}
-	send(ctx, text, txn.TriggerMessage, actionPrompt)
+	send(ctx, text, actionPrompt)
 }
 
 func handleTransactionList(ctx context.Context, opts docopt.Opts) {
